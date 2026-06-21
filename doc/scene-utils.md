@@ -1,7 +1,7 @@
 ---
 title: Scene Utils
 tags:
-  - pixcity
+  - cidoa
   - utils
   - funções puras
 aliases:

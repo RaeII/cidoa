@@ -1,7 +1,7 @@
 ---
 title: Scene Config
 tags:
-  - pixcity
+  - cidoa
   - config
   - defaults
 aliases:

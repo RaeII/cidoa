@@ -1,7 +1,7 @@
 ---
 title: HTML Components
 tags:
-  - pixcity
+  - cidoa
   - react
   - ui
   - componentes
@@ -12,7 +12,7 @@ aliases:
 
 # HTML Components
 
-Componentes React DOM do painel lateral do PixCity.
+Componentes React DOM do painel lateral do Cidoa.
 
 > [!info] O que é "HTML" aqui
 > Componentes que renderizam tags como `div`, `section`, `input`, `select` e `label`. Não são arquivos HTML estáticos — são componentes React puros de interface.

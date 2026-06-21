@@ -1,7 +1,7 @@
 ---
 title: Scene Managers
 tags:
-  - pixcity
+  - cidoa
   - managers
   - threejs
   - procedural

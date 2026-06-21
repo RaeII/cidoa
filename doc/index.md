@@ -1,7 +1,7 @@
 ---
-title: PixCity — Visão Geral
+title: Cidoa — Visão Geral
 tags:
-  - pixcity
+  - cidoa
   - arquitetura
   - overview
 aliases:
@@ -9,9 +9,9 @@ aliases:
   - Home
 ---
 
-# PixCity — Documentação
+# Cidoa — Documentação
 
-PixCity é uma cena 3D de cidade procedural feita com `React 19`, `Three.js`, `TypeScript` e `Vite`. Gera prédios baseados em doações, com texturas PBR, iluminação configurável e sistema de sombras — tudo controlável via painel em tempo real.
+Cidoa é uma cena 3D de cidade procedural feita com `React 19`, `Three.js`, `TypeScript` e `Vite`. Gera prédios baseados em doações, com texturas PBR, iluminação configurável e sistema de sombras — tudo controlável via painel em tempo real.
 
 > [!abstract] Para quem é essa documentação?
 > O objetivo é ajudar um dev júnior a entender por onde a aplicação começa, onde cada responsabilidade fica, em qual arquivo mexer e como os dados saem do React e chegam na cena 3D.
@@ -24,7 +24,7 @@ O projeto é dividido em 3 grandes partes:
 | ---------------- | ---------------------------------------------------------------------- |
 | `src/components` | Interface React — editor, painel lateral e canvas                      |
 | `src/scene`      | Lógica 3D — tipos, configs, utils, builders, managers, hooks e runtime |
-| `doc-pixcity`    | Documentação da estrutura                                              |
+| `doc`    | Documentação da estrutura                                              |
 
 ## Estrutura de Arquivos
 
@@ -100,7 +100,7 @@ src/
       lighting.ts
       random.ts
       devAssertions.ts
-doc-pixcity/
+doc/
   index.md
   building-shape-ideas.md
   html-components.md

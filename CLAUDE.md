@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PixCity is a 3D city scene editor built with React 19, Three.js, TypeScript, and Vite. It renders buildings as visual representations of donations — the highest-value donation always occupies the center of a square spiral. Configurable lighting, PBR textures, HDRI environment, and shadow systems are all controllable via a real-time UI panel.
+Cidoa is a 3D city scene editor built with React 19, Three.js, TypeScript, and Vite. It renders buildings as visual representations of donations — the highest-value donation always occupies the center of a square spiral. Configurable lighting, PBR textures, HDRI environment, and shadow systems are all controllable via a real-time UI panel.
 
 ## Commands
 
@@ -55,9 +55,9 @@ BuildingHeightInput → canvasRef.addDonation() → CitySceneCanvasHandle → ru
 **Two documentation directories must always be kept in sync:**
 
 - `Doc/` — Plain Markdown docs in Portuguese (legacy, keep updated)
-- `doc-pixcity/` — **Obsidian Flavored Markdown** docs (primary). Includes frontmatter, wikilinks between files, callouts, and Mermaid diagrams.
+- `doc/` — **Obsidian Flavored Markdown** docs (primary). Includes frontmatter, wikilinks between files, callouts, and Mermaid diagrams.
 
-**Whenever you change code** — add a module, rename a file, change behavior, or modify architecture — update the corresponding files in **both** `Doc/` and `doc-pixcity/`.
+**Whenever you change code** — add a module, rename a file, change behavior, or modify architecture — update the corresponding files in **both** `Doc/` and `doc/`.
 
 | Changed area | Doc files to update |
 |---|---|
@@ -72,7 +72,7 @@ BuildingHeightInput → canvasRef.addDonation() → CitySceneCanvasHandle → ru
 | Runtime | `scene-runtime.md` |
 | Hook | `scene-hooks.md` |
 
-`doc-pixcity/` uses Obsidian wikilinks (`[[scene-runtime]]`, `[[scene-types#BuildingSettings]]`) to cross-reference files. Maintain these links when renaming files.
+`doc/` uses Obsidian wikilinks (`[[scene-runtime]]`, `[[scene-types#BuildingSettings]]`) to cross-reference files. Maintain these links when renaming files.
 
 ## TypeScript
 

@@ -1,7 +1,7 @@
 ---
 title: Scene Hooks
 tags:
-  - pixcity
+  - cidoa
   - react
   - hooks
   - bridge

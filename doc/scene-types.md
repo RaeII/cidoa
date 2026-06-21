@@ -1,7 +1,7 @@
 ---
 title: Scene Types
 tags:
-  - pixcity
+  - cidoa
   - typescript
   - tipos
   - contratos

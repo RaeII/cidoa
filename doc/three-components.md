@@ -1,7 +1,7 @@
 ---
 title: Three Components
 tags:
-  - pixcity
+  - cidoa
   - threejs
   - componentes
   - canvas
