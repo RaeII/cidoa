@@ -66,6 +66,7 @@ src/
       EnvironmentControls.tsx
       PointLightControls.tsx
       PanelIntro.tsx
+      KeyboardShortcutsHelp.tsx
       controls/
         PanelSection.tsx
         ColorField.tsx
@@ -73,6 +74,8 @@ src/
         NumberField.tsx
         CheckboxField.tsx
         PointLightCard.tsx
+    hooks/
+      useKeyboardShortcuts.ts
     three/
       CitySceneCanvas.tsx
   scene/
@@ -254,6 +257,7 @@ flowchart LR
 | ------------------------------------------------ | ------------------------------------------------- |
 | Alterar valor padrão dos prédios                 | [[scene-config]]                                  |
 | Alterar a UI do painel de configuração           | [[html-components#CityControlPanel.tsx]]          |
+| Adicionar/alterar atalho de teclado              | [[html-components#Atalhos de teclado]]            |
 | Mostrar/esconder componentes HTML da tela        | aba **Tela** → [[scene-config#uiVisibilityConfig.ts]] |
 | Alterar a UI de personalização de edifício       | [[html-components#BuildingCustomizePanel.tsx]]    |
 | Alterar o canvas ou a ligação com o hook         | [[three-components]]                              |

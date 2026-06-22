@@ -142,6 +142,46 @@ Componente que monta o painel completo de configuração da cena. **Escondido po
 
 Props extras da aba **Tela**: `uiVisibility: UIVisibilitySettings` + `onUIVisibilityChange`. Ver [[scene-types#UIVisibilitySettings]].
 
+> [!tip] Atalho
+> `Ctrl + M` abre/fecha painel. Ver [[#Atalhos de teclado]].
+
+---
+
+### Atalhos de teclado
+
+Dois arquivos. Hook `useKeyboardShortcuts` escuta teclado global; `KeyboardShortcutsHelp.tsx` mostra overlay com lista. Ambos registrados em `CitySceneEditor`.
+
+#### `hooks/useKeyboardShortcuts.ts`
+
+Hook genérico. Recebe array `KeyboardShortcut[]`, liga 1 listener `keydown` em `window`, dispara primeiro atalho que casa.
+
+- Match modificador **exato** — `{ key: "m", ctrl: true }` dispara em Ctrl+M, não Ctrl+Shift+M.
+- Ignora digitação em `input`/`textarea`/`select`/`contentEditable`, exceto se `allowInInput: true`.
+- `preventDefault` padrão `true`.
+- Lê array via `ref` atualizado por efeito → caller passa array inline novo a cada render sem re-ligar listener.
+- Export `formatShortcut(s)` → string legível (`"Ctrl + M"`, `"?"`). Tecla símbolo já implica Shift, omite rótulo.
+
+Tipo `KeyboardShortcut`: `key`, `ctrl?`, `shift?`, `alt?`, `meta?`, `description`, `handler`, `allowInInput?`, `preventDefault?`.
+
+#### `KeyboardShortcutsHelp.tsx`
+
+Overlay modal central. Renderiza lista a partir do **mesmo** array de atalhos (fonte única). Cada linha: `description` + `<kbd>` via `formatShortcut`. Fecha por clique no fundo, "X", ou Esc.
+
+**Props:** `shortcuts: KeyboardShortcut[]`, `onClose: () => void`.
+
+#### Atalhos registrados (em `CitySceneEditor`)
+
+| Combo | Ação |
+|---|---|
+| `Ctrl + M` | Abrir/fechar painel de controle |
+| `Ctrl + B` | Mostrar/esconder input de doação |
+| `Ctrl + J` | Mostrar/esconder log da câmera |
+| `?` | Mostrar/esconder ajuda de atalhos |
+| `Esc` | Fechar painel aberto (ajuda → customizar → controle) |
+
+> [!note] Adicionar atalho novo
+> Acrescentar entrada no array `shortcuts` em `CitySceneEditor`. Overlay de ajuda atualiza sozinho.
+
 ---
 
 ### `PanelIntro.tsx`

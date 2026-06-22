@@ -3,6 +3,11 @@ import { CitySceneCanvas, type CitySceneCanvasHandle } from "./three/CitySceneCa
 import { BuildingHeightInput } from "./html/BuildingHeightInput";
 import { BuildingCustomizePanel } from "./html/BuildingCustomizePanel";
 import { CityControlPanel } from "./html/CityControlPanel";
+import { KeyboardShortcutsHelp } from "./html/KeyboardShortcutsHelp";
+import {
+  useKeyboardShortcuts,
+  type KeyboardShortcut,
+} from "./hooks/useKeyboardShortcuts";
 import { DEFAULT_SCENE_STATS } from "../scene/config/citySceneConfig";
 import { createDefaultBlockLayoutSettings } from "../scene/config/blockLayoutConfig";
 import { createDefaultBuildingSettings } from "../scene/config/buildingConfig";
@@ -88,6 +93,7 @@ export function CitySceneEditor() {
   const [cameraDebugInfo, setCameraDebugInfo] = useState<CameraDebugInfo | null>(null);
   const [hoverInfo, setHoverInfo] = useState<{ value: number; x: number; y: number } | null>(null);
   const [showControlPanel, setShowControlPanel] = useState(false);
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [uiVisibility, setUIVisibility] = useState(loadUIVisibilitySettings);
   const [selectedBuildingId, setSelectedBuildingId] = useState<number | null>(null);
   const [buildingCustomizations, setBuildingCustomizations] = useState<Map<number, BuildingCustomization>>(
@@ -227,6 +233,50 @@ export function CitySceneEditor() {
     [updateCustomization],
   );
 
+  const shortcuts: KeyboardShortcut[] = [
+    {
+      key: "m",
+      ctrl: true,
+      description: "Abrir/fechar painel de controle",
+      handler: () => setShowControlPanel((open) => !open),
+    },
+    {
+      key: "b",
+      ctrl: true,
+      description: "Mostrar/esconder input de doação",
+      handler: () =>
+        setUIVisibility((prev) => ({ ...prev, donationInput: !prev.donationInput })),
+    },
+    {
+      key: "j",
+      ctrl: true,
+      description: "Mostrar/esconder log da câmera",
+      handler: () => setUIVisibility((prev) => ({ ...prev, cameraLog: !prev.cameraLog })),
+    },
+    {
+      key: "?",
+      shift: true,
+      description: "Mostrar/esconder esta ajuda",
+      handler: () => setShowShortcutsHelp((open) => !open),
+    },
+    {
+      key: "Escape",
+      allowInInput: true,
+      description: "Fechar painel aberto",
+      handler: () => {
+        if (showShortcutsHelp) {
+          setShowShortcutsHelp(false);
+        } else if (selectedBuildingId !== null) {
+          handleCloseCustomizePanel();
+        } else {
+          setShowControlPanel(false);
+        }
+      },
+    },
+  ];
+
+  useKeyboardShortcuts(shortcuts);
+
   return (
     <div className="relative h-screen w-full overflow-hidden bg-[#05070a]">
       <CitySceneCanvas
@@ -332,6 +382,12 @@ export function CitySceneEditor() {
           onHorizonSettingsChange={setHorizonSettings}
           onUIVisibilityChange={setUIVisibility}
           onClose={() => setShowControlPanel(false)}
+        />
+      )}
+      {showShortcutsHelp && (
+        <KeyboardShortcutsHelp
+          shortcuts={shortcuts}
+          onClose={() => setShowShortcutsHelp(false)}
         />
       )}
       {!showControlPanel && (
