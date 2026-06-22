@@ -32,7 +32,11 @@ Esses componentes:
 
 ### `BuildingHeightInput.tsx`
 
-Overlay fixo no centro superior da página — é o input de doação.
+Overlay fixo no centro superior da página — é o input de doação. Monta 3 sub-painéis empilhados, cada um liga/desliga independente via `visibility` (ver aba **tela** em [[#CityControlPanel.tsx]]):
+
+1. **Doação individual** — `visibility.donationInput`
+2. **Geração em lote** (mín/máx/qtd) — `visibility.bulkInput`
+3. **Configuração de quadras** (bloco/rua/t·quadra/torres%/base%) — `visibility.blockLayoutInput`
 
 **Responsabilidades:**
 - Exibir input numérico para o valor da doação
@@ -40,6 +44,7 @@ Overlay fixo no centro superior da página — é o input de doação.
 - Suporte a `onBulkSubmit(values[])` para envio de múltiplas doações em lote
 - Exibir inputs de layout de quadra: `bloco` (blockSize) e `rua` (streetWidth)
 - Limpar o campo após cada envio bem-sucedido
+- Esconder cada sub-painel conforme `visibility`
 - Não conhece Three.js nem estado global
 
 **Props:**
@@ -49,6 +54,7 @@ Overlay fixo no centro superior da página — é o input de doação.
 | `onBulkSubmit` | `(values: number[]) => void` | Lote de doações |
 | `blockLayoutSettings` | `BlockLayoutSettings` | Tamanho de quadra e largura de rua |
 | `onBlockLayoutChange` | `(s: BlockLayoutSettings) => void` | Atualiza layout em tempo real |
+| `visibility` | `UIVisibilitySettings` | Quais sub-painéis mostrar (ver [[scene-types#UIVisibilitySettings]]) |
 
 > [!note] Fluxo de doação
 > Cada envio chama `canvasRef.addDonation(value)` em `CitySceneEditor`. O prédio de maior valor sempre ocupa o centro da quadra central.
@@ -116,21 +122,25 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 
 ### `CityControlPanel.tsx`
 
-Componente que monta o painel completo de configuração da cena. **Escondido por padrão** — aberto via botão de engrenagem no canto inferior direito.
+Componente que monta o painel completo de configuração da cena. **Escondido por padrão** — aberto via ícone de engrenagem no canto inferior direito. O ícone **desaparece** enquanto o painel está aberto; o fechamento é feito pelo **"X"** na barra de abas, que chama `onClose`.
 
 **Responsabilidades:**
 - Receber todos os estados do editor
 - Organizar as seções em abas
 - Repassar callbacks para cada seção
+- Fechar o painel via `onClose` (botão "X" na barra de abas)
 
 **Abas:**
 
 | Aba | Seções |
 |---|---|
-| **Geral** | Intro, prédios, sombras, direção de renderização, chão |
+| **Geral** | Intro, prédios, sombras, direção de renderização, chão, ambiente |
 | **Texturas** | Configurações PBR das fachadas |
 | **Luz** | Ambient, hemisphere, directional |
-| **Ambiente** | Configurações de HDRI e skybox |
+| **Horizonte** | Configurações de HDRI e skybox |
+| **Tela** | Checkbox por componente HTML sobreposto (log de câmera + 3 inputs de geração/posição). Liga/desliga visibilidade; preferência persistida em `localStorage` via [[scene-config#uiVisibilityConfig.ts]] |
+
+Props extras da aba **Tela**: `uiVisibility: UIVisibilitySettings` + `onUIVisibilityChange`. Ver [[scene-types#UIVisibilitySettings]].
 
 ---
 

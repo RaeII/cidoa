@@ -154,6 +154,27 @@ Valores padrão do ambiente HDRI:
 
 ---
 
+### `uiVisibilityConfig.ts`
+
+Controla visibilidade dos componentes HTML sobrepostos na tela. Persiste preferência em `localStorage` (chave `cidoa:ui-visibility`).
+
+| Campo | Padrão | Esconde |
+|---|---|---|
+| `cameraLog` | `true` | Log de posição da câmera (canto inferior esquerdo) |
+| `donationInput` | `true` | Input de doação individual |
+| `bulkInput` | `true` | Input de geração em lote (mín/máx/qtd) |
+| `blockLayoutInput` | `true` | Input de configuração de quadras |
+
+**Funções exportadas:**
+- `createDefaultUIVisibilitySettings()` — tudo visível
+- `loadUIVisibilitySettings()` — lê `localStorage`, mescla com defaults (campo ausente/inválido cai no default); seguro contra JSON corrompido e `localStorage` bloqueado
+- `saveUIVisibilitySettings(settings)` — grava no `localStorage`, falha silenciosa se bloqueado
+
+> [!note]
+> Editável em tempo real pela aba **tela** do painel. Ver [[html-components#CityControlPanel.tsx]]. Tipo em [[scene-types#UIVisibilitySettings]].
+
+---
+
 ### `citySceneConfig.ts` ⭐
 
 Configuração mais global da cena. Define a estrutura completa de `CitySceneConfig`.

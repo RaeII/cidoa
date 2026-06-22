@@ -16,6 +16,24 @@ Cidoa é uma cena 3D de cidade procedural feita com `React 19`, `Three.js`, `Typ
 > [!abstract] Para quem é essa documentação?
 > O objetivo é ajudar um dev júnior a entender por onde a aplicação começa, onde cada responsabilidade fica, em qual arquivo mexer e como os dados saem do React e chegam na cena 3D.
 
+> [!important] Estilo de escrita
+> Toda escrita aqui = modo homem das cavernas. Corta artigo, enchimento, hedge. Fragmento OK. Termo técnico exato. Code block, wikilink, Mermaid ficam intactos.
+
+## Como a Documentação Está Organizada
+
+As páginas ficam em pastas que **espelham as pastas do código** — assim você acha o doc pelo mesmo caminho do arquivo.
+
+| Pasta da doc       | Espelha          | O que documenta                                            |
+| ------------------ | ---------------- | ---------------------------------------------------------- |
+| `components/`      | `src/components` | Interface React: painel de controle e canvas               |
+| `scene/engine/`    | `src/scene`      | Maquinaria que monta e roda a cena (runtime, hooks, managers, builders) |
+| `scene/foundation/`| `src/scene`      | Base que o engine consome: config, tipos e utils           |
+
+> [!tip] Adicionando uma página nova
+> 1. Crie o `.md` dentro da pasta cujo **tema** combina (componente novo → `components/`; peça nova da cena → `scene/engine/`; tipo/config novo → `scene/foundation/`).
+> 2. Linke com wikilink pelo **nome do arquivo**, ex.: `[[scene-runtime]]` — funciona de qualquer pasta, não use o caminho.
+> 3. Registre a página aqui no `index.md` (árvore de arquivos + tabela "Onde Mexer?").
+
 ## Visão Geral Rápida
 
 O projeto é dividido em 3 grandes partes:
@@ -69,6 +87,7 @@ src/
       renderDirectionConfig.ts
       environmentConfig.ts
       blockLayoutConfig.ts
+      uiVisibilityConfig.ts
     builders/
       createLightingRig.ts
       createGroundPlane.ts
@@ -101,17 +120,20 @@ src/
       random.ts
       devAssertions.ts
 doc/
-  index.md
-  building-shape-ideas.md
-  html-components.md
-  three-components.md
-  scene-config.md
-  scene-types.md
-  scene-utils.md
-  scene-builders.md
-  scene-managers.md
-  scene-runtime.md
-  scene-hooks.md
+  index.md                       ← você está aqui (mapa da documentação)
+  components/                    ← espelha src/components (interface React)
+    html-components.md
+    three-components.md
+  scene/                         ← espelha src/scene (lógica 3D)
+    engine/                      ← maquinaria que monta e roda a cena
+      scene-runtime.md
+      scene-hooks.md
+      scene-managers.md
+      scene-builders.md
+    foundation/                  ← base de dados consumida pelo engine
+      scene-config.md
+      scene-types.md
+      scene-utils.md
 ```
 
 ## Fluxo da Aplicação
@@ -138,7 +160,7 @@ Ele guarda todos os estados:
 E entrega para:
 
 - [[three-components|CitySceneCanvas]] — monta a cena 3D
-- [[html-components|CityControlPanel]] — mostra os controles (toggle via botão de engrenagem)
+- [[html-components|CityControlPanel]] — mostra os controles (abre pelo ícone de engrenagem, que some quando o painel está aberto; fecha pelo "X" na barra de abas)
 - [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]] — personalização do edifício selecionado com cor, formato, letreiro, topo, LED e holograma (upload de imagem ou GIF), sem controles de textura
 - [[html-components#BuildingHeightInput.tsx|BuildingHeightInput]] — input de doação e layout
 
@@ -232,6 +254,7 @@ flowchart LR
 | ------------------------------------------------ | ------------------------------------------------- |
 | Alterar valor padrão dos prédios                 | [[scene-config]]                                  |
 | Alterar a UI do painel de configuração           | [[html-components#CityControlPanel.tsx]]          |
+| Mostrar/esconder componentes HTML da tela        | aba **Tela** → [[scene-config#uiVisibilityConfig.ts]] |
 | Alterar a UI de personalização de edifício       | [[html-components#BuildingCustomizePanel.tsx]]    |
 | Alterar o canvas ou a ligação com o hook         | [[three-components]]                              |
 | Alterar fórmulas de luz, clamp ou material       | [[scene-utils]]                                   |

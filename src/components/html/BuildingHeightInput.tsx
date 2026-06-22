@@ -1,11 +1,12 @@
 import { useState } from "react";
-import type { BlockLayoutSettings } from "../../scene/types";
+import type { BlockLayoutSettings, UIVisibilitySettings } from "../../scene/types";
 
 type DonationInputProps = {
   onSubmit: (value: number) => void;
   onBulkSubmit: (values: number[]) => void;
   blockLayoutSettings: BlockLayoutSettings;
   onBlockLayoutChange: (settings: BlockLayoutSettings) => void;
+  visibility: UIVisibilitySettings;
 };
 
 export function BuildingHeightInput({
@@ -13,6 +14,7 @@ export function BuildingHeightInput({
   onBulkSubmit,
   blockLayoutSettings,
   onBlockLayoutChange,
+  visibility,
 }: DonationInputProps) {
   const [inputValue, setInputValue] = useState("");
   const [minValue, setMinValue] = useState("10");
@@ -45,6 +47,7 @@ export function BuildingHeightInput({
   return (
     <div className="absolute left-1/2 top-4 z-30 flex -translate-x-1/2 flex-col items-center gap-2">
       {/* Doação individual */}
+      {visibility.donationInput && (
       <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/60 px-4 py-2.5 shadow-2xl backdrop-blur-md">
         <label className="text-xs font-medium tracking-wide text-white/50">
           valor da doação
@@ -66,8 +69,10 @@ export function BuildingHeightInput({
           doar
         </button>
       </div>
+      )}
 
       {/* Geração em lote */}
+      {visibility.bulkInput && (
       <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/60 px-4 py-2.5 shadow-2xl backdrop-blur-md">
         <label className="text-xs font-medium tracking-wide text-white/50">mín</label>
         <input
@@ -104,8 +109,10 @@ export function BuildingHeightInput({
           gerar
         </button>
       </div>
+      )}
 
       {/* Configuração de quadras */}
+      {visibility.blockLayoutInput && (
       <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/60 px-4 py-2.5 shadow-2xl backdrop-blur-md">
         <label className="text-xs font-medium tracking-wide text-white/50">bloco</label>
         <input
@@ -182,6 +189,7 @@ export function BuildingHeightInput({
           className={`w-16 ${inputClass}`}
         />
       </div>
+      )}
     </div>
   );
 }

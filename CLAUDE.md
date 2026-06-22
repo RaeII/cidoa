@@ -52,27 +52,34 @@ BuildingHeightInput → canvasRef.addDonation() → CitySceneCanvasHandle → ru
 
 ## Documentation
 
-**Two documentation directories must always be kept in sync:**
+**Writing style** — All documentation prose is written in caveman mode: drop articles/filler/hedging, fragments OK, exact technical terms. Code blocks, wikilinks, and Mermaid stay unchanged.
 
-- `Doc/` — Plain Markdown docs in Portuguese (legacy, keep updated)
-- `doc/` — **Obsidian Flavored Markdown** docs (primary). Includes frontmatter, wikilinks between files, callouts, and Mermaid diagrams.
+All docs live in a single **Obsidian Flavored Markdown** vault at `doc/` (frontmatter, wikilinks, callouts, Mermaid). On macOS's case-insensitive filesystem `Doc/` and `doc/` resolve to the **same** directory (same inode) — there is only one. The vault is organized into folders that mirror `src/`:
 
-**Whenever you change code** — add a module, rename a file, change behavior, or modify architecture — update the corresponding files in **both** `Doc/` and `doc/`.
+```
+doc/
+  index.md                  navigation hub (file tree + "Onde Mexer?" table + reading order)
+  components/               mirrors src/components
+  scene/engine/             runtime, hooks, managers, builders
+  scene/foundation/         config, types, utils
+```
 
-| Changed area | Doc files to update |
+**Whenever you change code** — add a module, rename a file, change behavior, or modify architecture — update the matching page, then register it in `doc/index.md`.
+
+| Changed area | Doc page |
 |---|---|
-| New module or overall architecture | `index.md` in both |
-| HTML components / panel | `html-components.md` |
-| Canvas / Three component | `three-components.md` |
-| Scene config defaults | `scene-config.md` |
-| Types | `scene-types.md` |
-| Utils | `scene-utils.md` |
-| Builders | `scene-builders.md` |
-| Managers | `scene-managers.md` |
-| Runtime | `scene-runtime.md` |
-| Hook | `scene-hooks.md` |
+| New module or overall architecture | `doc/index.md` |
+| HTML components / panel | `doc/components/html-components.md` |
+| Canvas / Three component | `doc/components/three-components.md` |
+| Scene config defaults | `doc/scene/foundation/scene-config.md` |
+| Types | `doc/scene/foundation/scene-types.md` |
+| Utils | `doc/scene/foundation/scene-utils.md` |
+| Builders | `doc/scene/engine/scene-builders.md` |
+| Managers | `doc/scene/engine/scene-managers.md` |
+| Runtime | `doc/scene/engine/scene-runtime.md` |
+| Hook | `doc/scene/engine/scene-hooks.md` |
 
-`doc/` uses Obsidian wikilinks (`[[scene-runtime]]`, `[[scene-types#BuildingSettings]]`) to cross-reference files. Maintain these links when renaming files.
+Cross-reference with Obsidian wikilinks by **filename**, not path (`[[scene-runtime]]`, `[[scene-types#BuildingSettings]]`) — they resolve from any folder, so moving a page does not break links. Filenames must stay unique across the vault.
 
 ## TypeScript
 

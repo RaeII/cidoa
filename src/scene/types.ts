@@ -200,6 +200,14 @@ export type CameraVisibilityState = {
   forwardZ: number;
 };
 
+// Visibilidade dos componentes HTML sobrepostos na tela. Persistido em localStorage.
+export type UIVisibilitySettings = {
+  cameraLog: boolean;       // log de posição da câmera (canto inferior esquerdo)
+  donationInput: boolean;   // input de doação individual
+  bulkInput: boolean;       // input de geração em lote (mín/máx/qtd)
+  blockLayoutInput: boolean; // input de configuração de quadras
+};
+
 export type CitySceneConfig = {
   chunkSize: number;
   chunkRadius: number;

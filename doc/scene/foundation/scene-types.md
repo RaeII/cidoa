@@ -216,6 +216,19 @@ type EnvironmentSettings = {
 }
 ```
 
+### `UIVisibilitySettings`
+
+Liga/desliga componentes HTML sobrepostos na tela. Persistido em `localStorage`. Defaults e helpers de load/save em [[scene-config#uiVisibilityConfig.ts]]. Controlado pela aba **tela** do painel.
+
+```typescript
+type UIVisibilitySettings = {
+  cameraLog: boolean;        // log de posição da câmera (canto inferior esquerdo)
+  donationInput: boolean;    // input de doação individual
+  bulkInput: boolean;        // input de geração em lote (mín/máx/qtd)
+  blockLayoutInput: boolean; // input de configuração de quadras
+}
+```
+
 ## Tipos de Métricas
 
 ### `SceneStats`
