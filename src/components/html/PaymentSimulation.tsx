@@ -21,12 +21,16 @@ type PaymentSimulationProps = {
   onExited: () => void;
 };
 
-// Duração de cada fase (ms). Ajustadas para leitura confortável em vídeo.
-const PROCESSING_MS = 2400;
-const CONFIRMED_HOLD_MS = 1600;
-const TYPING_MS = 1500; // efeito de digitação do valor (caractere por caractere)
+// Duração de cada fase (ms), na ordem da simulação de pagamento.
+const TYPING_MS = 1500; // 1) digita o valor (caractere por caractere)
+const QR_MS = 1800; // 2) QR Code do Pix visível para "pagar"
+const LOADING_MS = 1800; // 3) barra de loading processa
+const CONFIRMED_HOLD_MS = 1500; // 4) confirmação antes do cartão sair
 
 const formatBRL = (value: number) => `R$ ${Math.round(value).toLocaleString("pt-BR")}`;
+
+// QR Code do Pix servido de `public/` (raiz do Vite).
+const QR_SRC = "/qr_code.png";
 
 /**
  * Overlay de simulação de pagamento no canto superior direito.
@@ -61,8 +65,10 @@ type PaymentCardProps = {
   onDone: () => void;
 };
 
+type Phase = "typing" | "qr" | "loading" | "confirmed";
+
 function PaymentCard({ amount, onConfirmed, onDone }: PaymentCardProps) {
-  const [phase, setPhase] = useState<"processing" | "confirmed">("processing");
+  const [phase, setPhase] = useState<Phase>("typing");
 
   // Refs para os callbacks: o efeito de timeline roda uma vez e não deve
   // reiniciar quando o pai recria as funções a cada render.
@@ -79,22 +85,30 @@ function PaymentCard({ amount, onConfirmed, onDone }: PaymentCardProps) {
   const displayValue = useTransform(typedChars, (v) => fullValue.slice(0, Math.round(v)));
 
   useEffect(() => {
+    // 1) digita o valor
     const typeControls = animate(typedChars, fullValue.length, {
       duration: TYPING_MS / 1000,
       ease: "linear", // ritmo constante de digitação
     });
 
+    // 2) valor preenchido → mostra o QR Code
+    const toQr = setTimeout(() => setPhase("qr"), TYPING_MS);
+    // 3) QR escaneado → barra de loading processa
+    const toLoading = setTimeout(() => setPhase("loading"), TYPING_MS + QR_MS);
+    // 4) loading completo → confirmação (e o edifício aparece)
     const toConfirm = setTimeout(() => {
       setPhase("confirmed");
-      onConfirmedRef.current(amount); // edifício aparece em sincronia com o checkmark
-    }, PROCESSING_MS);
-
+      onConfirmedRef.current(amount);
+    }, TYPING_MS + QR_MS + LOADING_MS);
+    // cartão sai
     const toDone = setTimeout(() => {
-      onDoneRef.current(); // inicia a saída do cartão
-    }, PROCESSING_MS + CONFIRMED_HOLD_MS);
+      onDoneRef.current();
+    }, TYPING_MS + QR_MS + LOADING_MS + CONFIRMED_HOLD_MS);
 
     return () => {
       typeControls.stop();
+      clearTimeout(toQr);
+      clearTimeout(toLoading);
       clearTimeout(toConfirm);
       clearTimeout(toDone);
     };
@@ -104,7 +118,6 @@ function PaymentCard({ amount, onConfirmed, onDone }: PaymentCardProps) {
 
   return (
     <motion.div
-      layout
       initial={{ opacity: 0, x: 48, scale: 0.94 }}
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, x: 48, scale: 0.96, transition: { duration: 0.45, ease: [0.4, 0, 1, 1] } }}
@@ -149,44 +162,77 @@ function PaymentCard({ amount, onConfirmed, onDone }: PaymentCardProps) {
           >
             {displayValue}
           </motion.span>
-          {!confirmed && <TypingCursor />}
+          {phase === "typing" && <TypingCursor />}
         </div>
 
-        {/* Rodapé: barra de progresso ↔ confirmação */}
-        <div className="relative h-9">
-          <AnimatePresence mode="wait" initial={false}>
-            {confirmed ? (
-              <motion.div
-                key="success"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.25 }}
-                className="absolute inset-0 flex items-center gap-2.5"
-              >
-                <CheckBadge />
-                <span className="text-[13px] font-medium text-emerald-300">
-                  Pagamento confirmado
-                </span>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="progress"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="absolute inset-0 flex flex-col justify-center gap-2"
-              >
+        {/* 2) QR Code do Pix — aparece após digitar o valor; colapsa ao processar */}
+        <AnimatePresence initial={false}>
+          {phase === "qr" && (
+            <motion.div
+              key="qr"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="flex flex-col items-center gap-2 pt-1">
+                <div className="rounded-xl bg-white p-2.5 shadow-inner">
+                  <img
+                    src={QR_SRC}
+                    alt="QR Code Pix"
+                    draggable={false}
+                    className="h-28 w-28 select-none"
+                  />
+                </div>
+                <span className="text-[11px] text-white/40">escaneie para pagar</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* 3) Barra de loading — processa o pagamento */}
+        <AnimatePresence initial={false}>
+          {phase === "loading" && (
+            <motion.div
+              key="loading"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="flex flex-col gap-2 pt-1">
                 <ProgressBar />
                 <div className="flex items-center justify-between text-[11px] text-white/40">
                   <span>processando transação</span>
                   <span>aguarde</span>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* 4) Confirmação */}
+        <AnimatePresence initial={false}>
+          {confirmed && (
+            <motion.div
+              key="success"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="flex items-center gap-2.5 pt-1">
+                <CheckBadge />
+                <span className="text-[13px] font-medium text-emerald-300">
+                  Pagamento confirmado
+                </span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );
@@ -211,7 +257,7 @@ function ProgressBar() {
         className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-sky-400 to-indigo-400"
         initial={{ width: "0%" }}
         animate={{ width: "100%" }}
-        transition={{ duration: PROCESSING_MS / 1000, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: LOADING_MS / 1000, ease: [0.16, 1, 0.3, 1] }}
       >
         {/* Brilho que desliza sobre o preenchimento */}
         <motion.div

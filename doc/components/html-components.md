@@ -65,10 +65,14 @@ Overlay fixo no centro superior da página — é o input de doação. Monta 3 s
 
 Overlay no lado direito, parte superior (perto do topo). Simula um pagamento ao adicionar um edifício pela seta direita (`→`). Usa a lib **`motion`** (`motion/react`) para animações sequenciadas com spring + saída.
 
-Fluxo de fases (um cartão por vez):
-1. **processing** (~2,4 s) — cartão entra (spring da direita), valor surge com **efeito de digitação** caractere por caractere (`useMotionValue` conta letras + `useTransform` fatia a string) com cursor piscante, barra de progresso preenche com brilho deslizante, spinner no badge.
-2. **confirmed** (~1,6 s) — badge vira check, checkmark é desenhado (`pathLength` 0→1) com pulso de anel, faixa de acento muda azul→verde. Dispara `onConfirmed(amount)` **nesse instante** → o edifício aparece em sincronia.
-3. **saída** — `payment` vira `null` no pai, `AnimatePresence` anima o cartão saindo; `onExitComplete` → `onExited` libera a próxima seta.
+Fluxo de fases (um cartão por vez), na ordem da simulação de pagamento:
+1. **typing** (`TYPING_MS`) — valor surge com **efeito de digitação** caractere por caractere (`useMotionValue` conta letras + `useTransform` fatia a string) com cursor piscante.
+2. **qr** (`QR_MS`) — valor preenchido → exibe o **QR Code do Pix** (`public/qr_code.png` via `QR_SRC`) sobre fundo branco + "escaneie para pagar".
+3. **loading** (`LOADING_MS`) — QR colapsa → barra de progresso preenche (brilho deslizante) processando a transação.
+4. **confirmed** (`CONFIRMED_HOLD_MS`) — checkmark desenhado (`pathLength` 0→1) com pulso de anel, faixa de acento muda azul→verde. Dispara `onConfirmed(amount)` **nesse instante** → o edifício aparece em sincronia.
+5. **saída** — `payment` vira `null` no pai, `AnimatePresence` anima o cartão saindo; `onExitComplete` → `onExited` libera a próxima seta.
+
+Cada fase é um bloco com `AnimatePresence` animando `height` (auto↔0), então o cartão cresce/encolhe suavemente a cada transição.
 
 **Responsabilidades:**
 - Animar o ciclo de pagamento sem tocar Three.js
