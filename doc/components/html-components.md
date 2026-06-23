@@ -61,6 +61,36 @@ Overlay fixo no centro superior da página — é o input de doação. Monta 3 s
 
 ---
 
+### `PaymentSimulation.tsx`
+
+Overlay no lado direito, parte superior (perto do topo). Simula um pagamento ao adicionar um edifício pela seta direita (`→`). Usa a lib **`motion`** (`motion/react`) para animações sequenciadas com spring + saída.
+
+Fluxo de fases (um cartão por vez):
+1. **processing** (~2,4 s) — cartão entra (spring da direita), valor surge com **efeito de digitação** caractere por caractere (`useMotionValue` conta letras + `useTransform` fatia a string) com cursor piscante, barra de progresso preenche com brilho deslizante, spinner no badge.
+2. **confirmed** (~1,6 s) — badge vira check, checkmark é desenhado (`pathLength` 0→1) com pulso de anel, faixa de acento muda azul→verde. Dispara `onConfirmed(amount)` **nesse instante** → o edifício aparece em sincronia.
+3. **saída** — `payment` vira `null` no pai, `AnimatePresence` anima o cartão saindo; `onExitComplete` → `onExited` libera a próxima seta.
+
+**Responsabilidades:**
+- Animar o ciclo de pagamento sem tocar Three.js
+- Sinalizar o momento de criar o edifício (`onConfirmed`)
+- Sinalizar fim da saída para destravar novo pagamento (`onExited`)
+
+**Props:**
+| Prop | Tipo | Descrição |
+|---|---|---|
+| `payment` | `Payment \| null` | Pagamento ativo (`{ id, amount }`); `null` = sem cartão |
+| `onConfirmed` | `(amount: number) => void` | Chamado na confirmação → adiciona o edifício |
+| `onDone` | `() => void` | Pede o fechamento (pai limpa `payment` → inicia saída) |
+| `onExited` | `() => void` | Após o cartão sair de tela → libera próxima seta |
+
+> [!note] Trava de um-por-vez
+> `CitySceneEditor` guarda `paymentBusyRef`: a seta `→` ignora novas chamadas enquanto um cartão está na tela (inclusive durante a saída). Valor sorteado entre `RANDOM_DONATION_MIN`/`RANDOM_DONATION_MAX`.
+
+> [!info] Dependência `motion`
+> Único componente que importa `motion`. Demais animações de UI continuam em CSS/Tailwind.
+
+---
+
 ### `BuildingCustomizePanel.tsx`
 
 Painel de personalização de um edifício individual, exibido ao clicar em um prédio na cena. Posicionado no canto superior direito com scroll interno para caber em telas menores.
@@ -173,6 +203,7 @@ Overlay modal central. Renderiza lista a partir do **mesmo** array de atalhos (f
 
 | Combo | Ação |
 |---|---|
+| `→` (seta direita) | Adicionar edifício (simula pagamento) — ver [[#`PaymentSimulation.tsx`]] |
 | `Ctrl + M` | Abrir/fechar painel de controle |
 | `Ctrl + B` | Mostrar/esconder input de doação |
 | `Ctrl + J` | Mostrar/esconder log da câmera |

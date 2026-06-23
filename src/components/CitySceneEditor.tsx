@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CitySceneCanvas, type CitySceneCanvasHandle } from "./three/CitySceneCanvas";
 import { BuildingHeightInput } from "./html/BuildingHeightInput";
+import { PaymentSimulation, type Payment } from "./html/PaymentSimulation";
 import { BuildingCustomizePanel } from "./html/BuildingCustomizePanel";
 import { CityControlPanel } from "./html/CityControlPanel";
 import { KeyboardShortcutsHelp } from "./html/KeyboardShortcutsHelp";
@@ -37,39 +38,20 @@ import {
 } from "../scene/types";
 import { getLightMetrics } from "../scene/utils/lighting";
 
-const INITIAL_TEST_DONATIONS = [
-  1000,
-  880,
-  760,
-  640,
-  520,
-  400,
-  280,
-  180,
-  90,
-  40,
-] as const;
+// Cena começa com um único edifício (modelo padrão/quadrado).
+// Novos edifícios entram via seta direita com tamanho aleatório.
+const INITIAL_TEST_DONATIONS = [500] as const;
 
-const INITIAL_TWISTED_BUILDING_ID = 0;
+// Faixa de valores sorteados a cada seta direita (define a altura proporcional).
+const RANDOM_DONATION_MIN = 50;
+const RANDOM_DONATION_MAX = 1000;
 
-const createInitialTwistedCustomization = (): BuildingCustomization => ({
-  color: createDefaultBuildingSettings().color,
-  buildingShape: "twisted",
-  tilingScale: 1,
-  textureTransform: { ...DEFAULT_BUILDING_TEXTURE_TRANSFORM },
-  rooftopType: "none",
-  signText: "",
-  signSides: 1,
-  edgeLightType: "none",
-  hologramImage: null,
-  hologramColor: DEFAULT_HOLOGRAM_COLOR,
-  hologramOpacity: DEFAULT_HOLOGRAM_OPACITY,
-});
+const randomDonationValue = () =>
+  Math.round(RANDOM_DONATION_MIN + Math.random() * (RANDOM_DONATION_MAX - RANDOM_DONATION_MIN));
 
+// Sem customizações iniciais — todos os edifícios usam o formato padrão.
 const createInitialBuildingCustomizations = () =>
-  new Map<number, BuildingCustomization>([
-    [INITIAL_TWISTED_BUILDING_ID, createInitialTwistedCustomization()],
-  ]);
+  new Map<number, BuildingCustomization>();
 
 const INITIAL_TEST_BUILDING_CUSTOMIZATIONS = createInitialBuildingCustomizations();
 
@@ -100,6 +82,12 @@ export function CitySceneEditor() {
     createInitialBuildingCustomizations,
   );
 
+  // Simulação de pagamento: um cartão por vez. `payment` guarda o ativo;
+  // `paymentBusyRef` bloqueia novas setas até o cartão sair de tela.
+  const [payment, setPayment] = useState<Payment | null>(null);
+  const paymentIdRef = useRef(0);
+  const paymentBusyRef = useRef(false);
+
   const lightMetrics = getLightMetrics(lightSettings);
 
   useEffect(() => {
@@ -113,6 +101,15 @@ export function CitySceneEditor() {
   const handleBulkDonation = (values: number[]) => {
     canvasRef.current?.addDonations(values);
   };
+
+  // Seta direita → inicia a simulação de pagamento de um valor aleatório.
+  // Ignora novas chamadas enquanto um cartão ainda está na tela.
+  const startPayment = useCallback(() => {
+    if (paymentBusyRef.current) return;
+    paymentBusyRef.current = true;
+    paymentIdRef.current += 1;
+    setPayment({ id: paymentIdRef.current, amount: randomDonationValue() });
+  }, []);
 
   const handleHoverChange = useCallback(
     (value: number | null, x: number, y: number) => {
@@ -235,6 +232,11 @@ export function CitySceneEditor() {
 
   const shortcuts: KeyboardShortcut[] = [
     {
+      key: "ArrowRight",
+      description: "Adicionar edifício (simula pagamento)",
+      handler: () => startPayment(),
+    },
+    {
       key: "m",
       ctrl: true,
       description: "Abrir/fechar painel de controle",
@@ -330,6 +332,14 @@ export function CitySceneEditor() {
         blockLayoutSettings={blockLayoutSettings}
         onBlockLayoutChange={setBlockLayoutSettings}
         visibility={uiVisibility}
+      />
+      <PaymentSimulation
+        payment={payment}
+        onConfirmed={handleDonation}
+        onDone={() => setPayment(null)}
+        onExited={() => {
+          paymentBusyRef.current = false;
+        }}
       />
       {selectedBuildingId !== null && (() => {
         const c = getExistingCustomization(selectedBuildingId);

@@ -56,6 +56,7 @@ src/
     html/
       CityControlPanel.tsx
       BuildingHeightInput.tsx
+      PaymentSimulation.tsx
       BuildingCustomizePanel.tsx
       BuildingControls.tsx
       TextureControls.tsx
@@ -258,6 +259,7 @@ flowchart LR
 | Alterar valor padrão dos prédios                 | [[scene-config]]                                  |
 | Alterar a UI do painel de configuração           | [[html-components#CityControlPanel.tsx]]          |
 | Adicionar/alterar atalho de teclado              | [[html-components#Atalhos de teclado]]            |
+| Alterar a animação de pagamento (seta direita)   | [[html-components#`PaymentSimulation.tsx`]]       |
 | Mostrar/esconder componentes HTML da tela        | aba **Tela** → [[scene-config#uiVisibilityConfig.ts]] |
 | Alterar a UI de personalização de edifício       | [[html-components#BuildingCustomizePanel.tsx]]    |
 | Alterar o canvas ou a ligação com o hook         | [[three-components]]                              |
