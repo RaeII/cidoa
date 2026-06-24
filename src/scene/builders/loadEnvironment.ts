@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-import envUrl from "../../assets/environment/DaySkyHDRI040B_2K/DaySkyHDRI040B_2K_TONEMAPPED.jpg";
+import envUrl from "../../assets/environment/DaySkyHDRI040B_4K_TONEMAPPED.jpg";
 import type { EnvironmentSettings } from "../types";
 
 export type EnvironmentUpdater = {
@@ -8,6 +8,30 @@ export type EnvironmentUpdater = {
   updatePosition: (x: number, y: number, z: number) => void;
   dispose: () => void;
 };
+
+// Cache persistente da imagem HDRI no Cache API do browser.
+// Bump versão se a imagem mudar de conteúdo.
+const ENV_CACHE_NAME = "cidoa-env-v1";
+
+// Resolve URL da textura priorizando o Cache API: primeira visita baixa e
+// grava; visitas seguintes leem direto do cache local (sem rede). Devolve um
+// object URL do blob cacheado, ou a URL original como fallback.
+async function resolveEnvUrl(url: string): Promise<string> {
+  if (!("caches" in globalThis)) return url;
+  try {
+    const cache = await caches.open(ENV_CACHE_NAME);
+    let response = await cache.match(url);
+    if (!response) {
+      response = await fetch(url);
+      if (!response.ok) return url;
+      await cache.put(url, response.clone());
+    }
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+  } catch {
+    return url;
+  }
+}
 
 function applySettings(
   skyMesh: THREE.Mesh,
@@ -36,7 +60,7 @@ export function loadEnvironment(
 
   const loader = new THREE.TextureLoader();
 
-  loader.load(envUrl, (texture) => {
+  const buildSky = (texture: THREE.Texture) => {
     if (isCancelled?.()) return;
 
     texture.mapping = THREE.EquirectangularReflectionMapping;
@@ -64,6 +88,13 @@ export function loadEnvironment(
     pmremGenerator.dispose();
 
     onLoaded?.(envMap, texture);
+  };
+
+  void resolveEnvUrl(envUrl).then((resolvedUrl) => {
+    loader.load(resolvedUrl, (texture) => {
+      if (resolvedUrl !== envUrl) URL.revokeObjectURL(resolvedUrl);
+      buildSky(texture);
+    });
   });
 
   return {

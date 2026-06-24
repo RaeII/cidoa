@@ -88,7 +88,8 @@ Cria e atualiza as luzes da cena.
 Carrega e configura o ambiente HDRI/skybox.
 
 **Responsabilidades:**
-- Carregar textura HDRI de `src/assets/environment/DaySkyHDRI040B_2K/`
+- Carregar textura HDRI de `src/assets/environment/DaySkyHDRI040B_4K_TONEMAPPED.jpg`
+- Cachear imagem (2.9MB) no Cache API do browser via `resolveEnvUrl` → 2ª visita lê do cache local, sem rede
 - Criar esfera invertida como background (permite offset UV uniforme em todas as direções)
 - Gerar `PMREMGenerator` para `scene.environment` (iluminação PBR dos prédios)
 - Expor `updateSettings` para rotacionar/deslocar o skybox
@@ -100,8 +101,11 @@ Carrega e configura o ambiente HDRI/skybox.
 > [!note] Técnica da esfera invertida
 > Usar `THREE.BackSide` em uma `SphereGeometry` grande permite deslocar o horizonte via `texture.offset.y` de forma uniforme em todas as direções — ao contrário de `scene.background` com equirectangular direta.
 
+> [!tip] Cache persistente
+> `resolveEnvUrl` abre cache `cidoa-env-v1`, grava blob na 1ª visita, devolve object URL nas seguintes (revogado após decode). Fallback: URL original se Cache API ausente ou fetch falhar. Imagem fica em `src/assets` (não `public/`) — Vite content-hasheia o nome, ideal pra cache-bust HTTP. **Bump versão do cache se trocar a imagem.**
+
 **Quando mexer aqui:**
-- Trocar o arquivo HDRI
+- Trocar o arquivo HDRI (bump `ENV_CACHE_NAME` pra invalidar cache antigo)
 - Alterar como o skybox responde ao offset de ambiente
 - Mudar a geração do `scene.environment`
 
