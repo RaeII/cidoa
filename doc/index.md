@@ -56,6 +56,7 @@ src/
     html/
       CityControlPanel.tsx
       BuildingHeightInput.tsx
+      DonationInfoSection.tsx
       PaymentSimulation.tsx
       BuildingCustomizePanel.tsx
       BuildingControls.tsx
@@ -167,10 +168,13 @@ E entrega para:
 - [[html-components|CityControlPanel]] — mostra os controles (abre pelo ícone de engrenagem, que some quando o painel está aberto; fecha pelo "X" na barra de abas)
 - [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]] — personalização do edifício selecionado com cor, formato, letreiro, topo, LED e holograma (upload de imagem ou GIF), sem controles de textura
 - [[html-components#BuildingHeightInput.tsx|BuildingHeightInput]] — input de doação e layout
+- [[html-components#DonationInfoSection.tsx|DonationInfoSection]] — seção abaixo da cena com totais e ONGs parceiras
 
 Também gerencia:
 
 - Doações via `canvasRef.addDonation(value)` e `canvasRef.addDonations(values)`
+- Total arrecadado (`donationTotal`) e contagem (`donationCount`) — alimentam a [[html-components#DonationInfoSection.tsx|DonationInfoSection]]
+- Navegação cena ↔ info: container `overflow-y-auto` + `scrollToInfo`/`scrollToScene` (botão rola pra baixo; roda do mouse bloqueada na cena, snap-up automático na info)
 - Foco em edifício via `canvasRef.focusOnDonation(id)` e `canvasRef.clearFocus()`
 - Personalização via `canvasRef.updateDonationCustomization(id, customization)`
 
@@ -260,6 +264,7 @@ flowchart LR
 | Alterar a UI do painel de configuração           | [[html-components#CityControlPanel.tsx]]          |
 | Adicionar/alterar atalho de teclado              | [[html-components#Atalhos de teclado]]            |
 | Alterar a animação de pagamento (seta direita)   | [[html-components#`PaymentSimulation.tsx`]]       |
+| Alterar seção de info/ONGs abaixo da cena         | [[html-components#DonationInfoSection.tsx]]       |
 | Mostrar/esconder componentes HTML da tela        | aba **Tela** → [[scene-config#uiVisibilityConfig.ts]] |
 | Alterar a UI de personalização de edifício       | [[html-components#BuildingCustomizePanel.tsx]]    |
 | Alterar o canvas ou a ligação com o hook         | [[three-components]]                              |

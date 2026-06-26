@@ -4,6 +4,7 @@ import { BuildingHeightInput } from "./html/BuildingHeightInput";
 import { PaymentSimulation, type Payment } from "./html/PaymentSimulation";
 import { BuildingCustomizePanel } from "./html/BuildingCustomizePanel";
 import { CityControlPanel } from "./html/CityControlPanel";
+import { DonationInfoSection } from "./html/DonationInfoSection";
 import { KeyboardShortcutsHelp } from "./html/KeyboardShortcutsHelp";
 import {
   useKeyboardShortcuts,
@@ -42,6 +43,8 @@ import { getLightMetrics } from "../scene/utils/lighting";
 // Novos edifícios entram via seta direita com tamanho aleatório.
 const INITIAL_TEST_DONATIONS = [500] as const;
 
+const INITIAL_DONATION_TOTAL = INITIAL_TEST_DONATIONS.reduce((sum, v) => sum + v, 0);
+
 // Faixa de valores sorteados a cada seta direita (define a altura proporcional).
 const RANDOM_DONATION_MIN = 50;
 const RANDOM_DONATION_MAX = 1000;
@@ -59,6 +62,13 @@ const formatCameraValue = (value: number) => value.toFixed(2);
 
 export function CitySceneEditor() {
   const canvasRef = useRef<CitySceneCanvasHandle>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Total arrecadado e número de doações — alimentam a seção de informações abaixo da cena.
+  const [donationTotal, setDonationTotal] = useState(INITIAL_DONATION_TOTAL);
+  const [donationCount, setDonationCount] = useState<number>(INITIAL_TEST_DONATIONS.length);
+  // `inInfo` = usuário rolou para a seção de informações (esconde CTA da cena, mostra "voltar").
+  const [inInfo, setInInfo] = useState(false);
 
   const [buildingSettings, setBuildingSettings] = useState(createDefaultBuildingSettings);
   const [textureSettings, setTextureSettings] = useState(createDefaultTextureSettings);
@@ -94,12 +104,57 @@ export function CitySceneEditor() {
     saveUIVisibilitySettings(uiVisibility);
   }, [uiVisibility]);
 
+  const scrollToInfo = useCallback(() => {
+    const el = scrollRef.current;
+    el?.scrollTo({ top: el.clientHeight, behavior: "smooth" });
+  }, []);
+
+  const scrollToScene = useCallback(() => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  // Controla a navegação por roda do mouse: na cena, rolar para baixo só pelo botão
+  // (evita sair da cena sem querer). Na seção de info, rolar para cima no topo
+  // volta para a cena de forma suave e automática.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const onWheel = (event: WheelEvent) => {
+      const viewport = el.clientHeight;
+      const atScene = el.scrollTop < viewport / 2;
+      if (atScene) {
+        if (event.deltaY > 0) event.preventDefault();
+        return;
+      }
+      if (event.deltaY < 0 && el.scrollTop <= viewport) {
+        event.preventDefault();
+        el.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    };
+
+    const onScroll = () => {
+      setInInfo(el.scrollTop > el.clientHeight / 2);
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("scroll", onScroll);
+    };
+  }, []);
+
   const handleDonation = (value: number) => {
     canvasRef.current?.addDonation(value);
+    setDonationTotal((t) => t + value);
+    setDonationCount((c) => c + 1);
   };
 
   const handleBulkDonation = (values: number[]) => {
     canvasRef.current?.addDonations(values);
+    setDonationTotal((t) => t + values.reduce((sum, v) => sum + v, 0));
+    setDonationCount((c) => c + values.length);
   };
 
   // Seta direita → inicia a simulação de pagamento de um valor aleatório.
@@ -280,7 +335,11 @@ export function CitySceneEditor() {
   useKeyboardShortcuts(shortcuts);
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-[#05070a]">
+    <div
+      ref={scrollRef}
+      className="h-screen w-full overflow-y-auto overflow-x-hidden bg-[#05070a]"
+    >
+      <section className="relative h-screen w-full overflow-hidden bg-[#05070a]">
       <CitySceneCanvas
         ref={canvasRef}
         initialDonations={INITIAL_TEST_DONATIONS}
@@ -415,6 +474,51 @@ export function CitySceneEditor() {
               fill="currentColor"
             />
           </svg>
+        </button>
+      )}
+
+      {/* CTA: rola para a seção de informações abaixo da cena */}
+      {!showControlPanel && (
+        <button
+          onClick={scrollToInfo}
+          className="absolute bottom-[4.75rem] right-4 z-30 flex items-center gap-2 rounded-full border border-white/10 bg-black/60 px-4 py-2.5 text-sm font-medium text-[#e9e6df]/80 shadow-lg backdrop-blur-md transition-colors hover:border-[#c9a86a]/50 hover:text-[#c9a86a]"
+          title="Para onde vai sua doação"
+          aria-label="Ver para onde vão as doações"
+        >
+          <span className="hidden sm:inline">Para onde vai sua doação</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M12 5v14M5 12l7 7 7-7"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      )}
+      </section>
+
+      <DonationInfoSection totalRaised={donationTotal} donationCount={donationCount} />
+
+      {/* Voltar para a cena — visível apenas na seção de informações */}
+      {inInfo && (
+        <button
+          onClick={scrollToScene}
+          className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full border border-black/10 bg-white/90 px-4 py-2.5 text-sm font-medium text-[#14161c] shadow-lg backdrop-blur-md transition-colors hover:border-[#a8814a]/60 hover:text-[#a8814a]"
+          title="Voltar para a cena"
+          aria-label="Voltar para a cena"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M12 19V5M5 12l7-7 7 7"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span className="hidden sm:inline">Voltar para a cena</span>
         </button>
       )}
     </div>

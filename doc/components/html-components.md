@@ -61,6 +61,31 @@ Overlay fixo no centro superior da página — é o input de doação. Monta 3 s
 
 ---
 
+### `DonationInfoSection.tsx`
+
+Seção full-width **abaixo da cena**. Mostra info do projeto, totais arrecadados e ONGs parceiras (causa animal). Presentational puro — recebe números, renderiza. Não toca Three.js.
+
+Conteúdo:
+1. **Projeto** — overline + headline + parágrafo + foto (cão e gato, `public/cat_dog.jpeg` via `/cat_dog.jpeg`) lado a lado. 100% repassado a ONGs de proteção animal.
+2. **Totais** — `totalRaised` (BRL grande, cor de apoio), `donationCount`, nº de ONGs, repasse 100%.
+3. **ONGs parceiras** — lista `PARTNER_NGOS`. Cada ONG: nome, foco, cidade, valor recebido (= `totalRaised * share`), % do total. `share` soma 1.
+
+**Props:**
+| Prop | Tipo | Descrição |
+|---|---|---|
+| `totalRaised` | `number` | Total arrecadado (soma das doações) |
+| `donationCount` | `number` | Quantidade de doações |
+
+Tema **branco** (combina com doação). Paleta 3 cores — fundo `#ffffff`, texto `#14161c`, apoio dourado `#a8814a`. Sem gradiente, sem efeito especial; hairlines = preto baixa opacidade. Foto tem fundo branco → funde com a seção.
+
+> [!note] Navegação cena ↔ info
+> `CitySceneEditor` envolve cena + seção num container `overflow-y-auto`. Botão **"Para onde vai sua doação"** (canto inferior direito da cena) rola pra baixo. Na info, botão **"Voltar para a cena"** (fixo) sobe. Roda do mouse: na cena, scroll-down bloqueado (só botão — evita sair sem querer); na info, scroll-up no topo volta pra cena automático e suave.
+
+> [!warning] Dados fictícios
+> ONGs em `PARTNER_NGOS` são ilustrativas — parcerias reais ainda não firmadas. Trocar a lista quando houver parceiros.
+
+---
+
 ### `PaymentSimulation.tsx`
 
 Overlay no lado direito, parte superior (perto do topo). Simula um pagamento ao adicionar um edifício pela seta direita (`→`). Usa a lib **`motion`** (`motion/react`) para animações sequenciadas com spring + saída.
