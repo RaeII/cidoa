@@ -60,6 +60,7 @@ src/
       BuildingControls.tsx
       TextureControls.tsx
       GroundControls.tsx
+      TerrainControls.tsx
       SceneLightControls.tsx
       ShadowControls.tsx
       RenderDirectionControls.tsx
@@ -85,6 +86,7 @@ src/
       buildingConfig.ts
       textureConfig.ts
       groundConfig.ts
+      terrainConfig.ts
       lightConfig.ts
       shadowConfig.ts
       renderDirectionConfig.ts
@@ -94,7 +96,7 @@ src/
     builders/
       createLightingRig.ts
       createGroundPlane.ts
-      createGridHelper.ts
+      createTerrain.ts
       createRooftopMesh.ts
       createSignMesh.ts
       createEdgeLightMesh.ts
@@ -154,7 +156,7 @@ Ele guarda todos os estados:
 
 - `buildingSettings`, `textureSettings`, `groundSettings`
 - `lightSettings`, `shadowSettings`, `renderDirectionSettings`
-- `environmentSettings`, `horizonSettings`, `blockLayoutSettings`
+- `environmentSettings`, `horizonSettings`, `blockLayoutSettings`, `terrainSettings`
 - `sceneStats`, `hoverInfo`
 - `showControlPanel` — toggle do painel de configuração (escondido por padrão)
 - `selectedBuildingId` — edifício selecionado para personalização
@@ -203,7 +205,7 @@ flowchart TD
     G --> H[createCitySceneRuntime]
     H --> I[createLightingRig]
     H --> J[createGroundPlane]
-    H --> K[createGridHelper]
+    H --> TR[createTerrain]
     H --> L[loadEnvironment]
     H --> M[createDonationManager]
     M --> N[createRooftopMesh]
@@ -263,6 +265,9 @@ flowchart LR
 | Alterar o canvas ou a ligação com o hook         | [[three-components]]                              |
 | Alterar fórmulas de luz, clamp ou material       | [[scene-utils]]                                   |
 | Alterar criação do chão, grid, luzes ou ambiente | [[scene-builders]]                                |
+| Alterar o relevo procedural (terreno verde)      | [[scene-builders#createTerrain.ts]]               |
+| Alterar valores padrão do relevo                 | [[scene-config#terrainConfig.ts]]                 |
+| Alterar a UI dos controles de relevo (aba **terreno**) | [[html-components#TerrainControls.tsx]]     |
 | Alterar acessórios de topo                       | [[scene-builders#createRooftopMesh.ts]]           |
 | Alterar letreiros de fachada (signs)             | [[scene-builders#createSignMesh.ts]]              |
 | Alterar LED de arestas                           | [[scene-builders#createEdgeLightMesh.ts]]         |

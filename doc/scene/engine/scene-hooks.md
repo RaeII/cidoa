@@ -72,7 +72,14 @@ useEffect(() => {
 useEffect(() => {
   runtimeRef.current?.updateBlockLayout(blockLayoutSettings);
 }, [blockLayoutSettings]);
+
+useEffect(() => {
+  runtimeRef.current?.updateTerrainSettings(terrainSettings);
+}, [terrainSettings]);
 ```
+
+> [!note] terrainSettings
+> Threaded também no `initialSettingsRef` (criação) — um `useEffect` dedicado chama `updateTerrainSettings` quando muda. Ver relevo em [[scene-runtime]].
 
 Isso é importante para evitar um efeito gigante tentando fazer tudo.
 

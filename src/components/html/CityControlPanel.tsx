@@ -7,6 +7,7 @@ import type {
   RenderDirectionSettings,
   SceneStats,
   ShadowSettings,
+  TerrainSettings,
   TextureSettings,
   HorizonSettings,
   UIVisibilitySettings,
@@ -14,6 +15,7 @@ import type {
 import { BuildingControls } from "./BuildingControls";
 import { EnvironmentControls } from "./EnvironmentControls";
 import { GroundControls } from "./GroundControls";
+import { TerrainControls } from "./TerrainControls";
 import { PanelIntro } from "./PanelIntro";
 import { RenderDirectionControls } from "./RenderDirectionControls";
 import { SceneLightControls } from "./SceneLightControls";
@@ -23,12 +25,13 @@ import { HorizonControls } from "./HorizonControls";
 import { PanelSection } from "./controls/PanelSection";
 import { CheckboxField } from "./controls/CheckboxField";
 
-type Tab = "geral" | "texturas" | "luz" | "horizonte" | "tela";
+type Tab = "geral" | "texturas" | "luz" | "horizonte" | "terreno" | "tela";
 
 export type CityControlPanelProps = {
   buildingSettings: BuildingSettings;
   textureSettings: TextureSettings;
   groundSettings: GroundSettings;
+  terrainSettings: TerrainSettings;
   lightSettings: LightSettings;
   shadowSettings: ShadowSettings;
   renderDirectionSettings: RenderDirectionSettings;
@@ -44,6 +47,7 @@ export type CityControlPanelProps = {
   onBuildingSettingsChange: (settings: BuildingSettings) => void;
   onTextureSettingsChange: (settings: TextureSettings) => void;
   onGroundSettingsChange: (settings: GroundSettings) => void;
+  onTerrainSettingsChange: (settings: TerrainSettings) => void;
   onLightSettingsChange: (settings: LightSettings) => void;
   onShadowSettingsChange: (settings: ShadowSettings) => void;
   onRenderDirectionSettingsChange: (settings: RenderDirectionSettings) => void;
@@ -57,6 +61,7 @@ export function CityControlPanel({
   buildingSettings,
   textureSettings,
   groundSettings,
+  terrainSettings,
   lightSettings,
   shadowSettings,
   renderDirectionSettings,
@@ -68,6 +73,7 @@ export function CityControlPanel({
   onBuildingSettingsChange,
   onTextureSettingsChange,
   onGroundSettingsChange,
+  onTerrainSettingsChange,
   onLightSettingsChange,
   onShadowSettingsChange,
   onRenderDirectionSettingsChange,
@@ -81,7 +87,7 @@ export function CityControlPanel({
   return (
     <div className="absolute right-0 top-0 z-20 flex h-screen w-full max-w-[360px] flex-col border-l border-white/10 bg-black/55 text-white shadow-2xl backdrop-blur-md">
       <div className="flex items-stretch border-b border-white/10">
-        {(["geral", "texturas", "luz", "horizonte", "tela"] as Tab[]).map((tab) => (
+        {(["geral", "texturas", "luz", "horizonte", "terreno", "tela"] as Tab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -111,7 +117,7 @@ export function CityControlPanel({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {activeTab === "geral" && (
           <div className="space-y-6 pb-8 pt-2">
             <PanelIntro sceneStats={sceneStats} solarIntensity={lightMetrics.solarIntensity} />
@@ -145,6 +151,12 @@ export function CityControlPanel({
         {activeTab === "horizonte" && (
           <div className="space-y-6 pb-8 pt-2">
             <HorizonControls settings={horizonSettings} onChange={onHorizonSettingsChange} />
+          </div>
+        )}
+
+        {activeTab === "terreno" && (
+          <div className="space-y-6 pb-8 pt-2">
+            <TerrainControls value={terrainSettings} onChange={onTerrainSettingsChange} />
           </div>
         )}
 

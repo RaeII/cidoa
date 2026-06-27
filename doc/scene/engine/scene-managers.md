@@ -118,6 +118,7 @@ Quando há mais de um bloco (`r > 0`), `rebuildRoads(r, blockSpacing, streetWidt
 addDonation(value: number): void
 addDonations(values: number[]): void
 getDonationCount(): number
+getCityRadius(): number   // meia-extensão world da cidade construída (0 quando vazia); consumido pelo relevo
 
 // Configurações globais
 updateBuildingSettings(settings: BuildingSettings): void
@@ -142,6 +143,9 @@ updateDonationCustomization(donationId: number, customization: BuildingCustomiza
 // Cleanup
 dispose(): void
 ```
+
+> [!note] getCityRadius
+> Retorna a meia-extensão (half-extent) world da cidade construída: `r * blockSpacing + blockFootprint/2 + slotSize`; `0` quando vazia. O [[scene-runtime|runtime]] consome esse raio (`setCityRadius`) para escavar a zona plana do relevo ([[scene-builders#createTerrain.ts]]).
 
 #### Foco em Edifício (Destaque Visual)
 

@@ -175,6 +175,7 @@ export type DonationManager = {
   beginEnvCapture: () => void;
   endEnvCapture: () => void;
   getDonationCount: () => number;
+  getCityRadius: () => number;
   getHoveredValue: (event: MouseEvent, camera: THREE.Camera, domElement: HTMLElement) => number | null;
   getClickedDonationId: (event: MouseEvent, camera: THREE.Camera, domElement: HTMLElement) => number | null;
   getDonationWorldPosition: (donationId: number) => THREE.Vector3 | null;
@@ -508,6 +509,8 @@ export function createDonationManager({
 
   const donations: DonationEntry[] = [];
   let nextId = 0;
+  // Meio-extensão (mundo) da cidade construída. Consumido pelo relevo para abrir a zona plana.
+  let cityHalfExtent = 0;
   let currentTextureSettings = { ...textureSettings };
   let currentBlockLayout = { ...blockLayoutSettings };
   const dummy = new THREE.Object3D();
@@ -730,6 +733,7 @@ export function createDonationManager({
       instanceToValue.length = 0;
       instanceToDonationId.length = 0;
       donationIdToInstanceIndex.clear();
+      cityHalfExtent = 0;
       syncCustomShapes();
       return;
     }
@@ -756,6 +760,8 @@ export function createDonationManager({
     // Sem isso, blocos parcialmente preenchidos no anel externo criam assimetria visual.
     let r = 0;
     while ((2 * r + 1) ** 2 < totalBlocksMin) r++;
+    // Meio-extensão da cidade: centro do bloco mais externo + meia quadra + folga de um slot.
+    cityHalfExtent = r * blockSpacing + blockFootprint / 2 + DONATION_LAYOUT.slotSize;
     const expandedBlocks = (2 * r + 1) ** 2;
     const innerBlocks = r === 0 ? 0 : (2 * (r - 1) + 1) ** 2;
     const outerRingSize = expandedBlocks - innerBlocks; // 8R posições no anel externo
@@ -1488,6 +1494,9 @@ export function createDonationManager({
     },
     getDonationCount() {
       return donations.length;
+    },
+    getCityRadius() {
+      return cityHalfExtent;
     },
     getHoveredValue(event: MouseEvent, camera: THREE.Camera, domElement: HTMLElement) {
       const rect = domElement.getBoundingClientRect();

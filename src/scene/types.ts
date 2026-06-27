@@ -137,6 +137,30 @@ export type GroundSettings = {
   materialType: GroundMaterialType;
 };
 
+// Relevo procedural ao redor da cidade (partes sem edifício).
+// Mesmos controles do protótipo terrain.md (fbm + falhas + terraços + suavização),
+// mais enabled e gradiente de cor low→high.
+export type TerrainSettings = {
+  enabled: boolean;
+  seed: number;
+  segments: number;      // resolução da malha (vértices por lado = segments + 1)
+  size: number;          // largura total da malha (unidades de cena)
+  height: number;        // amplitude do relevo (unidades de cena)
+  frequency: number;     // escala do ruído (mais alto = colinas menores)
+  octaves: number;       // camadas de detalhe fbm
+  persistence: number;   // queda de amplitude por octave
+  lacunarity: number;    // ganho de frequência por octave
+  ridge: number;         // peso das cristas (ridge noise)
+  faults: number;        // número de linhas de falha tectônica
+  faultStrength: number; // força do degrau de cada falha
+  smooth: number;        // iterações de suavização do heightfield
+  terrace: number;       // número de patamares (0 = sem terraço)
+  edge: number;          // rebaixamento da borda externa (0–1)
+  wireframe: boolean;    // exibe malha em arame
+  lowColor: string;      // cor das partes baixas
+  highColor: string;     // cor dos picos
+};
+
 export type LightSettings = {
   ambientColor: string;
   ambientExtraIntensity: number;
@@ -229,9 +253,6 @@ export type CitySceneConfig = {
   sceneFogColor: string;
   sceneFogDensity: number;
   groundSize: number;
-  gridDivisions: number;
-  gridPrimaryColor: string;
-  gridSecondaryColor: string;
   cameraFov: number;
   cameraNear: number;
   initialCameraPosition: {

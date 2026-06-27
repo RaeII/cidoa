@@ -81,6 +81,52 @@ Valores padrão do chão:
 
 ---
 
+### `terrainConfig.ts`
+
+Valores padrão e constantes estruturais do relevo procedural (ver [[scene-types#TerrainSettings]]). Construído em [[scene-builders#createTerrain.ts]].
+
+**Defaults (`createDefaultTerrainSettings()`):**
+
+| Campo | Padrão | Descrição |
+|---|---|---|
+| `enabled` | `true` | Relevo começa ligado? |
+| `seed` | `4690` | Semente do ruído procedural |
+| `segments` | `128` | Resolução da malha (subdivisões por lado) |
+| `size` | `700` | Largura do plano em unidades world |
+| `height` | `35` | Amplitude do relevo |
+| `frequency` | `2` | Escala do ruído base |
+| `octaves` | `6` | Camadas de detalhe do fbm |
+| `persistence` | `0.5` | Queda de amplitude por oitava |
+| `lacunarity` | `2.2` | Ganho de frequência por oitava |
+| `ridge` | `1.0` | Peso das cristas (ridge noise) |
+| `faults` | `4` | Quantidade de falhas tectônicas |
+| `faultStrength` | `4` | Força de cada falha |
+| `smooth` | `4` | Iterações de suavização do heightfield |
+| `terrace` | `0` | Patamares (0 = desligado) |
+| `edge` | `0.3` | Rebaixamento da borda externa (0–1) |
+| `wireframe` | `false` | Malha em arame |
+| `lowColor` | `"#3f5f32"` | Cor dos vales (gradiente baixo) |
+| `highColor` | `"#aeca7b"` | Cor dos picos (gradiente alto) |
+
+> [!note] `size`/`segments` viraram settings
+> Antes constantes fixas (`TERRAIN_SIZE`/`TERRAIN_SEGMENTS`, **removidas**). Agora vivem em [[scene-types#TerrainSettings]] e são editáveis em tempo real. Trocar `segments` realoca buffers + índice da malha em [[scene-builders#createTerrain.ts]].
+
+**Constantes estruturais:**
+
+| Constante | Valor | Descrição |
+|---|---|---|
+| `TERRAIN_SEGMENT_OPTIONS` | `[64, 96, 128, 192, 256]` | Opções do select de resolução (`segments`) |
+| `TERRAIN_CITY_PADDING` | `8` | Folga plana ao redor do raio da cidade |
+| `TERRAIN_TRANSITION` | `36` | Largura da rampa entre zona plana e relevo |
+| `TERRAIN_CARVE_FLOOR` | `-0.08` | Piso da zona escavada, **sob** o plano da cidade → fica escondido |
+| `TERRAIN_BASE_LIFT` | `0.05` | Erguimento acima do plano longe da cidade → cinza não vaza nos vales |
+
+**Funções exportadas:**
+- `DEFAULT_TERRAIN_SETTINGS`
+- `createDefaultTerrainSettings()`
+
+---
+
 ### `lightConfig.ts`
 
 Valores padrão das luzes:
@@ -199,7 +245,6 @@ Configuração mais global da cena. Define a estrutura completa de `CitySceneCon
 | `sceneFogColor` | Cor do fog |
 | `sceneFogDensity` | Densidade do FogExp2 |
 | `groundSize` | Tamanho do plano do chão |
-| `gridDivisions` | Divisões do GridHelper |
 | `cameraFov` | Campo de visão da câmera |
 | `cameraNear` | Near plane |
 | `initialCameraPosition` | Posição inicial `{x, y, z}` |

@@ -124,6 +124,37 @@ type GroundMaterialType = "standard" | "matte" | "soft-metal" | "polished"
 
 ---
 
+### `TerrainSettings`
+
+Relevo procedural ao redor da cidade (partes sem edifício). Estrutura = ruído fbm + cristas + falhas + terraços; cor = gradiente low→high por altura. Mesmos controles do protótipo `terrain.md`.
+
+```typescript
+type TerrainSettings = {
+  enabled: boolean;
+  seed: number;          // semente do ruído procedural
+  segments: number;      // resolução da malha (subdivisões por lado)
+  size: number;          // largura do plano em unidades world
+  height: number;        // amplitude do relevo
+  frequency: number;     // escala do ruído base
+  octaves: number;       // camadas de detalhe do fbm
+  persistence: number;   // queda de amplitude por oitava
+  lacunarity: number;    // ganho de frequência por oitava
+  ridge: number;         // peso das cristas (ridge noise)
+  faults: number;        // quantidade de falhas tectônicas
+  faultStrength: number; // força de cada falha
+  smooth: number;        // iterações de suavização do heightfield
+  terrace: number;       // patamares (0 = desligado)
+  edge: number;          // rebaixamento da borda externa (0–1)
+  wireframe: boolean;    // malha em arame
+  lowColor: string;      // cor dos vales (gradiente baixo)
+  highColor: string;     // cor dos picos (gradiente alto)
+}
+```
+
+Estrutura via **fbm** (`persistence`/`lacunarity`), **ridge noise**, **falhas tectônicas** (`faults`/`faultStrength`), **terraços** e **suavização** (`smooth`); borda externa rebaixada por `edge`; cor por **gradiente** `lowColor`→`highColor` interpolado pela altura. `segments`/`size` controlam resolução e largura da malha (antes eram constantes fixas). Construído em [[scene-builders#createTerrain.ts]], defaults em [[scene-config#terrainConfig.ts]]. Editável pela aba **terreno** do painel.
+
+---
+
 ### `LightSettings`
 
 Configurações das luzes da cena:

@@ -41,20 +41,42 @@ Cria o chão da cidade.
 - Mudar como o chão atualiza material
 - Mudar como o chão acompanha a câmera
 
+> [!note] Coexiste com o relevo
+> O plano cinza é o chão da cidade (segue a câmera, y=-0.03). O [[scene-builders#createTerrain.ts|relevo verde]] fica ao redor, fixo na origem, e mergulha **sob** este plano perto da cidade.
+
 ---
 
-### `createGridHelper.ts`
+### `createTerrain.ts`
 
-Cria o grid visual da cena.
+Cria o relevo procedural (colinas verdes) ao redor da cidade — partes sem edifício. Port completo do protótipo `terrain.md`. Fixo na origem, **não** segue a câmera.
 
 **Responsabilidades:**
-- Criar o `GridHelper` com cores e transparência
-- Reposicionar o grid conforme a câmera anda
-- Limpar recursos no `dispose`
+- Gerar heightfield via pipeline completa do `terrain.md`: `mulberry32` (semente das falhas), `valueNoise`/`fbm` com `persistence`/`lacunarity` como **params** (não mais constantes), **ridge noise**, **falhas tectônicas** (linhas via degrau `tanh`), **edge falloff** (`smoothstep` rebaixa borda externa por `edge`), **terraços** e `smoothHeightField` (N passes = `smooth`)
+- Resolução (`segments`) e largura (`size`) **dinâmicas**: trocar `segments` realoca buffers de posição/cor + índice da malha; `update()` regenera o heightfield com os settings atuais
+- Normalizar relevo pra `[0, height]` (base em 0, sobe)
+- **Abrir zona plana** ao redor da cidade: `mask = smoothstep(dist, cityRadius+padding, +transition)` — 0 na cidade, 1 longe. Altura = `lerp(CARVE_FLOOR, BASE_LIFT+relevo, mask)`
+- Colorir por vértice: gradiente `lowColor → highColor` por altura visível (`relevo*mask`)
+- `wireframe` alterna `material.wireframe`
+- `BufferGeometry` indexada com `vertexColors`; recomputa normais/bounding a cada carve
+
+**Retorna:** `TerrainRig` com `mesh`, `update`, `setCityRadius`, `setShadowEnabled`, `dispose`.
+
+> [!important] `update()` é debounced (60ms)
+> Arrastar um slider dispara muitos `update()` por segundo. Regenerar o heightfield (até 256² vértices) a cada tick travaria a UI — por isso `update()` é **debounced em 60ms**.
+
+**Constantes** (em [[scene-config#terrainConfig.ts|terrainConfig.ts]]): `TERRAIN_SEGMENT_OPTIONS` (`[64,96,128,192,256]`, opções do select de resolução), `TERRAIN_CITY_PADDING`, `TERRAIN_TRANSITION`, `TERRAIN_CARVE_FLOOR` (−0.08, sob o plano da cidade → escondido), `TERRAIN_BASE_LIFT` (+0.05, acima do plano longe → cinza não vaza nos vales). `TERRAIN_SIZE`/`TERRAIN_SEGMENTS` foram **removidas** — `size`/`segments` agora são campos de [[scene-types#TerrainSettings]].
+
+> [!important] Não aparece no reflexo dos edifícios
+> O [[scene-runtime|runtime]] esconde `terrainRig.mesh` (`visible=false`) durante a captura do cube envMap. Sem isso, o verde do relevo vazaria nas fachadas refletivas.
+
+> [!note] Relevo encolhe quando a cidade cresce
+> O runtime chama `setCityRadius(donationManager.getCityRadius())` a cada doação/mudança de quadra. Raio maior → zona plana maior → anel de colinas recua. `setCityRadius` só recalcula a malha quando o raio muda de fato (ganho de anel).
 
 **Quando mexer aqui:**
-- Trocar cor do grid dinamicamente
-- Esconder ou alterar a malha visual
+- Ajustar a pipeline do ruído (fbm/ridge/falhas/terraços/suavização)
+- Mudar como `segments`/`size` realocam a malha ou a largura da rampa de transição
+- Trocar o esquema de cores (hoje gradiente de 2 paradas)
+- Ajustar o debounce de `update()`
 
 ---
 

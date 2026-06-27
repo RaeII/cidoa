@@ -13,6 +13,7 @@ import { createDefaultBlockLayoutSettings } from "../scene/config/blockLayoutCon
 import { createDefaultBuildingSettings } from "../scene/config/buildingConfig";
 import { createDefaultEnvironmentSettings } from "../scene/config/environmentConfig";
 import { createDefaultGroundSettings } from "../scene/config/groundConfig";
+import { createDefaultTerrainSettings } from "../scene/config/terrainConfig";
 import { createDefaultLightSettings } from "../scene/config/lightConfig";
 import { createDefaultRenderDirectionSettings } from "../scene/config/renderDirectionConfig";
 import { createDefaultShadowSettings } from "../scene/config/shadowConfig";
@@ -81,6 +82,7 @@ export function CitySceneEditor() {
   const [buildingSettings, setBuildingSettings] = useState(createDefaultBuildingSettings);
   const [textureSettings, setTextureSettings] = useState(createDefaultTextureSettings);
   const [groundSettings, setGroundSettings] = useState(createDefaultGroundSettings);
+  const [terrainSettings, setTerrainSettings] = useState(createDefaultTerrainSettings);
   const [lightSettings, setLightSettings] = useState(createDefaultLightSettings);
   const [shadowSettings, setShadowSettings] = useState(createDefaultShadowSettings);
   const [renderDirectionSettings, setRenderDirectionSettings] = useState(
@@ -286,6 +288,7 @@ export function CitySceneEditor() {
         buildingSettings={buildingSettings}
         textureSettings={textureSettings}
         groundSettings={groundSettings}
+        terrainSettings={terrainSettings}
         lightSettings={lightSettings}
         shadowSettings={shadowSettings}
         renderDirectionSettings={renderDirectionSettings}
@@ -364,6 +367,7 @@ export function CitySceneEditor() {
           buildingSettings={buildingSettings}
           textureSettings={textureSettings}
           groundSettings={groundSettings}
+          terrainSettings={terrainSettings}
           lightSettings={lightSettings}
           shadowSettings={shadowSettings}
           renderDirectionSettings={renderDirectionSettings}
@@ -372,6 +376,7 @@ export function CitySceneEditor() {
           onBuildingSettingsChange={setBuildingSettings}
           onTextureSettingsChange={setTextureSettings}
           onGroundSettingsChange={setGroundSettings}
+          onTerrainSettingsChange={setTerrainSettings}
           onLightSettingsChange={setLightSettings}
           onShadowSettingsChange={setShadowSettings}
           onRenderDirectionSettingsChange={setRenderDirectionSettings}
