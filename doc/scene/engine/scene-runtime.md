@@ -113,7 +113,9 @@ type CitySceneRuntime = {
 > Mantido na API para compatibilidade com o hook e o canvas, mas sem implementação ativa (sem chunks direcionais no runtime atual).
 
 > [!note] Relevo (terrainRig)
-> O runtime possui o `terrainRig` ([[scene-builders#createTerrain.ts]]) — opção `terrainSettings` + método `updateTerrainSettings`. Sincroniza a zona plana via `syncTerrainToCity`, que chama `terrainRig.setCityRadius(donationManager.getCityRadius())` após `addDonation`/`addDonations`/`updateBlockLayout` (toda mudança de doação ou layout de quadra). Durante a captura do cube envMap, oculta o relevo (`terrainRig.mesh.visible = false`) e restaura depois — assim os prédios **não refletem** o verde do relevo. `setShadowEnabled` é propagado ao relevo. Ver [[scene-managers|getCityRadius]].
+> O runtime possui o `terrainRig` ([[scene-builders#createTerrain.ts]]) — opção `terrainSettings` + método `updateTerrainSettings`. Sincroniza a zona plana via `syncTerrainToCity`, que chama `terrainRig.setCityRadius(donationManager.getCityRadius())` após `addDonation`/`addDonations`/`updateBlockLayout` (toda mudança de doação ou layout de quadra). Cor do chão sincronizada via `terrainRig.setGroundColor` em `updateGroundSettings`. `setShadowEnabled` é propagado ao relevo. Ver [[scene-managers|getCityRadius]].
+>
+> **Visibilidade do chão (anti-z-fighting):** com o relevo ligado, o `groundPlane` é o chão **escondido** (`groundPlane.mesh.visible = !terrainSettings.enabled`) — senão ele e o terreno (duas superfícies cinza quase paralelas) piscam conforme a câmera mexe. Na **captura do cube envMap** a relação inverte por um frame: o relevo é ocultado (`terrainRig.mesh.visible = false`, prédios **não refletem** o verde) e o plano cinza é exibido (piso neutro do reflexo); ambos são restaurados depois.
 
 ### 4. Dispose
 

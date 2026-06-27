@@ -66,6 +66,9 @@ function fbm(
   return sum / norm;
 }
 
+// Frequência do ruído que ondula o contorno cidade→relevo (espaço de mundo). Lobo ~110u.
+const BOUNDARY_WARP_FREQ = 1 / 110;
+
 function smoothHeightField(data: Float32Array, side: number, iterations: number): Float32Array {
   let source = data;
   for (let it = 0; it < iterations; it++) {
@@ -127,6 +130,7 @@ export function createTerrain(
   let positions = new Float32Array(0);
   let colors = new Float32Array(0);
   let heights = new Float32Array(0); // altura bruta (pode ser negativa), pré-encaixe
+  let edgeWarp = new Float32Array(0); // ruído [-1,1] por vértice — quebra o contorno circular
   let minH = 0;
   let maxH = 0;
   let cityRadius = 0;
@@ -145,6 +149,7 @@ export function createTerrain(
     positions = new Float32Array(count * 3);
     colors = new Float32Array(count * 3);
     heights = new Float32Array(count);
+    edgeWarp = new Float32Array(count);
 
     const indices: number[] = [];
     for (let z = 0; z < segments; z++) {
@@ -168,6 +173,7 @@ export function createTerrain(
   // Gera o heightfield bruto (independente de size e do carve da cidade).
   const generate = (s: TerrainSettings) => {
     const data = new Float32Array(count);
+    const half = s.size / 2;
     const rng = mulberry32(s.seed);
 
     const faultLines: Array<{ nx: number; nz: number; offset: number; power: number }> = [];
@@ -220,6 +226,20 @@ export function createTerrain(
         }
 
         data[z * side + x] = h;
+
+        // Ruído do contorno em espaço de mundo (multi-octave → ondulações naturais, sem padrão).
+        const wx = u * s.size - half;
+        const wz = v * s.size - half;
+        const en = fbm(
+          wx * BOUNDARY_WARP_FREQ + 51.7,
+          wz * BOUNDARY_WARP_FREQ - 23.4,
+          1,
+          4,
+          s.persistence,
+          s.lacunarity,
+          s.seed + 101,
+        );
+        edgeWarp[z * side + x] = (en - 0.5) * 2; // [-1,1]
       }
     }
 
@@ -245,6 +265,10 @@ export function createTerrain(
     // (smootherstep: derivada zero nas pontas) + toe quadrático = encaixe profissional.
     const band = Math.max(TERRAIN_TRANSITION, s.height * 3);
     const range = Math.max(1e-4, maxH - minH);
+    // Contorno ondulado: o início das colinas recua bastante pra fora (baías) e cutuca
+    // pouco pra dentro (limite pra não invadir a cidade). Quebra o anel circular.
+    const outwardCap = band * 0.5;
+    const inwardCap = TERRAIN_CITY_PADDING * 0.6;
 
     for (let z = 0; z < side; z++) {
       for (let x = 0; x < side; x++) {
@@ -253,7 +277,10 @@ export function createTerrain(
         const wx = (x / segments) * s.size - half;
         const wz = (z / segments) * s.size - half;
         const d = Math.sqrt(wx * wx + wz * wz);
-        const ramp = THREE.MathUtils.smootherstep(d, inner, inner + band);
+        // Distância perturbada pelo ruído do contorno: assimétrica (baías ↔ saliências).
+        const w = edgeWarp[i];
+        const dw = d - (w >= 0 ? w * outwardCap : w * inwardCap);
+        const ramp = THREE.MathUtils.smootherstep(dw, inner, inner + band);
         const amp = ramp * ramp; // pé extra-suave perto da cidade (foothills)
         const norm = heights[i] - minH; // >= 0
         const h = norm * amp; // relevo visível (zerado na borda da cidade)
@@ -264,15 +291,17 @@ export function createTerrain(
           positions[k + 2] = wz;
         }
 
-        // Cor: zona plana = cor do chão da cidade; mistura pro verde assim que o relevo sobe.
-        const hv = h / range; // 0..1 relevo visível
-        const greenMix = THREE.MathUtils.smoothstep(hv, 0, 0.06);
-        const gr = lerp(lowColor.r, highColor.r, hv);
-        const gg = lerp(lowColor.g, highColor.g, hv);
-        const gb = lerp(lowColor.b, highColor.b, hv);
-        colors[k] = lerp(baseColor.r, gr, greenMix);
-        colors[k + 1] = lerp(baseColor.g, gg, greenMix);
-        colors[k + 2] = lerp(baseColor.b, gb, greenMix);
+        // Cor base: cinza (chão da cidade) perto → verde baixo nas planícies (fade pela
+        // MESMA distância ondulada → contorno de cor também irregular). Sobe pro verde alto
+        // conforme o relevo cresce.
+        const groundFade = THREE.MathUtils.smoothstep(dw, inner - 4, inner + band * 0.4);
+        const baseR = lerp(baseColor.r, lowColor.r, groundFade);
+        const baseG = lerp(baseColor.g, lowColor.g, groundFade);
+        const baseB = lerp(baseColor.b, lowColor.b, groundFade);
+        const hv = THREE.MathUtils.clamp(h / range, 0, 1);
+        colors[k] = lerp(baseR, highColor.r, hv);
+        colors[k + 1] = lerp(baseG, highColor.g, hv);
+        colors[k + 2] = lerp(baseB, highColor.b, hv);
       }
     }
 

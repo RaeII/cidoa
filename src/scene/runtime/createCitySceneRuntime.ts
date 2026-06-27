@@ -153,6 +153,9 @@ export function createCitySceneRuntime({
   const lightingRig = createLightingRig(scene, lightSettings);
   const groundPlane = createGroundPlane(scene, groundSettings, shadowSettings.enabled);
   const terrainRig = createTerrain(scene, terrainSettings, groundSettings.color, shadowSettings.enabled);
+  // Relevo é o chão visível quando ligado; esconde o plano cinza no render normal pra não brigar
+  // (z-fighting) com o terreno. Reaparece só na captura do envMap (piso neutro do reflexo).
+  groundPlane.mesh.visible = !terrainSettings.enabled;
   const horizonSilhouette = createHorizonSilhouette(scene, horizonSettings);
 
   const buildingCubeTarget = new THREE.WebGLCubeRenderTarget(256, {
@@ -322,11 +325,15 @@ export function createCitySceneRuntime({
     if (cubeFrameCounter === 0) {
       buildingCubeCamera.position.copy(camera.position);
       donationManager.beginEnvCapture();
-      // Relevo verde fora da captura: edifícios não devem refletir o terreno.
+      // Relevo verde fora da captura (edifícios não devem refletir o terreno); plano cinza
+      // dentro da captura (piso neutro do reflexo, já que ele fica escondido no render normal).
       const terrainWasVisible = terrainRig.mesh.visible;
+      const groundWasVisible = groundPlane.mesh.visible;
       terrainRig.mesh.visible = false;
+      groundPlane.mesh.visible = true;
       buildingCubeCamera.update(renderer, scene);
       terrainRig.mesh.visible = terrainWasVisible;
+      groundPlane.mesh.visible = groundWasVisible;
       donationManager.endEnvCapture();
     }
 
@@ -361,6 +368,8 @@ export function createCitySceneRuntime({
     updateTerrainSettings(settings) {
       // update() reaproveita o cityRadius retido pelo rig — relevo e zona plana juntos.
       terrainRig.update(settings);
+      // Plano cinza só aparece quando o relevo está desligado (senão briga com o terreno).
+      groundPlane.mesh.visible = !settings.enabled;
     },
     updateLightSettings(settings) {
       lightingRig.update(settings);

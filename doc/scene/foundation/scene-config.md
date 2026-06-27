@@ -118,7 +118,7 @@ Valores padrão e constantes estruturais do relevo procedural (ver [[scene-types
 | `TERRAIN_SEGMENT_OPTIONS` | `[64, 96, 128, 192, 256]` | Opções do select de resolução (`segments`) |
 | `TERRAIN_CITY_PADDING` | `8` | Folga plana ao redor do raio da cidade |
 | `TERRAIN_TRANSITION` | `60` | Largura MÍNIMA do degradê cidade→colinas (cresce com a altura: `max(este, height*3)`) |
-| `TERRAIN_GROUND_Y` | `-0.02` | Nível plano do **chão único**: acima do plano cinza (−0.03), abaixo das ruas (−0.015). Relevo nunca cruza o plano → sem z-fighting |
+| `TERRAIN_GROUND_Y` | `-0.04` | Nível plano do **chão único**, abaixo das ruas (−0.015) com folga. O plano cinza fica escondido no render normal (ver runtime), então não há z-fighting entre os dois |
 
 **Funções exportadas:**
 - `DEFAULT_TERRAIN_SETTINGS`
