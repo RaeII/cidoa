@@ -117,9 +117,8 @@ Valores padrão e constantes estruturais do relevo procedural (ver [[scene-types
 |---|---|---|
 | `TERRAIN_SEGMENT_OPTIONS` | `[64, 96, 128, 192, 256]` | Opções do select de resolução (`segments`) |
 | `TERRAIN_CITY_PADDING` | `8` | Folga plana ao redor do raio da cidade |
-| `TERRAIN_TRANSITION` | `36` | Largura da rampa entre zona plana e relevo |
-| `TERRAIN_CARVE_FLOOR` | `-0.08` | Piso da zona escavada, **sob** o plano da cidade → fica escondido |
-| `TERRAIN_BASE_LIFT` | `0.05` | Erguimento acima do plano longe da cidade → cinza não vaza nos vales |
+| `TERRAIN_TRANSITION` | `60` | Largura MÍNIMA do degradê cidade→colinas (cresce com a altura: `max(este, height*3)`) |
+| `TERRAIN_GROUND_Y` | `-0.02` | Nível plano do **chão único**: acima do plano cinza (−0.03), abaixo das ruas (−0.015). Relevo nunca cruza o plano → sem z-fighting |
 
 **Funções exportadas:**
 - `DEFAULT_TERRAIN_SETTINGS`

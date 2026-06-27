@@ -1,8 +1,7 @@
 import * as THREE from "three";
 import {
-  TERRAIN_BASE_LIFT,
-  TERRAIN_CARVE_FLOOR,
   TERRAIN_CITY_PADDING,
+  TERRAIN_GROUND_Y,
   TERRAIN_TRANSITION,
 } from "../config/terrainConfig";
 import type { TerrainSettings } from "../types";
@@ -95,8 +94,10 @@ function smoothHeightField(data: Float32Array, side: number, iterations: number)
 export type TerrainRig = {
   mesh: THREE.Mesh;
   update: (settings: TerrainSettings) => void;
-  // Raio (mundo) da cidade. Reabre a zona plana ao redor da cidade conforme ela cresce.
+  // Raio (mundo) da cidade. Empurra o início das colinas pra fora conforme a cidade cresce.
   setCityRadius: (radius: number) => void;
+  // Cor do chão da cidade (zona plana do relevo) — sincroniza com GroundSettings.
+  setGroundColor: (color: string) => void;
   setShadowEnabled: (enabled: boolean) => void;
   dispose: () => void;
 };
@@ -104,6 +105,7 @@ export type TerrainRig = {
 export function createTerrain(
   scene: THREE.Scene,
   settings: TerrainSettings,
+  groundColor: string,
   receiveShadow: boolean,
 ): TerrainRig {
   const material = new THREE.MeshStandardMaterial({
@@ -124,12 +126,14 @@ export function createTerrain(
   let count = 0;
   let positions = new Float32Array(0);
   let colors = new Float32Array(0);
-  let heights = new Float32Array(0); // altura bruta (pode ser negativa), pré-carve
+  let heights = new Float32Array(0); // altura bruta (pode ser negativa), pré-encaixe
   let minH = 0;
   let maxH = 0;
   let cityRadius = 0;
   let lastCarveRadius = Number.NaN;
 
+  let groundColorHex = groundColor;
+  const baseColor = new THREE.Color(groundColor); // cor da zona plana (chão da cidade)
   const lowColor = new THREE.Color();
   const highColor = new THREE.Color();
 
@@ -228,13 +232,18 @@ export function createTerrain(
     }
   };
 
-  // Escreve posições + cores a partir de `heights`, abrindo a zona plana da cidade.
-  // Perto da cidade a altura mergulha sob o chão (CARVE_FLOOR, escondido); longe sobe
-  // até BASE_LIFT + relevo. Cor por altura visível (gradiente low→high).
-  const applyGeometry = (s: TerrainSettings) => {
+  // Escreve posições + cores a partir de `heights`. O relevo é o CHÃO ÚNICO: zona plana
+  // ao nível TERRAIN_GROUND_Y (logo acima do plano cinza, nunca cruza → sem z-fighting) e
+  // colinas que NASCEM desse plano via degradê de amplitude. Cor mistura do chão (cidade)
+  // pro gradiente verde (colinas). `recolorOnly` pula posições/normais quando só a cor muda.
+  const applyGeometry = (s: TerrainSettings, recolorOnly = false) => {
     const half = s.size / 2;
-    const carveStart = cityRadius + TERRAIN_CITY_PADDING;
-    const carveEnd = carveStart + TERRAIN_TRANSITION;
+    const inner = cityRadius + TERRAIN_CITY_PADDING;
+    // Degradê cidade→relevo. A AMPLITUDE das colinas sobe de 0 (borda da cidade) a 1
+    // (longe), então o relevo "nasce" do plano em vez de bater numa parede. Banda larga
+    // que cresce com a altura (mantém inclinação suave em qualquer escala) + quintic
+    // (smootherstep: derivada zero nas pontas) + toe quadrático = encaixe profissional.
+    const band = Math.max(TERRAIN_TRANSITION, s.height * 3);
     const range = Math.max(1e-4, maxH - minH);
 
     for (let z = 0; z < side; z++) {
@@ -244,28 +253,41 @@ export function createTerrain(
         const wx = (x / segments) * s.size - half;
         const wz = (z / segments) * s.size - half;
         const d = Math.sqrt(wx * wx + wz * wz);
-        const mask = THREE.MathUtils.smoothstep(d, carveStart, carveEnd); // 0 na cidade, 1 longe
+        const ramp = THREE.MathUtils.smootherstep(d, inner, inner + band);
+        const amp = ramp * ramp; // pé extra-suave perto da cidade (foothills)
         const norm = heights[i] - minH; // >= 0
-        positions[k] = wx;
-        positions[k + 1] = lerp(TERRAIN_CARVE_FLOOR, TERRAIN_BASE_LIFT + norm, mask);
-        positions[k + 2] = wz;
+        const h = norm * amp; // relevo visível (zerado na borda da cidade)
 
-        const t = THREE.MathUtils.clamp((norm * mask) / range, 0, 1);
-        colors[k] = lerp(lowColor.r, highColor.r, t);
-        colors[k + 1] = lerp(lowColor.g, highColor.g, t);
-        colors[k + 2] = lerp(lowColor.b, highColor.b, t);
+        if (!recolorOnly) {
+          positions[k] = wx;
+          positions[k + 1] = TERRAIN_GROUND_Y + h;
+          positions[k + 2] = wz;
+        }
+
+        // Cor: zona plana = cor do chão da cidade; mistura pro verde assim que o relevo sobe.
+        const hv = h / range; // 0..1 relevo visível
+        const greenMix = THREE.MathUtils.smoothstep(hv, 0, 0.06);
+        const gr = lerp(lowColor.r, highColor.r, hv);
+        const gg = lerp(lowColor.g, highColor.g, hv);
+        const gb = lerp(lowColor.b, highColor.b, hv);
+        colors[k] = lerp(baseColor.r, gr, greenMix);
+        colors[k + 1] = lerp(baseColor.g, gg, greenMix);
+        colors[k + 2] = lerp(baseColor.b, gb, greenMix);
       }
     }
 
     const geometry = mesh.geometry;
-    geometry.attributes.position.needsUpdate = true;
     geometry.attributes.color.needsUpdate = true;
-    geometry.computeVertexNormals();
-    geometry.computeBoundingSphere();
-    lastCarveRadius = cityRadius;
+    if (!recolorOnly) {
+      geometry.attributes.position.needsUpdate = true;
+      geometry.computeVertexNormals();
+      geometry.computeBoundingSphere();
+      lastCarveRadius = cityRadius;
+    }
   };
 
   const rebuild = (s: TerrainSettings) => {
+    baseColor.set(groundColorHex);
     lowColor.set(s.lowColor);
     highColor.set(s.highColor);
     if (s.segments !== segments) allocate(s.segments);
@@ -294,9 +316,15 @@ export function createTerrain(
     },
     setCityRadius(radius) {
       cityRadius = radius;
-      // Só re-carve quando o raio muda de fato (cidade ganhou um anel). Não regenera ruído.
+      // Só recalcula quando o raio muda de fato (cidade ganhou um anel). Não regenera ruído.
       if (Math.abs(radius - lastCarveRadius) < 0.5) return;
       applyGeometry(current);
+    },
+    setGroundColor(color) {
+      if (color === groundColorHex) return;
+      groundColorHex = color;
+      baseColor.set(color);
+      applyGeometry(current, true); // só cor — posições/normais intactas
     },
     setShadowEnabled(enabled) {
       mesh.receiveShadow = enabled;

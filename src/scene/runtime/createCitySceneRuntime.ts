@@ -152,7 +152,7 @@ export function createCitySceneRuntime({
 
   const lightingRig = createLightingRig(scene, lightSettings);
   const groundPlane = createGroundPlane(scene, groundSettings, shadowSettings.enabled);
-  const terrainRig = createTerrain(scene, terrainSettings, shadowSettings.enabled);
+  const terrainRig = createTerrain(scene, terrainSettings, groundSettings.color, shadowSettings.enabled);
   const horizonSilhouette = createHorizonSilhouette(scene, horizonSettings);
 
   const buildingCubeTarget = new THREE.WebGLCubeRenderTarget(256, {
@@ -355,6 +355,8 @@ export function createCitySceneRuntime({
     },
     updateGroundSettings(settings) {
       groundPlane.update(settings);
+      // Zona plana do relevo = chão da cidade: mantém a mesma cor.
+      terrainRig.setGroundColor(settings.color);
     },
     updateTerrainSettings(settings) {
       // update() reaproveita o cityRadius retido pelo rig — relevo e zona plana juntos.

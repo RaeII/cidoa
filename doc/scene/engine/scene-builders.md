@@ -48,34 +48,37 @@ Cria o chão da cidade.
 
 ### `createTerrain.ts`
 
-Cria o relevo procedural (colinas verdes) ao redor da cidade — partes sem edifício. Port completo do protótipo `terrain.md`. Fixo na origem, **não** segue a câmera.
+Cria o relevo procedural (colinas verdes) ao redor da cidade — partes sem edifício. Port completo do protótipo `terrain.md`. Fixo na origem, **não** segue a câmera. É o **chão único** da cena quando ligado (ver callout abaixo).
 
 **Responsabilidades:**
 - Gerar heightfield via pipeline completa do `terrain.md`: `mulberry32` (semente das falhas), `valueNoise`/`fbm` com `persistence`/`lacunarity` como **params** (não mais constantes), **ridge noise**, **falhas tectônicas** (linhas via degrau `tanh`), **edge falloff** (`smoothstep` rebaixa borda externa por `edge`), **terraços** e `smoothHeightField` (N passes = `smooth`)
 - Resolução (`segments`) e largura (`size`) **dinâmicas**: trocar `segments` realoca buffers de posição/cor + índice da malha; `update()` regenera o heightfield com os settings atuais
-- Normalizar relevo pra `[0, height]` (base em 0, sobe)
-- **Abrir zona plana** ao redor da cidade: `mask = smoothstep(dist, cityRadius+padding, +transition)` — 0 na cidade, 1 longe. Altura = `lerp(CARVE_FLOOR, BASE_LIFT+relevo, mask)`
-- Colorir por vértice: gradiente `lowColor → highColor` por altura visível (`relevo*mask`)
+- **Chão único, sem cruzar o plano:** zona plana ao nível `TERRAIN_GROUND_Y` (−0.02), logo ACIMA do plano cinza (−0.03) e ABAIXO das ruas (−0.015). O relevo nunca cruza o plano → **sem z-fighting**, e as ruas continuam visíveis
+- **Encaixe suave na cidade (degradê):** a **amplitude** das colinas (`amp`) sobe de 0 (borda da cidade) a 1 (longe) — as colinas nascem do plano, não batem numa parede. `band = max(TERRAIN_TRANSITION, height*3)` (degradê mais longo pra relevo mais alto), `ramp = smootherstep(dist, inner, inner+band)` (quintic, derivada zero nas pontas), `amp = ramp²` (toe extra-suave). Altura final = `TERRAIN_GROUND_Y + relevo*amp`
+- **Cor por vértice:** zona plana = cor do chão da cidade (`baseColor`, sincronizada com [[scene-types#GroundSettings]] via `setGroundColor`); mistura pro gradiente `lowColor → highColor` assim que o relevo sobe (`greenMix = smoothstep(hv, 0, 0.06)`)
 - `wireframe` alterna `material.wireframe`
-- `BufferGeometry` indexada com `vertexColors`; recomputa normais/bounding a cada carve
+- `BufferGeometry` indexada com `vertexColors`; recomputa normais/bounding só quando posições mudam (recolor puro pula normais)
 
-**Retorna:** `TerrainRig` com `mesh`, `update`, `setCityRadius`, `setShadowEnabled`, `dispose`.
+**Retorna:** `TerrainRig` com `mesh`, `update`, `setCityRadius`, `setGroundColor`, `setShadowEnabled`, `dispose`.
+
+> [!important] Chão único = sem z-fighting
+> O bug anterior: o relevo mergulhava SOB o plano cinza perto da cidade e subia acima longe → as duas superfícies se cruzavam num anel, causando **z-fighting** (linha de limite tremendo conforme a câmera mexe) e **escondendo o degradê** (a rampa suave ficava debaixo do plano opaco; só a linha de cruzamento aparecia). Agora o relevo fica SEMPRE acima do plano (mín. −0.02 > −0.03) e é o chão visível: plano gris na cidade → colinas verdes fora, tudo numa malha contínua. O plano cinza segue existindo embaixo (sombra/fallback), ocluso.
 
 > [!important] `update()` é debounced (60ms)
 > Arrastar um slider dispara muitos `update()` por segundo. Regenerar o heightfield (até 256² vértices) a cada tick travaria a UI — por isso `update()` é **debounced em 60ms**.
 
-**Constantes** (em [[scene-config#terrainConfig.ts|terrainConfig.ts]]): `TERRAIN_SEGMENT_OPTIONS` (`[64,96,128,192,256]`, opções do select de resolução), `TERRAIN_CITY_PADDING`, `TERRAIN_TRANSITION`, `TERRAIN_CARVE_FLOOR` (−0.08, sob o plano da cidade → escondido), `TERRAIN_BASE_LIFT` (+0.05, acima do plano longe → cinza não vaza nos vales). `TERRAIN_SIZE`/`TERRAIN_SEGMENTS` foram **removidas** — `size`/`segments` agora são campos de [[scene-types#TerrainSettings]].
+**Constantes** (em [[scene-config#terrainConfig.ts|terrainConfig.ts]]): `TERRAIN_SEGMENT_OPTIONS` (`[64,96,128,192,256]`, opções do select de resolução), `TERRAIN_CITY_PADDING`, `TERRAIN_TRANSITION` (largura MÍNIMA do degradê, cresce com a altura), `TERRAIN_GROUND_Y` (−0.02, nível plano do chão único). `size`/`segments` são campos de [[scene-types#TerrainSettings]].
 
 > [!important] Não aparece no reflexo dos edifícios
-> O [[scene-runtime|runtime]] esconde `terrainRig.mesh` (`visible=false`) durante a captura do cube envMap. Sem isso, o verde do relevo vazaria nas fachadas refletivas.
+> O [[scene-runtime|runtime]] esconde `terrainRig.mesh` (`visible=false`) durante a captura do cube envMap. Sem isso, o verde do relevo vazaria nas fachadas refletivas. O plano cinza embaixo ainda entra no reflexo (chão neutro).
 
-> [!note] Relevo encolhe quando a cidade cresce
+> [!note] Colinas recuam quando a cidade cresce
 > O runtime chama `setCityRadius(donationManager.getCityRadius())` a cada doação/mudança de quadra. Raio maior → zona plana maior → anel de colinas recua. `setCityRadius` só recalcula a malha quando o raio muda de fato (ganho de anel).
 
 **Quando mexer aqui:**
 - Ajustar a pipeline do ruído (fbm/ridge/falhas/terraços/suavização)
 - Mudar como `segments`/`size` realocam a malha ou a largura da rampa de transição
-- Trocar o esquema de cores (hoje gradiente de 2 paradas)
+- Trocar o esquema de cores (hoje base do chão → gradiente verde de 2 paradas)
 - Ajustar o debounce de `update()`
 
 ---
