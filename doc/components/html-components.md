@@ -145,7 +145,11 @@ Tipo da aba ativa: `"geral" | "texturas" | "luz" | "horizonte" | "terreno" | "te
 
 Props extras da aba **Tela**: `uiVisibility: UIVisibilitySettings` + `onUIVisibilityChange`. Ver [[scene-types#UIVisibilitySettings]].
 
-Props extras da aba **Geral** (seção **Quadras**): `blockLayoutSettings: BlockLayoutSettings` + `onBlockLayoutSettingsChange` — um `ColorField` edita `lotColor` (cor dos lotes vazios). Ver [[scene-types#BlockLayoutSettings]].
+Props extras da aba **Geral** (`blockLayoutSettings: BlockLayoutSettings` + `onBlockLayoutSettingsChange`):
+- seção **Quadras**: `ColorField` edita `lotColor` (cor dos lotes vazios).
+- seção **Calçada**: `ColorField` edita `sidewalkColor` (topo) + `ColorField` edita `sidewalkSideColor` (laterais, sombra) + `RangeField` edita `sidewalkHeight` (0.02–0.4) — altura do meio-fio.
+
+Ver [[scene-types#BlockLayoutSettings]].
 
 > [!tip] Atalho
 > `Ctrl + M` abre/fecha painel. Ver [[#Atalhos de teclado]].

@@ -26,6 +26,7 @@ import { HorizonControls } from "./HorizonControls";
 import { PanelSection } from "./controls/PanelSection";
 import { CheckboxField } from "./controls/CheckboxField";
 import { ColorField } from "./controls/ColorField";
+import { RangeField } from "./controls/RangeField";
 
 type Tab = "geral" | "texturas" | "luz" | "horizonte" | "terreno" | "tela";
 
@@ -145,6 +146,38 @@ export function CityControlPanel({
                   onBlockLayoutSettingsChange({ ...blockLayoutSettings, lotColor })
                 }
                 placeholder="#5b5048"
+              />
+            </PanelSection>
+            <PanelSection
+              title="Calçada"
+              description="Meio-fio elevado em volta das quadras."
+            >
+              <ColorField
+                label="Cor da calçada (topo)"
+                value={blockLayoutSettings.sidewalkColor}
+                onChange={(sidewalkColor) =>
+                  onBlockLayoutSettingsChange({ ...blockLayoutSettings, sidewalkColor })
+                }
+                placeholder="#9a9da3"
+              />
+              <ColorField
+                label="Cor da lateral (sombra)"
+                value={blockLayoutSettings.sidewalkSideColor}
+                onChange={(sidewalkSideColor) =>
+                  onBlockLayoutSettingsChange({ ...blockLayoutSettings, sidewalkSideColor })
+                }
+                placeholder="#55575c"
+              />
+              <RangeField
+                label="Altura da calçada"
+                value={blockLayoutSettings.sidewalkHeight}
+                min={0.02}
+                max={0.4}
+                step={0.01}
+                valueLabel={blockLayoutSettings.sidewalkHeight.toFixed(2)}
+                onChange={(sidewalkHeight) =>
+                  onBlockLayoutSettingsChange({ ...blockLayoutSettings, sidewalkHeight })
+                }
               />
             </PanelSection>
             <EnvironmentControls value={environmentSettings} onChange={onEnvironmentSettingsChange} />

@@ -197,6 +197,9 @@ export type BlockLayoutSettings = {
   towersPerBlock: number; // quantas torres por quadra (ocupa os N slots mais centrais)
   baseHeightCap: number;  // teto de altura da base urbana como fração de maxSceneHeight (0–1)
   lotColor: string;       // cor dos lotes vazios das quadras (loteamento esperando edifício)
+  sidewalkColor: string;  // cor do topo da calçada (meio-fio em volta das quadras)
+  sidewalkSideColor: string; // cor das faces laterais da calçada (mais escura = efeito de sombra/altura)
+  sidewalkHeight: number; // altura do topo da calçada (degrau acima do chão), em unidades de mundo
 };
 
 export type SceneStats = {

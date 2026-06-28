@@ -93,7 +93,8 @@ O manager usa um único par de materiais para prédios e um material de asfalto 
 | `focusFacadeMaterial` | `MeshPhysicalMaterial` | Clone do facadeMaterial para o edifício em destaque (opacidade total quando o instanced mesh fica semitransparente) |
 | `focusTopMaterial` | `MeshPhysicalMaterial` | Clone do topMaterial para o edifício em destaque |
 | `asphaltMaterial` | `MeshStandardMaterial` | Cor escura (#18191c), roughness 0.92 — usado nas faixas de asfalto entre quadras |
-| `sidewalkMaterial` | `MeshStandardMaterial` | Concreto claro (#9a9da3), roughness 0.95 — calçada elevada (meio-fio) em volta das quadras |
+| `sidewalkTopMaterial` | `MeshStandardMaterial` | Cor do topo da calçada (de `blockLayoutSettings.sidewalkColor`, padrão #9a9da3), roughness 0.95 — face superior do meio-fio |
+| `sidewalkSideMaterial` | `MeshStandardMaterial` | Cor das laterais da calçada (de `blockLayoutSettings.sidewalkSideColor`, padrão #55575c, mais escura) — dá efeito de sombra p/ enxergar a altura. O `sidewalkGeometry` remapeia os grupos de face (topo → material 0, laterais+base → material 1) |
 | `lotMaterial` | `MeshStandardMaterial` | Cor das quadras (de `blockLayoutSettings.lotColor`, padrão #5b5048), roughness 0.98 — tile de lote vazio. `onBeforeCompile` injeta borda escura (`vLotPos`) demarcando cada lote, mantendo luz + sombra |
 
 #### Rede de Estradas (Asfalto)
@@ -116,9 +117,9 @@ Como o loteamento tem piso mínimo `r ≥ MIN_LOTEAMENTO_RADIUS` (= 1), há semp
 - `SIDEWALK_GAP` (0.25) = respiro de chão livre entre a borda do lote e a calçada (`innerHalf = lotEdge + SIDEWALK_GAP`); calçada continua encostando no asfalto (meio-fio)
 - 4 tiras de `BoxGeometry` por quadra num único `InstancedMesh` (`sidewalkMesh`) — N/S cobrem os cantos (largura total `2×outerHalf`), L/O ficam entre os cantos (`2×innerHalf`)
 - As molduras **quebram naturalmente nos cruzamentos** (cantos das quadras), deixando o asfalto perpendicular passar livre — por isso é moldura por-quadra, não tira contínua
-- Elevação: topo em `SIDEWALK_TOP = 0.04` (acima do asfalto -0.015 e dos lotes -0.012), espessura `SIDEWALK_HEIGHT = 0.12` → face de meio-fio visível
+- Elevação: topo da calçada vem de `blockLayoutSettings.sidewalkHeight` (padrão 0.12 → degrau ~0.13 acima do asfalto -0.015 e dos lotes -0.012). Fundo fixo em `SIDEWALK_BOTTOM = -0.08` (abaixo do terreno -0.04 p/ não flutuar); espessura do box = `sidewalkHeight − SIDEWALK_BOTTOM`
 - Capacidade cresce sob demanda (mesmo padrão dos lotes); `count = 0` quando não cabe calçada (`sidewalkWidth ≤ 0`)
-- `receiveShadow` segue `shadowEnabled`; `castShadow = false`; `dispose()` libera `sidewalkGeometry`/`sidewalkMaterial`
+- `receiveShadow` segue `shadowEnabled`; `castShadow = false`; `dispose()` libera `sidewalkGeometry`/`sidewalkTopMaterial`/`sidewalkSideMaterial`
 
 #### Loteamento e Lotes Vazios
 
@@ -130,7 +131,8 @@ Cena nunca fica vazia: o manager sempre desenha um **loteamento** (grade de quad
 - **`rebuildLots(positions)`:** desenha um único `InstancedMesh` (`lotMesh`) de tiles de chão, 1 draw call pra todos os lotes. Cresce a capacidade sob demanda (mesmo padrão do prédio); `count = 0` quando o loteamento está cheio.
 - **Tile:** `PlaneGeometry(slotSize − 0.5)` deitado (`rotateX`), em `LOT_Y = -0.012`. O gap de 0.5 entre tiles + a borda do shader = demarcação dos lotes.
 - **Sombra:** `lotMesh.receiveShadow` segue `shadowEnabled` (prédios projetam sombra nos lotes vazios).
-- **Cor configurável:** vem de `blockLayoutSettings.lotColor`. `updateBlockLayout` aplica a cor direto em `lotMaterial.color` (material compartilhado → todos os tiles de uma vez) e **só reconstrói** as instâncias quando muda um campo de geometria (`blockSize`, `streetWidth`, `towerRatio`, `towersPerBlock`, `baseHeightCap`) — trocar só a cor não dispara rebuild.
+- **Cor configurável:** `lotColor`, `sidewalkColor` (topo) e `sidewalkSideColor` (laterais) vêm de `blockLayoutSettings`. `updateBlockLayout` aplica direto em `lotMaterial.color` / `sidewalkTopMaterial.color` / `sidewalkSideMaterial.color` (materiais compartilhados → tudo de uma vez) e **só reconstrói** as instâncias quando muda um campo de geometria (`blockSize`, `streetWidth`, `towerRatio`, `towersPerBlock`, `baseHeightCap`) — trocar só a cor não dispara rebuild.
+- **Altura da calçada configurável:** `sidewalkHeight` em `blockLayoutSettings`. `updateBlockLayout` faz um **rebuild localizado** só das tiras de calçada (`rebuildSidewalks` com os últimos params de estrada salvos: `lastRoadR`/`lastRoadBlockSpacing`/`lastRoadStreetWidth`) — não mexe nos prédios.
 - **Cleanup:** `dispose()` remove `lotMesh` e libera `lotGeometry`/`lotMaterial`.
 
 > [!note] Por que shader triplanar?
@@ -301,7 +303,8 @@ Mexa aqui quando o problema for **comportamental**:
 | Aumentar limite máximo de doações | `createDonationManager.ts` → `DONATION_LAYOUT` |
 | Alterar cor/material do asfalto | `createDonationManager.ts` → `asphaltMaterial` |
 | Alterar largura do asfalto vs. calçada | `createDonationManager.ts` → `SIDEWALK_RESERVE` |
-| Alterar calçada (cor, altura, meio-fio) | `createDonationManager.ts` → `sidewalkMaterial` / `SIDEWALK_TOP` / `SIDEWALK_HEIGHT` / `rebuildSidewalks` |
+| Alterar calçada (cor, altura via UI) | aba **geral** → seção Calçada → `blockLayoutSettings.sidewalkColor` / `sidewalkHeight` |
+| Alterar geometria/posição da calçada | `createDonationManager.ts` → `rebuildSidewalks` / `SIDEWALK_GAP` / `SIDEWALK_BOTTOM` |
 | Alterar faixa central / tracejado / cruzamentos | `createDonationManager.ts` → `dashFS` (`interHalf`) |
 | Alterar lotes vazios (cor, borda, tamanho) | `createDonationManager.ts` → `lotMaterial` / `rebuildLots` |
 | Alterar tamanho mínimo do loteamento | `createDonationManager.ts` → `MIN_LOTEAMENTO_RADIUS` |

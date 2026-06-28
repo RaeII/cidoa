@@ -181,6 +181,9 @@ Valores padrão do layout de quadras:
 | `towerRatio` | `0.12` | Fração de doações que são torres (12%) |
 | `baseHeightCap` | `0.30` | Teto de altura da base urbana (30% de maxSceneHeight) |
 | `lotColor` | `#5b5048` | Cor dos lotes vazios das quadras (editável na aba **geral** do painel) |
+| `sidewalkColor` | `#9a9da3` | Cor do topo da calçada/meio-fio (editável na aba **geral** → seção Calçada) |
+| `sidewalkSideColor` | `#55575c` | Cor das laterais da calçada (mais escura, efeito de sombra; aba **geral** → seção Calçada) |
+| `sidewalkHeight` | `0.12` | Altura do topo da calçada (degrau acima do chão), editável na aba **geral** → seção Calçada |
 
 **Funções exportadas:**
 - `createDefaultBlockLayoutSettings()`

@@ -412,12 +412,20 @@ export function createDonationManager({
   // elevada acima do chão e do asfalto. Box instanciado = 1 draw call pra todas.
   const SIDEWALK_RESERVE = 3.6;       // recuo do asfalto (rua − recuo = largura do asfalto)
   const SIDEWALK_GAP = 0.25;          // respiro de chão livre entre a quadra e a calçada
-  const SIDEWALK_HEIGHT = 0.12;       // espessura do box (gera a face de meio-fio)
-  const SIDEWALK_TOP = 0.04;          // topo acima do asfalto (-0.015) e dos lotes (-0.012)
-  const SIDEWALK_CENTER_Y = SIDEWALK_TOP - SIDEWALK_HEIGHT / 2;
+  const SIDEWALK_BOTTOM = -0.08;      // fundo do box, abaixo do terreno (-0.04) p/ não flutuar; topo vem de sidewalkHeight
   const sidewalkGeometry = new THREE.BoxGeometry(1, 1, 1);
-  const sidewalkMaterial = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(0x9a9da3),
+  // Remapeia os grupos de face: topo (+y, índice 2) → material 0; laterais + base → material 1.
+  // Assim a lateral pode ter cor mais escura (efeito de sombra) e a altura fica visível.
+  for (const group of sidewalkGeometry.groups) {
+    group.materialIndex = group.materialIndex === 2 ? 0 : 1;
+  }
+  const sidewalkTopMaterial = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(blockLayoutSettings.sidewalkColor),
+    roughness: 0.95,
+    metalness: 0.0,
+  });
+  const sidewalkSideMaterial = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(blockLayoutSettings.sidewalkSideColor),
     roughness: 0.95,
     metalness: 0.0,
   });
@@ -457,7 +465,11 @@ export function createDonationManager({
         m.dispose();
       }
       sidewalkCapacity = Math.max(64, Math.ceil(needed * 1.5));
-      m = new THREE.InstancedMesh(sidewalkGeometry, sidewalkMaterial, sidewalkCapacity);
+      m = new THREE.InstancedMesh(
+        sidewalkGeometry,
+        [sidewalkTopMaterial, sidewalkSideMaterial],
+        sidewalkCapacity,
+      );
       m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       m.castShadow = false;
       m.receiveShadow = shadowEnabled;
@@ -465,10 +477,15 @@ export function createDonationManager({
       sidewalkMesh = m;
     }
 
+    // Altura configurável: topo em sidewalkHeight, fundo fixo abaixo do terreno.
+    const swTop = currentBlockLayout.sidewalkHeight;
+    const swBoxHeight = swTop - SIDEWALK_BOTTOM;
+    const swCenterY = (swTop + SIDEWALK_BOTTOM) / 2;
+
     let idx = 0;
     const addStrip = (cx: number, cz: number, sx: number, sz: number) => {
-      sidewalkDummy.position.set(cx, SIDEWALK_CENTER_Y, cz);
-      sidewalkDummy.scale.set(sx, SIDEWALK_HEIGHT, sz);
+      sidewalkDummy.position.set(cx, swCenterY, cz);
+      sidewalkDummy.scale.set(sx, swBoxHeight, sz);
       sidewalkDummy.updateMatrix();
       m!.setMatrixAt(idx++, sidewalkDummy.matrix);
     };
@@ -1649,8 +1666,10 @@ export function createDonationManager({
       applyTextureToTop(settings);
     },
     updateBlockLayout(settings) {
-      // Cor das quadras: aplica direto no material compartilhado (todos os tiles), sem rebuild.
+      // Cores: aplicam direto nos materiais compartilhados, sem rebuild.
       lotMaterial.color.set(settings.lotColor);
+      sidewalkTopMaterial.color.set(settings.sidewalkColor);
+      sidewalkSideMaterial.color.set(settings.sidewalkSideColor);
       // Só os campos que afetam a geometria do layout exigem reconstruir as instâncias.
       const geometryChanged =
         settings.blockSize !== currentBlockLayout.blockSize ||
@@ -1658,8 +1677,15 @@ export function createDonationManager({
         settings.towerRatio !== currentBlockLayout.towerRatio ||
         settings.towersPerBlock !== currentBlockLayout.towersPerBlock ||
         settings.baseHeightCap !== currentBlockLayout.baseHeightCap;
+      // Altura da calçada só reposiciona as tiras de calçada — rebuild localizado, sem mexer nos prédios.
+      const sidewalkHeightChanged = settings.sidewalkHeight !== currentBlockLayout.sidewalkHeight;
       currentBlockLayout = { ...settings };
-      if (geometryChanged) rebuildInstances();
+      if (geometryChanged) {
+        rebuildInstances();
+      } else if (sidewalkHeightChanged && lastRoadR >= 1) {
+        const roadWidth = Math.max(1.0, lastRoadStreetWidth - SIDEWALK_RESERVE);
+        rebuildSidewalks(lastRoadR, lastRoadBlockSpacing, lastRoadStreetWidth, roadWidth);
+      }
     },
     setShadowEnabled(enabled) {
       shadowEnabled = enabled;
@@ -1921,7 +1947,8 @@ export function createDonationManager({
         sidewalkMesh = null;
       }
       sidewalkGeometry.dispose();
-      sidewalkMaterial.dispose();
+      sidewalkTopMaterial.dispose();
+      sidewalkSideMaterial.dispose();
       // Limpar lotes vazios
       if (lotMesh) {
         scene.remove(lotMesh);
