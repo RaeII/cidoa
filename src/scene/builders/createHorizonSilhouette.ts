@@ -78,21 +78,24 @@ function build(scene: THREE.Scene, initialColor: string): Bundle {
 
 export type HorizonSilhouette = {
   update: (camera: THREE.Camera) => void;
-  updateSettings: (settings: { distance: number; color: string }) => void;
+  updateSettings: (settings: { enabled: boolean; distance: number; color: string }) => void;
   dispose: () => void;
 };
 
 export function createHorizonSilhouette(
   scene: THREE.Scene,
-  initialSettings: { distance: number; color: string }
+  initialSettings: { enabled: boolean; distance: number; color: string }
 ): HorizonSilhouette {
   const bundle = build(scene, initialSettings.color);
   let previousYaw: number | null = null;
   let continuousYaw = 0;
   let currentDistance = initialSettings.distance;
+  let enabled = initialSettings.enabled;
+  bundle.mesh.visible = enabled;
 
   return {
     update(camera) {
+      if (!enabled) return;
       // Direção da câmera projetada no plano XZ
       camera.getWorldDirection(_forward);
       _forward.y = 0;
@@ -129,6 +132,8 @@ export function createHorizonSilhouette(
     },
 
     updateSettings(settings) {
+      enabled = settings.enabled;
+      bundle.mesh.visible = enabled;
       currentDistance = settings.distance;
       bundle.material.color.set(settings.color);
     },

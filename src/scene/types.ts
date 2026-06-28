@@ -70,6 +70,7 @@ export type ChunkData = {
 };
 
 export type HorizonSettings = {
+  enabled: boolean;
   color: string;
   distance: number;
   fogDensity: number;

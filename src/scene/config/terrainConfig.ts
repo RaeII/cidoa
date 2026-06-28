@@ -28,8 +28,8 @@ export const DEFAULT_TERRAIN_SETTINGS: TerrainSettings = {
   terrace: 0,
   edge: 0.3,
   wireframe: false,
-  lowColor: "#3f5f32",
-  highColor: "#aeca7b",
+  lowColor: "#364e2c",
+  highColor: "#1d2b03",
 };
 
 export function createDefaultTerrainSettings(): TerrainSettings {

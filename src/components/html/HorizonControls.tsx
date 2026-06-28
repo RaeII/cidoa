@@ -1,3 +1,4 @@
+import { CheckboxField } from "./controls/CheckboxField";
 import { ColorField } from "./controls/ColorField";
 import { PanelSection } from "./controls/PanelSection";
 import { RangeField } from "./controls/RangeField";
@@ -16,6 +17,12 @@ export function HorizonControls({ settings, onChange }: Props) {
   return (
     <>
       <PanelSection title="Silhueta do Horizonte">
+        <CheckboxField
+          label="Mostrar Silhueta"
+          checked={settings.enabled}
+          onChange={(val) => handleChange("enabled", val)}
+        />
+
         <ColorField
           label="Cor da Silhueta"
           value={settings.color}

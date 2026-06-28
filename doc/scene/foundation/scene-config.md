@@ -105,8 +105,8 @@ Valores padrão e constantes estruturais do relevo procedural (ver [[scene-types
 | `terrace` | `0` | Patamares (0 = desligado) |
 | `edge` | `0.3` | Rebaixamento da borda externa (0–1) |
 | `wireframe` | `false` | Malha em arame |
-| `lowColor` | `"#3f5f32"` | Cor dos vales (gradiente baixo) |
-| `highColor` | `"#aeca7b"` | Cor dos picos (gradiente alto) |
+| `lowColor` | `"#364e2c"` | Cor dos vales (gradiente baixo) |
+| `highColor` | `"#1d2b03"` | Cor dos picos (gradiente alto) |
 
 > [!note] `size`/`segments` viraram settings
 > Antes constantes fixas (`TERRAIN_SIZE`/`TERRAIN_SEGMENTS`, **removidas**). Agora vivem em [[scene-types#TerrainSettings]] e são editáveis em tempo real. Trocar `segments` realoca buffers + índice da malha em [[scene-builders#createTerrain.ts]].
