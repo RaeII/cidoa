@@ -91,7 +91,7 @@ Valores padrão e constantes estruturais do relevo procedural (ver [[scene-types
 |---|---|---|
 | `enabled` | `true` | Relevo começa ligado? |
 | `seed` | `4690` | Semente do ruído procedural |
-| `segments` | `128` | Resolução da malha (subdivisões por lado) |
+| `segments` | `64` | Resolução da malha (subdivisões por lado) |
 | `size` | `700` | Largura do plano em unidades world |
 | `height` | `35` | Amplitude do relevo |
 | `frequency` | `2` | Escala do ruído base |
@@ -115,8 +115,8 @@ Valores padrão e constantes estruturais do relevo procedural (ver [[scene-types
 
 | Constante | Valor | Descrição |
 |---|---|---|
-| `TERRAIN_SEGMENT_OPTIONS` | `[64, 96, 128, 192, 256]` | Opções do select de resolução (`segments`) |
-| `TERRAIN_CITY_PADDING` | `8` | Folga plana ao redor do raio da cidade |
+| `TERRAIN_SEGMENT_OPTIONS` | `[16, 24, 32, 48, 64, 96, 128, 192, 256]` | Opções do select de resolução (`segments`) |
+| `TERRAIN_CITY_PADDING` | `30` | Folga plana entre a borda do loteamento e o início do verde. Largo o bastante pra ultrapassar ~1 célula da malha (`size/segments`), senão a interpolação grosseira do relevo sangra verde sobre as quadras de borda |
 | `TERRAIN_TRANSITION` | `60` | Largura MÍNIMA do degradê cidade→colinas (cresce com a altura: `max(este, height*3)`) |
 | `TERRAIN_GROUND_Y` | `-0.04` | Nível plano do **chão único**, abaixo das ruas (−0.015) com folga. O plano cinza fica escondido no render normal (ver runtime), então não há z-fighting entre os dois |
 
@@ -180,6 +180,7 @@ Valores padrão do layout de quadras:
 | `streetWidth` | `6.0` | Largura das ruas entre quadras em unidades world |
 | `towerRatio` | `0.12` | Fração de doações que são torres (12%) |
 | `baseHeightCap` | `0.30` | Teto de altura da base urbana (30% de maxSceneHeight) |
+| `lotColor` | `#5b5048` | Cor dos lotes vazios das quadras (editável na aba **geral** do painel) |
 
 **Funções exportadas:**
 - `createDefaultBlockLayoutSettings()`

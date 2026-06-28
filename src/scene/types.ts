@@ -196,6 +196,7 @@ export type BlockLayoutSettings = {
   towerRatio: number;     // fração de doações tratadas como torres (0–1)
   towersPerBlock: number; // quantas torres por quadra (ocupa os N slots mais centrais)
   baseHeightCap: number;  // teto de altura da base urbana como fração de maxSceneHeight (0–1)
+  lotColor: string;       // cor dos lotes vazios das quadras (loteamento esperando edifício)
 };
 
 export type SceneStats = {

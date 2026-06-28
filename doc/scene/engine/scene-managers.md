@@ -93,17 +93,45 @@ O manager usa um único par de materiais para prédios e um material de asfalto 
 | `focusFacadeMaterial` | `MeshPhysicalMaterial` | Clone do facadeMaterial para o edifício em destaque (opacidade total quando o instanced mesh fica semitransparente) |
 | `focusTopMaterial` | `MeshPhysicalMaterial` | Clone do topMaterial para o edifício em destaque |
 | `asphaltMaterial` | `MeshStandardMaterial` | Cor escura (#18191c), roughness 0.92 — usado nas faixas de asfalto entre quadras |
+| `sidewalkMaterial` | `MeshStandardMaterial` | Concreto claro (#9a9da3), roughness 0.95 — calçada elevada (meio-fio) em volta das quadras |
+| `lotMaterial` | `MeshStandardMaterial` | Cor das quadras (de `blockLayoutSettings.lotColor`, padrão #5b5048), roughness 0.98 — tile de lote vazio. `onBeforeCompile` injeta borda escura (`vLotPos`) demarcando cada lote, mantendo luz + sombra |
 
 #### Rede de Estradas (Asfalto)
 
-Quando há mais de um bloco (`r > 0`), `rebuildRoads(r, blockSpacing, streetWidth)` cria faixas de `Mesh` planas que preenchem o espaço entre as quadras:
+Como o loteamento tem piso mínimo `r ≥ MIN_LOTEAMENTO_RADIUS` (= 1), há sempre mais de um bloco. `rebuildRoads(r, blockSpacing, streetWidth)` cria faixas de `Mesh` planas que preenchem o espaço entre as quadras:
 
 - **Faixas longitudinais** (correm na direção Z): posicionadas em `x = (bx + 0.5) × blockSpacing` para cada gap entre colunas de blocos
 - **Faixas transversais** (correm na direção X): posicionadas em `z = (bz + 0.5) × blockSpacing` para cada gap entre linhas de blocos
-- Largura de cada faixa = `streetWidth`; comprimento = `(2r+1) × blockSpacing + streetWidth`
+- Largura útil da pista = `streetWidth − SIDEWALK_RESERVE` (= `streetWidth − 3.6`) — asfalto estreito; o resto da rua vira calçada
+- Comprimento = `2 × r × blockSpacing + blockFootprint` — estende até a **borda externa das quadras mais externas**, pra o asfalto chegar ao final do loteamento (não para nas interseções internas)
 - Y = -0.015 (acima do ground plane em -0.03, abaixo dos prédios em 0)
 - Cache: se `r`, `blockSpacing` e `streetWidth` não mudaram, `rebuildRoads` retorna imediatamente
 - As faixas são recriadas toda vez que `rebuildInstances` muda o anel `r` ou os parâmetros de layout
+
+**Faixa central (tracejado):** cada via tem um plano de `ShaderMaterial` (`dashFS`) que desenha a linha pontilhada amarela no centro. O shader **apaga a faixa nos cruzamentos** (`distInter < interHalf`, `interHalf = roadWidth/2 + 0.15`): via centrada na origem, cruzamentos em `(k+0.5)×blockSpacing` — sem isso a faixa longitudinal e a transversal se cruzariam em X no meio do cruzamento. Uniforms novos: `roadLen`, `blockSpacing`, `interHalf`.
+
+**Calçadas (`rebuildSidewalks`):** moldura de concreto elevada **estreita** em volta de **cada quadra**, no vão entre o lote e o asfalto.
+
+- Calçada ocupa o vão entre a **borda externa dos lotes** (`blockFootprint/2 + (slotSize−0.5)/2`) e a **borda do asfalto** (`blockSpacing/2 − roadWidth/2`) → bem mais estreita que o asfalto e **nunca sobe na quadra**
+- `SIDEWALK_GAP` (0.25) = respiro de chão livre entre a borda do lote e a calçada (`innerHalf = lotEdge + SIDEWALK_GAP`); calçada continua encostando no asfalto (meio-fio)
+- 4 tiras de `BoxGeometry` por quadra num único `InstancedMesh` (`sidewalkMesh`) — N/S cobrem os cantos (largura total `2×outerHalf`), L/O ficam entre os cantos (`2×innerHalf`)
+- As molduras **quebram naturalmente nos cruzamentos** (cantos das quadras), deixando o asfalto perpendicular passar livre — por isso é moldura por-quadra, não tira contínua
+- Elevação: topo em `SIDEWALK_TOP = 0.04` (acima do asfalto -0.015 e dos lotes -0.012), espessura `SIDEWALK_HEIGHT = 0.12` → face de meio-fio visível
+- Capacidade cresce sob demanda (mesmo padrão dos lotes); `count = 0` quando não cabe calçada (`sidewalkWidth ≤ 0`)
+- `receiveShadow` segue `shadowEnabled`; `castShadow = false`; `dispose()` libera `sidewalkGeometry`/`sidewalkMaterial`
+
+#### Loteamento e Lotes Vazios
+
+Cena nunca fica vazia: o manager sempre desenha um **loteamento** (grade de quadras + asfalto + lotes demarcados), mesmo com 0 doações. Doações preenchem do centro pra fora; lotes vazios somem sob os prédios conforme a cidade cresce.
+
+- **Piso mínimo:** `MIN_LOTEAMENTO_RADIUS` (= 1) força `r ≥ 1` → grade 3×3 de quadras sempre presente. O loteamento cresce além disso quando as doações exigem mais quadras, nunca encolhe abaixo do piso.
+- **Render inicial:** `rebuildInstances()` é chamado na criação do manager — o loteamento aparece antes de qualquer doação e já define `cityHalfExtent` pro relevo abrir a zona plana no setup.
+- **Coleta de lotes:** no loop de posicionamento, cada bloco guarda `orderedSlots` (ordem usada: ocupados primeiro). Slots além de `occupiedSlots` viram lote vazio — coletados em `emptyLots` (posição world x,z).
+- **`rebuildLots(positions)`:** desenha um único `InstancedMesh` (`lotMesh`) de tiles de chão, 1 draw call pra todos os lotes. Cresce a capacidade sob demanda (mesmo padrão do prédio); `count = 0` quando o loteamento está cheio.
+- **Tile:** `PlaneGeometry(slotSize − 0.5)` deitado (`rotateX`), em `LOT_Y = -0.012`. O gap de 0.5 entre tiles + a borda do shader = demarcação dos lotes.
+- **Sombra:** `lotMesh.receiveShadow` segue `shadowEnabled` (prédios projetam sombra nos lotes vazios).
+- **Cor configurável:** vem de `blockLayoutSettings.lotColor`. `updateBlockLayout` aplica a cor direto em `lotMaterial.color` (material compartilhado → todos os tiles de uma vez) e **só reconstrói** as instâncias quando muda um campo de geometria (`blockSize`, `streetWidth`, `towerRatio`, `towersPerBlock`, `baseHeightCap`) — trocar só a cor não dispara rebuild.
+- **Cleanup:** `dispose()` remove `lotMesh` e libera `lotGeometry`/`lotMaterial`.
 
 > [!note] Por que shader triplanar?
 > Prédios dentro do mesmo `InstancedMesh` têm alturas diferentes. O shader triplanar garante que a textura de fachada seja aplicada corretamente sem distorção, independente da escala de cada instância.
@@ -118,7 +146,7 @@ Quando há mais de um bloco (`r > 0`), `rebuildRoads(r, blockSpacing, streetWidt
 addDonation(value: number): void
 addDonations(values: number[]): void
 getDonationCount(): number
-getCityRadius(): number   // meia-extensão world da cidade construída (0 quando vazia); consumido pelo relevo
+getCityRadius(): number   // meia-extensão world do loteamento (piso r=1, nunca 0); consumido pelo relevo
 
 // Configurações globais
 updateBuildingSettings(settings: BuildingSettings): void
@@ -145,7 +173,7 @@ dispose(): void
 ```
 
 > [!note] getCityRadius
-> Retorna a meia-extensão (half-extent) world da cidade construída: `r * blockSpacing + blockFootprint/2 + slotSize`; `0` quando vazia. O [[scene-runtime|runtime]] consome esse raio (`setCityRadius`) para escavar a zona plana do relevo ([[scene-builders#createTerrain.ts]]).
+> Retorna a meia-extensão (half-extent) world do loteamento: `r * blockSpacing + blockFootprint/2 + slotSize`. Com o piso `MIN_LOTEAMENTO_RADIUS`, nunca é `0` — mesmo sem doações reflete a grade 3×3. O [[scene-runtime|runtime]] consome esse raio (`setCityRadius`) para escavar a zona plana do relevo ([[scene-builders#createTerrain.ts]]).
 
 #### Foco em Edifício (Destaque Visual)
 
@@ -272,5 +300,10 @@ Mexa aqui quando o problema for **comportamental**:
 | Alterar fórmula de altura proporcional | `createDonationManager.ts` |
 | Aumentar limite máximo de doações | `createDonationManager.ts` → `DONATION_LAYOUT` |
 | Alterar cor/material do asfalto | `createDonationManager.ts` → `asphaltMaterial` |
+| Alterar largura do asfalto vs. calçada | `createDonationManager.ts` → `SIDEWALK_RESERVE` |
+| Alterar calçada (cor, altura, meio-fio) | `createDonationManager.ts` → `sidewalkMaterial` / `SIDEWALK_TOP` / `SIDEWALK_HEIGHT` / `rebuildSidewalks` |
+| Alterar faixa central / tracejado / cruzamentos | `createDonationManager.ts` → `dashFS` (`interHalf`) |
+| Alterar lotes vazios (cor, borda, tamanho) | `createDonationManager.ts` → `lotMaterial` / `rebuildLots` |
+| Alterar tamanho mínimo do loteamento | `createDonationManager.ts` → `MIN_LOTEAMENTO_RADIUS` |
 | Problema de valores padrão (altura máx, tamanho) | [[scene-config]] |
 | Fórmula matemática pequena | [[scene-utils]] |

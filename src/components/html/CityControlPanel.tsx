@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type {
+  BlockLayoutSettings,
   BuildingSettings,
   EnvironmentSettings,
   GroundSettings,
@@ -24,6 +25,7 @@ import { TextureControls } from "./TextureControls";
 import { HorizonControls } from "./HorizonControls";
 import { PanelSection } from "./controls/PanelSection";
 import { CheckboxField } from "./controls/CheckboxField";
+import { ColorField } from "./controls/ColorField";
 
 type Tab = "geral" | "texturas" | "luz" | "horizonte" | "terreno" | "tela";
 
@@ -31,6 +33,7 @@ export type CityControlPanelProps = {
   buildingSettings: BuildingSettings;
   textureSettings: TextureSettings;
   groundSettings: GroundSettings;
+  blockLayoutSettings: BlockLayoutSettings;
   terrainSettings: TerrainSettings;
   lightSettings: LightSettings;
   shadowSettings: ShadowSettings;
@@ -47,6 +50,7 @@ export type CityControlPanelProps = {
   onBuildingSettingsChange: (settings: BuildingSettings) => void;
   onTextureSettingsChange: (settings: TextureSettings) => void;
   onGroundSettingsChange: (settings: GroundSettings) => void;
+  onBlockLayoutSettingsChange: (settings: BlockLayoutSettings) => void;
   onTerrainSettingsChange: (settings: TerrainSettings) => void;
   onLightSettingsChange: (settings: LightSettings) => void;
   onShadowSettingsChange: (settings: ShadowSettings) => void;
@@ -61,6 +65,7 @@ export function CityControlPanel({
   buildingSettings,
   textureSettings,
   groundSettings,
+  blockLayoutSettings,
   terrainSettings,
   lightSettings,
   shadowSettings,
@@ -73,6 +78,7 @@ export function CityControlPanel({
   onBuildingSettingsChange,
   onTextureSettingsChange,
   onGroundSettingsChange,
+  onBlockLayoutSettingsChange,
   onTerrainSettingsChange,
   onLightSettingsChange,
   onShadowSettingsChange,
@@ -128,6 +134,19 @@ export function CityControlPanel({
               onChange={onRenderDirectionSettingsChange}
             />
             <GroundControls value={groundSettings} onChange={onGroundSettingsChange} />
+            <PanelSection
+              title="Quadras"
+              description="Cor dos lotes vazios do loteamento (quadras esperando edifício)."
+            >
+              <ColorField
+                label="Cor das quadras"
+                value={blockLayoutSettings.lotColor}
+                onChange={(lotColor) =>
+                  onBlockLayoutSettingsChange({ ...blockLayoutSettings, lotColor })
+                }
+                placeholder="#5b5048"
+              />
+            </PanelSection>
             <EnvironmentControls value={environmentSettings} onChange={onEnvironmentSettingsChange} />
           </div>
         )}

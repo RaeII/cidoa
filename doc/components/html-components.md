@@ -134,7 +134,7 @@ Componente que monta o painel completo de configuração da cena. **Escondido po
 
 | Aba | Seções |
 |---|---|
-| **Geral** | Intro, prédios, sombras, direção de renderização, chão, ambiente |
+| **Geral** | Intro, prédios, sombras, direção de renderização, chão, **quadras** (cor dos lotes vazios → [[scene-types#BlockLayoutSettings]]), ambiente |
 | **Texturas** | Configurações PBR das fachadas |
 | **Luz** | Ambient, hemisphere, directional |
 | **Horizonte** | Configurações de HDRI e skybox |
@@ -144,6 +144,8 @@ Componente que monta o painel completo de configuração da cena. **Escondido po
 Tipo da aba ativa: `"geral" | "texturas" | "luz" | "horizonte" | "terreno" | "tela"`.
 
 Props extras da aba **Tela**: `uiVisibility: UIVisibilitySettings` + `onUIVisibilityChange`. Ver [[scene-types#UIVisibilitySettings]].
+
+Props extras da aba **Geral** (seção **Quadras**): `blockLayoutSettings: BlockLayoutSettings` + `onBlockLayoutSettingsChange` — um `ColorField` edita `lotColor` (cor dos lotes vazios). Ver [[scene-types#BlockLayoutSettings]].
 
 > [!tip] Atalho
 > `Ctrl + M` abre/fecha painel. Ver [[#Atalhos de teclado]].

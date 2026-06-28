@@ -367,6 +367,7 @@ export function CitySceneEditor() {
           buildingSettings={buildingSettings}
           textureSettings={textureSettings}
           groundSettings={groundSettings}
+          blockLayoutSettings={blockLayoutSettings}
           terrainSettings={terrainSettings}
           lightSettings={lightSettings}
           shadowSettings={shadowSettings}
@@ -376,6 +377,7 @@ export function CitySceneEditor() {
           onBuildingSettingsChange={setBuildingSettings}
           onTextureSettingsChange={setTextureSettings}
           onGroundSettingsChange={setGroundSettings}
+          onBlockLayoutSettingsChange={setBlockLayoutSettings}
           onTerrainSettingsChange={setTerrainSettings}
           onLightSettingsChange={setLightSettings}
           onShadowSettingsChange={setShadowSettings}

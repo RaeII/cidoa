@@ -7,5 +7,6 @@ export function createDefaultBlockLayoutSettings(): BlockLayoutSettings {
     towerRatio: 0.12,
     towersPerBlock: 8,
     baseHeightCap: 0.70,
+    lotColor: "#383838",
   };
 }
