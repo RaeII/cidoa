@@ -123,6 +123,19 @@ export function CitySceneEditor() {
     if (!el) return;
 
     const onWheel = (event: WheelEvent) => {
+      // Painéis flutuantes (controles, customização, ajuda) ficam dentro deste
+      // container. Se a roda está sobre um overlay rolável, deixa ele rolar e
+      // não sequestra o gesto para navegar cena↔info (senão preventDefault
+      // trava a rolagem interna do painel).
+      let node = event.target instanceof HTMLElement ? event.target : null;
+      while (node && node !== el) {
+        const overflowY = getComputedStyle(node).overflowY;
+        if ((overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight) {
+          return;
+        }
+        node = node.parentElement;
+      }
+
       const viewport = el.clientHeight;
       const atScene = el.scrollTop < viewport / 2;
       if (atScene) {

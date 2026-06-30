@@ -52,7 +52,7 @@ export function TextureControls({ value, onChange }: TextureControlsProps) {
         value={value.tilingScale}
         min={0.1}
         max={10}
-        step={0.4}
+        step={0.1}
         valueLabel={value.tilingScale.toFixed(1)}
         onChange={(tilingScale) => onChange({ ...value, tilingScale })}
       />

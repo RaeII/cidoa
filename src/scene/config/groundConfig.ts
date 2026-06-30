@@ -1,7 +1,7 @@
 import type { GroundSettings } from "../types";
 
 export const DEFAULT_GROUND_SETTINGS: GroundSettings = {
-  color: "#3b3b3b",
+  color: "#292929",
   roughness: 1,
   metalness: 0.01,
   materialType: "standard",

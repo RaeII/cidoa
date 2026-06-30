@@ -193,7 +193,7 @@ export function BuildingCustomizePanel({
           </svg>
         </button>
       </div>
-      <div className="space-y-4 overflow-y-auto p-4">
+      <div className="space-y-4 overflow-y-auto overscroll-contain p-4">
         <PanelSection title="Aparência">
           <ColorField
             label="Cor do edifício"

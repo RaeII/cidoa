@@ -13,7 +13,7 @@ export const DEFAULT_TEXTURE_SETTINGS: TextureSettings = {
   enabled: true,
   normalScale: 20,
   displacementScale: 0.0,
-  tilingScale: 0.9,
+  tilingScale: 0.4,
   roughnessIntensity: 0,
   metalnessIntensity: 1.44,
   envMapIntensity: 3.5,
