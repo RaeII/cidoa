@@ -193,13 +193,22 @@ Componente que monta o painel completo de configuração da cena. **Escondido po
 
 | Aba | Seções |
 |---|---|
-| **Geral** | Intro, prédios, sombras, direção de renderização, chão, ambiente |
+| **Geral** | Intro, prédios, sombras, direção de renderização, chão, **quadras** (cor dos lotes vazios → [[scene-types#BlockLayoutSettings]]), ambiente |
 | **Texturas** | Configurações PBR das fachadas |
 | **Luz** | Ambient, hemisphere, directional |
 | **Horizonte** | Configurações de HDRI e skybox |
+| **Terreno** | Relevo procedural ao redor da cidade — ver [[#TerrainControls.tsx]] |
 | **Tela** | Checkbox por componente HTML sobreposto (log de câmera + 3 inputs de geração/posição). Liga/desliga visibilidade; preferência persistida em `localStorage` via [[scene-config#uiVisibilityConfig.ts]] |
 
+Tipo da aba ativa: `"geral" | "texturas" | "luz" | "horizonte" | "terreno" | "tela"`.
+
 Props extras da aba **Tela**: `uiVisibility: UIVisibilitySettings` + `onUIVisibilityChange`. Ver [[scene-types#UIVisibilitySettings]].
+
+Props extras da aba **Geral** (`blockLayoutSettings: BlockLayoutSettings` + `onBlockLayoutSettingsChange`):
+- seção **Quadras**: `ColorField` edita `lotColor` (cor dos lotes vazios).
+- seção **Calçada**: `ColorField` edita `sidewalkColor` (topo) + `ColorField` edita `sidewalkSideColor` (laterais, sombra) + `RangeField` edita `sidewalkHeight` (0.02–0.4) — altura do meio-fio.
+
+Ver [[scene-types#BlockLayoutSettings]].
 
 > [!tip] Atalho
 > `Ctrl + M` abre/fecha painel. Ver [[#Atalhos de teclado]].
@@ -318,6 +327,43 @@ Configurações do chão:
 
 - Cor
 - Tipo de material (`standard`, `matte`, `soft-metal`, `polished`)
+
+---
+
+### `TerrainControls.tsx`
+
+Controles do relevo procedural ao redor da cidade na aba **terreno** (ver [[scene-types#TerrainSettings]]). Dois `PanelSection`: **"Relevo"** (forma) e **"Aparência do relevo"** (seed + cores + wireframe).
+
+**Relevo (forma):**
+
+| Controle | Tipo | Descrição |
+|---|---|---|
+| `enabled` | `CheckboxField` | "Mostrar relevo" — liga/desliga |
+| `segments` | `select` | Resolução da malha (opções `TERRAIN_SEGMENT_OPTIONS`) |
+| `size` | `RangeField` | Tamanho (largura do plano) |
+| `height` | `RangeField` | Altura (amplitude do relevo) |
+| `frequency` | `RangeField` | Frequência (escala do ruído) |
+| `octaves` | `RangeField` | Octaves (camadas do fbm) |
+| `persistence` | `RangeField` | Persistência (queda de amplitude por oitava) |
+| `lacunarity` | `RangeField` | Lacunarity (ganho de frequência por oitava) |
+| `ridge` | `RangeField` | Ridge (peso das cristas) |
+| `faults` | `RangeField` | Falhas (quantidade de falhas tectônicas) |
+| `faultStrength` | `RangeField` | Força da falha |
+| `smooth` | `RangeField` | Suavização (iterações) |
+| `terrace` | `RangeField` | Terraços (patamares) |
+| `edge` | `RangeField` | Borda baixa (rebaixamento da borda externa) |
+
+**Aparência do relevo:**
+
+| Controle | Tipo | Descrição |
+|---|---|---|
+| `seed` | `RangeField` + botão | Semente do ruído + **"Nova seed"** (gera seed aleatória) |
+| `lowColor` | `ColorField` | Cor baixa (vales) |
+| `highColor` | `ColorField` | Cor alta (picos) |
+| `wireframe` | `CheckboxField` | Malha em arame |
+
+> [!note] Aba própria
+> Antes ficava na aba **geral** (logo após [[#GroundControls.tsx]]). Agora tem aba **terreno** dedicada — ver [[#CityControlPanel.tsx]].
 
 ---
 

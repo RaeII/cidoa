@@ -21,9 +21,6 @@ export const CITY_SCENE_CONFIG: CitySceneConfig = {
   sceneFogColor: "#9e9e9e",
   sceneFogDensity: 0.004,
   groundSize: 900,
-  gridDivisions: 180,
-  gridPrimaryColor: "#171d27",
-  gridSecondaryColor: "#10151d",
   cameraFov: 58,
   cameraNear: 0.1,
   initialCameraPosition: {

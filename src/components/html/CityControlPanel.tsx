@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type {
+  BlockLayoutSettings,
   BuildingSettings,
   EnvironmentSettings,
   GroundSettings,
@@ -7,6 +8,7 @@ import type {
   RenderDirectionSettings,
   SceneStats,
   ShadowSettings,
+  TerrainSettings,
   TextureSettings,
   HorizonSettings,
   UIVisibilitySettings,
@@ -14,6 +16,7 @@ import type {
 import { BuildingControls } from "./BuildingControls";
 import { EnvironmentControls } from "./EnvironmentControls";
 import { GroundControls } from "./GroundControls";
+import { TerrainControls } from "./TerrainControls";
 import { PanelIntro } from "./PanelIntro";
 import { RenderDirectionControls } from "./RenderDirectionControls";
 import { SceneLightControls } from "./SceneLightControls";
@@ -22,13 +25,17 @@ import { TextureControls } from "./TextureControls";
 import { HorizonControls } from "./HorizonControls";
 import { PanelSection } from "./controls/PanelSection";
 import { CheckboxField } from "./controls/CheckboxField";
+import { ColorField } from "./controls/ColorField";
+import { RangeField } from "./controls/RangeField";
 
-type Tab = "geral" | "texturas" | "luz" | "horizonte" | "tela";
+type Tab = "geral" | "texturas" | "luz" | "horizonte" | "terreno" | "tela";
 
 export type CityControlPanelProps = {
   buildingSettings: BuildingSettings;
   textureSettings: TextureSettings;
   groundSettings: GroundSettings;
+  blockLayoutSettings: BlockLayoutSettings;
+  terrainSettings: TerrainSettings;
   lightSettings: LightSettings;
   shadowSettings: ShadowSettings;
   renderDirectionSettings: RenderDirectionSettings;
@@ -44,6 +51,8 @@ export type CityControlPanelProps = {
   onBuildingSettingsChange: (settings: BuildingSettings) => void;
   onTextureSettingsChange: (settings: TextureSettings) => void;
   onGroundSettingsChange: (settings: GroundSettings) => void;
+  onBlockLayoutSettingsChange: (settings: BlockLayoutSettings) => void;
+  onTerrainSettingsChange: (settings: TerrainSettings) => void;
   onLightSettingsChange: (settings: LightSettings) => void;
   onShadowSettingsChange: (settings: ShadowSettings) => void;
   onRenderDirectionSettingsChange: (settings: RenderDirectionSettings) => void;
@@ -57,6 +66,8 @@ export function CityControlPanel({
   buildingSettings,
   textureSettings,
   groundSettings,
+  blockLayoutSettings,
+  terrainSettings,
   lightSettings,
   shadowSettings,
   renderDirectionSettings,
@@ -68,6 +79,8 @@ export function CityControlPanel({
   onBuildingSettingsChange,
   onTextureSettingsChange,
   onGroundSettingsChange,
+  onBlockLayoutSettingsChange,
+  onTerrainSettingsChange,
   onLightSettingsChange,
   onShadowSettingsChange,
   onRenderDirectionSettingsChange,
@@ -81,7 +94,7 @@ export function CityControlPanel({
   return (
     <div className="absolute right-0 top-0 z-20 flex h-screen w-full max-w-[360px] flex-col border-l border-white/10 bg-black/55 text-white shadow-2xl backdrop-blur-md">
       <div className="flex items-stretch border-b border-white/10">
-        {(["geral", "texturas", "luz", "horizonte", "tela"] as Tab[]).map((tab) => (
+        {(["geral", "texturas", "luz", "horizonte", "terreno", "tela"] as Tab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -111,7 +124,7 @@ export function CityControlPanel({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {activeTab === "geral" && (
           <div className="space-y-6 pb-8 pt-2">
             <PanelIntro sceneStats={sceneStats} solarIntensity={lightMetrics.solarIntensity} />
@@ -122,6 +135,51 @@ export function CityControlPanel({
               onChange={onRenderDirectionSettingsChange}
             />
             <GroundControls value={groundSettings} onChange={onGroundSettingsChange} />
+            <PanelSection
+              title="Quadras"
+              description="Cor dos lotes vazios do loteamento (quadras esperando edifício)."
+            >
+              <ColorField
+                label="Cor das quadras"
+                value={blockLayoutSettings.lotColor}
+                onChange={(lotColor) =>
+                  onBlockLayoutSettingsChange({ ...blockLayoutSettings, lotColor })
+                }
+                placeholder="#5b5048"
+              />
+            </PanelSection>
+            <PanelSection
+              title="Calçada"
+              description="Meio-fio elevado em volta das quadras."
+            >
+              <ColorField
+                label="Cor da calçada (topo)"
+                value={blockLayoutSettings.sidewalkColor}
+                onChange={(sidewalkColor) =>
+                  onBlockLayoutSettingsChange({ ...blockLayoutSettings, sidewalkColor })
+                }
+                placeholder="#9a9da3"
+              />
+              <ColorField
+                label="Cor da lateral (sombra)"
+                value={blockLayoutSettings.sidewalkSideColor}
+                onChange={(sidewalkSideColor) =>
+                  onBlockLayoutSettingsChange({ ...blockLayoutSettings, sidewalkSideColor })
+                }
+                placeholder="#55575c"
+              />
+              <RangeField
+                label="Altura da calçada"
+                value={blockLayoutSettings.sidewalkHeight}
+                min={0.02}
+                max={0.4}
+                step={0.01}
+                valueLabel={blockLayoutSettings.sidewalkHeight.toFixed(2)}
+                onChange={(sidewalkHeight) =>
+                  onBlockLayoutSettingsChange({ ...blockLayoutSettings, sidewalkHeight })
+                }
+              />
+            </PanelSection>
             <EnvironmentControls value={environmentSettings} onChange={onEnvironmentSettingsChange} />
           </div>
         )}
@@ -145,6 +203,12 @@ export function CityControlPanel({
         {activeTab === "horizonte" && (
           <div className="space-y-6 pb-8 pt-2">
             <HorizonControls settings={horizonSettings} onChange={onHorizonSettingsChange} />
+          </div>
+        )}
+
+        {activeTab === "terreno" && (
+          <div className="space-y-6 pb-8 pt-2">
+            <TerrainControls value={terrainSettings} onChange={onTerrainSettingsChange} />
           </div>
         )}
 

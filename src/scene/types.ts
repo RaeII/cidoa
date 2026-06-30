@@ -70,6 +70,7 @@ export type ChunkData = {
 };
 
 export type HorizonSettings = {
+  enabled: boolean;
   color: string;
   distance: number;
   fogDensity: number;
@@ -137,6 +138,30 @@ export type GroundSettings = {
   materialType: GroundMaterialType;
 };
 
+// Relevo procedural ao redor da cidade (partes sem edifício).
+// Mesmos controles do protótipo terrain.md (fbm + falhas + terraços + suavização),
+// mais enabled e gradiente de cor low→high.
+export type TerrainSettings = {
+  enabled: boolean;
+  seed: number;
+  segments: number;      // resolução da malha (vértices por lado = segments + 1)
+  size: number;          // largura total da malha (unidades de cena)
+  height: number;        // amplitude do relevo (unidades de cena)
+  frequency: number;     // escala do ruído (mais alto = colinas menores)
+  octaves: number;       // camadas de detalhe fbm
+  persistence: number;   // queda de amplitude por octave
+  lacunarity: number;    // ganho de frequência por octave
+  ridge: number;         // peso das cristas (ridge noise)
+  faults: number;        // número de linhas de falha tectônica
+  faultStrength: number; // força do degrau de cada falha
+  smooth: number;        // iterações de suavização do heightfield
+  terrace: number;       // número de patamares (0 = sem terraço)
+  edge: number;          // rebaixamento da borda externa (0–1)
+  wireframe: boolean;    // exibe malha em arame
+  lowColor: string;      // cor das partes baixas
+  highColor: string;     // cor dos picos
+};
+
 export type LightSettings = {
   ambientColor: string;
   ambientExtraIntensity: number;
@@ -171,6 +196,10 @@ export type BlockLayoutSettings = {
   towerRatio: number;     // fração de doações tratadas como torres (0–1)
   towersPerBlock: number; // quantas torres por quadra (ocupa os N slots mais centrais)
   baseHeightCap: number;  // teto de altura da base urbana como fração de maxSceneHeight (0–1)
+  lotColor: string;       // cor dos lotes vazios das quadras (loteamento esperando edifício)
+  sidewalkColor: string;  // cor do topo da calçada (meio-fio em volta das quadras)
+  sidewalkSideColor: string; // cor das faces laterais da calçada (mais escura = efeito de sombra/altura)
+  sidewalkHeight: number; // altura do topo da calçada (degrau acima do chão), em unidades de mundo
 };
 
 export type SceneStats = {
@@ -229,9 +258,6 @@ export type CitySceneConfig = {
   sceneFogColor: string;
   sceneFogDensity: number;
   groundSize: number;
-  gridDivisions: number;
-  gridPrimaryColor: string;
-  gridSecondaryColor: string;
   cameraFov: number;
   cameraNear: number;
   initialCameraPosition: {

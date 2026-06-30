@@ -1,9 +1,9 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { createGridHelper } from "../builders/createGridHelper";
 import { createGroundPlane } from "../builders/createGroundPlane";
 import { createHorizonSilhouette } from "../builders/createHorizonSilhouette";
 import { createLightingRig } from "../builders/createLightingRig";
+import { createTerrain } from "../builders/createTerrain";
 import { loadEnvironment } from "../builders/loadEnvironment";
 import { CITY_SCENE_CONFIG, DEFAULT_SCENE_STATS } from "../config/citySceneConfig";
 import { createDonationManager } from "../managers/createDonationManager";
@@ -19,6 +19,7 @@ import type {
   HorizonSettings,
   SceneStats,
   ShadowSettings,
+  TerrainSettings,
   TextureSettings,
 } from "../types";
 import { runDevAssertionsOnce } from "../utils/devAssertions";
@@ -28,6 +29,7 @@ type CitySceneRuntimeOptions = {
   buildingSettings: BuildingSettings;
   textureSettings: TextureSettings;
   groundSettings: GroundSettings;
+  terrainSettings: TerrainSettings;
   lightSettings: LightSettings;
   shadowSettings: ShadowSettings;
   renderDirectionSettings: RenderDirectionSettings;
@@ -44,6 +46,7 @@ export type CitySceneRuntime = {
   updateBuildingSettings: (settings: BuildingSettings) => void;
   updateTextureSettings: (settings: TextureSettings) => void;
   updateGroundSettings: (settings: GroundSettings) => void;
+  updateTerrainSettings: (settings: TerrainSettings) => void;
   updateLightSettings: (settings: LightSettings) => void;
   updateShadowSettings: (settings: ShadowSettings) => void;
   updateRenderDirectionSettings: (settings: RenderDirectionSettings, forceRefresh?: boolean) => void;
@@ -63,6 +66,7 @@ export function createCitySceneRuntime({
   buildingSettings,
   textureSettings,
   groundSettings,
+  terrainSettings,
   lightSettings,
   shadowSettings,
   horizonSettings,
@@ -148,7 +152,10 @@ export function createCitySceneRuntime({
 
   const lightingRig = createLightingRig(scene, lightSettings);
   const groundPlane = createGroundPlane(scene, groundSettings, shadowSettings.enabled);
-  const gridHelper = createGridHelper(scene);
+  const terrainRig = createTerrain(scene, terrainSettings, groundSettings.color, shadowSettings.enabled);
+  // Relevo é o chão visível quando ligado; esconde o plano cinza no render normal pra não brigar
+  // (z-fighting) com o terreno. Reaparece só na captura do envMap (piso neutro do reflexo).
+  groundPlane.mesh.visible = !terrainSettings.enabled;
   const horizonSilhouette = createHorizonSilhouette(scene, horizonSettings);
 
   const buildingCubeTarget = new THREE.WebGLCubeRenderTarget(256, {
@@ -168,6 +175,13 @@ export function createCitySceneRuntime({
   });
   donationManager.setEnvMap(buildingCubeTarget.texture);
   donationManager.setShadowEnabled(shadowSettings.enabled);
+  terrainRig.setCityRadius(donationManager.getCityRadius());
+
+  // Reabre a zona plana do relevo quando a cidade cresce. Cheap: setCityRadius
+  // só recalcula a malha quando o raio muda (ganho de anel).
+  const syncTerrainToCity = () => {
+    terrainRig.setCityRadius(donationManager.getCityRadius());
+  };
 
   // Hover: raycast com throttle por RAF para não impactar o loop de animação
   let pendingHoverEvent: MouseEvent | null = null;
@@ -274,7 +288,6 @@ export function createCitySceneRuntime({
     }
 
     groundPlane.setPosition(camera.position.x, camera.position.z);
-    gridHelper.setPosition(camera.position.x, camera.position.z);
     horizonSilhouette.update(camera);
     environmentUpdater.updatePosition(camera.position.x, camera.position.y, camera.position.z);
 
@@ -312,7 +325,15 @@ export function createCitySceneRuntime({
     if (cubeFrameCounter === 0) {
       buildingCubeCamera.position.copy(camera.position);
       donationManager.beginEnvCapture();
+      // Relevo verde fora da captura (edifícios não devem refletir o terreno); plano cinza
+      // dentro da captura (piso neutro do reflexo, já que ele fica escondido no render normal).
+      const terrainWasVisible = terrainRig.mesh.visible;
+      const groundWasVisible = groundPlane.mesh.visible;
+      terrainRig.mesh.visible = false;
+      groundPlane.mesh.visible = true;
       buildingCubeCamera.update(renderer, scene);
+      terrainRig.mesh.visible = terrainWasVisible;
+      groundPlane.mesh.visible = groundWasVisible;
       donationManager.endEnvCapture();
     }
 
@@ -341,6 +362,14 @@ export function createCitySceneRuntime({
     },
     updateGroundSettings(settings) {
       groundPlane.update(settings);
+      // Zona plana do relevo = chão da cidade: mantém a mesma cor.
+      terrainRig.setGroundColor(settings.color);
+    },
+    updateTerrainSettings(settings) {
+      // update() reaproveita o cityRadius retido pelo rig — relevo e zona plana juntos.
+      terrainRig.update(settings);
+      // Plano cinza só aparece quando o relevo está desligado (senão briga com o terreno).
+      groundPlane.mesh.visible = !settings.enabled;
     },
     updateLightSettings(settings) {
       lightingRig.update(settings);
@@ -348,6 +377,7 @@ export function createCitySceneRuntime({
     updateShadowSettings(settings) {
       renderer.shadowMap.enabled = settings.enabled;
       groundPlane.setShadowEnabled(settings.enabled);
+      terrainRig.setShadowEnabled(settings.enabled);
       donationManager.setShadowEnabled(settings.enabled);
     },
     // Sem chunks direcionais — mantido na API para compatibilidade com hook/canvas
@@ -361,6 +391,7 @@ export function createCitySceneRuntime({
     },
     updateBlockLayout(settings) {
       donationManager.updateBlockLayout(settings);
+      syncTerrainToCity();
     },
     updateEnvironmentSettings(settings) {
       environmentUpdater.updateSettings(settings);
@@ -368,10 +399,12 @@ export function createCitySceneRuntime({
 
     addDonation(value) {
       donationManager.addDonation(value);
+      syncTerrainToCity();
       emitStatsPatch({ buildings: donationManager.getDonationCount() });
     },
     addDonations(values) {
       donationManager.addDonations(values);
+      syncTerrainToCity();
       emitStatsPatch({ buildings: donationManager.getDonationCount() });
     },
     updateDonationCustomization(donationId, customization) {
@@ -430,7 +463,7 @@ export function createCitySceneRuntime({
       controls.dispose();
       donationManager.dispose();
       groundPlane.dispose();
-      gridHelper.dispose();
+      terrainRig.dispose();
       horizonSilhouette.dispose();
       lightingRig.dispose();
       isDisposed = true;

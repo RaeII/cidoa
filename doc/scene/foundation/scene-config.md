@@ -81,6 +81,51 @@ Valores padrão do chão:
 
 ---
 
+### `terrainConfig.ts`
+
+Valores padrão e constantes estruturais do relevo procedural (ver [[scene-types#TerrainSettings]]). Construído em [[scene-builders#createTerrain.ts]].
+
+**Defaults (`createDefaultTerrainSettings()`):**
+
+| Campo | Padrão | Descrição |
+|---|---|---|
+| `enabled` | `true` | Relevo começa ligado? |
+| `seed` | `4690` | Semente do ruído procedural |
+| `segments` | `64` | Resolução da malha (subdivisões por lado) |
+| `size` | `700` | Largura do plano em unidades world |
+| `height` | `35` | Amplitude do relevo |
+| `frequency` | `2` | Escala do ruído base |
+| `octaves` | `6` | Camadas de detalhe do fbm |
+| `persistence` | `0.5` | Queda de amplitude por oitava |
+| `lacunarity` | `2.2` | Ganho de frequência por oitava |
+| `ridge` | `1.0` | Peso das cristas (ridge noise) |
+| `faults` | `4` | Quantidade de falhas tectônicas |
+| `faultStrength` | `4` | Força de cada falha |
+| `smooth` | `4` | Iterações de suavização do heightfield |
+| `terrace` | `0` | Patamares (0 = desligado) |
+| `edge` | `0.3` | Rebaixamento da borda externa (0–1) |
+| `wireframe` | `false` | Malha em arame |
+| `lowColor` | `"#364e2c"` | Cor dos vales (gradiente baixo) |
+| `highColor` | `"#1d2b03"` | Cor dos picos (gradiente alto) |
+
+> [!note] `size`/`segments` viraram settings
+> Antes constantes fixas (`TERRAIN_SIZE`/`TERRAIN_SEGMENTS`, **removidas**). Agora vivem em [[scene-types#TerrainSettings]] e são editáveis em tempo real. Trocar `segments` realoca buffers + índice da malha em [[scene-builders#createTerrain.ts]].
+
+**Constantes estruturais:**
+
+| Constante | Valor | Descrição |
+|---|---|---|
+| `TERRAIN_SEGMENT_OPTIONS` | `[16, 24, 32, 48, 64, 96, 128, 192, 256]` | Opções do select de resolução (`segments`) |
+| `TERRAIN_CITY_PADDING` | `30` | Folga plana entre a borda do loteamento e o início do verde. Largo o bastante pra ultrapassar ~1 célula da malha (`size/segments`), senão a interpolação grosseira do relevo sangra verde sobre as quadras de borda |
+| `TERRAIN_TRANSITION` | `60` | Largura MÍNIMA do degradê cidade→colinas (cresce com a altura: `max(este, height*3)`) |
+| `TERRAIN_GROUND_Y` | `-0.04` | Nível plano do **chão único**, abaixo das ruas (−0.015) com folga. O plano cinza fica escondido no render normal (ver runtime), então não há z-fighting entre os dois |
+
+**Funções exportadas:**
+- `DEFAULT_TERRAIN_SETTINGS`
+- `createDefaultTerrainSettings()`
+
+---
+
 ### `lightConfig.ts`
 
 Valores padrão das luzes:
@@ -135,6 +180,10 @@ Valores padrão do layout de quadras:
 | `streetWidth` | `6.0` | Largura das ruas entre quadras em unidades world |
 | `towerRatio` | `0.12` | Fração de doações que são torres (12%) |
 | `baseHeightCap` | `0.30` | Teto de altura da base urbana (30% de maxSceneHeight) |
+| `lotColor` | `#5b5048` | Cor dos lotes vazios das quadras (editável na aba **geral** do painel) |
+| `sidewalkColor` | `#9a9da3` | Cor do topo da calçada/meio-fio (editável na aba **geral** → seção Calçada) |
+| `sidewalkSideColor` | `#55575c` | Cor das laterais da calçada (mais escura, efeito de sombra; aba **geral** → seção Calçada) |
+| `sidewalkHeight` | `0.12` | Altura do topo da calçada (degrau acima do chão), editável na aba **geral** → seção Calçada |
 
 **Funções exportadas:**
 - `createDefaultBlockLayoutSettings()`
@@ -199,7 +248,6 @@ Configuração mais global da cena. Define a estrutura completa de `CitySceneCon
 | `sceneFogColor` | Cor do fog |
 | `sceneFogDensity` | Densidade do FogExp2 |
 | `groundSize` | Tamanho do plano do chão |
-| `gridDivisions` | Divisões do GridHelper |
 | `cameraFov` | Campo de visão da câmera |
 | `cameraNear` | Near plane |
 | `initialCameraPosition` | Posição inicial `{x, y, z}` |

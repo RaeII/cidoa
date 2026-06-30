@@ -30,12 +30,16 @@ type BlockLayoutSettings = {
   streetWidth: number;  // espaço entre quadras em unidades world (ex: 6.0)
   towerRatio: number;   // fração de doações tratadas como torres (0–1, padrão: 0.12)
   baseHeightCap: number;// teto de altura da base urbana como fração de maxSceneHeight (0–1, padrão: 0.30)
+  lotColor: string;     // cor dos lotes vazios das quadras (loteamento esperando edifício)
+  sidewalkColor: string; // cor do topo da calçada (meio-fio em volta das quadras)
+  sidewalkSideColor: string; // cor das laterais da calçada (mais escura = efeito de sombra/altura)
+  sidewalkHeight: number;// altura do topo da calçada (degrau acima do chão), em unidades world
 }
 ```
 
 O sistema de 2 camadas separa as doações em **torres** (top N%) que usam o range completo de altura e **base urbana** (restante) com teto reduzido. Isso cria contraste abrupto entre vizinhos — o efeito visual de uma cidade real.
 
-Editável em tempo real via inputs no overlay superior. Padrões em `blockLayoutConfig.ts`.
+Editável em tempo real via inputs no overlay superior. `lotColor` (seção **Quadras**), `sidewalkColor`, `sidewalkSideColor` e `sidewalkHeight` (seção **Calçada**) são editáveis pela aba **geral** do [[html-components#CityControlPanel.tsx|CityControlPanel]]. Padrões em `blockLayoutConfig.ts`.
 
 ---
 
@@ -121,6 +125,37 @@ type GroundMaterialType = "standard" | "matte" | "soft-metal" | "polished"
 | `matte` | Chão fosco (roughness alto) |
 | `soft-metal` | Metal suave |
 | `polished` | Chão polido (roughness baixo) |
+
+---
+
+### `TerrainSettings`
+
+Relevo procedural ao redor da cidade (partes sem edifício). Estrutura = ruído fbm + cristas + falhas + terraços; cor = gradiente low→high por altura. Mesmos controles do protótipo `terrain.md`.
+
+```typescript
+type TerrainSettings = {
+  enabled: boolean;
+  seed: number;          // semente do ruído procedural
+  segments: number;      // resolução da malha (subdivisões por lado)
+  size: number;          // largura do plano em unidades world
+  height: number;        // amplitude do relevo
+  frequency: number;     // escala do ruído base
+  octaves: number;       // camadas de detalhe do fbm
+  persistence: number;   // queda de amplitude por oitava
+  lacunarity: number;    // ganho de frequência por oitava
+  ridge: number;         // peso das cristas (ridge noise)
+  faults: number;        // quantidade de falhas tectônicas
+  faultStrength: number; // força de cada falha
+  smooth: number;        // iterações de suavização do heightfield
+  terrace: number;       // patamares (0 = desligado)
+  edge: number;          // rebaixamento da borda externa (0–1)
+  wireframe: boolean;    // malha em arame
+  lowColor: string;      // cor dos vales (gradiente baixo)
+  highColor: string;     // cor dos picos (gradiente alto)
+}
+```
+
+Estrutura via **fbm** (`persistence`/`lacunarity`), **ridge noise**, **falhas tectônicas** (`faults`/`faultStrength`), **terraços** e **suavização** (`smooth`); borda externa rebaixada por `edge`; cor por **gradiente** `lowColor`→`highColor` interpolado pela altura. `segments`/`size` controlam resolução e largura da malha (antes eram constantes fixas). Construído em [[scene-builders#createTerrain.ts]], defaults em [[scene-config#terrainConfig.ts]]. Editável pela aba **terreno** do painel.
 
 ---
 

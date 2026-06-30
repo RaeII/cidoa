@@ -98,6 +98,11 @@ export const DONATION_LAYOUT = {
   slotSize: 3.2,          // Distância entre centros de cada prédio
 } as const;
 
+// Piso mínimo do loteamento, em anéis de quadras. r=1 → grade 3×3 de quadras
+// sempre presente (asfalto + lotes vazios), mesmo com 0 doações, pra cena nunca
+// ficar vazia. Cresce além disso conforme as doações exigem mais quadras.
+const MIN_LOTEAMENTO_RADIUS = 1;
+
 // Precomputa posições em espiral quadrada a partir do centro.
 // Índice 0 = centro (doação mais alta), depois cresce em anéis.
 // Cada anel adiciona 8*(ring) posições a distância crescente do centro.
@@ -175,6 +180,7 @@ export type DonationManager = {
   beginEnvCapture: () => void;
   endEnvCapture: () => void;
   getDonationCount: () => number;
+  getCityRadius: () => number;
   getHoveredValue: (event: MouseEvent, camera: THREE.Camera, domElement: HTMLElement) => number | null;
   getClickedDonationId: (event: MouseEvent, camera: THREE.Camera, domElement: HTMLElement) => number | null;
   getDonationWorldPosition: (donationId: number) => THREE.Vector3 | null;
@@ -401,6 +407,105 @@ export function createDonationManager({
     metalness: 0.01,
   });
 
+  // --- Calçadas (concreto elevado, meio-fio em volta de cada quadra) ---
+  // Calçada estreita no vão entre a borda dos lotes e a borda do asfalto,
+  // elevada acima do chão e do asfalto. Box instanciado = 1 draw call pra todas.
+  const SIDEWALK_RESERVE = 3.6;       // recuo do asfalto (rua − recuo = largura do asfalto)
+  const SIDEWALK_GAP = 0.25;          // respiro de chão livre entre a quadra e a calçada
+  const SIDEWALK_BOTTOM = -0.08;      // fundo do box, abaixo do terreno (-0.04) p/ não flutuar; topo vem de sidewalkHeight
+  const sidewalkGeometry = new THREE.BoxGeometry(1, 1, 1);
+  // Remapeia os grupos de face: topo (+y, índice 2) → material 0; laterais + base → material 1.
+  // Assim a lateral pode ter cor mais escura (efeito de sombra) e a altura fica visível.
+  for (const group of sidewalkGeometry.groups) {
+    group.materialIndex = group.materialIndex === 2 ? 0 : 1;
+  }
+  const sidewalkTopMaterial = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(blockLayoutSettings.sidewalkColor),
+    roughness: 0.95,
+    metalness: 0.0,
+  });
+  const sidewalkSideMaterial = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(blockLayoutSettings.sidewalkSideColor),
+    roughness: 0.95,
+    metalness: 0.0,
+  });
+  const sidewalkDummy = new THREE.Object3D();
+  let sidewalkCapacity = 0;
+  let sidewalkMesh: THREE.InstancedMesh | null = null;
+
+  // Desenha uma moldura de calçada (4 tiras) em volta de cada quadra. As molduras
+  // quebram naturalmente nos cruzamentos (cantos das quadras), deixando o asfalto
+  // perpendicular passar livre. Tira N/S cobre os cantos; L/O fica entre eles.
+  const rebuildSidewalks = (
+    r: number,
+    blockSpacing: number,
+    streetWidth: number,
+    roadWidth: number,
+  ) => {
+    const blockFootprint = blockSpacing - streetWidth;
+    // Calçada estreita: ocupa o vão entre a borda externa dos lotes e a borda do
+    // asfalto, com SIDEWALK_GAP de chão livre antes da quadra (respiro). Não sobe na
+    // quadra nem invade o asfalto. innerHalf = lote + respiro, outerHalf = asfalto.
+    const lotEdge = blockFootprint / 2 + (DONATION_LAYOUT.slotSize - 0.5) / 2;    // borda externa dos lotes
+    const innerHalf = lotEdge + SIDEWALK_GAP;                                     // após o respiro
+    const outerHalf = blockSpacing / 2 - roadWidth / 2;                          // borda do asfalto
+    const sidewalkWidth = outerHalf - innerHalf;
+    if (sidewalkWidth <= 0.01 || blockFootprint <= 0) {
+      if (sidewalkMesh) sidewalkMesh.count = 0;
+      return;
+    }
+    const midHalf = (innerHalf + outerHalf) / 2;
+    const blocksPerSide = 2 * r + 1;
+    const needed = blocksPerSide * blocksPerSide * 4; // 4 tiras por quadra
+
+    let m = sidewalkMesh;
+    if (!m || needed > sidewalkCapacity) {
+      if (m) {
+        scene.remove(m);
+        m.dispose();
+      }
+      sidewalkCapacity = Math.max(64, Math.ceil(needed * 1.5));
+      m = new THREE.InstancedMesh(
+        sidewalkGeometry,
+        [sidewalkTopMaterial, sidewalkSideMaterial],
+        sidewalkCapacity,
+      );
+      m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      m.castShadow = false;
+      m.receiveShadow = shadowEnabled;
+      scene.add(m);
+      sidewalkMesh = m;
+    }
+
+    // Altura configurável: topo em sidewalkHeight, fundo fixo abaixo do terreno.
+    const swTop = currentBlockLayout.sidewalkHeight;
+    const swBoxHeight = swTop - SIDEWALK_BOTTOM;
+    const swCenterY = (swTop + SIDEWALK_BOTTOM) / 2;
+
+    let idx = 0;
+    const addStrip = (cx: number, cz: number, sx: number, sz: number) => {
+      sidewalkDummy.position.set(cx, swCenterY, cz);
+      sidewalkDummy.scale.set(sx, swBoxHeight, sz);
+      sidewalkDummy.updateMatrix();
+      m!.setMatrixAt(idx++, sidewalkDummy.matrix);
+    };
+
+    for (let bx = -r; bx <= r; bx++) {
+      for (let bz = -r; bz <= r; bz++) {
+        const cx = bx * blockSpacing;
+        const cz = bz * blockSpacing;
+        addStrip(cx, cz + midHalf, 2 * outerHalf, sidewalkWidth); // norte
+        addStrip(cx, cz - midHalf, 2 * outerHalf, sidewalkWidth); // sul
+        addStrip(cx + midHalf, cz, sidewalkWidth, 2 * innerHalf); // leste
+        addStrip(cx - midHalf, cz, sidewalkWidth, 2 * innerHalf); // oeste
+      }
+    }
+
+    m.count = idx;
+    m.instanceMatrix.needsUpdate = true;
+    m.computeBoundingSphere();
+  };
+
   // Shader de linhas pontilhadas centrais (divisória de pistas)
   const dashVS = /* glsl */`
     varying vec2 vUv;
@@ -411,8 +516,11 @@ export function createDonationManager({
   `;
   const dashFS = /* glsl */`
     varying vec2 vUv;
-    uniform float dashRepeat; // ciclos de tracejado ao longo da via
-    uniform float dashAlong;  // 1.0 = traceja em UV.y (longitudinal), 0.0 = UV.x (transversal)
+    uniform float dashRepeat;   // ciclos de tracejado ao longo da via
+    uniform float dashAlong;    // 1.0 = traceja em UV.y (longitudinal), 0.0 = UV.x (transversal)
+    uniform float roadLen;      // comprimento físico da via (unidades de mundo)
+    uniform float blockSpacing; // distância entre cruzamentos
+    uniform float interHalf;    // meia-largura do cruzamento (zona sem faixa)
 
     void main() {
       float dashCoord  = mix(vUv.x, vUv.y, dashAlong);
@@ -420,6 +528,14 @@ export function createDonationManager({
 
       // Faixa central estreita (10% da largura da pista)
       if (abs(stripCoord - 0.5) > 0.01) discard;
+
+      // Apaga a faixa nos cruzamentos pra ela não conflitar com a faixa da via
+      // perpendicular. Via centrada na origem; cruzamentos em (k+0.5)*blockSpacing.
+      // distInter = distância física ao cruzamento mais próximo.
+      float along = (dashCoord - 0.5) * roadLen;
+      float u = along / blockSpacing - 0.5;
+      float distInter = abs(fract(u + 0.5) - 0.5) * blockSpacing;
+      if (distInter < interHalf) discard;
 
       // Padrão de tracejado: 15% cheio, 85% vazio
       if (fract(dashCoord * dashRepeat) > 0.15) discard;
@@ -450,17 +566,24 @@ export function createDonationManager({
     }
     roadMeshes.length = 0;
 
-    if (r === 0) return; // bloco único, sem estradas entre blocos
+    if (r === 0) {
+      if (sidewalkMesh) sidewalkMesh.count = 0;
+      return; // bloco único, sem estradas entre blocos
+    }
 
-    // Largura da pista: streetWidth menos o avanço máximo dos prédios de borda.
-    // Prédio de borda tem centro em streetWidth/2 da pista e largura de até 2.6u,
-    // portanto retiramos 3.0u de cada lado do total => roadWidth = streetWidth - 3.0.
-    const roadWidth = Math.max(1.0, streetWidth - 3.0);
+    // Asfalto: rua menos a reserva das calçadas (`SIDEWALK_RESERVE`) — fica mais
+    // estreito que antes. A calçada (`rebuildSidewalks`) preenche o resto da rua.
+    const roadWidth = Math.max(1.0, streetWidth - SIDEWALK_RESERVE);
+    // Meia-largura do cruzamento onde a faixa central é apagada (= largura da via
+    // perpendicular, + folga) — evita o conflito de faixas no cruzamento.
+    const interHalf = roadWidth / 2 + 0.15;
 
-    // Comprimento: da primeira à última interseção transversal, com um pequeno stub
-    // de streetWidth em cada ponta para indicar que a via pode continuar.
-    // (2r-1)*blockSpacing cobre de (-r+0.5) até (r-0.5) entre blocos; +2*streetWidth = stubs.
-    const totalLen = (2 * r - 1) * blockSpacing + 2 * streetWidth;
+    // Comprimento: estende até a borda EXTERNA das quadras mais externas, pra o asfalto
+    // chegar ao final do loteamento (não parar nas interseções internas).
+    // blockFootprint = blockSpacing - streetWidth; meia-extensão = r*blockSpacing + blockFootprint/2,
+    // então o comprimento total = 2*(r*blockSpacing + blockFootprint/2) = 2*r*blockSpacing + blockFootprint.
+    const blockFootprint = blockSpacing - streetWidth;
+    const totalLen = 2 * r * blockSpacing + blockFootprint;
     const roadY = -0.015;
     const dashY = roadY + 0.005;
     const dashSpacing = 1.0; // espaçamento físico (unidades) de cada ciclo traço+vão
@@ -482,8 +605,11 @@ export function createDonationManager({
         vertexShader: dashVS,
         fragmentShader: dashFS,
         uniforms: {
-          dashRepeat: { value: roadLen / dashSpacing },
-          dashAlong:  { value: dashAlong },
+          dashRepeat:   { value: roadLen / dashSpacing },
+          dashAlong:    { value: dashAlong },
+          roadLen:      { value: roadLen },
+          blockSpacing: { value: blockSpacing },
+          interHalf:    { value: interHalf },
         },
         transparent: true,
         depthWrite: false,
@@ -504,10 +630,90 @@ export function createDonationManager({
     for (let bz = -r; bz < r; bz++) {
       addRoad(totalLen, roadWidth, 0, (bz + 0.5) * blockSpacing, 0.0);
     }
+
+    // Calçadas elevadas em volta de cada quadra, preenchendo o resto da rua
+    rebuildSidewalks(r, blockSpacing, streetWidth, roadWidth);
+  };
+
+  // --- Lotes vazios (loteamento esperando edifícios) ---
+  // Cada slot de quadra sem edifício recebe um tile de chão demarcado. Junto com o
+  // asfalto, isso deixa a cena povoada mesmo com poucas/zero doações e some sob os
+  // prédios conforme o loteamento é preenchido. InstancedMesh = 1 draw call pra todos.
+  const LOT_TILE_SIZE = DONATION_LAYOUT.slotSize - 0.5; // gap entre tiles = divisão dos lotes
+  const LOT_HALF = (LOT_TILE_SIZE / 2).toFixed(4);
+  const LOT_Y = -0.012; // acima da zona plana do relevo (-0.04) e do plano cinza (-0.03)
+  const lotGeometry = new THREE.PlaneGeometry(LOT_TILE_SIZE, LOT_TILE_SIZE);
+  lotGeometry.rotateX(-Math.PI / 2); // deita o plano no chão; matriz de instância só translada
+  const lotMaterial = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(blockLayoutSettings.lotColor), // cor configurável das quadras
+    roughness: 0.98,
+    metalness: 0.0,
+  });
+  // Borda escura demarcando cada lote (estilo planta de loteamento). Injetada no
+  // MeshStandardMaterial pra manter iluminação + recebimento de sombra do pipeline.
+  lotMaterial.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader.replace(
+      "#include <common>",
+      `#include <common>
+      varying vec2 vLotPos;`,
+    );
+    shader.vertexShader = shader.vertexShader.replace(
+      "#include <begin_vertex>",
+      `#include <begin_vertex>
+      vLotPos = position.xz;`,
+    );
+    shader.fragmentShader = shader.fragmentShader.replace(
+      "#include <common>",
+      `#include <common>
+      varying vec2 vLotPos;`,
+    );
+    shader.fragmentShader = shader.fragmentShader.replace(
+      "#include <color_fragment>",
+      `#include <color_fragment>
+      vec2 lotA = abs(vLotPos) / ${LOT_HALF};
+      float lotBorder = smoothstep(0.80, 0.96, max(lotA.x, lotA.y));
+      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.42, lotBorder);`,
+    );
+  };
+
+  const lotDummy = new THREE.Object3D();
+  let lotCapacity = 0;
+  let lotMesh: THREE.InstancedMesh | null = null;
+
+  const rebuildLots = (positions: ReadonlyArray<[number, number]>) => {
+    const needed = positions.length;
+    if (needed === 0) {
+      if (lotMesh) lotMesh.count = 0;
+      return;
+    }
+    let m = lotMesh;
+    if (!m || needed > lotCapacity) {
+      if (m) {
+        scene.remove(m);
+        m.dispose();
+      }
+      lotCapacity = Math.max(64, Math.ceil(needed * 1.5));
+      m = new THREE.InstancedMesh(lotGeometry, lotMaterial, lotCapacity);
+      m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      m.receiveShadow = shadowEnabled;
+      m.castShadow = false;
+      scene.add(m);
+      lotMesh = m;
+    }
+    for (let i = 0; i < needed; i++) {
+      lotDummy.position.set(positions[i][0], LOT_Y, positions[i][1]);
+      lotDummy.updateMatrix();
+      m.setMatrixAt(i, lotDummy.matrix);
+    }
+    m.count = needed;
+    m.instanceMatrix.needsUpdate = true;
+    m.computeBoundingSphere();
   };
 
   const donations: DonationEntry[] = [];
   let nextId = 0;
+  // Meio-extensão (mundo) da cidade construída. Consumido pelo relevo para abrir a zona plana.
+  let cityHalfExtent = 0;
   let currentTextureSettings = { ...textureSettings };
   let currentBlockLayout = { ...blockLayoutSettings };
   const dummy = new THREE.Object3D();
@@ -724,15 +930,9 @@ export function createDonationManager({
 
   const rebuildInstances = () => {
     donationTransforms.clear();
-    if (donations.length === 0) {
-      mesh.count = 0;
-      mesh.instanceMatrix.needsUpdate = true;
-      instanceToValue.length = 0;
-      instanceToDonationId.length = 0;
-      donationIdToInstanceIndex.clear();
-      syncCustomShapes();
-      return;
-    }
+    instanceToValue.length = 0;
+    instanceToDonationId.length = 0;
+    donationIdToInstanceIndex.clear();
 
     const { blockSize, streetWidth, towerRatio, towersPerBlock, baseHeightCap } = currentBlockLayout;
     const tpb = Math.max(1, Math.min(towersPerBlock, blockSize * blockSize));
@@ -741,21 +941,28 @@ export function createDonationManager({
     const blockSpacing = blockFootprint + streetWidth;
     const slotOffsets = getBlockSlotOffsets(blockSize);
 
-    const maxValue = donations[0].value;
-    const towerCount = Math.max(1, Math.round(donations.length * towerRatio));
+    // Loteamento: a cena sempre mostra a grade de quadras (asfalto + lotes vazios)
+    // mesmo com poucas/zero doações. Com 0 doação, só renderiza o loteamento vazio.
+    const hasDonations = donations.length > 0;
+    const maxValue = hasDonations ? donations[0].value : 1;
+    const towerCount = hasDonations ? Math.max(1, Math.round(donations.length * towerRatio)) : 0;
     const baseMaxHeight = DONATION_LAYOUT.maxSceneHeight * baseHeightCap;
 
     // Mínimo de quadras necessárias para acomodar torres e base
     const towerBlockCount = Math.ceil(towerCount / tpb);
     const baseSlotsPerBlock = buildingsPerBlock - tpb;
-    const baseCount = donations.length - towerCount;
+    const baseCount = Math.max(0, donations.length - towerCount);
     const baseBlocksNeeded = baseSlotsPerBlock > 0 ? Math.ceil(baseCount / baseSlotsPerBlock) : 0;
     const totalBlocksMin = Math.max(towerBlockCount, baseBlocksNeeded);
 
     // Expandir para o próximo anel completo: (2R+1)² garante formato quadrado.
     // Sem isso, blocos parcialmente preenchidos no anel externo criam assimetria visual.
-    let r = 0;
+    // Piso MIN_LOTEAMENTO_RADIUS: o loteamento nunca encolhe abaixo desse raio, então
+    // a cena já começa povoada e cresce conforme as doações exigem mais quadras.
+    let r = MIN_LOTEAMENTO_RADIUS;
     while ((2 * r + 1) ** 2 < totalBlocksMin) r++;
+    // Meio-extensão da cidade: centro do bloco mais externo + meia quadra + folga de um slot.
+    cityHalfExtent = r * blockSpacing + blockFootprint / 2 + DONATION_LAYOUT.slotSize;
     const expandedBlocks = (2 * r + 1) ** 2;
     const innerBlocks = r === 0 ? 0 : (2 * (r - 1) + 1) ** 2;
     const outerRingSize = expandedBlocks - innerBlocks; // 8R posições no anel externo
@@ -827,11 +1034,10 @@ export function createDonationManager({
     }
 
     // --- Posicionar instâncias ---
-    instanceToValue.length = 0;
-    instanceToDonationId.length = 0;
-    donationIdToInstanceIndex.clear();
     let instanceIdx = 0;
     const maxBaseValue = donations[towerCount]?.value ?? maxValue;
+    // Slots de quadra sem edifício → coletados como lotes demarcados (loteamento esperando).
+    const emptyLots: Array<[number, number]> = [];
 
     for (let b = 0; b < blocks.length; b++) {
       const block = blocks[b];
@@ -839,18 +1045,22 @@ export function createDonationManager({
       const blockCenterX = bx * blockSpacing;
       const blockCenterZ = bz * blockSpacing;
 
-      const isComplete = block.towers.length + block.base.length === buildingsPerBlock;
+      const occupiedSlots = block.towers.length + block.base.length;
+      const isComplete = occupiedSlots === buildingsPerBlock;
 
       // Bloco completo: slots aleatórios (embaralhados).
       // Bloco incompleto: torres no slot mais próximo ao centro da cena para evitar
-      // prédios isolados flutuando longe dos vizinhos.
+      // prédios isolados flutuando longe dos vizinhos. orderedSlots guarda a ordem
+      // usada (ocupados primeiro) pra saber quais sobram como lote vazio.
       let towerSlots: Array<[number, number]>;
       let shuffledBaseSlots: Array<[number, number]>;
+      let orderedSlots: ReadonlyArray<[number, number]>;
 
       if (isComplete) {
         const allSlots = shuffleBlockSlots(slotOffsets, b);
         towerSlots = allSlots.slice(0, block.towers.length);
         shuffledBaseSlots = allSlots.slice(block.towers.length);
+        orderedSlots = allSlots;
       } else {
         const slotsByOriginDist = [...slotOffsets].sort(
           (a, bSlot) =>
@@ -859,6 +1069,7 @@ export function createDonationManager({
         );
         towerSlots = slotsByOriginDist.slice(0, block.towers.length);
         shuffledBaseSlots = slotsByOriginDist.slice(block.towers.length);
+        orderedSlots = slotsByOriginDist;
       }
 
       // Torres nos slots mais próximos da origem da cena
@@ -903,6 +1114,14 @@ export function createDonationManager({
           instanceIdx++;
         }
       }
+
+      // Lotes vazios deste bloco: slots além dos ocupados viram tiles demarcados.
+      for (let s = occupiedSlots; s < orderedSlots.length; s++) {
+        emptyLots.push([
+          blockCenterX + orderedSlots[s][0],
+          blockCenterZ + orderedSlots[s][1],
+        ]);
+      }
     }
 
     mesh.count = instanceIdx;
@@ -922,6 +1141,7 @@ export function createDonationManager({
     syncHolograms();
 
     rebuildRoads(r, blockSpacing, streetWidth);
+    rebuildLots(emptyLots);
   };
 
   const tmpColor = new THREE.Color();
@@ -1394,6 +1614,11 @@ export function createDonationManager({
     }
   }
 
+  // Render inicial: mostra o loteamento vazio (quadras + asfalto + lotes) já na
+  // criação, antes de qualquer doação. Também define cityHalfExtent pro relevo abrir
+  // a zona plana logo no setup do runtime.
+  rebuildInstances();
+
   return {
     addDonation(value) {
       donations.push({ id: nextId++, value });
@@ -1441,8 +1666,26 @@ export function createDonationManager({
       applyTextureToTop(settings);
     },
     updateBlockLayout(settings) {
+      // Cores: aplicam direto nos materiais compartilhados, sem rebuild.
+      lotMaterial.color.set(settings.lotColor);
+      sidewalkTopMaterial.color.set(settings.sidewalkColor);
+      sidewalkSideMaterial.color.set(settings.sidewalkSideColor);
+      // Só os campos que afetam a geometria do layout exigem reconstruir as instâncias.
+      const geometryChanged =
+        settings.blockSize !== currentBlockLayout.blockSize ||
+        settings.streetWidth !== currentBlockLayout.streetWidth ||
+        settings.towerRatio !== currentBlockLayout.towerRatio ||
+        settings.towersPerBlock !== currentBlockLayout.towersPerBlock ||
+        settings.baseHeightCap !== currentBlockLayout.baseHeightCap;
+      // Altura da calçada só reposiciona as tiras de calçada — rebuild localizado, sem mexer nos prédios.
+      const sidewalkHeightChanged = settings.sidewalkHeight !== currentBlockLayout.sidewalkHeight;
       currentBlockLayout = { ...settings };
-      rebuildInstances();
+      if (geometryChanged) {
+        rebuildInstances();
+      } else if (sidewalkHeightChanged && lastRoadR >= 1) {
+        const roadWidth = Math.max(1.0, lastRoadStreetWidth - SIDEWALK_RESERVE);
+        rebuildSidewalks(lastRoadR, lastRoadBlockSpacing, lastRoadStreetWidth, roadWidth);
+      }
     },
     setShadowEnabled(enabled) {
       shadowEnabled = enabled;
@@ -1450,6 +1693,8 @@ export function createDonationManager({
       for (const m of roadMeshes) {
         m.receiveShadow = enabled;
       }
+      if (lotMesh) lotMesh.receiveShadow = enabled;
+      if (sidewalkMesh) sidewalkMesh.receiveShadow = enabled;
       for (const [, entry] of rooftopMeshes) {
         setRooftopMeshShadowEnabled(entry.group, enabled);
       }
@@ -1488,6 +1733,9 @@ export function createDonationManager({
     },
     getDonationCount() {
       return donations.length;
+    },
+    getCityRadius() {
+      return cityHalfExtent;
     },
     getHoveredValue(event: MouseEvent, camera: THREE.Camera, domElement: HTMLElement) {
       const rect = domElement.getBoundingClientRect();
@@ -1692,6 +1940,23 @@ export function createDonationManager({
       }
       roadMeshes.length = 0;
       asphaltMaterial.dispose();
+      // Limpar calçadas
+      if (sidewalkMesh) {
+        scene.remove(sidewalkMesh);
+        sidewalkMesh.dispose();
+        sidewalkMesh = null;
+      }
+      sidewalkGeometry.dispose();
+      sidewalkTopMaterial.dispose();
+      sidewalkSideMaterial.dispose();
+      // Limpar lotes vazios
+      if (lotMesh) {
+        scene.remove(lotMesh);
+        lotMesh.dispose();
+        lotMesh = null;
+      }
+      lotGeometry.dispose();
+      lotMaterial.dispose();
     },
   };
 }

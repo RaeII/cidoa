@@ -45,7 +45,7 @@ createCitySceneRuntime({mount, settings...})
   ├── loadEnvironment()       ← builder de HDRI
   ├── createLightingRig()     ← builder de luzes
   ├── createGroundPlane()     ← builder do chão
-  ├── createGridHelper()      ← builder do grid
+  ├── createTerrain()         ← builder do relevo (terrainRig)
   ├── WebGLCubeRenderTarget   ← envMap dinâmico dos prédios
   ├── CubeCamera              ← captura reflexos em tempo real
   └── createDonationManager() ← manager principal (recebe blockLayoutSettings)
@@ -57,11 +57,10 @@ A cada frame:
 
 1. `controls.update()` — aplica damping do OrbitControls
 2. `groundPlane.setPosition(camera.x, camera.z)` — chão segue a câmera
-3. `gridHelper.setPosition(camera.x, camera.z)` — grid segue a câmera
-4. `environmentUpdater.updatePosition(...)` — skybox segue a câmera
-5. **Métricas de FPS** — acumula e suaviza a cada 0.5s
-6. **Resolução dinâmica** — ajusta `renderScale` para atingir `targetFps`
-7. **CubeCamera** — atualiza a cada 4 frames para capturar reflexos
+3. `environmentUpdater.updatePosition(...)` — skybox segue a câmera
+4. **Métricas de FPS** — acumula e suaviza a cada 0.5s
+5. **Resolução dinâmica** — ajusta `renderScale` para atingir `targetFps`
+6. **CubeCamera** — atualiza a cada 4 frames para capturar reflexos
 8. `renderer.render(scene, camera)` — renderiza o frame
 
 #### Resolução Dinâmica
@@ -89,6 +88,7 @@ type CitySceneRuntime = {
   updateHorizonSettings(settings: HorizonSettings): void
   updateEnvironmentSettings(settings: EnvironmentSettings): void
   updateBlockLayout(settings: BlockLayoutSettings): void
+  updateTerrainSettings(settings: TerrainSettings): void
 
   // Doações
   addDonation(value: number): void
@@ -112,6 +112,11 @@ type CitySceneRuntime = {
 > [!note] updateRenderDirectionSettings
 > Mantido na API para compatibilidade com o hook e o canvas, mas sem implementação ativa (sem chunks direcionais no runtime atual).
 
+> [!note] Relevo (terrainRig)
+> O runtime possui o `terrainRig` ([[scene-builders#createTerrain.ts]]) — opção `terrainSettings` + método `updateTerrainSettings`. Sincroniza a zona plana via `syncTerrainToCity`, que chama `terrainRig.setCityRadius(donationManager.getCityRadius())` após `addDonation`/`addDonations`/`updateBlockLayout` (toda mudança de doação ou layout de quadra). Cor do chão sincronizada via `terrainRig.setGroundColor` em `updateGroundSettings`. `setShadowEnabled` é propagado ao relevo. Ver [[scene-managers|getCityRadius]].
+>
+> **Visibilidade do chão (anti-z-fighting):** com o relevo ligado, o `groundPlane` é o chão **escondido** (`groundPlane.mesh.visible = !terrainSettings.enabled`) — senão ele e o terreno (duas superfícies cinza quase paralelas) piscam conforme a câmera mexe. Na **captura do cube envMap** a relação inverte por um frame: o relevo é ocultado (`terrainRig.mesh.visible = false`, prédios **não refletem** o verde) e o plano cinza é exibido (piso neutro do reflexo); ambos são restaurados depois.
+
 ### 4. Dispose
 
 Limpeza completa ao desmontar:
@@ -126,7 +131,7 @@ dispose()
   ├── controls.dispose()
   ├── donationManager.dispose()            ← inclui acessórios de topo, signs, focus mesh
   ├── groundPlane.dispose()
-  ├── gridHelper.dispose()
+  ├── terrainRig.dispose()                 ← relevo procedural
   ├── horizonSilhouette.dispose()
   ├── lightingRig.dispose()
   ├── environmentUpdater.dispose()
