@@ -423,10 +423,14 @@ export function createCitySceneRuntime({
       // Aplicar transparência nos outros prédios
       donationManager.setFocusedDonation(donationId);
 
-      // Calcular posição da câmera: offset lateral e acima do edifício
-      const offset = new THREE.Vector3(6, 5, 6);
+      // Aproximar a partir da direção atual da câmera (só dolly, sem girar em volta)
       const targetPos = worldPos.clone();
-      const endCamPos = targetPos.clone().add(offset);
+      const FOCUS_DISTANCE = 12;
+      const dir = camera.position.clone().sub(targetPos);
+      // Fallback se câmera coincidir com o alvo (direção degenerada)
+      if (dir.lengthSq() < 1e-6) dir.set(6, 5, 6);
+      dir.normalize();
+      const endCamPos = targetPos.clone().add(dir.multiplyScalar(FOCUS_DISTANCE));
 
       cameraAnim = {
         startPos: camera.position.clone(),
