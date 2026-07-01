@@ -530,10 +530,10 @@ export function CitySceneEditor() {
         <button
           onClick={scrollToInfo}
           className="absolute bottom-[4.75rem] right-4 z-30 flex items-center gap-2 rounded-full border border-white/10 bg-black/60 px-4 py-2.5 text-sm font-medium text-[#e9e6df]/80 shadow-lg backdrop-blur-md transition-colors hover:border-[#c9a86a]/50 hover:text-[#c9a86a]"
-          title="Para onde vai sua doação"
-          aria-label="Ver para onde vão as doações"
+          title="Para onde vai o seu investimento"
+          aria-label="Ver para onde vai o seu investimento"
         >
-          <span className="hidden sm:inline">Para onde vai sua doação</span>
+          <span className="hidden sm:inline">Para onde vai o seu investimento</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path
               d="M12 5v14M5 12l7 7 7-7"

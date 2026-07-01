@@ -105,7 +105,7 @@ export function DonationInfoSection({ totalRaised, donationCount }: DonationInfo
         <p className="text-xs font-medium uppercase tracking-[0.25em] text-[#a8814a]">
           ONGs parceiras
         </p>
-        <h3 className="mt-4 text-2xl font-medium">Para onde vai sua doação</h3>
+        <h3 className="mt-4 text-2xl font-medium">Para onde vai o seu investimento</h3>
 
         <ul className="mt-8 border-t border-black/10">
           {PARTNER_NGOS.map((ngo) => (

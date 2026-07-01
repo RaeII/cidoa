@@ -158,8 +158,8 @@ updateBlockLayout(settings: BlockLayoutSettings): void
 // EnvMap e sombras
 setEnvMap(texture: THREE.Texture): void
 setShadowEnabled(enabled: boolean): void
-beginEnvCapture(): void   // oculta prédios durante captura do CubeCamera
-endEnvCapture(): void     // reexibe prédios após captura
+beginEnvCapture(): void   // zera envMapIntensity (anti-feedback) + oculta lotes vazios durante captura do CubeCamera
+endEnvCapture(): void     // restaura envMapIntensity + reexibe lotes após captura
 
 // Interação
 getHoveredValue(event, camera, domElement): number | null       // raycast hover → valor da doação

@@ -79,7 +79,7 @@ Conteúdo:
 Tema **branco** (combina com doação). Paleta 3 cores — fundo `#ffffff`, texto `#14161c`, apoio dourado `#a8814a`. Sem gradiente, sem efeito especial; hairlines = preto baixa opacidade. Foto tem fundo branco → funde com a seção.
 
 > [!note] Navegação cena ↔ info
-> `CitySceneEditor` envolve cena + seção num container `overflow-y-auto`. Botão **"Para onde vai sua doação"** (canto inferior direito da cena) rola pra baixo. Na info, botão **"Voltar para a cena"** (fixo) sobe. Roda do mouse: na cena, scroll-down bloqueado (só botão — evita sair sem querer); na info, scroll-up no topo volta pra cena automático e suave.
+> `CitySceneEditor` envolve cena + seção num container `overflow-y-auto`. Botão **"Para onde vai o seu investimento"** (canto inferior direito da cena) rola pra baixo. Na info, botão **"Voltar para a cena"** (fixo) sobe. Roda do mouse: na cena, scroll-down bloqueado (só botão — evita sair sem querer); na info, scroll-up no topo volta pra cena automático e suave.
 
 > [!warning] Dados fictícios
 > ONGs em `PARTNER_NGOS` são ilustrativas — parcerias reais ainda não firmadas. Trocar a lista quando houver parceiros.

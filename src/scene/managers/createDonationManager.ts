@@ -1723,6 +1723,8 @@ export function createDonationManager({
     beginEnvCapture() {
       for (const mat of getAllFacadeMaterials()) mat.envMapIntensity = 0;
       for (const mat of getAllTopMaterials()) mat.envMapIntensity = 0;
+      // Lotes vazios (loteamento) fora da captura → edifícios não refletem lotes.
+      if (lotMesh) lotMesh.visible = false;
     },
     endEnvCapture() {
       for (const mat of getAllFacadeMaterials()) {
@@ -1731,6 +1733,7 @@ export function createDonationManager({
       for (const mat of getAllTopMaterials()) {
         mat.envMapIntensity = currentTextureSettings.top.envMapIntensity;
       }
+      if (lotMesh) lotMesh.visible = true;
     },
     getDonationCount() {
       return donations.length;
