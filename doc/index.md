@@ -59,6 +59,7 @@ src/
       DonationInfoSection.tsx
       PaymentSimulation.tsx
       BuildingCustomizePanel.tsx
+      BuildingInfoModal.tsx
       BuildingControls.tsx
       TextureControls.tsx
       GroundControls.tsx
@@ -168,6 +169,7 @@ E entrega para:
 
 - [[three-components|CitySceneCanvas]] — monta a cena 3D
 - [[html-components|CityControlPanel]] — mostra os controles (abre pelo ícone de engrenagem, que some quando o painel está aberto; fecha pelo "X" na barra de abas)
+- [[html-components#BuildingInfoModal.tsx|BuildingInfoModal]] — modal que abre ao clicar no edifício: imagem, nome e URL do dono (estático) + valor doado (dinâmico). Botão "Personalizar" abre o painel abaixo
 - [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]] — personalização do edifício selecionado com cor, formato, letreiro, topo, LED e holograma (upload de imagem ou GIF), sem controles de textura
 - [[html-components#BuildingHeightInput.tsx|BuildingHeightInput]] — input de doação e layout
 - [[html-components#DonationInfoSection.tsx|DonationInfoSection]] — seção abaixo da cena com totais e ONGs parceiras
@@ -205,7 +207,9 @@ flowchart TD
     C --> D[CitySceneCanvas]
     C --> E[CityControlPanel]
     C --> F[BuildingHeightInput]
+    C --> IM[BuildingInfoModal]
     C --> P[BuildingCustomizePanel]
+    IM --> |Personalizar| P
     D --> G[useCityScene]
     G --> H[createCitySceneRuntime]
     H --> I[createLightingRig]
@@ -234,7 +238,8 @@ flowchart TD
 ```mermaid
 flowchart LR
     Click[Clique no edifício] --> Focus[focusOnDonation]
-    Focus --> Panel[BuildingCustomizePanel]
+    Focus --> Info[BuildingInfoModal]
+    Info --> |botão Personalizar| Panel[BuildingCustomizePanel]
     Panel --> |cor| UC[updateCustomization]
     Panel --> |formato| UC
     Panel --> |letreiro| UC
@@ -269,6 +274,7 @@ flowchart LR
 | Alterar seção de info/ONGs abaixo da cena         | [[html-components#DonationInfoSection.tsx]]       |
 | Mostrar/esconder componentes HTML da tela        | aba **Tela** → [[scene-config#uiVisibilityConfig.ts]] |
 | Alterar a UI de personalização de edifício       | [[html-components#BuildingCustomizePanel.tsx]]    |
+| Alterar o modal de info do edifício (dono/valor) | [[html-components#BuildingInfoModal.tsx]]         |
 | Alterar o canvas ou a ligação com o hook         | [[three-components]]                              |
 | Alterar fórmulas de luz, clamp ou material       | [[scene-utils]]                                   |
 | Alterar criação do chão, grid, luzes ou ambiente | [[scene-builders]]                                |

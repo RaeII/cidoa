@@ -22,6 +22,7 @@ export type CitySceneCanvasHandle = {
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
   focusOnDonation: (donationId: number) => void;
   clearFocus: () => void;
+  getDonationValue: (donationId: number) => number | null;
 };
 
 export type CitySceneCanvasProps = {
@@ -67,7 +68,7 @@ export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvas
   ) {
     const mountRef = useRef<HTMLDivElement | null>(null);
 
-    const { addDonation, addDonations, updateDonationCustomization, focusOnDonation, clearFocus } = useCityScene({
+    const { addDonation, addDonations, updateDonationCustomization, focusOnDonation, clearFocus, getDonationValue } = useCityScene({
       mountRef,
       buildingSettings,
       textureSettings,
@@ -96,8 +97,8 @@ export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvas
 
     useImperativeHandle(
       ref,
-      () => ({ addDonation, addDonations, updateDonationCustomization, focusOnDonation, clearFocus }),
-      [addDonation, addDonations, updateDonationCustomization, focusOnDonation, clearFocus],
+      () => ({ addDonation, addDonations, updateDonationCustomization, focusOnDonation, clearFocus, getDonationValue }),
+      [addDonation, addDonations, updateDonationCustomization, focusOnDonation, clearFocus, getDonationValue],
     );
 
     return <div ref={mountRef} className="h-full w-full cursor-grab active:cursor-grabbing" />;

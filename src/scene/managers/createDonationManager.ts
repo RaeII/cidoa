@@ -184,6 +184,7 @@ export type DonationManager = {
   getHoveredValue: (event: MouseEvent, camera: THREE.Camera, domElement: HTMLElement) => number | null;
   getClickedDonationId: (event: MouseEvent, camera: THREE.Camera, domElement: HTMLElement) => number | null;
   getDonationWorldPosition: (donationId: number) => THREE.Vector3 | null;
+  getDonationValue: (donationId: number) => number | null;
   setFocusedDonation: (donationId: number | null) => void;
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
   tickAnimations: (elapsedSeconds: number, deltaMs: number) => void;
@@ -1775,6 +1776,9 @@ export function createDonationManager({
       // Retornar o topo do prédio (pos.y é o centro, scale.y é a altura)
       pos.y += tmpTransformScale.y / 2;
       return pos;
+    },
+    getDonationValue(donationId: number) {
+      return donations.find((d) => d.id === donationId)?.value ?? null;
     },
     setFocusedDonation(donationId: number | null) {
       applyFocus(donationId);

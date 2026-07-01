@@ -164,7 +164,7 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 | **LED de arestas** | Botões | Liga/desliga o LED nas arestas verticais e topo |
 
 > [!note] Fluxo de personalização
-> Clique no edifício → `onBuildingClick(donationId)` → `CitySceneEditor` chama `focusOnDonation` (destaque visual) e abre `BuildingCustomizePanel` → cada mudança chama `updateCustomization` que monta o `BuildingCustomization` completo e envia ao runtime via `canvasRef.updateDonationCustomization(id, {...})`.
+> Clique no edifício → `onBuildingClick(donationId)` → `CitySceneEditor` chama `focusOnDonation` (zoom + destaque) e abre o [[#`BuildingInfoModal.tsx`|BuildingInfoModal]] (dono + valor). Botão **Personalizar** do modal abre `BuildingCustomizePanel` (mantém o foco) → cada mudança chama `updateCustomization` que monta o `BuildingCustomization` completo e envia ao runtime via `canvasRef.updateDonationCustomization(id, {...})`.
 
 > [!tip] Onde cada personalização é aplicada
 > - **Cor** → `InstancedBufferAttribute` (instanceColor) quando o prédio fica no `InstancedMesh`; clone de material quando o prédio vira mesh próprio
@@ -176,6 +176,38 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 
 > [!warning] Limitação: acessórios em formatos customizados
 > Letreiros e LEDs possuem tratamento específico para formatos customizados, mas acessórios de topo como holofotes, heliponto, jardim e helicóptero ainda usam a **caixa lógica** (`width/depth/height` da bounding box). Em formatos com topo não retangular, acessórios de topo podem ocupar a área da bounding box, não exatamente a silhueta da cobertura.
+
+---
+
+### `BuildingInfoModal.tsx`
+
+Modal central que abre ao clicar num edifício. Mostra dono + valor doado. Dado do dono = **estático** (mock); só o valor é dinâmico (vem do edifício clicado via `canvasRef.getDonationValue(id)`).
+
+**Dado estático (`BUILDING_OWNER`):**
+
+| Campo | Valor |
+|---|---|
+| `image` | `/claudio.png` (em `public/`) |
+| `name` | `Claudio` |
+| `url` | `claudio.dev` |
+
+**Props:**
+
+| Prop | Tipo | Descrição |
+|---|---|---|
+| `value` | `number` | Valor doado do edifício clicado — formatado em BRL (`Intl` pt-BR) |
+| `onCustomize` | `() => void` | Abre `BuildingCustomizePanel` mantendo o zoom |
+| `onClose` | `() => void` | Fecha o modal e limpa o foco (`clearFocus`) |
+
+**Comportamento:**
+- Sem dim/blur — overlay `pointer-events-none`, cena fica **visível e interativa** atrás. Card à direita (desktop) ou bottom-sheet (mobile). Imagem ocupa o topo do card (sem gradiente); infos embaixo
+- Nome + URL (ícone de link, estilo de link) abaixo da imagem; valor grande, **sem label**
+- "X" de fechar sobre a imagem aparece só no **hover** do card (desktop, `group-hover`); sempre visível no mobile (`max-sm`, sem mouse). Também fecha por `Esc`. **Não** fecha por clique no fundo (backdrop pass-through)
+- Personalizar = **ícone de lápis** → `onCustomize` (fecha modal, abre painel de personalização, foco mantido)
+- `Esc` fecha o modal antes de fechar painel de customização/controle (ver [[#Atalhos de teclado]])
+
+> [!note] Estado no `CitySceneEditor`
+> `infoBuilding: { id, value } | null` controla o modal. Clique seta `infoBuilding` e zera `selectedBuildingId` (modal e painel de customização são mutuamente exclusivos). `Personalizar` faz o caminho inverso: zera `infoBuilding`, seta `selectedBuildingId`.
 
 ---
 

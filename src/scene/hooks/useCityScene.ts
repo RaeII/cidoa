@@ -171,5 +171,9 @@ export function useCityScene({
     runtimeRef.current?.clearFocus();
   }, []);
 
-  return { addDonation, addDonations, updateDonationCustomization, focusOnDonation, clearFocus };
+  const getDonationValue = useCallback((donationId: number) => {
+    return runtimeRef.current?.getDonationValue(donationId) ?? null;
+  }, []);
+
+  return { addDonation, addDonations, updateDonationCustomization, focusOnDonation, clearFocus, getDonationValue };
 }

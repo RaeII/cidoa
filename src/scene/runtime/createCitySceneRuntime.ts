@@ -58,6 +58,7 @@ export type CitySceneRuntime = {
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
   focusOnDonation: (donationId: number) => void;
   clearFocus: () => void;
+  getDonationValue: (donationId: number) => number | null;
   dispose: () => void;
 };
 
@@ -409,6 +410,9 @@ export function createCitySceneRuntime({
     },
     updateDonationCustomization(donationId, customization) {
       donationManager.updateDonationCustomization(donationId, customization);
+    },
+    getDonationValue(donationId) {
+      return donationManager.getDonationValue(donationId);
     },
     focusOnDonation(donationId) {
       const worldPos = donationManager.getDonationWorldPosition(donationId);

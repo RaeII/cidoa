@@ -3,6 +3,7 @@ import { CitySceneCanvas, type CitySceneCanvasHandle } from "./three/CitySceneCa
 import { BuildingHeightInput } from "./html/BuildingHeightInput";
 import { PaymentSimulation, type Payment } from "./html/PaymentSimulation";
 import { BuildingCustomizePanel } from "./html/BuildingCustomizePanel";
+import { BuildingInfoModal } from "./html/BuildingInfoModal";
 import { CityControlPanel } from "./html/CityControlPanel";
 import { DonationInfoSection } from "./html/DonationInfoSection";
 import { KeyboardShortcutsHelp } from "./html/KeyboardShortcutsHelp";
@@ -90,6 +91,8 @@ export function CitySceneEditor() {
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [uiVisibility, setUIVisibility] = useState(loadUIVisibilitySettings);
   const [selectedBuildingId, setSelectedBuildingId] = useState<number | null>(null);
+  // Edifício clicado: mostra modal de info (dono + valor). `null` = fechado.
+  const [infoBuilding, setInfoBuilding] = useState<{ id: number; value: number } | null>(null);
   const [buildingCustomizations, setBuildingCustomizations] = useState<Map<number, BuildingCustomization>>(
     createInitialBuildingCustomizations,
   );
@@ -192,13 +195,29 @@ export function CitySceneEditor() {
     (donationId: number | null) => {
       if (donationId !== null) {
         canvasRef.current?.focusOnDonation(donationId);
+        const value = canvasRef.current?.getDonationValue(donationId) ?? 0;
+        // Clique abre o modal de info; personalização sai do fluxo do clique.
+        setSelectedBuildingId(null);
+        setInfoBuilding({ id: donationId, value });
       } else {
         canvasRef.current?.clearFocus();
+        setSelectedBuildingId(null);
+        setInfoBuilding(null);
       }
-      setSelectedBuildingId(donationId);
     },
     [],
   );
+
+  const handleCloseInfo = useCallback(() => {
+    canvasRef.current?.clearFocus();
+    setInfoBuilding(null);
+  }, []);
+
+  // Modal de info → painel de personalização. Mantém o foco/zoom no edifício.
+  const handleCustomizeFromInfo = useCallback(() => {
+    if (infoBuilding) setSelectedBuildingId(infoBuilding.id);
+    setInfoBuilding(null);
+  }, [infoBuilding]);
 
   const handleCloseCustomizePanel = useCallback(() => {
     canvasRef.current?.clearFocus();
@@ -338,6 +357,8 @@ export function CitySceneEditor() {
       handler: () => {
         if (showShortcutsHelp) {
           setShowShortcutsHelp(false);
+        } else if (infoBuilding !== null) {
+          handleCloseInfo();
         } else if (selectedBuildingId !== null) {
           handleCloseCustomizePanel();
         } else {
@@ -416,6 +437,13 @@ export function CitySceneEditor() {
           paymentBusyRef.current = false;
         }}
       />
+      {infoBuilding !== null && (
+        <BuildingInfoModal
+          value={infoBuilding.value}
+          onCustomize={handleCustomizeFromInfo}
+          onClose={handleCloseInfo}
+        />
+      )}
       {selectedBuildingId !== null && (() => {
         const c = getExistingCustomization(selectedBuildingId);
         return (
