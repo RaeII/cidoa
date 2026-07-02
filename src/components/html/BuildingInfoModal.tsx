@@ -20,19 +20,19 @@ const formatCurrency = (value: number) =>
 export function BuildingInfoModal({ value, onCustomize, onClose }: BuildingInfoModalProps) {
   return (
     // Overlay sem dim/blur e pointer-events-none: cena visível e interativa atrás.
-    // Mobile: bottom-sheet. Desktop (sm+): card à direita.
-    <div className="pointer-events-none absolute inset-0 z-40 flex items-end justify-center p-4 sm:items-center sm:justify-end sm:p-6">
-      <div className="group pointer-events-auto w-full max-w-sm overflow-hidden rounded-2xl border border-white/10 bg-black/80 text-white shadow-2xl backdrop-blur-md sm:w-80">
+    // Card sempre à direita, no topo. <900px: versão um pouco menor.
+    <div className="pointer-events-none absolute inset-0 z-40 flex items-start justify-end p-4 min-[900px]:p-6">
+      <div className="group pointer-events-auto w-full max-w-xs overflow-hidden rounded-2xl border border-white/10 bg-black/80 text-white shadow-2xl backdrop-blur-md min-[900px]:max-w-sm min-[900px]:w-80">
         <div className="relative">
           <img
             src={BUILDING_OWNER.image}
             alt={BUILDING_OWNER.name}
-            className="h-44 w-full object-cover"
+            className="h-36 w-full object-cover min-[900px]:h-44"
           />
           {/* X aparece no hover (desktop); sempre visível no mobile (sem mouse). */}
           <button
             onClick={onClose}
-            className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white/80 opacity-0 backdrop-blur-sm transition-opacity duration-200 hover:bg-black/70 hover:text-white group-hover:opacity-100 max-sm:opacity-100"
+            className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white/80 opacity-0 backdrop-blur-sm transition-opacity duration-200 hover:bg-black/70 hover:text-white group-hover:opacity-100 max-[899px]:opacity-100"
             title="Fechar"
             aria-label="Fechar informações do edifício"
           >
@@ -42,7 +42,7 @@ export function BuildingInfoModal({ value, onCustomize, onClose }: BuildingInfoM
           </button>
         </div>
 
-        <div className="px-5 py-4">
+        <div className="px-4 py-3 min-[900px]:px-5 min-[900px]:py-4">
           <div className="truncate text-xl font-semibold">{BUILDING_OWNER.name}</div>
           <a
             href={`https://${BUILDING_OWNER.url}`}

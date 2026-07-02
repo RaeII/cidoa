@@ -373,7 +373,7 @@ export function CitySceneEditor() {
   return (
     <div
       ref={scrollRef}
-      className="h-screen w-full overflow-y-auto overflow-x-hidden bg-[#05070a]"
+      className="scrollbar-hidden h-screen w-full overflow-y-auto overflow-x-hidden bg-[#05070a]"
     >
       <section className="relative h-screen w-full overflow-hidden bg-[#05070a]">
       <CitySceneCanvas

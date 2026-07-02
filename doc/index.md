@@ -178,7 +178,7 @@ Também gerencia:
 
 - Doações via `canvasRef.addDonation(value)` e `canvasRef.addDonations(values)`
 - Total arrecadado (`donationTotal`) e contagem (`donationCount`) — alimentam a [[html-components#DonationInfoSection.tsx|DonationInfoSection]]
-- Navegação cena ↔ info: container `overflow-y-auto` + `scrollToInfo`/`scrollToScene`. Descida só pelo botão "Para onde vai o seu investimento" (`scrollToInfo`). Roda do mouse bloqueada na cena (`preventDefault`); painéis flutuantes roláveis usam `overscroll-contain` pra não arrastar a página pra baixo ao chegar no fim. Snap-up automático na info.
+- Navegação cena ↔ info: container `overflow-y-auto` + `scrollToInfo`/`scrollToScene`. Container usa classe `.scrollbar-hidden` (em `index.css`) — scrollbar some da tela, scroll (roda/touch/teclado) continua funcionando. Descida só pelo botão "Para onde vai o seu investimento" (`scrollToInfo`). Roda do mouse bloqueada na cena (`preventDefault`); painéis flutuantes roláveis usam `overscroll-contain` pra não arrastar a página pra baixo ao chegar no fim. Snap-up automático na info.
 - Foco em edifício via `canvasRef.focusOnDonation(id)` e `canvasRef.clearFocus()`
 - Personalização via `canvasRef.updateDonationCustomization(id, customization)`
 
