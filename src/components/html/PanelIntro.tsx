@@ -10,11 +10,10 @@ export function PanelIntro({ sceneStats, solarIntensity }: PanelIntroProps) {
     <section>
       <div className="text-xs uppercase tracking-[0.28em] text-white/45">Personalização</div>
       <h2 className="mt-2 text-lg font-semibold text-white/95">
-        Edifícios, material, luz e sombras
+        Edifícios, material e luz
       </h2>
       <p className="mt-2 text-xs leading-5 text-white/50">
-        {sceneStats.buildings} edifícios ativos em {sceneStats.chunks} chunks.{" "}
-        {sceneStats.buildingsWithShadow} edifícios gerando sombra. Intensidade solar atual:{" "}
+        {sceneStats.buildings} edifícios ativos. Intensidade solar atual:{" "}
         {solarIntensity.toFixed(2)}.
       </p>
     </section>

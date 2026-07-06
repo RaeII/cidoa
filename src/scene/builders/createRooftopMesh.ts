@@ -179,17 +179,14 @@ const GARDEN_WOOD_MATERIAL = new THREE.MeshStandardMaterial({
   metalness: 0.05,
 });
 
-const GARDEN_WATER_MATERIAL = new THREE.MeshPhysicalMaterial({
+// Standard em vez de Physical: transmission > 0 dispara um render extra da cena
+// inteira (transmission pass) — custo altíssimo pra uma piscina de topo.
+const GARDEN_WATER_MATERIAL = new THREE.MeshStandardMaterial({
   color: 0x5fb7d5,
   roughness: 0.03,
   metalness: 0.0,
   transparent: true,
   opacity: 0.62,
-  transmission: 0.42,
-  thickness: 0.16,
-  ior: 1.333,
-  clearcoat: 1.0,
-  clearcoatRoughness: 0.04,
   envMapIntensity: 0.9,
 });
 
@@ -214,21 +211,20 @@ const HELICOPTER_BODY_MATERIAL = new THREE.MeshStandardMaterial({
   metalness: 0.46,
 });
 
-const HELICOPTER_CABIN_MATERIAL = new THREE.MeshPhysicalMaterial({
+// Standard em vez de Physical (mesmo motivo da água do jardim: transmission
+// dispara render extra da cena; clearcoat dobra o shading). Vidro fake com
+// transparência + envMap fica visualmente equivalente nesse tamanho.
+const HELICOPTER_CABIN_MATERIAL = new THREE.MeshStandardMaterial({
   color: 0x8fb7c9,
   roughness: 0.04,
   metalness: 0.0,
   transparent: true,
   side: THREE.DoubleSide,
   opacity: 0.62,
-  transmission: 0.24,
-  thickness: 0.08,
-  clearcoat: 0.92,
-  clearcoatRoughness: 0.08,
   envMapIntensity: 0.85,
 });
 
-const HELICOPTER_WINDOW_MATERIAL = new THREE.MeshPhysicalMaterial({
+const HELICOPTER_WINDOW_MATERIAL = new THREE.MeshStandardMaterial({
   color: 0x203843,
   roughness: 0.18,
   metalness: 0.0,
@@ -236,10 +232,6 @@ const HELICOPTER_WINDOW_MATERIAL = new THREE.MeshPhysicalMaterial({
   side: THREE.DoubleSide,
   depthWrite: false,
   opacity: 0.9,
-  transmission: 0.04,
-  thickness: 0.035,
-  clearcoat: 0.88,
-  clearcoatRoughness: 0.1,
   polygonOffset: true,
   polygonOffsetFactor: -1,
   polygonOffsetUnits: -1,
@@ -279,16 +271,17 @@ const HELICOPTER_NAV_LIGHT_MATERIAL = new THREE.MeshStandardMaterial({
   metalness: 0.0,
 });
 
+// 32 segmentos bastam para o raio pequeno do helipad (96 era imperceptível e 3× o custo).
 const HELIPAD_DECK_GEOMETRY = new THREE.CylinderGeometry(
   1,
   1,
   HELIPAD_DECK_HEIGHT,
-  96,
+  32,
   1,
   false,
 );
-const HELIPAD_RIM_GEOMETRY = new THREE.TorusGeometry(1, 0.016, 8, 96);
-const HELIPAD_OUTER_RING_GEOMETRY = new THREE.RingGeometry(0.78, 0.9, 96);
+const HELIPAD_RIM_GEOMETRY = new THREE.TorusGeometry(1, 0.016, 8, 32);
+const HELIPAD_OUTER_RING_GEOMETRY = new THREE.RingGeometry(0.78, 0.9, 32);
 const HELIPAD_STRIP_GEOMETRY = new THREE.BoxGeometry(1, HELIPAD_PAINT_THICKNESS, 1);
 const HELIPAD_LIGHT_BASE_GEOMETRY = new THREE.CylinderGeometry(1, 1, 0.018, 12);
 const HELIPAD_LIGHT_LENS_GEOMETRY = new THREE.CylinderGeometry(1, 1, 0.012, 12);
@@ -342,7 +335,7 @@ const HELICOPTER_SKID_GEOMETRY = new THREE.CylinderGeometry(1, 1, 1, 8);
 const HELICOPTER_TAIL_BOOM_GEOMETRY = new THREE.CylinderGeometry(0.42, 1, 1, 10);
 const HELICOPTER_MAST_GEOMETRY = new THREE.CylinderGeometry(1, 1, 1, 10);
 const HELICOPTER_LIGHT_GEOMETRY = new THREE.SphereGeometry(1, 8, 5);
-const HELICOPTER_ROTOR_DISC_GEOMETRY = new THREE.CircleGeometry(1, 48);
+const HELICOPTER_ROTOR_DISC_GEOMETRY = new THREE.CircleGeometry(1, 24);
 let gardenGrassTexture: THREE.CanvasTexture | null = null;
 let gardenWoodTexture: THREE.CanvasTexture | null = null;
 let gardenPoolTileTexture: THREE.CanvasTexture | null = null;
@@ -723,7 +716,7 @@ function getGardenPoolTileMaterial(): THREE.MeshStandardMaterial {
   return GARDEN_POOL_TILE_MATERIAL;
 }
 
-function getGardenPoolWaterMaterial(): THREE.MeshPhysicalMaterial {
+function getGardenPoolWaterMaterial(): THREE.MeshStandardMaterial {
   if (!gardenPoolWaterNormalTexture) {
     const canvas = document.createElement("canvas");
     canvas.width = 128;
@@ -966,25 +959,42 @@ function createHelipad(footprint?: RooftopFootprint): THREE.Group {
   addPaintStrip(hBarWidth, hBarLength, hBarOffset, 0);
   addPaintStrip(hBarOffset * 2 + hBarWidth, hBarWidth, 0, 0);
 
+  // Luzes de borda instanciadas: 2 draw calls (base + lente) em vez de 24 meshes.
   const lightCount = 12;
   const lightBaseRadius = THREE.MathUtils.clamp(radius * 0.035, 0.012, 0.026);
+  const lightBases = new THREE.InstancedMesh(
+    HELIPAD_LIGHT_BASE_GEOMETRY,
+    HELIPAD_LIGHT_BASE_MATERIAL,
+    lightCount,
+  );
+  const lightLenses = new THREE.InstancedMesh(
+    HELIPAD_LIGHT_LENS_GEOMETRY,
+    HELIPAD_GREEN_LENS_MATERIAL,
+    lightCount,
+  );
+  const lightMatrix = new THREE.Matrix4();
+  const lightQuat = new THREE.Quaternion();
+  const lightPos = new THREE.Vector3();
+  const lightScale = new THREE.Vector3();
   for (let i = 0; i < lightCount; i++) {
     const angle = (i / lightCount) * Math.PI * 2;
     const x = Math.cos(angle) * radius * 0.97;
     const z = Math.sin(angle) * radius * 0.97;
 
-    const base = new THREE.Mesh(HELIPAD_LIGHT_BASE_GEOMETRY, HELIPAD_LIGHT_BASE_MATERIAL);
-    base.scale.set(lightBaseRadius, 1, lightBaseRadius);
-    base.position.set(x, deckTopY + 0.009, z);
-    setShadowRole(base, true, true);
-    group.add(base);
+    lightPos.set(x, deckTopY + 0.009, z);
+    lightScale.set(lightBaseRadius, 1, lightBaseRadius);
+    lightMatrix.compose(lightPos, lightQuat, lightScale);
+    lightBases.setMatrixAt(i, lightMatrix);
 
-    const lens = new THREE.Mesh(HELIPAD_LIGHT_LENS_GEOMETRY, HELIPAD_GREEN_LENS_MATERIAL);
-    lens.scale.set(lightBaseRadius * 0.72, 1, lightBaseRadius * 0.72);
-    lens.position.set(x, deckTopY + 0.024, z);
-    setShadowRole(lens, false, false);
-    group.add(lens);
+    lightPos.set(x, deckTopY + 0.024, z);
+    lightScale.set(lightBaseRadius * 0.72, 1, lightBaseRadius * 0.72);
+    lightMatrix.compose(lightPos, lightQuat, lightScale);
+    lightLenses.setMatrixAt(i, lightMatrix);
   }
+  lightBases.computeBoundingSphere();
+  lightLenses.computeBoundingSphere();
+  group.add(lightBases);
+  group.add(lightLenses);
 
   const hatchHeight = 0.035;
   const hatch = new THREE.Mesh(HELIPAD_UTILITY_GEOMETRY, HELIPAD_UTILITY_MATERIAL);
@@ -1558,26 +1568,14 @@ export function createRooftopMesh(
   const group = factory(footprint);
   group.userData.rooftopType = type;
 
-  setRooftopMeshShadowEnabled(group, true);
-
   return group;
-}
-
-/**
- * Liga/desliga sombras do acessório respeitando o papel de cada mesh.
- * Partes emissivas/transparentes não projetam sombra para reduzir custo e evitar artefatos.
- */
-export function setRooftopMeshShadowEnabled(group: THREE.Group, enabled: boolean): void {
-  group.traverse((child) => {
-    if (child instanceof THREE.Mesh) {
-      child.castShadow = enabled && child.userData.rooftopCastsShadow === true;
-      child.receiveShadow = enabled && child.userData.rooftopReceivesShadow === true;
-    }
-  });
 }
 
 /** Libera referências do grupo. Geometrias e materiais são compartilhados no módulo. */
 export function disposeRooftopMesh(group: THREE.Group): void {
+  for (const child of group.children) {
+    if (child instanceof THREE.InstancedMesh) child.dispose();
+  }
   group.clear();
 }
 

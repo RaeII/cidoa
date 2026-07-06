@@ -135,14 +135,13 @@ export function createSignMesh(
     { faceW: buildingD, rotY: -Math.PI / 2, offsetX: -1, offsetZ: 0 },
   ];
 
-  const disposables: Array<{
-    texture: THREE.CanvasTexture;
-    signMaterial: THREE.MeshStandardMaterial;
-    backingMaterial: THREE.MeshStandardMaterial;
-    planeGeo: THREE.PlaneGeometry;
-    backingGeo: THREE.BoxGeometry;
-    strutGeos: THREE.BoxGeometry[];
-  }> = [];
+  // Painéis (canvas + textura + materiais + geometrias) cacheados por largura:
+  // faces opostas têm placa idêntica — reusa em vez de rasterizar canvas e subir
+  // textura duplicada pra GPU (antes: até 4 CanvasTextures iguais por letreiro).
+  type SignPanel = ReturnType<typeof createSignPanel>;
+  const panelCache = new Map<string, SignPanel>();
+  const disposables: SignPanel[] = [];
+  const strutGeos: THREE.BoxGeometry[] = [];
 
   for (let i = 0; i < clampedSides; i++) {
     const cfg = sideConfigs[i];
@@ -178,23 +177,17 @@ export function createSignMesh(
     }
     const signW = faceWorldW * 0.92;
 
-    const { texture, signMaterial, backingMaterial, planeGeo, backingGeo } =
-      createSignPanel(trimmed, signW, signH);
-    const strutGeos: THREE.BoxGeometry[] = [];
-    disposables.push({
-      texture,
-      signMaterial,
-      backingMaterial,
-      planeGeo,
-      backingGeo,
-      strutGeos,
-    });
+    const panelKey = signW.toFixed(3);
+    let panel = panelCache.get(panelKey);
+    if (!panel) {
+      panel = createSignPanel(trimmed, signW, signH);
+      panelCache.set(panelKey, panel);
+      disposables.push(panel);
+    }
+    const { signMaterial, backingMaterial, planeGeo, backingGeo } = panel;
 
     const signPlane = new THREE.Mesh(planeGeo, signMaterial);
-    setShadowRole(signPlane, false, false);
-
     const backing = new THREE.Mesh(backingGeo, backingMaterial);
-    setShadowRole(backing, true, true);
 
     // Posição/rotação do painel.
     //
@@ -325,31 +318,9 @@ export function createSignMesh(
   }
 
   group.userData.signDisposables = disposables;
-  setSignMeshShadowEnabled(group, true);
+  group.userData.signStrutGeos = strutGeos;
 
   return group;
-}
-
-function setShadowRole(
-  mesh: THREE.Mesh,
-  castsShadow: boolean,
-  receivesShadow: boolean,
-): void {
-  mesh.userData.signCastsShadow = castsShadow;
-  mesh.userData.signReceivesShadow = receivesShadow;
-}
-
-/**
- * Liga/desliga sombras do letreiro respeitando o papel de cada mesh.
- * A placa emissiva não projeta sombra; o backing metálico mantém presença física.
- */
-export function setSignMeshShadowEnabled(group: THREE.Group, enabled: boolean): void {
-  group.traverse((child) => {
-    if (child instanceof THREE.Mesh) {
-      child.castShadow = enabled && child.userData.signCastsShadow === true;
-      child.receiveShadow = enabled && child.userData.signReceivesShadow === true;
-    }
-  });
 }
 
 /** Cria o canvas, textura, materiais e geometrias para um painel de letreiro. */
@@ -446,8 +417,11 @@ export function disposeSignMesh(group: THREE.Group): void {
       d.backingMaterial.dispose();
       d.planeGeo.dispose();
       d.backingGeo.dispose();
-      for (const geo of d.strutGeos) geo.dispose();
     }
+  }
+  const strutGeos = group.userData.signStrutGeos;
+  if (Array.isArray(strutGeos)) {
+    for (const geo of strutGeos) geo.dispose();
   }
 }
 
@@ -492,7 +466,6 @@ function addTwistedSignSupports(
 
   for (const [xOffset, yOffset] of corners) {
     const support = new THREE.Mesh(supportGeo, material);
-    setShadowRole(support, true, true);
     support.position.set(
       params.faceX + params.normalX * normalOffset + tangentX * xOffset,
       params.yOffset + yOffset,

@@ -15,18 +15,15 @@ import {
   createRooftopMesh,
   disposeRooftopMesh,
   disposeRooftopSharedResources,
-  setRooftopMeshShadowEnabled,
 } from "../builders/createRooftopMesh";
 import {
   createSignMesh,
   disposeSignMesh,
-  setSignMeshShadowEnabled,
 } from "../builders/createSignMesh";
 import {
   createEdgeLightMesh,
   disposeEdgeLightMesh,
   disposeEdgeLightSharedResources,
-  setEdgeLightMeshShadowEnabled,
 } from "../builders/createEdgeLightMesh";
 import {
   createHologramMesh,
@@ -83,7 +80,6 @@ import normalTextureSrc from "../../assets/texture/Facade006_1K-mirrored-PNG/Fac
 import roughnessTextureSrc from "../../assets/texture/Facade006_1K-mirrored-PNG/Facade006_1K-PNG_Roughness.png";
 import metalnessTextureSrc from "../../assets/texture/Facade006_1K-mirrored-PNG/Facade006_1K-PNG_Metalness.png";
 import displacementTextureSrc from "../../assets/texture/Facade006_1K-mirrored-PNG/Facade006_1K-PNG_Displacement.png";
-import emissiveTextureSrc from "../../assets/texture/Facade006_1K-mirrored-PNG/Facade006_1K-PNG_Color.png";
 import concreteColorSrc from "../../assets/texture/Concrete024_1K-JPG/Concrete024_1K-JPG_Color.jpg";
 import concreteNormalSrc from "../../assets/texture/Concrete024_1K-JPG/Concrete024_1K-JPG_NormalGL.jpg";
 import concreteRoughnessSrc from "../../assets/texture/Concrete024_1K-JPG/Concrete024_1K-JPG_Roughness.jpg";
@@ -102,6 +98,11 @@ export const DONATION_LAYOUT = {
 // sempre presente (asfalto + lotes vazios), mesmo com 0 doações, pra cena nunca
 // ficar vazia. Cresce além disso conforme as doações exigem mais quadras.
 const MIN_LOTEAMENTO_RADIUS = 1;
+
+// Distância (mundo) além da qual acessórios de detalhe deixam de renderizar.
+// Fog denso já os torna ilegíveis nessa faixa — só a silhueta do prédio importa.
+const ACCESSORY_DETAIL_DISTANCE = 80;
+const ACCESSORY_DETAIL_DISTANCE_SQ = ACCESSORY_DETAIL_DISTANCE * ACCESSORY_DETAIL_DISTANCE;
 
 // Precomputa posições em espiral quadrada a partir do centro.
 // Índice 0 = centro (doação mais alta), depois cresce em anéis.
@@ -175,7 +176,6 @@ export type DonationManager = {
   updateBuildingSettings: (settings: BuildingSettings) => void;
   updateTextureSettings: (settings: TextureSettings) => void;
   updateBlockLayout: (settings: BlockLayoutSettings) => void;
-  setShadowEnabled: (enabled: boolean) => void;
   setEnvMap: (envMap: THREE.Texture | null) => void;
   beginEnvCapture: () => void;
   endEnvCapture: () => void;
@@ -187,6 +187,7 @@ export type DonationManager = {
   setFocusedDonation: (donationId: number | null) => void;
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
   tickAnimations: (elapsedSeconds: number, deltaMs: number) => void;
+  updateAccessoryVisibility: (cameraPos: THREE.Vector3) => void;
   dispose: () => void;
 };
 
@@ -223,7 +224,8 @@ export function createDonationManager({
   const roughnessMap = loadDataTexture(roughnessTextureSrc);
   const metalnessMap = loadDataTexture(metalnessTextureSrc);
   const displacementMap = loadDataTexture(displacementTextureSrc);
-  const emissiveMap = loadTexture(emissiveTextureSrc);
+  // Emissive reusa o color map (mesmo arquivo) — evita segunda cópia na GPU.
+  const emissiveMap = colorMap;
 
   const concreteColorMap = loadTexture(concreteColorSrc);
   const concreteNormalMap = loadDataTexture(concreteNormalSrc);
@@ -231,11 +233,12 @@ export function createDonationManager({
   const concreteDisplacementMap = loadDataTexture(concreteDisplacementSrc);
 
   const allTextures = [
-    colorMap, normalMap, roughnessMap, metalnessMap, displacementMap, emissiveMap,
+    colorMap, normalMap, roughnessMap, metalnessMap, displacementMap,
     concreteColorMap, concreteNormalMap, concreteRoughnessMap, concreteDisplacementMap,
   ];
 
-  const maxAniso = renderer.capabilities.getMaxAnisotropy();
+  // 4 é suficiente visualmente; anisotropia máxima (16) castiga o fill rate.
+  const maxAniso = Math.min(4, renderer.capabilities.getMaxAnisotropy());
   for (const tex of allTextures) {
     tex.anisotropy = maxAniso;
   }
@@ -352,15 +355,14 @@ export function createDonationManager({
     };
   };
 
+  // Sem clearcoat: segundo lobo especular dobra o custo de shading do material
+  // mais caro do three.js na superfície que domina a tela. EnvMap + roughness
+  // baixa já dão o brilho de vidro/fachada.
   const facadeMaterial = new THREE.MeshPhysicalMaterial({
     color: buildingSettings.color,
     roughness: buildingSettings.roughness,
     metalness: buildingSettings.metalness,
     bumpMap: displacementMap,
-    displacementMap: displacementMap,
-    displacementScale: 0,
-    clearcoat: 1.0,
-    clearcoatRoughness: 0.02,
     envMapIntensity: 1.8,
     emissive: new THREE.Color(0xffffff),
     emissiveIntensity: 0,
@@ -372,10 +374,6 @@ export function createDonationManager({
     roughness: buildingSettings.roughness,
     metalness: buildingSettings.metalness,
     bumpMap: concreteDisplacementMap,
-    displacementMap: concreteDisplacementMap,
-    displacementScale: 0,
-    clearcoat: 1.0,
-    clearcoatRoughness: 0.02,
     envMapIntensity: 1.8,
   });
   applyTriplanarShader(topMaterial, "donation-top-triplanar", topTilingUniform);
@@ -394,11 +392,7 @@ export function createDonationManager({
   );
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   mesh.count = 0;
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
   scene.add(mesh);
-
-  let shadowEnabled = true;
 
   // --- Rede de estradas (asfalto entre blocos) ---
   const asphaltMaterial = new THREE.MeshStandardMaterial({
@@ -471,8 +465,6 @@ export function createDonationManager({
         sidewalkCapacity,
       );
       m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      m.castShadow = false;
-      m.receiveShadow = shadowEnabled;
       scene.add(m);
       sidewalkMesh = m;
     }
@@ -594,7 +586,6 @@ export function createDonationManager({
       const m = new THREE.Mesh(geo, asphaltMaterial);
       m.rotation.x = -Math.PI / 2;
       m.position.set(x, roadY, z);
-      m.receiveShadow = shadowEnabled;
       scene.add(m);
       roadMeshes.push(m);
 
@@ -695,8 +686,6 @@ export function createDonationManager({
       lotCapacity = Math.max(64, Math.ceil(needed * 1.5));
       m = new THREE.InstancedMesh(lotGeometry, lotMaterial, lotCapacity);
       m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      m.receiveShadow = shadowEnabled;
-      m.castShadow = false;
       scene.add(m);
       lotMesh = m;
     }
@@ -790,7 +779,8 @@ export function createDonationManager({
         mat.roughness = settings.roughnessIntensity;
         mat.metalness = settings.metalnessIntensity;
         mat.bumpMap = displacementMap;
-        mat.displacementMap = displacementMap;
+        // Com scale 0 o displacement é um fetch de vértice inútil — só liga quando ativo.
+        mat.displacementMap = settings.displacementScale > 0 ? displacementMap : null;
         mat.displacementScale = settings.displacementScale;
         mat.emissiveMap = emissiveMap;
       } else {
@@ -799,7 +789,7 @@ export function createDonationManager({
         mat.roughnessMap = null;
         mat.metalnessMap = null;
         mat.bumpMap = textureless ? null : displacementMap;
-        mat.displacementMap = textureless ? null : displacementMap;
+        mat.displacementMap = null;
         mat.displacementScale = 0;
         mat.emissiveMap = null;
       }
@@ -824,14 +814,14 @@ export function createDonationManager({
         mat.roughness = top.roughnessIntensity;
         mat.metalness = top.metalnessIntensity;
         mat.bumpMap = concreteDisplacementMap;
-        mat.displacementMap = concreteDisplacementMap;
+        mat.displacementMap = top.displacementScale > 0 ? concreteDisplacementMap : null;
         mat.displacementScale = top.displacementScale;
       } else {
         mat.map = null;
         mat.normalMap = null;
         mat.roughnessMap = null;
         mat.bumpMap = textureless ? null : concreteDisplacementMap;
-        mat.displacementMap = textureless ? null : concreteDisplacementMap;
+        mat.displacementMap = null;
         mat.displacementScale = 0;
       }
       if (!textureless) {
@@ -855,8 +845,6 @@ export function createDonationManager({
     mesh.dispose();
     mesh = new THREE.InstancedMesh(buildingGeometry, [facadeMaterial, topMaterial], capacity);
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    mesh.castShadow = shadowEnabled;
-    mesh.receiveShadow = true;
     scene.add(mesh);
   };
 
@@ -1213,10 +1201,11 @@ export function createDonationManager({
 
     focusHighlightMesh = new THREE.Mesh(buildingGeometry, [focusFacadeMaterial, focusTopMaterial]);
     focusHighlightMesh.applyMatrix4(tmpTransformMatrix);
-    focusHighlightMesh.castShadow = shadowEnabled;
-    focusHighlightMesh.receiveShadow = shadowEnabled;
     scene.add(focusHighlightMesh);
   };
+
+  // Buffer de cores reutilizado entre chamadas — realoca só quando a capacidade cresce.
+  let instanceColorArray = new Float32Array(0);
 
   const applyInstanceColors = () => {
     if (mesh.count === 0) return;
@@ -1229,8 +1218,10 @@ export function createDonationManager({
       return;
     }
 
-    // Criar ou redimensionar o buffer de cores
-    const colors = new Float32Array(capacity * 3);
+    if (instanceColorArray.length < capacity * 3) {
+      instanceColorArray = new Float32Array(capacity * 3);
+    }
+    const colors = instanceColorArray;
     const donationById = new Map<number, DonationEntry>();
     for (const d of donations) donationById.set(d.id, d);
 
@@ -1292,7 +1283,6 @@ export function createDonationManager({
     if (!group) return;
 
     rooftopMeshes.set(donationId, { group, type });
-    setRooftopMeshShadowEnabled(group, shadowEnabled);
     scene.add(group);
 
     // Posicionar imediatamente
@@ -1357,7 +1347,6 @@ export function createDonationManager({
     if (!group) return;
 
     signMeshes.set(donationId, { group, text: trimmed, sides });
-    setSignMeshShadowEnabled(group, shadowEnabled);
     scene.add(group);
 
     // Posicionar imediatamente no centro do edifício
@@ -1412,7 +1401,6 @@ export function createDonationManager({
     if (!group) return;
 
     edgeLightMeshes.set(donationId, { group, type });
-    setEdgeLightMeshShadowEnabled(group, shadowEnabled);
     scene.add(group);
 
     if (readDonationTransform(donationId)) {
@@ -1587,14 +1575,10 @@ export function createDonationManager({
         } else {
           // Formato default mas precisa de mesh próprio (ex: tiling customizado).
           sceneMesh = new THREE.Mesh(buildingGeometry, [facadeMat, topMat]);
-          sceneMesh.castShadow = true;
-          sceneMesh.receiveShadow = true;
         }
 
         sceneMesh.userData.donationId = donation.id;
         sceneMesh.userData.donationValue = donation.value;
-        sceneMesh.castShadow = shadowEnabled;
-        sceneMesh.receiveShadow = shadowEnabled;
         scene.add(sceneMesh);
 
         entry = { mesh: sceneMesh, facadeMat, topMat, shape };
@@ -1685,32 +1669,6 @@ export function createDonationManager({
       } else if (sidewalkHeightChanged && lastRoadR >= 1) {
         const roadWidth = Math.max(1.0, lastRoadStreetWidth - SIDEWALK_RESERVE);
         rebuildSidewalks(lastRoadR, lastRoadBlockSpacing, lastRoadStreetWidth, roadWidth);
-      }
-    },
-    setShadowEnabled(enabled) {
-      shadowEnabled = enabled;
-      mesh.castShadow = enabled;
-      for (const m of roadMeshes) {
-        m.receiveShadow = enabled;
-      }
-      if (lotMesh) lotMesh.receiveShadow = enabled;
-      if (sidewalkMesh) sidewalkMesh.receiveShadow = enabled;
-      for (const [, entry] of rooftopMeshes) {
-        setRooftopMeshShadowEnabled(entry.group, enabled);
-      }
-      for (const [, entry] of signMeshes) {
-        setSignMeshShadowEnabled(entry.group, enabled);
-      }
-      for (const [, entry] of edgeLightMeshes) {
-        setEdgeLightMeshShadowEnabled(entry.group, enabled);
-      }
-      for (const [, entry] of customShapeMeshes) {
-        entry.mesh.castShadow = enabled;
-        entry.mesh.receiveShadow = enabled;
-      }
-      if (focusHighlightMesh) {
-        focusHighlightMesh.castShadow = enabled;
-        focusHighlightMesh.receiveShadow = enabled;
       }
     },
     setEnvMap(envMap) {
@@ -1878,8 +1836,24 @@ export function createDonationManager({
     },
     tickAnimations(elapsedSeconds, deltaMs) {
       for (const entry of hologramMeshes.values()) {
-        tickHologram(entry, elapsedSeconds, deltaMs);
+        // Holograma culled por distância não precisa de tick (shader nem roda).
+        if (entry.group.visible) tickHologram(entry, elapsedSeconds, deltaMs);
       }
+    },
+    // LOD barato: acessórios de detalhe (topo, letreiro, LED, holograma) somem além
+    // da distância onde o fog já os apaga — o prédio (silhueta) continua visível.
+    updateAccessoryVisibility(cameraPos) {
+      const applyCull = (donId: number, group: THREE.Object3D) => {
+        const t = donationTransforms.get(donId);
+        if (!t) return; // sem transform = sync* já escondeu o group
+        const dx = t.position.x - cameraPos.x;
+        const dz = t.position.z - cameraPos.z;
+        group.visible = dx * dx + dz * dz <= ACCESSORY_DETAIL_DISTANCE_SQ;
+      };
+      for (const [donId, entry] of rooftopMeshes) applyCull(donId, entry.group);
+      for (const [donId, entry] of signMeshes) applyCull(donId, entry.group);
+      for (const [donId, entry] of edgeLightMeshes) applyCull(donId, entry.group);
+      for (const [donId, entry] of hologramMeshes) applyCull(donId, entry.group);
     },
     dispose() {
       removeFocusHighlight();

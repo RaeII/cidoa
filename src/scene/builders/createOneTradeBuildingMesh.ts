@@ -814,8 +814,6 @@ export function createOneTradeBuildingMesh(
   topMaterial: THREE.Material,
 ): THREE.Mesh {
   const mesh = new THREE.Mesh(getOneTradeGeometry(), [facadeMaterial, topMaterial]);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
   return mesh;
 }
 

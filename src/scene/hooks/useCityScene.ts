@@ -8,9 +8,7 @@ import type {
   EnvironmentSettings,
   GroundSettings,
   LightSettings,
-  RenderDirectionSettings,
   SceneStats,
-  ShadowSettings,
   TerrainSettings,
   TextureSettings,
   HorizonSettings,
@@ -23,8 +21,6 @@ type UseCitySceneOptions = {
   groundSettings: GroundSettings;
   terrainSettings: TerrainSettings;
   lightSettings: LightSettings;
-  shadowSettings: ShadowSettings;
-  renderDirectionSettings: RenderDirectionSettings;
   horizonSettings: HorizonSettings;
   environmentSettings: EnvironmentSettings;
   blockLayoutSettings: BlockLayoutSettings;
@@ -41,8 +37,6 @@ export function useCityScene({
   groundSettings,
   terrainSettings,
   lightSettings,
-  shadowSettings,
-  renderDirectionSettings,
   horizonSettings,
   environmentSettings,
   blockLayoutSettings,
@@ -58,8 +52,6 @@ export function useCityScene({
     groundSettings,
     terrainSettings,
     lightSettings,
-    shadowSettings,
-    renderDirectionSettings,
     horizonSettings,
     environmentSettings,
     blockLayoutSettings,
@@ -126,14 +118,6 @@ export function useCityScene({
   useEffect(() => {
     runtimeRef.current?.updateLightSettings(lightSettings);
   }, [lightSettings]);
-
-  useEffect(() => {
-    runtimeRef.current?.updateShadowSettings(shadowSettings);
-  }, [shadowSettings]);
-
-  useEffect(() => {
-    runtimeRef.current?.updateRenderDirectionSettings(renderDirectionSettings, true);
-  }, [renderDirectionSettings]);
 
   useEffect(() => {
     runtimeRef.current?.updateHorizonSettings(horizonSettings);

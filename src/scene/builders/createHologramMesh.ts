@@ -224,7 +224,7 @@ export function tickHologram(entry: HologramEntry, elapsedSeconds: number, delta
     anim.index = (anim.index + 1) % anim.frames.length;
     const frame = anim.frames[anim.index];
     anim.ctx.clearRect(0, 0, anim.canvas.width, anim.canvas.height);
-    anim.ctx.drawImage(frame.bitmap, 0, 0);
+    anim.ctx.drawImage(frame.bitmap, 0, 0, anim.canvas.width, anim.canvas.height);
     if (entry.texture) entry.texture.needsUpdate = true;
   }
 }
@@ -326,12 +326,16 @@ export async function setHologramImage(
       return;
     }
     if (result && result.frames.length > 0) {
+      // Cap de resolução: GIF grande vira upload de textura gigante por frame.
+      // 512 no maior lado é mais que suficiente pro tamanho do holograma na cena.
+      const MAX_GIF_TEXTURE = 512;
+      const gifScale = Math.min(1, MAX_GIF_TEXTURE / Math.max(result.width, result.height));
       const canvas = document.createElement("canvas");
-      canvas.width = result.width;
-      canvas.height = result.height;
+      canvas.width = Math.max(1, Math.round(result.width * gifScale));
+      canvas.height = Math.max(1, Math.round(result.height * gifScale));
       const ctx = canvas.getContext("2d");
       if (ctx) {
-        ctx.drawImage(result.frames[0].bitmap, 0, 0);
+        ctx.drawImage(result.frames[0].bitmap, 0, 0, canvas.width, canvas.height);
         const texture = new THREE.CanvasTexture(canvas);
         texture.colorSpace = THREE.SRGBColorSpace;
         texture.minFilter = THREE.LinearFilter;

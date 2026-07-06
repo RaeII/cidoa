@@ -8,9 +8,7 @@ import type {
   EnvironmentSettings,
   GroundSettings,
   LightSettings,
-  RenderDirectionSettings,
   SceneStats,
-  ShadowSettings,
   TerrainSettings,
   TextureSettings,
   HorizonSettings,
@@ -32,8 +30,6 @@ export type CitySceneCanvasProps = {
   groundSettings: GroundSettings;
   terrainSettings: TerrainSettings;
   lightSettings: LightSettings;
-  shadowSettings: ShadowSettings;
-  renderDirectionSettings: RenderDirectionSettings;
   horizonSettings: HorizonSettings;
   environmentSettings: EnvironmentSettings;
   blockLayoutSettings: BlockLayoutSettings;
@@ -53,8 +49,6 @@ export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvas
       groundSettings,
       terrainSettings,
       lightSettings,
-      shadowSettings,
-      renderDirectionSettings,
       horizonSettings,
       environmentSettings,
       blockLayoutSettings,
@@ -74,8 +68,6 @@ export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvas
       groundSettings,
       terrainSettings,
       lightSettings,
-      shadowSettings,
-      renderDirectionSettings,
       horizonSettings,
       environmentSettings,
       blockLayoutSettings,

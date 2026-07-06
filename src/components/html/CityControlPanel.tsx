@@ -5,9 +5,7 @@ import type {
   EnvironmentSettings,
   GroundSettings,
   LightSettings,
-  RenderDirectionSettings,
   SceneStats,
-  ShadowSettings,
   TerrainSettings,
   TextureSettings,
   HorizonSettings,
@@ -18,9 +16,7 @@ import { EnvironmentControls } from "./EnvironmentControls";
 import { GroundControls } from "./GroundControls";
 import { TerrainControls } from "./TerrainControls";
 import { PanelIntro } from "./PanelIntro";
-import { RenderDirectionControls } from "./RenderDirectionControls";
 import { SceneLightControls } from "./SceneLightControls";
-import { ShadowControls } from "./ShadowControls";
 import { TextureControls } from "./TextureControls";
 import { HorizonControls } from "./HorizonControls";
 import { PanelSection } from "./controls/PanelSection";
@@ -37,8 +33,6 @@ export type CityControlPanelProps = {
   blockLayoutSettings: BlockLayoutSettings;
   terrainSettings: TerrainSettings;
   lightSettings: LightSettings;
-  shadowSettings: ShadowSettings;
-  renderDirectionSettings: RenderDirectionSettings;
   environmentSettings: EnvironmentSettings;
   horizonSettings: HorizonSettings;
   uiVisibility: UIVisibilitySettings;
@@ -54,8 +48,6 @@ export type CityControlPanelProps = {
   onBlockLayoutSettingsChange: (settings: BlockLayoutSettings) => void;
   onTerrainSettingsChange: (settings: TerrainSettings) => void;
   onLightSettingsChange: (settings: LightSettings) => void;
-  onShadowSettingsChange: (settings: ShadowSettings) => void;
-  onRenderDirectionSettingsChange: (settings: RenderDirectionSettings) => void;
   onEnvironmentSettingsChange: (settings: EnvironmentSettings) => void;
   onHorizonSettingsChange: (settings: HorizonSettings) => void;
   onUIVisibilityChange: (settings: UIVisibilitySettings) => void;
@@ -69,8 +61,6 @@ export function CityControlPanel({
   blockLayoutSettings,
   terrainSettings,
   lightSettings,
-  shadowSettings,
-  renderDirectionSettings,
   environmentSettings,
   horizonSettings,
   uiVisibility,
@@ -82,8 +72,6 @@ export function CityControlPanel({
   onBlockLayoutSettingsChange,
   onTerrainSettingsChange,
   onLightSettingsChange,
-  onShadowSettingsChange,
-  onRenderDirectionSettingsChange,
   onEnvironmentSettingsChange,
   onHorizonSettingsChange,
   onUIVisibilityChange,
@@ -129,11 +117,6 @@ export function CityControlPanel({
           <div className="space-y-6 pb-8 pt-2">
             <PanelIntro sceneStats={sceneStats} solarIntensity={lightMetrics.solarIntensity} />
             <BuildingControls value={buildingSettings} onChange={onBuildingSettingsChange} />
-            <ShadowControls value={shadowSettings} onChange={onShadowSettingsChange} />
-            <RenderDirectionControls
-              value={renderDirectionSettings}
-              onChange={onRenderDirectionSettingsChange}
-            />
             <GroundControls value={groundSettings} onChange={onGroundSettingsChange} />
             <PanelSection
               title="Quadras"

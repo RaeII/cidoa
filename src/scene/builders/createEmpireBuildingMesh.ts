@@ -673,8 +673,6 @@ export function createEmpireBuildingMesh(
     metalMat,
     darkMetalMat,
   ]);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
 
   return mesh;
 }

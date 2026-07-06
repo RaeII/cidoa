@@ -705,8 +705,6 @@ export function createTaipeiBuildingMesh(
   topMaterial: THREE.Material,
 ): THREE.Mesh {
   const mesh = new THREE.Mesh(getTaipeiGeometry(), [facadeMaterial, topMaterial]);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
   return mesh;
 }
 

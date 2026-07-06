@@ -91,6 +91,7 @@ export function createHorizonSilhouette(
   let continuousYaw = 0;
   let currentDistance = initialSettings.distance;
   let enabled = initialSettings.enabled;
+  let lastAppliedShift: number | null = null;
   bundle.mesh.visible = enabled;
 
   return {
@@ -127,6 +128,10 @@ export function createHorizonSilhouette(
       const translationShift = camera.position.x * rightX + camera.position.z * rightZ;
       const rotationShift = continuousYaw * currentDistance;
       const cameraShift = translationShift - rotationShift;
+
+      // Câmera parada = shift idêntico; pula reescrita das 260 matrizes + upload.
+      if (lastAppliedShift !== null && Math.abs(cameraShift - lastAppliedShift) < 1e-4) return;
+      lastAppliedShift = cameraShift;
 
       updateInstances(bundle.mesh, cameraShift);
     },

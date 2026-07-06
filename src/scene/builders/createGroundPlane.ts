@@ -6,7 +6,6 @@ import { getGroundMaterialValues } from "../utils/materials";
 export type GroundPlaneRig = {
   mesh: THREE.Mesh;
   update: (settings: GroundSettings) => void;
-  setShadowEnabled: (enabled: boolean) => void;
   setPosition: (x: number, z: number) => void;
   dispose: () => void;
 };
@@ -14,7 +13,6 @@ export type GroundPlaneRig = {
 export function createGroundPlane(
   scene: THREE.Scene,
   groundSettings: GroundSettings,
-  receiveShadow: boolean,
 ): GroundPlaneRig {
   const groundMaterialValues = getGroundMaterialValues(
     groundSettings.roughness,
@@ -30,7 +28,6 @@ export function createGroundPlane(
   const mesh = new THREE.Mesh(geometry, material);
   mesh.rotation.x = -Math.PI / 2;
   mesh.position.y = -0.03;
-  mesh.receiveShadow = receiveShadow;
   scene.add(mesh);
 
   return {
@@ -45,9 +42,6 @@ export function createGroundPlane(
       material.roughness = values.roughness;
       material.metalness = values.metalness;
       material.needsUpdate = true;
-    },
-    setShadowEnabled(enabled) {
-      mesh.receiveShadow = enabled;
     },
     setPosition(x, z) {
       mesh.position.x = x;

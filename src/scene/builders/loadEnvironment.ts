@@ -40,11 +40,11 @@ function applySettings(
 ) {
   // Rotação horizontal via mesh: uniforme em todas as direções
   skyMesh.rotation.y = settings.offsetX;
-  // Deslocamento vertical via UV offset: move o horizonte uniformemente em todos os lados
+  // Deslocamento vertical via UV offset: move o horizonte uniformemente em todos os lados.
+  // offset é uniform — não precisa de needsUpdate (que re-enviaria a textura 4K à GPU).
   texture.offset.y = settings.offsetY;
   // Roll (inclinação diagonal)
   skyMesh.rotation.z = settings.offsetZ;
-  texture.needsUpdate = true;
 }
 
 export function loadEnvironment(

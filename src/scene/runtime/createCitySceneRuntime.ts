@@ -15,10 +15,8 @@ import type {
   EnvironmentSettings,
   GroundSettings,
   LightSettings,
-  RenderDirectionSettings,
   HorizonSettings,
   SceneStats,
-  ShadowSettings,
   TerrainSettings,
   TextureSettings,
 } from "../types";
@@ -31,8 +29,6 @@ type CitySceneRuntimeOptions = {
   groundSettings: GroundSettings;
   terrainSettings: TerrainSettings;
   lightSettings: LightSettings;
-  shadowSettings: ShadowSettings;
-  renderDirectionSettings: RenderDirectionSettings;
   horizonSettings: HorizonSettings;
   environmentSettings: EnvironmentSettings;
   blockLayoutSettings: BlockLayoutSettings;
@@ -48,8 +44,6 @@ export type CitySceneRuntime = {
   updateGroundSettings: (settings: GroundSettings) => void;
   updateTerrainSettings: (settings: TerrainSettings) => void;
   updateLightSettings: (settings: LightSettings) => void;
-  updateShadowSettings: (settings: ShadowSettings) => void;
-  updateRenderDirectionSettings: (settings: RenderDirectionSettings, forceRefresh?: boolean) => void;
   updateHorizonSettings: (settings: HorizonSettings) => void;
   updateEnvironmentSettings: (settings: EnvironmentSettings) => void;
   updateBlockLayout: (settings: BlockLayoutSettings) => void;
@@ -68,7 +62,6 @@ export function createCitySceneRuntime({
   groundSettings,
   terrainSettings,
   lightSettings,
-  shadowSettings,
   horizonSettings,
   environmentSettings,
   blockLayoutSettings,
@@ -104,12 +97,13 @@ export function createCitySceneRuntime({
     CITY_SCENE_CONFIG.initialCameraPosition.z,
   );
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  const renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    powerPreference: "high-performance",
+  });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.45;
-  renderer.shadowMap.enabled = shadowSettings.enabled;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   let renderScale = 1;
   const getPixelRatio = () =>
@@ -151,14 +145,14 @@ export function createCitySceneRuntime({
   );
 
   const lightingRig = createLightingRig(scene, lightSettings);
-  const groundPlane = createGroundPlane(scene, groundSettings, shadowSettings.enabled);
-  const terrainRig = createTerrain(scene, terrainSettings, groundSettings.color, shadowSettings.enabled);
+  const groundPlane = createGroundPlane(scene, groundSettings);
+  const terrainRig = createTerrain(scene, terrainSettings, groundSettings.color);
   // Relevo é o chão visível quando ligado; esconde o plano cinza no render normal pra não brigar
   // (z-fighting) com o terreno. Reaparece só na captura do envMap (piso neutro do reflexo).
   groundPlane.mesh.visible = !terrainSettings.enabled;
   const horizonSilhouette = createHorizonSilhouette(scene, horizonSettings);
 
-  const buildingCubeTarget = new THREE.WebGLCubeRenderTarget(256, {
+  const buildingCubeTarget = new THREE.WebGLCubeRenderTarget(128, {
     type: THREE.HalfFloatType,
     generateMipmaps: true,
     minFilter: THREE.LinearMipmapLinearFilter,
@@ -174,8 +168,15 @@ export function createCitySceneRuntime({
     blockLayoutSettings,
   });
   donationManager.setEnvMap(buildingCubeTarget.texture);
-  donationManager.setShadowEnabled(shadowSettings.enabled);
   terrainRig.setCityRadius(donationManager.getCityRadius());
+
+  // EnvMap dos prédios só é recapturado quando algo visível muda (câmera ou cena).
+  // Câmera parada + cena estática = zero renders extras.
+  let cubeDirty = true;
+  const markCubeDirty = () => {
+    cubeDirty = true;
+  };
+  controls.addEventListener("change", markCubeDirty);
 
   // Reabre a zona plana do relevo quando a cidade cresce. Cheap: setCityRadius
   // só recalcula a malha quando o raio muda (ganho de anel).
@@ -253,6 +254,7 @@ export function createCitySceneRuntime({
   let smoothedFps = 60;
   let cubeFrameCounter = 0;
   let cameraDebugAccumulator = 0;
+  let accessoryCullAccumulator = 0;
 
   const updateDynamicResolution = (fps: number) => {
     const previousScale = renderScale;
@@ -321,8 +323,10 @@ export function createCitySceneRuntime({
       frames = 0;
     }
 
+    // Captura no máximo a cada 4 frames, e só quando câmera/cena mudou desde a última.
     cubeFrameCounter = (cubeFrameCounter + 1) % 4;
-    if (cubeFrameCounter === 0) {
+    if (cubeFrameCounter === 0 && cubeDirty) {
+      cubeDirty = false;
       buildingCubeCamera.position.copy(camera.position);
       donationManager.beginEnvCapture();
       // Relevo verde fora da captura (edifícios não devem refletir o terreno); plano cinza
@@ -335,6 +339,13 @@ export function createCitySceneRuntime({
       terrainRig.mesh.visible = terrainWasVisible;
       groundPlane.mesh.visible = groundWasVisible;
       donationManager.endEnvCapture();
+    }
+
+    // Acessórios (letreiro, LED, holograma, topo) somem além da distância de detalhe.
+    accessoryCullAccumulator += delta;
+    if (accessoryCullAccumulator >= 0.25) {
+      accessoryCullAccumulator = 0;
+      donationManager.updateAccessoryVisibility(camera.position);
     }
 
     donationManager.tickAnimations(time / 1000, delta * 1000);
@@ -356,59 +367,62 @@ export function createCitySceneRuntime({
   return {
     updateBuildingSettings(settings) {
       donationManager.updateBuildingSettings(settings);
+      markCubeDirty();
     },
     updateTextureSettings(settings) {
       donationManager.updateTextureSettings(settings);
+      markCubeDirty();
     },
     updateGroundSettings(settings) {
       groundPlane.update(settings);
       // Zona plana do relevo = chão da cidade: mantém a mesma cor.
       terrainRig.setGroundColor(settings.color);
+      markCubeDirty();
     },
     updateTerrainSettings(settings) {
       // update() reaproveita o cityRadius retido pelo rig — relevo e zona plana juntos.
       terrainRig.update(settings);
       // Plano cinza só aparece quando o relevo está desligado (senão briga com o terreno).
       groundPlane.mesh.visible = !settings.enabled;
+      markCubeDirty();
     },
     updateLightSettings(settings) {
       lightingRig.update(settings);
+      markCubeDirty();
     },
-    updateShadowSettings(settings) {
-      renderer.shadowMap.enabled = settings.enabled;
-      groundPlane.setShadowEnabled(settings.enabled);
-      terrainRig.setShadowEnabled(settings.enabled);
-      donationManager.setShadowEnabled(settings.enabled);
-    },
-    // Sem chunks direcionais — mantido na API para compatibilidade com hook/canvas
-    updateRenderDirectionSettings() {},
     updateHorizonSettings(settings) {
       horizonSilhouette.updateSettings(settings);
       if (scene.fog instanceof THREE.FogExp2) {
         scene.fog.color.set(settings.fogColor);
         scene.fog.density = settings.fogDensity;
       }
+      markCubeDirty();
     },
     updateBlockLayout(settings) {
       donationManager.updateBlockLayout(settings);
       syncTerrainToCity();
+      markCubeDirty();
     },
     updateEnvironmentSettings(settings) {
       environmentUpdater.updateSettings(settings);
+      markCubeDirty();
     },
 
     addDonation(value) {
       donationManager.addDonation(value);
       syncTerrainToCity();
       emitStatsPatch({ buildings: donationManager.getDonationCount() });
+      markCubeDirty();
     },
     addDonations(values) {
       donationManager.addDonations(values);
       syncTerrainToCity();
       emitStatsPatch({ buildings: donationManager.getDonationCount() });
+      markCubeDirty();
     },
     updateDonationCustomization(donationId, customization) {
       donationManager.updateDonationCustomization(donationId, customization);
+      markCubeDirty();
     },
     focusOnDonation(donationId) {
       const worldPos = donationManager.getDonationWorldPosition(donationId);
@@ -464,6 +478,7 @@ export function createCitySceneRuntime({
       if (hoverRafId !== null) cancelAnimationFrame(hoverRafId);
       cancelAnimationFrame(animationId);
       window.removeEventListener("resize", handleResize);
+      controls.removeEventListener("change", markCubeDirty);
       controls.dispose();
       donationManager.dispose();
       groundPlane.dispose();

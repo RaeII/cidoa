@@ -13,7 +13,6 @@ export const CITY_SCENE_CONFIG: CitySceneConfig = {
   minRenderScale: 0.55,
   maxRenderScale: 1,
   far: 260,
-  shadowBuildingCap: 500,
   maxSolarIntensity: 20,
   minAmbientDynamic: 4,
   maxAmbientDynamic: 8,
@@ -42,14 +41,10 @@ export const CITY_SCENE_CONFIG: CitySceneConfig = {
     maxDistance: 70,
     maxPolarAngle: Math.PI * 0.48,
   },
-  cubeUpdateIntervalMoving: 4,
-  cubeUpdateIntervalStatic: 48,
-  envMapNearDistance: 26,
 };
 
 export const DEFAULT_SCENE_STATS: SceneStats = {
   buildings: 0,
   fpsMode: "dynamic",
   chunks: 0,
-  buildingsWithShadow: 0,
 };

@@ -85,23 +85,6 @@ export type RenderDirectionSettings = {
 
 export type GroundMaterialType = "standard" | "matte" | "soft-metal" | "polished";
 
-export type ShadowSettings = {
-  enabled: boolean;
-  intensity: number;
-  bias: number;
-  normalBias: number;
-  radius: number;
-  blurSamples: number;
-  mapSize: number;
-  cameraNear: number;
-  cameraFar: number;
-  cameraLeft: number;
-  cameraRight: number;
-  cameraTop: number;
-  cameraBottom: number;
-  buildingCountWithShadow: number;
-};
-
 export type TopTextureSettings = {
   normalScale: number;
   displacementScale: number;
@@ -206,7 +189,6 @@ export type SceneStats = {
   buildings: number;
   fpsMode: string;
   chunks: number;
-  buildingsWithShadow: number;
 };
 
 export type CameraDebugInfo = {
@@ -250,7 +232,6 @@ export type CitySceneConfig = {
   minRenderScale: number;
   maxRenderScale: number;
   far: number;
-  shadowBuildingCap: number;
   maxSolarIntensity: number;
   minAmbientDynamic: number;
   maxAmbientDynamic: number;
@@ -279,7 +260,4 @@ export type CitySceneConfig = {
     maxDistance: number;
     maxPolarAngle: number;
   };
-  cubeUpdateIntervalMoving: number;
-  cubeUpdateIntervalStatic: number;
-  envMapNearDistance: number;
 };

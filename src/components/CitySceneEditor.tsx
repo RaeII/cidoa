@@ -15,8 +15,6 @@ import { createDefaultEnvironmentSettings } from "../scene/config/environmentCon
 import { createDefaultGroundSettings } from "../scene/config/groundConfig";
 import { createDefaultTerrainSettings } from "../scene/config/terrainConfig";
 import { createDefaultLightSettings } from "../scene/config/lightConfig";
-import { createDefaultRenderDirectionSettings } from "../scene/config/renderDirectionConfig";
-import { createDefaultShadowSettings } from "../scene/config/shadowConfig";
 import { createDefaultTextureSettings } from "../scene/config/textureConfig";
 import { createDefaultHorizonSettings } from "../scene/config/horizonConfig";
 import {
@@ -84,10 +82,6 @@ export function CitySceneEditor() {
   const [groundSettings, setGroundSettings] = useState(createDefaultGroundSettings);
   const [terrainSettings, setTerrainSettings] = useState(createDefaultTerrainSettings);
   const [lightSettings, setLightSettings] = useState(createDefaultLightSettings);
-  const [shadowSettings, setShadowSettings] = useState(createDefaultShadowSettings);
-  const [renderDirectionSettings, setRenderDirectionSettings] = useState(
-    createDefaultRenderDirectionSettings,
-  );
   const [environmentSettings, setEnvironmentSettings] = useState(createDefaultEnvironmentSettings);
   const [horizonSettings, setHorizonSettings] = useState(createDefaultHorizonSettings);
   const [blockLayoutSettings, setBlockLayoutSettings] = useState(createDefaultBlockLayoutSettings);
@@ -290,8 +284,6 @@ export function CitySceneEditor() {
         groundSettings={groundSettings}
         terrainSettings={terrainSettings}
         lightSettings={lightSettings}
-        shadowSettings={shadowSettings}
-        renderDirectionSettings={renderDirectionSettings}
         environmentSettings={environmentSettings}
         horizonSettings={horizonSettings}
         blockLayoutSettings={blockLayoutSettings}
@@ -370,8 +362,6 @@ export function CitySceneEditor() {
           blockLayoutSettings={blockLayoutSettings}
           terrainSettings={terrainSettings}
           lightSettings={lightSettings}
-          shadowSettings={shadowSettings}
-          renderDirectionSettings={renderDirectionSettings}
           sceneStats={sceneStats}
           lightMetrics={lightMetrics}
           onBuildingSettingsChange={setBuildingSettings}
@@ -380,8 +370,6 @@ export function CitySceneEditor() {
           onBlockLayoutSettingsChange={setBlockLayoutSettings}
           onTerrainSettingsChange={setTerrainSettings}
           onLightSettingsChange={setLightSettings}
-          onShadowSettingsChange={setShadowSettings}
-          onRenderDirectionSettingsChange={setRenderDirectionSettings}
           environmentSettings={environmentSettings}
           horizonSettings={horizonSettings}
           uiVisibility={uiVisibility}
