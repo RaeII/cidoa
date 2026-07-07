@@ -116,7 +116,7 @@ type CitySceneRuntime = {
 > [!note] Relevo (terrainRig)
 > O runtime possui o `terrainRig` ([[scene-builders#createTerrain.ts]]) — opção `terrainSettings` + método `updateTerrainSettings`. Sincroniza a zona plana via `syncTerrainToCity`, que chama `terrainRig.setCityRadius(donationManager.getCityRadius())` após `addDonation`/`addDonations`/`updateBlockLayout` (toda mudança de doação ou layout de quadra). Cor do chão sincronizada via `terrainRig.setGroundColor` em `updateGroundSettings`. Ver [[scene-managers|getCityRadius]].
 >
-> **Visibilidade do chão (anti-z-fighting):** com o relevo ligado, o `groundPlane` é o chão **escondido** (`groundPlane.mesh.visible = !terrainSettings.enabled`) — senão ele e o terreno (duas superfícies cinza quase paralelas) piscam conforme a câmera mexe. Na **captura do cube envMap** a relação inverte por um frame: o relevo é ocultado (`terrainRig.mesh.visible = false`, prédios **não refletem** o verde) e o plano cinza é exibido (piso neutro do reflexo); ambos são restaurados depois.
+> **Chão infinito:** o `groundPlane` fica **sempre visível** (`y=−0.05`, abaixo do piso do relevo em `−0.04`) e **segue a câmera** (`setPosition` no loop). Onde há relevo, o terreno cobre; além da borda do relevo (mesh fixo, 700u na origem), o plano preenche o vazio → cidade grande **não tem limite** ao mover a câmera. Fica sempre abaixo do terreno → **sem z-fighting** (antes o plano era escondido com o relevo ligado, pra não piscar por ficar acima). Na **captura do cube envMap** o relevo é ocultado por um frame (`terrainRig.mesh.visible = false`, prédios **não refletem** o verde) e sobra o plano cinza (piso neutro do reflexo); a visibilidade do relevo é restaurada depois.
 
 ### 4. Dispose
 

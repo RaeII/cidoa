@@ -40,19 +40,19 @@ Cria o chão da cidade.
 - Mudar como o chão atualiza material
 - Mudar como o chão acompanha a câmera
 
-> [!note] Coexiste com o relevo
-> O plano cinza é o chão da cidade (segue a câmera, y=-0.03). O [[scene-builders#createTerrain.ts|relevo verde]] fica ao redor, fixo na origem, e mergulha **sob** este plano perto da cidade.
+> [!note] Chão infinito
+> Plano cinza = **chão infinito**. Segue a câmera (`setPosition` no loop), **sempre visível**, em `y=-0.05` — logo ABAIXO do piso do relevo (`TERRAIN_GROUND_Y = -0.04`). Onde há relevo, o terreno cobre; além da borda do relevo (mesh fixo na origem), o plano preenche o vazio → cidade grande não tem limite ao mover a câmera. Fica abaixo → sem z-fighting com o terreno.
 
 ---
 
 ### `createTerrain.ts`
 
-Cria o relevo procedural (colinas verdes) ao redor da cidade — partes sem edifício. Port completo do protótipo `terrain.md`. Fixo na origem, **não** segue a câmera. É o **chão único** da cena quando ligado (ver callout abaixo).
+Cria o relevo procedural (colinas verdes) ao redor da cidade — partes sem edifício. Port completo do protótipo `terrain.md`. Fixo na origem, **não** segue a câmera. Cobre o [[scene-builders#createGroundPlane.ts|plano cinza]] (chão infinito) enquanto existe; além da sua borda, o plano preenche o vazio.
 
 **Responsabilidades:**
 - Gerar heightfield via pipeline completa do `terrain.md`: `mulberry32` (semente das falhas), `valueNoise`/`fbm` com `persistence`/`lacunarity` como **params** (não mais constantes), **ridge noise**, **falhas tectônicas** (linhas via degrau `tanh`), **edge falloff** (`smoothstep` rebaixa borda externa por `edge`), **terraços** e `smoothHeightField` (N passes = `smooth`)
 - Resolução (`segments`) e largura (`size`) **dinâmicas**: trocar `segments` realoca buffers de posição/cor + índice da malha; `update()` regenera o heightfield com os settings atuais
-- **Chão único, sem cruzar o plano:** zona plana ao nível `TERRAIN_GROUND_Y` (−0.02), logo ACIMA do plano cinza (−0.03) e ABAIXO das ruas (−0.015). O relevo nunca cruza o plano → **sem z-fighting**, e as ruas continuam visíveis
+- **Acima do plano cinza, sem cruzar:** zona plana ao nível `TERRAIN_GROUND_Y` (−0.04), ABAIXO das ruas (−0.015) e ACIMA do plano cinza (−0.05, chão infinito). O relevo nunca cruza o plano → **sem z-fighting**, e as ruas continuam visíveis
 - **Encaixe suave na cidade (degradê):** a **amplitude** das colinas (`amp`) sobe de 0 (borda da cidade) a 1 (longe) — as colinas nascem do plano, não batem numa parede. `band = max(TERRAIN_TRANSITION, height*3)` (degradê mais longo pra relevo mais alto), `ramp = smootherstep(dw, inner, inner+band)` (quintic, derivada zero nas pontas), `amp = ramp²` (toe extra-suave). Altura final = `TERRAIN_GROUND_Y + relevo*amp`
 - **Contorno irregular (sem anel circular):** `dw` é a distância radial **perturbada** por ruído de mundo por vértice (`edgeWarp` ∈ [-1,1], fbm 4 octaves, lobo ~110u). Assimétrico: recua bastante pra fora (`outwardCap = band*0.5`, baías) e cutuca pouco pra dentro (`inwardCap = padding*0.6`, limite pra não invadir a cidade). Sem isso o contorno cidade→relevo é um círculo perfeito (padrão artificial)
 - **Cor por vértice:** base = cinza do chão da cidade (`baseColor`, sincronizada com [[scene-types#GroundSettings]] via `setGroundColor`) **perto** → `lowColor` (planícies verdes) **longe**, fade pela mesma distância ondulada `dw`; sobe pro `highColor` conforme o relevo cresce (`hv = relevo/range`)
@@ -61,13 +61,13 @@ Cria o relevo procedural (colinas verdes) ao redor da cidade — partes sem edif
 
 **Retorna:** `TerrainRig` com `mesh`, `update`, `setCityRadius`, `setGroundColor`, `dispose`.
 
-> [!important] Chão único = sem z-fighting
-> O relevo é o **único chão visível** quando ligado: plano cinza na cidade → colinas verdes fora, numa malha contínua. O [[scene-runtime|runtime]] **esconde o plano cinza** (`groundPlane.mesh.visible = false`) no render normal — duas superfícies cinza quase paralelas (terreno em −0.04 e o plano que segue a câmera em −0.03) brigavam por profundidade e **piscavam conforme a câmera mexe**, principalmente em ângulos rasos. Sem o plano no render, sobra só o terreno → sem z-fighting. O plano **reaparece só na captura do envMap** (piso neutro do reflexo dos edifícios). Quando o relevo está desligado, o plano volta a ser o chão normal.
+> [!important] Chão infinito abaixo do relevo = sem z-fighting
+> Plano cinza **sempre visível** (`groundPlane.mesh.visible` nunca é forçado a `false` no render), em `y=−0.05`, ABAIXO do piso do relevo (`−0.04`). Onde há relevo, o terreno (opaco) cobre o plano; além da borda do relevo (mesh fixo, 700u na origem), o plano — que **segue a câmera** — preenche o vazio → cidade grande **não tem limite** ao mover a câmera. Fica sempre abaixo → **sem z-fighting** (antes ele ficava ACIMA do terreno e as duas superfícies cinza piscavam). Na captura do envMap o relevo é ocultado e sobra o plano cinza (piso neutro do reflexo).
 
 > [!important] `update()` é debounced (60ms)
 > Arrastar um slider dispara muitos `update()` por segundo. Regenerar o heightfield (até 256² vértices) a cada tick travaria a UI — por isso `update()` é **debounced em 60ms**.
 
-**Constantes** (em [[scene-config#terrainConfig.ts|terrainConfig.ts]]): `TERRAIN_SEGMENT_OPTIONS` (`[64,96,128,192,256]`, opções do select de resolução), `TERRAIN_CITY_PADDING`, `TERRAIN_TRANSITION` (largura MÍNIMA do degradê, cresce com a altura), `TERRAIN_GROUND_Y` (−0.02, nível plano do chão único). `size`/`segments` são campos de [[scene-types#TerrainSettings]].
+**Constantes** (em [[scene-config#terrainConfig.ts|terrainConfig.ts]]): `TERRAIN_SEGMENT_OPTIONS` (`[64,96,128,192,256]`, opções do select de resolução), `TERRAIN_CITY_PADDING`, `TERRAIN_TRANSITION` (largura MÍNIMA do degradê, cresce com a altura), `TERRAIN_GROUND_Y` (−0.04, nível plano do relevo, logo acima do chão infinito). `size`/`segments` são campos de [[scene-types#TerrainSettings]].
 
 > [!important] Não aparece no reflexo dos edifícios
 > O [[scene-runtime|runtime]] esconde `terrainRig.mesh` (`visible=false`) durante a captura do cube envMap. Sem isso, o verde do relevo vazaria nas fachadas refletivas. O plano cinza embaixo ainda entra no reflexo (chão neutro).

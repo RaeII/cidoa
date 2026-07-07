@@ -147,9 +147,9 @@ export function createCitySceneRuntime({
   const lightingRig = createLightingRig(scene, lightSettings);
   const groundPlane = createGroundPlane(scene, groundSettings);
   const terrainRig = createTerrain(scene, terrainSettings, groundSettings.color);
-  // Relevo é o chão visível quando ligado; esconde o plano cinza no render normal pra não brigar
-  // (z-fighting) com o terreno. Reaparece só na captura do envMap (piso neutro do reflexo).
-  groundPlane.mesh.visible = !terrainSettings.enabled;
+  // Plano cinza é o CHÃO INFINITO: sempre visível, segue a câmera (ver animate) e fica abaixo do
+  // relevo. Onde há relevo, o terreno cobre; além da borda do relevo (mesh fixo na origem), este
+  // plano preenche o vazio → sem limite ao mover a câmera numa cidade grande.
   const horizonSilhouette = createHorizonSilhouette(scene, horizonSettings);
 
   const buildingCubeTarget = new THREE.WebGLCubeRenderTarget(128, {
@@ -389,8 +389,7 @@ export function createCitySceneRuntime({
     updateTerrainSettings(settings) {
       // update() reaproveita o cityRadius retido pelo rig — relevo e zona plana juntos.
       terrainRig.update(settings);
-      // Plano cinza só aparece quando o relevo está desligado (senão briga com o terreno).
-      groundPlane.mesh.visible = !settings.enabled;
+      // Plano cinza continua sempre visível (chão infinito abaixo do relevo).
       markCubeDirty();
     },
     updateLightSettings(settings) {

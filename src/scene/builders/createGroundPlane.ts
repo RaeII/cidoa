@@ -27,7 +27,10 @@ export function createGroundPlane(
   });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.rotation.x = -Math.PI / 2;
-  mesh.position.y = -0.03;
+  // Chão infinito: fica logo ABAIXO do piso do relevo (TERRAIN_GROUND_Y = -0.04) pra não brigar
+  // (z-fighting). Onde há relevo, o terreno cobre; além da borda do relevo, este plano preenche
+  // o vazio. Segue a câmera no runtime (setPosition) → nunca acaba ao mover a câmera.
+  mesh.position.y = -0.05;
   scene.add(mesh);
 
   return {
