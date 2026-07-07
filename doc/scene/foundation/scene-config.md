@@ -17,7 +17,7 @@ Arquivos de configuração em `src/scene/config/`.
 > Se você quer mudar comportamento inicial **sem alterar lógica**, comece aqui.
 > - "Quero prédios mais escuros por padrão" → `buildingConfig.ts`
 > - "Quero câmera mais longe" → `citySceneConfig.ts`
-> - "Quero sombras com mapa maior" → `shadowConfig.ts`
+> - "Quero relevo mais alto" → `terrainConfig.ts`
 
 ## Objetivo da Pasta
 
@@ -140,36 +140,6 @@ Valores padrão das luzes:
 
 ---
 
-### `shadowConfig.ts`
-
-Valores padrão de sombra:
-
-| Campo | Descrição |
-|---|---|
-| `enabled` | Sombra começa ligada? |
-| `bias` | Bias do shadow map |
-| `normalBias` | Normal bias |
-| `radius` | Raio de suavização |
-| `blurSamples` | Amostras de blur |
-| `mapSize` | Resolução do shadow map |
-| `camera*` | Parâmetros da câmera ortográfica de sombra |
-| `buildingCountWithShadow` | Quantidade de prédios que geram sombra |
-
----
-
-### `renderDirectionConfig.ts`
-
-Valores padrão dos limites de carregamento de chunks por direção da câmera:
-
-- `forwardDistance`
-- `sideDistance`
-- `backwardDistance`
-
-> [!note]
-> Consumido pelo [[scene-managers|ChunkManager]] (mantido para referência arquitetural).
-
----
-
 ### `blockLayoutConfig.ts`
 
 Valores padrão do layout de quadras:
@@ -242,7 +212,6 @@ Configuração mais global da cena. Define a estrutura completa de `CitySceneCon
 | `minRenderScale` | Escala mínima de render |
 | `maxRenderScale` | Escala máxima de render |
 | `far` | Far plane da câmera |
-| `shadowBuildingCap` | Limite global de prédios com sombra |
 | `maxSolarIntensity` | Intensidade solar máxima |
 | `sceneBackground` | Cor de fundo da cena (hex) |
 | `sceneFogColor` | Cor do fog |
@@ -253,9 +222,9 @@ Configuração mais global da cena. Define a estrutura completa de `CitySceneCon
 | `initialCameraPosition` | Posição inicial `{x, y, z}` |
 | `controlTarget` | Target inicial do OrbitControls |
 | `controls.*` | Damping, velocidades, limites de zoom/pan/rotate |
-| `cubeUpdateIntervalMoving` | Intervalo de update do CubeCamera em movimento |
-| `cubeUpdateIntervalStatic` | Intervalo de update do CubeCamera parado |
-| `envMapNearDistance` | Raio para usar envMap dinâmico vs HDRI estático |
+
+> [!note] CubeCamera sem config própria
+> Update do envMap dinâmico agora é dirty-flag no [[scene-runtime|runtime]]: captura só quando câmera moveu ou cena mudou, no máximo a cada 4 frames. Keys antigas `cubeUpdateIntervalMoving`/`cubeUpdateIntervalStatic`/`envMapNearDistance` foram removidas.
 
 **Constantes exportadas:**
 - `CITY_SCENE_CONFIG` — objeto de configuração global
@@ -264,7 +233,7 @@ Configuração mais global da cena. Define a estrutura completa de `CitySceneCon
 ## Diferença entre Configs por Domínio e Config Global
 
 Use os arquivos menores quando a configuração pertencer a um domínio específico:
-- `buildingConfig`, `groundConfig`, `lightConfig`, `shadowConfig`, `textureConfig`, `environmentConfig`, `renderDirectionConfig`
+- `buildingConfig`, `groundConfig`, `lightConfig`, `textureConfig`, `environmentConfig`, `terrainConfig`, `blockLayoutConfig`
 
 Use `citySceneConfig.ts` quando for estrutural da cena inteira (tamanhos, câmera, FPS, fog).
 

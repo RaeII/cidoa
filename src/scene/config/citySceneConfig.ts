@@ -45,6 +45,7 @@ export const CITY_SCENE_CONFIG: CitySceneConfig = {
 
 export const DEFAULT_SCENE_STATS: SceneStats = {
   buildings: 0,
+  culled: 0,
   fpsMode: "dynamic",
   chunks: 0,
 };

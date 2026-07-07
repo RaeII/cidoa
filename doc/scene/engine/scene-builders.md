@@ -32,7 +32,6 @@ Cria o chão da cidade.
 **Responsabilidades:**
 - Criar geometria e material do chão
 - Aplicar valores derivados do tipo de material via [[scene-utils#materials.ts|getGroundMaterialValues]]
-- Habilitar/desabilitar recebimento de sombra
 - Mover o chão junto com a câmera (no loop de animação)
 - Limpar geometria e material no `dispose`
 
@@ -60,7 +59,7 @@ Cria o relevo procedural (colinas verdes) ao redor da cidade — partes sem edif
 - `wireframe` alterna `material.wireframe`
 - `BufferGeometry` indexada com `vertexColors`; recomputa normais/bounding só quando posições mudam (recolor puro pula normais)
 
-**Retorna:** `TerrainRig` com `mesh`, `update`, `setCityRadius`, `setGroundColor`, `setShadowEnabled`, `dispose`.
+**Retorna:** `TerrainRig` com `mesh`, `update`, `setCityRadius`, `setGroundColor`, `dispose`.
 
 > [!important] Chão único = sem z-fighting
 > O relevo é o **único chão visível** quando ligado: plano cinza na cidade → colinas verdes fora, numa malha contínua. O [[scene-runtime|runtime]] **esconde o plano cinza** (`groundPlane.mesh.visible = false`) no render normal — duas superfícies cinza quase paralelas (terreno em −0.04 e o plano que segue a câmera em −0.03) brigavam por profundidade e **piscavam conforme a câmera mexe**, principalmente em ângulos rasos. Sem o plano no render, sobra só o terreno → sem z-fighting. O plano **reaparece só na captura do envMap** (piso neutro do reflexo dos edifícios). Quando o relevo está desligado, o plano volta a ser o chão normal.
@@ -86,26 +85,21 @@ Cria o relevo procedural (colinas verdes) ao redor da cidade — partes sem edif
 
 ### `createLightingRig.ts`
 
-Cria e atualiza as luzes da cena.
+Cria e atualiza a luz da cena.
 
 **Responsabilidades:**
-- Criar `AmbientLight`
-- Criar `HemisphereLight`
-- Criar `DirectionalLight`
-- Criar `DirectionalLightHelper` (visualiza a direção da luz solar na cena)
-- Atualizar posição, cor e intensidade das luzes
-- Atualizar o helper sempre que a luz muda
-- Destruir luzes e helper no `dispose`
+- Criar `AmbientLight` (cor + intensidade via [[scene-utils#lighting.ts|getLightMetrics]])
+- Atualizar cor e intensidade no `update(lightSettings)`
+- Remover a luz no `dispose`
 
-**Retorna:** objeto `LightingRig` com referências e método `update(lightSettings)`.
+**Retorna:** objeto `LightingRig` com `ambient`, `update` e `dispose`.
 
-**Usa:**
-- [[scene-utils#lighting.ts|getDirectionalPositionFromAngles]] — converte ângulos esféricos em posição 3D
+> [!note] Só ambient + IBL
+> Iluminação da cena = `AmbientLight` + `scene.environment` (PMREM do HDRI). **Não há DirectionalLight nem sombras** — campos `directional*`/`hemisphere*` de [[scene-types#LightSettings]] alimentam apenas as métricas exibidas no painel (`getLightMetrics`).
 
 **Quando mexer aqui:**
-- Adicionar novo tipo de luz
-- Alterar como a directional light recebe posição e alvo
-- Ajustar tamanho ou aparência do helper visual
+- Adicionar novo tipo de luz (pré-requisito pra reintroduzir sombras)
+- Alterar como a intensidade ambiente é calculada
 
 ---
 
@@ -130,10 +124,31 @@ Carrega e configura o ambiente HDRI/skybox.
 > [!tip] Cache persistente
 > `resolveEnvUrl` abre cache `cidoa-env-v1`, grava blob na 1ª visita, devolve object URL nas seguintes (revogado após decode). Fallback: URL original se Cache API ausente ou fetch falhar. Imagem fica em `src/assets` (não `public/`) — Vite content-hasheia o nome, ideal pra cache-bust HTTP. **Bump versão do cache se trocar a imagem.**
 
+> [!note] Sem `texture.needsUpdate` no updateSettings
+> `offset`/rotação são uniforms — `needsUpdate = true` re-enviava a textura 4K inteira à GPU a cada movimento de slider. Removido.
+
 **Quando mexer aqui:**
 - Trocar o arquivo HDRI (bump `ENV_CACHE_NAME` pra invalidar cache antigo)
 - Alterar como o skybox responde ao offset de ambiente
 - Mudar a geração do `scene.environment`
+
+---
+
+### `createHorizonSilhouette.ts`
+
+Fileira fake de 260 prédios (`InstancedMesh` de `BoxGeometry` + `MeshBasicMaterial`) que segue a câmera à distância configurada — fecha o horizonte sem custo de cidade real. `frustumCulled = false` (posicionada relativa à câmera).
+
+> [!note] Skip com câmera parada
+> `update(camera)` só reescreve as 260 matrizes de instância (+ upload de buffer) quando o `cameraShift` derivado de posição/yaw mudou. Câmera parada = zero trabalho por frame.
+
+---
+
+### `createHologramMesh.ts`
+
+Holograma cyberpunk acima do prédio: 1 plano + `ShaderMaterial` (uTime, aberração cromática, glitch). Suporta imagem estática e GIF animado (`ImageDecoder` → frames em canvas).
+
+> [!note] Cap de resolução de GIF
+> Canvas do GIF limitado a **512px** no maior lado — GIF grande viraria upload de textura gigante a cada frame. `tickHologram` só roda para hologramas visíveis (culling por distância do manager).
 
 ### `createRooftopMesh.ts`
 
@@ -172,13 +187,12 @@ As geometrias de base, corpo, lente e feixe também são compartilhadas. `dispos
 **API:**
 ```typescript
 createRooftopMesh(type: RooftopType, footprint?: { width: number; depth: number }): THREE.Group | null  // null se "none"
-setRooftopMeshShadowEnabled(group: THREE.Group, enabled: boolean): void
-disposeRooftopMesh(group: THREE.Group): void               // limpa referências do grupo
+disposeRooftopMesh(group: THREE.Group): void               // limpa referências do grupo + buffers de instância
 disposeRooftopSharedResources(): void                       // limpa geometrias e materiais compartilhados
 ```
 
-> [!note] Sombras
-> Apenas as partes sólidas projetam/recebem sombra. Lentes emissivas, feixes transparentes e pinturas finas não participam do shadow map para evitar custo desnecessário e artefatos.
+> [!note] Otimizações de custo
+> Helipad: deck/aro/anel com **32 segmentos** (era 96 — invisível nesse raio) e as 12 luzes de perímetro são **2 `InstancedMesh`** (base + lente), não 24 meshes. Água do jardim, cabine e janelas do helicóptero usam `MeshStandardMaterial` — `MeshPhysicalMaterial` com `transmission > 0` disparava um render extra da cena inteira (transmission pass).
 
 ---
 
@@ -206,10 +220,7 @@ Factory para letreiros de fachada nos edifícios. Renderiza texto via `CanvasTex
 | 3 | +Direita (+X) | `rotY = +π/2` |
 | 4 | +Esquerda (−X) | `rotY = −π/2` |
 
-Cada lado cria seu próprio canvas, textura e material independentes. A largura do letreiro se adapta à largura da fachada correspondente (`buildingW` para frente/trás, `buildingD` para laterais). A altura é consistente em todos os lados: `max(buildingW, buildingD) * 0.22`.
-
-> [!note] Sombras
-> A placa emissiva do letreiro não projeta sombra. Apenas o backing metálico usa `castShadow`/`receiveShadow`, controlado por `setSignMeshShadowEnabled()`.
+Painéis (canvas + textura + materiais + geometrias) são **cacheados por largura da face**: faces opostas têm placa idêntica e compartilham a mesma `CanvasTexture` — antes eram até 4 rasterizações/texturas duplicadas por letreiro. A largura do letreiro se adapta à largura da fachada correspondente (`buildingW` para frente/trás, `buildingD` para laterais). A altura é consistente em todos os lados: `max(buildingW, buildingD) * 0.22`.
 
 > [!note] Ajuste automático de fonte
 > O fontSize começa em 52% da altura do canvas e é reduzido pixel a pixel até o texto caber com 12% de padding lateral. Limite máximo: 30 caracteres (imposto pelo UI).
@@ -217,8 +228,7 @@ Cada lado cria seu próprio canvas, textura e material independentes. A largura 
 **API:**
 ```typescript
 createSignMesh(text: string, buildingW: number, buildingD: number, buildingH: number, sides: number, shape?: BuildingShape): THREE.Group | null
-setSignMeshShadowEnabled(group: THREE.Group, enabled: boolean): void
-disposeSignMesh(group: THREE.Group): void  // limpa texturas, materiais e geometrias de todos os lados
+disposeSignMesh(group: THREE.Group): void  // limpa texturas, materiais e geometrias (painéis únicos + struts)
 ```
 
 > [!note] Acompanhamento de torção (`shape: "twisted"`)
@@ -238,15 +248,17 @@ disposeSignMesh(group: THREE.Group): void  // limpa texturas, materiais e geomet
 
 Factory para o efeito de **LED nas arestas** do edifício — 4 arestas verticais nos cantos (chão → topo) + 4 arestas no topo formando um retângulo. Chamado pelo [[scene-managers|DonationManager]] quando o usuário escolhe a opção LED no [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]].
 
-**Estrutura por aresta (3 meshes empilhados):**
+**Estrutura (3 `InstancedMesh` por grupo):**
 
-| Camada | Espessura | Material | Função visual |
-|---|---|---|---|
-| **Core** | 0.04 | `MeshStandardMaterial` com `emissive` e `emissiveIntensity: 4.0` | Linha sólida emissiva — o "filamento" do LED |
-| **Halo** | 0.16 (4× core) | `MeshBasicMaterial`, `transparent`, `AdditiveBlending`, `opacity: 0.35`, `depthWrite: false` | Brilho próximo |
-| **Halo externo** | 0.32 (8× core) | mesmo material do halo, `opacity: 0.12` | Glow difuso simulando bloom sem pós-processamento |
+Os segmentos de aresta são coletados como `SegmentSpec` (posição + quaternion + comprimento) e desenhados por **3 `InstancedMesh`** — core, halo e haloOuter — com uma instância por segmento. Resultado: **3 draw calls por LED**, independente do número de segmentos (torre twisted: antes 156 meshes, agora 3 draws).
 
-`depthWrite: false` evita que halos se cancelem entre si; `depthTest` permanece ativo para que o brilho seja oclusionado pelo edifício (não atravessa a fachada).
+| Camada | Material | Função visual |
+|---|---|---|
+| **Core** | `MeshStandardMaterial` com `emissive` | Linha sólida emissiva — o "filamento" do LED |
+| **Halo** | `MeshBasicMaterial`, `transparent`, `AdditiveBlending`, `vertexColors` (alpha gradiente), `depthWrite: false` | Brilho próximo |
+| **Halo externo** | mesmo material, opacidade menor, escala 3.4× | Glow difuso simulando bloom sem pós-processamento |
+
+Uma única geometria de halo (gradiente nas seções locais X/Z, eixo dominante Y) serve pra qualquer direção de aresta — a orientação vem do quaternion da instância. `depthWrite: false` evita que halos se cancelem entre si; `depthTest` permanece ativo para que o brilho seja oclusionado pelo edifício (não atravessa a fachada).
 
 **Layout (relativo à base do edifício, local Y=0 = chão):**
 
@@ -258,12 +270,9 @@ Factory para o efeito de **LED nas arestas** do edifício — 4 arestas verticai
 
 O lift de `0.05` no topo evita z-fighting com `helipad` e holofotes existentes.
 
-**Materiais clonados por edifício:** ao contrário do `createRooftopMesh`, cada `Group` cria seus próprios `core`/`halo`/`haloOuter` materials. Isso permite atualizar a cor em tempo real (drag do `<input type="color">`) via `updateEdgeLightMeshColor` **sem reconstruir geometria**. A geometria `BoxGeometry(1,1,1)` é compartilhada no módulo (via `mesh.scale`).
+**Materiais clonados por edifício:** cada `Group` cria seus próprios `core`/`halo`/`haloOuter` materials (guardados em `userData.edgeLightMaterials`). Geometrias (`BoxGeometry` do core + halo com gradiente) são compartilhadas no módulo.
 
-**Posicionamento no DonationManager:** o grupo é colocado em `(donationX, donationY − scale.y/2, donationZ)` — ou seja, na **base** do edifício, não no topo. Quando uma nova doação rebalanceia alturas, o `syncEdgeLights` reconstrói os grupos existentes (preservando type/color) com as novas dimensões.
-
-> [!note] Sombras
-> LEDs nunca projetam nem recebem sombras. `setEdgeLightMeshShadowEnabled` mantém a API consistente mas todas as `userData.edgeLightCastsShadow`/`Receives` são `false`.
+**Posicionamento no DonationManager:** o grupo é colocado em `(donationX, donationY − scale.y/2, donationZ)` — ou seja, na **base** do edifício, não no topo. Quando uma nova doação rebalanceia alturas, o `syncEdgeLights` reconstrói os grupos existentes (preservando type) com as novas dimensões.
 
 > [!warning] Sem PointLight por aresta
 > O efeito é puramente material/emissivo. Adicionar luzes reais por aresta seria O(N × 12) e estouraria limites de uniforms da GPU rapidamente.
@@ -271,14 +280,12 @@ O lift de `0.05` no topo evita z-fighting com `helipad` e holofotes existentes.
 **API:**
 ```typescript
 createEdgeLightMesh(type: EdgeLightType, footprint: { width: number; depth: number; height: number }, shape?: BuildingShape): THREE.Group | null
-updateEdgeLightMeshColor(group: THREE.Group, color: string): void   // mutação direta — sem rebuild
-setEdgeLightMeshShadowEnabled(group: THREE.Group, enabled: boolean): void
-disposeEdgeLightMesh(group: THREE.Group): void                      // libera materiais clonados
-disposeEdgeLightSharedResources(): void                             // libera BoxGeometry compartilhada
+disposeEdgeLightMesh(group: THREE.Group): void                      // libera materiais clonados + buffers de instância
+disposeEdgeLightSharedResources(): void                             // libera geometrias compartilhadas
 ```
 
 > [!note] Acompanhamento de torção (`shape: "twisted"`)
-> Quando o edifício é torcido, o LED não pode ser uma única caixa axis-aligned — ela ficaria reta enquanto a fachada espirala. Para `shape === "twisted"`, cada aresta vertical é segmentada em `LED_TWIST_SEGMENTS = 12` pedaços curtos; cada segmento é orientado via quaternion (`setFromUnitVectors(Y, dir)`) para alinhar à tangente da curva torcida. O retângulo do topo também é rotacionado pelo `TWIST_TOTAL_ANGLE` total (importado de [[scene-builders#createTwistedBuildingMesh.ts|createTwistedBuildingMesh]]). O custo é ~3× mais meshes do que o caminho axis-aligned, mas só para edifícios torcidos com LED ativo.
+> Quando o edifício é torcido, o LED não pode ser uma única caixa axis-aligned — ela ficaria reta enquanto a fachada espirala. Para `shape === "twisted"`, cada aresta vertical é segmentada em `LED_TWIST_SEGMENTS = 12` pedaços curtos; cada segmento é orientado via quaternion (`setFromUnitVectors(Y, dir)`) para alinhar à tangente da curva torcida. O retângulo do topo também é rotacionado pelo `TWIST_TOTAL_ANGLE` total (importado de [[scene-builders#createTwistedBuildingMesh.ts|createTwistedBuildingMesh]]). Com instancing, mais segmentos custam só matrizes extras — draw calls continuam 3.
 
 ---
 

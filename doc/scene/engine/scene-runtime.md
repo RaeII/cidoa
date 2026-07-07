@@ -40,7 +40,7 @@ createCitySceneRuntime({mount, settings...})
   ├── runDevAssertionsOnce()
   ├── THREE.Scene (background, FogExp2)
   ├── THREE.PerspectiveCamera
-  ├── THREE.WebGLRenderer (ACES filmic, PCFSoft shadows)
+  ├── THREE.WebGLRenderer (ACES filmic, powerPreference "high-performance")
   ├── OrbitControls
   ├── loadEnvironment()       ← builder de HDRI
   ├── createLightingRig()     ← builder de luzes
@@ -60,7 +60,8 @@ A cada frame:
 3. `environmentUpdater.updatePosition(...)` — skybox segue a câmera
 4. **Métricas de FPS** — acumula e suaviza a cada 0.5s
 5. **Resolução dinâmica** — ajusta `renderScale` para atingir `targetFps`
-6. **CubeCamera** — atualiza a cada 4 frames para capturar reflexos
+6. **CubeCamera** — captura reflexos só quando `cubeDirty` (câmera moveu — evento `change` do OrbitControls — ou cena mudou via `add*/update*`), no máximo a cada 4 frames. Câmera parada = zero renders extras. Render target de 128px.
+7. **Culling de acessórios** — a cada 0.25s chama `donationManager.updateAccessoryVisibility(camera.position)`: letreiro, LED, topo e holograma somem além de 80 unidades (fog já os apaga; só a silhueta do prédio importa)
 8. `renderer.render(scene, camera)` — renderiza o frame
 
 #### Resolução Dinâmica
@@ -83,9 +84,7 @@ type CitySceneRuntime = {
   updateTextureSettings(settings: TextureSettings): void
   updateGroundSettings(settings: GroundSettings): void
   updateLightSettings(settings: LightSettings): void
-  updateShadowSettings(settings: ShadowSettings): void
-  updateRenderDirectionSettings(settings: RenderDirectionSettings): void
-  updateHorizonSettings(settings: HorizonSettings): void
+  updateHorizonSettings(settings: HorizonSettings): void // distance também controla camera.far (+2) — alcance de renderização dos prédios
   updateEnvironmentSettings(settings: EnvironmentSettings): void
   updateBlockLayout(settings: BlockLayoutSettings): void
   updateTerrainSettings(settings: TerrainSettings): void
@@ -111,11 +110,11 @@ type CitySceneRuntime = {
 >
 > Zoom aproxima **a partir da direção atual da câmera** — dolly ao longo da linha de visão até `FOCUS_DISTANCE` do topo do prédio, sem girar em volta. Antes usava offset fixo `(6,5,6)`, que fazia a câmera saltar sempre pro mesmo lado (movimento estranho quando vinha do lado oposto). `cameraAnim` interpola pos+target com ease-out cubic em `0.8s`. `clearFocus` restaura pos/target salvos.
 
-> [!note] updateRenderDirectionSettings
-> Mantido na API para compatibilidade com o hook e o canvas, mas sem implementação ativa (sem chunks direcionais no runtime atual).
+> [!note] Sem sombras
+> Cena não tem luz direcional — iluminação é ambiente + IBL do HDRI. Sistema de sombras (settings, UI, flags `castShadow`) foi removido por ser código morto. Pra reintroduzir: criar `DirectionalLight` com shadow camera antes de qualquer flag.
 
 > [!note] Relevo (terrainRig)
-> O runtime possui o `terrainRig` ([[scene-builders#createTerrain.ts]]) — opção `terrainSettings` + método `updateTerrainSettings`. Sincroniza a zona plana via `syncTerrainToCity`, que chama `terrainRig.setCityRadius(donationManager.getCityRadius())` após `addDonation`/`addDonations`/`updateBlockLayout` (toda mudança de doação ou layout de quadra). Cor do chão sincronizada via `terrainRig.setGroundColor` em `updateGroundSettings`. `setShadowEnabled` é propagado ao relevo. Ver [[scene-managers|getCityRadius]].
+> O runtime possui o `terrainRig` ([[scene-builders#createTerrain.ts]]) — opção `terrainSettings` + método `updateTerrainSettings`. Sincroniza a zona plana via `syncTerrainToCity`, que chama `terrainRig.setCityRadius(donationManager.getCityRadius())` após `addDonation`/`addDonations`/`updateBlockLayout` (toda mudança de doação ou layout de quadra). Cor do chão sincronizada via `terrainRig.setGroundColor` em `updateGroundSettings`. Ver [[scene-managers|getCityRadius]].
 >
 > **Visibilidade do chão (anti-z-fighting):** com o relevo ligado, o `groundPlane` é o chão **escondido** (`groundPlane.mesh.visible = !terrainSettings.enabled`) — senão ele e o terreno (duas superfícies cinza quase paralelas) piscam conforme a câmera mexe. Na **captura do cube envMap** a relação inverte por um frame: o relevo é ocultado (`terrainRig.mesh.visible = false`, prédios **não refletem** o verde) e o plano cinza é exibido (piso neutro do reflexo); ambos são restaurados depois.
 
@@ -151,7 +150,7 @@ dispose()
 | `outputColorSpace` | `SRGBColorSpace` |
 | `toneMapping` | `ACESFilmicToneMapping` |
 | `toneMappingExposure` | `1.45` |
-| `shadowMap.type` | `PCFSoftShadowMap` |
+| `powerPreference` | `"high-performance"` (força GPU dedicada em laptop híbrido) |
 
 ## Por que essa Camada é Importante
 

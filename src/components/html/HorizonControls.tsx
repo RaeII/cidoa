@@ -7,9 +7,10 @@ import type { HorizonSettings } from "../../scene/types";
 type Props = {
   settings: HorizonSettings;
   onChange: (settings: HorizonSettings) => void;
+  culledCount: number;
 };
 
-export function HorizonControls({ settings, onChange }: Props) {
+export function HorizonControls({ settings, onChange, culledCount }: Props) {
   const handleChange = <K extends keyof HorizonSettings>(key: K, value: HorizonSettings[K]) => {
     onChange({ ...settings, [key]: value });
   };
@@ -37,6 +38,21 @@ export function HorizonControls({ settings, onChange }: Props) {
           step={0.1}
           onChange={(val) => handleChange("distance", val)}
         />
+
+        <RangeField
+          label="Distância atrás da câmera"
+          value={settings.backDistance}
+          min={10}
+          max={600}
+          step={0.1}
+          onChange={(val) => handleChange("backDistance", val)}
+        />
+
+        <p className="text-xs leading-5 text-white/50">
+          {culledCount} prédios ocultos pelo cull de distância. Prédios atrás da câmera não
+          aparecem na tela — reduzir esta distância corta geometria invisível (ganho de perf e
+          menos reflexo), então o efeito é neste número, não no render.
+        </p>
       </PanelSection>
 
       <PanelSection title="Névoa">

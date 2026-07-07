@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { seeded } from "../utils/random";
 
-// O far plane está em 260u — ficar em 248 garante que os prédios não são clipados.
+// O far plane da câmera acompanha a distância da silhueta (distance + 2 no runtime),
+// então a fileira nunca é clipada.
 
 // A fileira se estende lateralmente além dos limites do FOV (58° horizontal ~= ±245u a 248u de distância).
 // ±580u garante cobertura mesmo em qualquer ângulo de órbita.

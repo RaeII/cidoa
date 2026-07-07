@@ -134,7 +134,7 @@ Componente que monta o painel completo de configuração da cena. **Escondido po
 
 | Aba | Seções |
 |---|---|
-| **Geral** | Intro, prédios, sombras, direção de renderização, chão, **quadras** (cor dos lotes vazios → [[scene-types#BlockLayoutSettings]]), ambiente |
+| **Geral** | Intro, prédios, chão, **quadras** (cor dos lotes vazios → [[scene-types#BlockLayoutSettings]]), calçada, ambiente |
 | **Texturas** | Configurações PBR das fachadas |
 | **Luz** | Ambient, hemisphere, directional |
 | **Horizonte** | Configurações de HDRI e skybox |
@@ -199,8 +199,6 @@ Cabeçalho do painel com métricas em tempo real:
 
 - Título do projeto
 - Quantidade de prédios ativos
-- Chunks carregados
-- Prédios gerando sombra
 - Intensidade solar atual
 
 ---
@@ -235,29 +233,6 @@ Configurações de textura PBR das fachadas:
 
 Texturas carregadas de: `src/assets/texture/Facade006_1K-mirrored-PNG/`
 Mapas disponíveis: color, normal, roughness, metalness, displacement.
-
----
-
-### `ShadowControls.tsx`
-
-Configurações de sombra:
-
-- Ligar/desligar sombras
-- Quantidade de prédios que geram sombra
-- Parâmetros da câmera de sombra
-
----
-
-### `RenderDirectionControls.tsx`
-
-Distâncias de renderização por direção da câmera:
-
-- Frente
-- Laterais
-- Trás
-
-> [!note]
-> Esse componente não calcula nada. Apenas altera estado que o [[scene-managers|ChunkManager]] consome (mantido para referência arquitetural).
 
 ---
 
@@ -333,7 +308,12 @@ Controles da aba **Horizonte**. Dividido em duas seções:
 
 **Silhueta do Horizonte:**
 - `color` — cor dos prédios da silhueta
-- `distance` — distância da câmera até a fileira (100–600)
+- `distance` — distância da fileira + alcance de renderização dos prédios (camera.far + cull) (100–600)
+- `backDistance` — alcance de renderização atrás da câmera (cull direcional) (10–600)
+- prop `culledCount` (de `sceneStats.culled`) — mostra readout embaixo do slider
+
+> [!note] `backDistance` só corta geometria invisível
+> Câmera olha pra frente → prédio atrás dela nunca aparece na tela. Reduzir `backDistance` corta esses prédios (ganho de perf + menos reflexo no envMap), mas **não muda o render principal**. O efeito é observável no número `culledCount`, não na imagem. Contraste: `distance` (frontal) mexe no `camera.far`, então tem efeito visível.
 
 **Névoa:**
 - `fogDensity` — densidade da névoa exponencial (`FogExp2`). Controla quão rápido os objetos distantes somem (0–0.05, padrão 0.01)

@@ -41,8 +41,6 @@ Componente pequeno por design. Faz três coisas:
 | `textureSettings` | `TextureSettings` | Configurações PBR de textura |
 | `groundSettings` | `GroundSettings` | Material e cor do chão |
 | `lightSettings` | `LightSettings` | Luzes da cena |
-| `shadowSettings` | `ShadowSettings` | Configurações de sombra |
-| `renderDirectionSettings` | `RenderDirectionSettings` | Distâncias de chunk por direção |
 | `environmentSettings` | `EnvironmentSettings` | HDRI / skybox |
 | `blockLayoutSettings` | `BlockLayoutSettings` | Tamanho de quadra e largura de rua |
 | `onStatsChange` | `(stats: SceneStats) => void` | Callback de métricas |
@@ -66,7 +64,6 @@ O canvas não:
 - cria luz manualmente
 - cria `scene` ou `camera`
 - gera prédios
-- calcula sombras
 
 Tudo isso fica no [[scene-runtime|runtime]].
 

@@ -185,7 +185,11 @@ export function CityControlPanel({
 
         {activeTab === "horizonte" && (
           <div className="space-y-6 pb-8 pt-2">
-            <HorizonControls settings={horizonSettings} onChange={onHorizonSettingsChange} />
+            <HorizonControls
+              settings={horizonSettings}
+              onChange={onHorizonSettingsChange}
+              culledCount={sceneStats.culled}
+            />
           </div>
         )}
 

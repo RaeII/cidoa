@@ -58,14 +58,6 @@ useEffect(() => {
 }, [lightSettings]);
 
 useEffect(() => {
-  runtimeRef.current?.updateShadowSettings(shadowSettings);
-}, [shadowSettings]);
-
-useEffect(() => {
-  runtimeRef.current?.updateRenderDirectionSettings(renderDirectionSettings, true);
-}, [renderDirectionSettings]);
-
-useEffect(() => {
   runtimeRef.current?.updateEnvironmentSettings(environmentSettings);
 }, [environmentSettings]);
 

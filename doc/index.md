@@ -62,8 +62,6 @@ src/
       GroundControls.tsx
       TerrainControls.tsx
       SceneLightControls.tsx
-      ShadowControls.tsx
-      RenderDirectionControls.tsx
       EnvironmentControls.tsx
       PointLightControls.tsx
       PanelIntro.tsx
@@ -88,8 +86,6 @@ src/
       groundConfig.ts
       terrainConfig.ts
       lightConfig.ts
-      shadowConfig.ts
-      renderDirectionConfig.ts
       environmentConfig.ts
       blockLayoutConfig.ts
       uiVisibilityConfig.ts
@@ -113,7 +109,6 @@ src/
     managers/
       createDonationManager.ts
       createChunkManager.ts   ← referência arquitetural
-      createShadowManager.ts  ← referência arquitetural
     hooks/
       useCityScene.ts
     runtime/
@@ -155,7 +150,7 @@ doc/
 Ele guarda todos os estados:
 
 - `buildingSettings`, `textureSettings`, `groundSettings`
-- `lightSettings`, `shadowSettings`, `renderDirectionSettings`
+- `lightSettings`
 - `environmentSettings`, `horizonSettings`, `blockLayoutSettings`, `terrainSettings`
 - `sceneStats`, `hoverInfo`
 - `showControlPanel` — toggle do painel de configuração (escondido por padrão)

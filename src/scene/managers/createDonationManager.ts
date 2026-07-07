@@ -187,7 +187,9 @@ export type DonationManager = {
   setFocusedDonation: (donationId: number | null) => void;
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
   tickAnimations: (elapsedSeconds: number, deltaMs: number) => void;
-  updateAccessoryVisibility: (cameraPos: THREE.Vector3) => void;
+  setRenderDistance: (distance: number, backDistance: number) => void;
+  /** Retorna quantos prédios ficaram ocultos pelo cull de distância (frontal + traseiro). */
+  updateDistanceCulling: (cameraPos: THREE.Vector3, cameraForward: THREE.Vector3) => number;
   dispose: () => void;
 };
 
@@ -706,6 +708,12 @@ export function createDonationManager({
   let currentTextureSettings = { ...textureSettings };
   let currentBlockLayout = { ...blockLayoutSettings };
   const dummy = new THREE.Object3D();
+  // Cull de distância dos prédios: instância além da distância vira matriz zero-scale
+  // (camera.far sozinho não poupa GPU — InstancedMesh processa todos vértices sempre).
+  let renderDistanceSq = Infinity;
+  let backDistanceSq = Infinity;
+  let instanceHidden = new Uint8Array(0);
+  const hiddenMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
   const raycaster = new THREE.Raycaster();
   const mouseVec = new THREE.Vector2();
   const instanceToValue: number[] = [];
@@ -1103,18 +1111,29 @@ export function createDonationManager({
         }
       }
 
-      // Lotes vazios deste bloco: slots além dos ocupados viram tiles demarcados.
-      for (let s = occupiedSlots; s < orderedSlots.length; s++) {
-        emptyLots.push([
-          blockCenterX + orderedSlots[s][0],
-          blockCenterZ + orderedSlots[s][1],
-        ]);
+      // Lotes vazios: só dentro do loteamento mínimo inicial (grade 3×3 em r=1),
+      // pra cena não começar vazia. Fora dele a cidade cresce por doação real —
+      // não semeamos lote vazio pra ela não "crescer junto"; slots vagos do anel
+      // externo ficam só chão/asfalto. Slot ocupado nunca vira lote (some sozinho).
+      const withinMinLoteamento =
+        Math.abs(bx) <= MIN_LOTEAMENTO_RADIUS && Math.abs(bz) <= MIN_LOTEAMENTO_RADIUS;
+      if (withinMinLoteamento) {
+        for (let s = occupiedSlots; s < orderedSlots.length; s++) {
+          emptyLots.push([
+            blockCenterX + orderedSlots[s][0],
+            blockCenterZ + orderedSlots[s][1],
+          ]);
+        }
       }
     }
 
     mesh.count = instanceIdx;
     mesh.instanceMatrix.needsUpdate = true;
     mesh.boundingSphere = null; // força recomputação na próxima chamada de raycast
+
+    // Layout reescreveu todas as matrizes → todas visíveis; próximo passe de cull re-esconde.
+    if (instanceHidden.length < capacity) instanceHidden = new Uint8Array(capacity);
+    else instanceHidden.fill(0);
 
     // Aplicar cores individuais (customização) por instância
     applyInstanceColors();
@@ -1840,20 +1859,82 @@ export function createDonationManager({
         if (entry.group.visible) tickHologram(entry, elapsedSeconds, deltaMs);
       }
     },
+    setRenderDistance(distance, backDistance) {
+      // Aplicado no próximo passe de updateDistanceCulling (throttle de 0.25s no runtime).
+      renderDistanceSq = distance * distance;
+      backDistanceSq = backDistance * backDistance;
+    },
     // LOD barato: acessórios de detalhe (topo, letreiro, LED, holograma) somem além
     // da distância onde o fog já os apaga — o prédio (silhueta) continua visível.
-    updateAccessoryVisibility(cameraPos) {
+    // Prédios (instanciados e customizados) somem além da distância de renderização.
+    updateDistanceCulling(cameraPos, cameraForward) {
+      // Forward projetado no plano XZ; olhando reto pra baixo não há "atrás" definido
+      // → cull vira puramente radial (limite frontal pra todo mundo).
+      let fx = cameraForward.x;
+      let fz = cameraForward.z;
+      const fLen = Math.hypot(fx, fz);
+      const hasDirection = fLen > 1e-3;
+      if (hasDirection) {
+        fx /= fLen;
+        fz /= fLen;
+      }
+      const distSqTo = (p: THREE.Vector3) => {
+        const dx = p.x - cameraPos.x;
+        const dz = p.z - cameraPos.z;
+        return dx * dx + dz * dz;
+      };
+      // Olhando reto pra baixo (bird's eye, stop do orbit em phi≈0): forward XZ some,
+      // "atrás" fica indefinido → cull radial usa a menor distância (mais agressiva),
+      // pra continuar sumindo prédios mesmo com a câmera toda pra baixo.
+      const fallbackSq = Math.min(renderDistanceSq, backDistanceSq);
+      // Limite direcional: prédio atrás da câmera (dot < 0) usa backDistance.
+      const limitSqFor = (p: THREE.Vector3) => {
+        if (!hasDirection) return fallbackSq;
+        const behind = (p.x - cameraPos.x) * fx + (p.z - cameraPos.z) * fz < 0;
+        return behind ? backDistanceSq : renderDistanceSq;
+      };
       const applyCull = (donId: number, group: THREE.Object3D) => {
         const t = donationTransforms.get(donId);
         if (!t) return; // sem transform = sync* já escondeu o group
-        const dx = t.position.x - cameraPos.x;
-        const dz = t.position.z - cameraPos.z;
-        group.visible = dx * dx + dz * dz <= ACCESSORY_DETAIL_DISTANCE_SQ;
+        const d = distSqTo(t.position);
+        group.visible = d <= ACCESSORY_DETAIL_DISTANCE_SQ && d <= limitSqFor(t.position);
       };
       for (const [donId, entry] of rooftopMeshes) applyCull(donId, entry.group);
       for (const [donId, entry] of signMeshes) applyCull(donId, entry.group);
       for (const [donId, entry] of edgeLightMeshes) applyCull(donId, entry.group);
       for (const [donId, entry] of hologramMeshes) applyCull(donId, entry.group);
+
+      let culled = 0;
+
+      // Prédios customizados: Mesh próprio, basta visible.
+      for (const [donId, entry] of customShapeMeshes) {
+        const t = donationTransforms.get(donId);
+        if (!t) continue;
+        entry.mesh.visible = distSqTo(t.position) <= limitSqFor(t.position);
+        if (!entry.mesh.visible) culled++;
+      }
+
+      // Prédios instanciados: sem frustum cull por instância — zero-scale esconde de
+      // verdade (some do render principal e da captura do envMap). Upload do buffer
+      // só quando algum estado muda.
+      let changed = false;
+      for (let i = 0; i < mesh.count; i++) {
+        const donId = instanceToDonationId[i];
+        const t = donationTransforms.get(donId);
+        if (!t) continue;
+        const hidden = distSqTo(t.position) > limitSqFor(t.position) ? 1 : 0;
+        if (hidden) culled++;
+        if (instanceHidden[i] === hidden) continue;
+        instanceHidden[i] = hidden;
+        if (hidden) {
+          mesh.setMatrixAt(i, hiddenMatrix);
+        } else if (readDonationTransform(donId)) {
+          mesh.setMatrixAt(i, tmpTransformMatrix);
+        }
+        changed = true;
+      }
+      if (changed) mesh.instanceMatrix.needsUpdate = true;
+      return culled;
     },
     dispose() {
       removeFocusHighlight();

@@ -119,18 +119,17 @@ Como o loteamento tem piso mínimo `r ≥ MIN_LOTEAMENTO_RADIUS` (= 1), há semp
 - As molduras **quebram naturalmente nos cruzamentos** (cantos das quadras), deixando o asfalto perpendicular passar livre — por isso é moldura por-quadra, não tira contínua
 - Elevação: topo da calçada vem de `blockLayoutSettings.sidewalkHeight` (padrão 0.12 → degrau ~0.13 acima do asfalto -0.015 e dos lotes -0.012). Fundo fixo em `SIDEWALK_BOTTOM = -0.08` (abaixo do terreno -0.04 p/ não flutuar); espessura do box = `sidewalkHeight − SIDEWALK_BOTTOM`
 - Capacidade cresce sob demanda (mesmo padrão dos lotes); `count = 0` quando não cabe calçada (`sidewalkWidth ≤ 0`)
-- `receiveShadow` segue `shadowEnabled`; `castShadow = false`; `dispose()` libera `sidewalkGeometry`/`sidewalkTopMaterial`/`sidewalkSideMaterial`
+- `dispose()` libera `sidewalkGeometry`/`sidewalkTopMaterial`/`sidewalkSideMaterial`
 
 #### Loteamento e Lotes Vazios
 
-Cena nunca fica vazia: o manager sempre desenha um **loteamento** (grade de quadras + asfalto + lotes demarcados), mesmo com 0 doações. Doações preenchem do centro pra fora; lotes vazios somem sob os prédios conforme a cidade cresce.
+Cena nunca fica vazia: o manager sempre desenha um **loteamento** (grade de quadras + asfalto + lotes demarcados), mesmo com 0 doações. Doações preenchem do centro pra fora; lote ocupado some sozinho (slot ocupado nunca vira lote). Os lotes vazios ficam **só no piso mínimo 3×3** — não crescem junto com a cidade; fora dele o anel externo fica só chão/asfalto entre os prédios.
 
 - **Piso mínimo:** `MIN_LOTEAMENTO_RADIUS` (= 1) força `r ≥ 1` → grade 3×3 de quadras sempre presente. O loteamento cresce além disso quando as doações exigem mais quadras, nunca encolhe abaixo do piso.
 - **Render inicial:** `rebuildInstances()` é chamado na criação do manager — o loteamento aparece antes de qualquer doação e já define `cityHalfExtent` pro relevo abrir a zona plana no setup.
-- **Coleta de lotes:** no loop de posicionamento, cada bloco guarda `orderedSlots` (ordem usada: ocupados primeiro). Slots além de `occupiedSlots` viram lote vazio — coletados em `emptyLots` (posição world x,z).
+- **Coleta de lotes:** no loop de posicionamento, cada bloco guarda `orderedSlots` (ordem usada: ocupados primeiro). Slots além de `occupiedSlots` viram lote vazio — coletados em `emptyLots` (posição world x,z), **mas só nos blocos dentro do piso mínimo** (`|bx| ≤ MIN_LOTEAMENTO_RADIUS && |bz| ≤ MIN_LOTEAMENTO_RADIUS`). Blocos do anel externo não semeiam lote vazio → loteamento não cresce junto com a cidade.
 - **`rebuildLots(positions)`:** desenha um único `InstancedMesh` (`lotMesh`) de tiles de chão, 1 draw call pra todos os lotes. Cresce a capacidade sob demanda (mesmo padrão do prédio); `count = 0` quando o loteamento está cheio.
 - **Tile:** `PlaneGeometry(slotSize − 0.5)` deitado (`rotateX`), em `LOT_Y = -0.012`. O gap de 0.5 entre tiles + a borda do shader = demarcação dos lotes.
-- **Sombra:** `lotMesh.receiveShadow` segue `shadowEnabled` (prédios projetam sombra nos lotes vazios).
 - **Cor configurável:** `lotColor`, `sidewalkColor` (topo) e `sidewalkSideColor` (laterais) vêm de `blockLayoutSettings`. `updateBlockLayout` aplica direto em `lotMaterial.color` / `sidewalkTopMaterial.color` / `sidewalkSideMaterial.color` (materiais compartilhados → tudo de uma vez) e **só reconstrói** as instâncias quando muda um campo de geometria (`blockSize`, `streetWidth`, `towerRatio`, `towersPerBlock`, `baseHeightCap`) — trocar só a cor não dispara rebuild.
 - **Altura da calçada configurável:** `sidewalkHeight` em `blockLayoutSettings`. `updateBlockLayout` faz um **rebuild localizado** só das tiras de calçada (`rebuildSidewalks` com os últimos params de estrada salvos: `lastRoadR`/`lastRoadBlockSpacing`/`lastRoadStreetWidth`) — não mexe nos prédios.
 - **Cleanup:** `dispose()` remove `lotMesh` e libera `lotGeometry`/`lotMaterial`.
@@ -155,11 +154,15 @@ updateBuildingSettings(settings: BuildingSettings): void
 updateTextureSettings(settings: TextureSettings): void
 updateBlockLayout(settings: BlockLayoutSettings): void
 
-// EnvMap e sombras
+// EnvMap
 setEnvMap(texture: THREE.Texture): void
-setShadowEnabled(enabled: boolean): void
-beginEnvCapture(): void   // oculta prédios durante captura do CubeCamera
-endEnvCapture(): void     // reexibe prédios após captura
+beginEnvCapture(): void   // zera envMapIntensity durante captura do CubeCamera
+endEnvCapture(): void     // restaura envMapIntensity após captura
+
+// LOD / cull de distância
+setRenderDistance(distance: number, backDistance: number): void  // alcance de renderização frente/trás (sliders da aba Horizonte)
+updateDistanceCulling(cameraPos: THREE.Vector3, cameraForward: THREE.Vector3): void  // esconde acessórios além de 80u; prédios além do limite direcional (dot com forward XZ < 0 → backDistance; instância vira matriz zero-scale — camera.far sozinho não poupa vértice de InstancedMesh)
+tickAnimations(elapsedSeconds: number, deltaMs: number): void  // anima hologramas visíveis (pula os culled)
 
 // Interação
 getHoveredValue(event, camera, domElement): number | null       // raycast hover → valor da doação
@@ -226,7 +229,7 @@ Para cada doação custom, `syncCustomShapes()`:
 
 Pontos de integração:
 
-- Os clones são incluídos em `getAllFacadeMaterials()` / `getAllTopMaterials()` para que `applyTextureToFacade`, `applyTextureToTop`, `updateBuildingSettings`, `setEnvMap`, `beginEnvCapture`/`endEnvCapture` e `setShadowEnabled` propaguem mudanças globais para eles.
+- Os clones são incluídos em `getAllFacadeMaterials()` / `getAllTopMaterials()` para que `applyTextureToFacade`, `applyTextureToTop`, `updateBuildingSettings`, `setEnvMap` e `beginEnvCapture`/`endEnvCapture` propaguem mudanças globais para eles.
 - `setFocusedDonation` dim os clones para `0.15` quando outro prédio está focado, mantém em `1.0` se o custom é o focado, e dispensa o `focusHighlightMesh` (o próprio Mesh já é separado).
 - `getHoveredValue` / `getClickedDonationId` estendem o raycast para `[mesh, ...customShapeMeshes]` e leem `donationId`/`donationValue` de `userData`.
 - O map `donationTransforms: Map<id, {position, scale}>` é a **fonte única** dos transforms lógicos: acessórios (rooftop/sign/edge) usam `readDonationTransform` que lê desse map, então funcionam igual para edifícios custom sem precisar saber se viraram Mesh separado.
@@ -245,7 +248,7 @@ Cada edifício pode ter um acessório 3D no topo, como holofotes ou heliponto, g
 - **Posicionamento:** após cada `rebuildInstances`, `syncRooftops()` reposiciona todos os grupos no topo dos edifícios correspondentes.
 - **Criação/remoção:** `setRooftop(donationId, type)` remove o grupo anterior e cria um novo se `type !== "none"`.
 - **Performance:** o lookup do edifício usa `donationIdToInstanceIndex` em vez de `indexOf`, e os transforms temporários são reutilizados nos syncs.
-- **Sombras:** `setRooftopMeshShadowEnabled()` respeita apenas meshes sólidos; lentes emissivas e feixes transparentes não entram no shadow map.
+- **LOD:** `updateDistanceCulling(cameraPos)` (chamado pelo runtime a cada 0.25s) esconde o grupo além de `ACCESSORY_DETAIL_DISTANCE` (80u) — vale pra rooftop, sign, LED e holograma. Mesmo passe faz cull dos prédios além da distância de renderização (`setRenderDistance`): custom shapes via `visible`, instâncias via matriz zero-scale.
 - **Cleanup:** no `dispose()`, todos os grupos são removidos e `disposeRooftopSharedResources()` limpa geometrias e materiais compartilhados.
 
 #### Letreiros (Signs)
@@ -255,7 +258,6 @@ Cada edifício pode ter um letreiro na fachada com o texto da marca/empresa do d
 - **Dimensionamento:** o letreiro usa as dimensões reais do edifício (`getBuildingScale`) — largura adaptada a cada fachada, altura consistente em todos os lados.
 - **Lados:** `signSides` (1–4) controla em quantas fachadas o letreiro aparece. Cada mudança de texto ou de lados recria o sign completo via `setSign(donationId, text, sides)`.
 - **Posicionamento:** `syncSigns()` reposiciona todos os letreiros no centro do edifício após cada `rebuildInstances`.
-- **Sombras:** a placa emissiva não projeta sombra; apenas o backing metálico mantém presença física no shadow map.
 - **Detecção de mudança:** `updateDonationCustomization` compara `signText` e `signSides` anteriores com os novos valores — recria só se houve mudança.
 - **Cleanup:** no `dispose()`, todos os sign meshes são removidos com `disposeSignMesh()`.
 
@@ -265,9 +267,8 @@ Cada edifício pode ter um efeito de **LED nas arestas** (4 arestas verticais no
 
 - **Posicionamento:** o grupo é colocado na **base** do edifício (`donationY − scale.y/2`); meshes internos cobrem de `y=0` (chão) até `y=height` (topo) com lift de `0.05` no topo para evitar conflito com `helipad`/`spotlights`.
 - **Reconstrução em rebuild:** ao contrário de rooftop/sign, `syncEdgeLights()` **reconstrói** todos os grupos existentes a cada `rebuildInstances`. Isso é necessário porque novas doações alteram a altura dos edifícios — a geometria do LED depende de `width`, `depth` **e** `height`.
-- **Mudança de cor sem rebuild:** quando apenas a cor muda (drag do color picker), `setEdgeLightColor(donationId, color)` chama `updateEdgeLightMeshColor` que mexe diretamente nos materiais clonados — sem destruir nada. Mudança de `type` (none ↔ led) sim reconstrói tudo via `setEdgeLight`.
-- **Sombras:** LEDs nunca projetam nem recebem sombra (são emissivos/aditivos). `setEdgeLightMeshShadowEnabled` é chamada por consistência, mas todas as `userData` de sombra ficam `false`.
-- **Cleanup:** no `dispose()`, todos os edge light meshes são removidos com `disposeEdgeLightMesh()` (libera materiais clonados) e `disposeEdgeLightSharedResources()` libera a `BoxGeometry` compartilhada do módulo.
+- **Instancing:** o grupo contém só **3 `InstancedMesh`** (core + halo + haloOuter) — todos os segmentos de aresta são instâncias, então torre twisted custa 3 draw calls, não 156 meshes. Ver [[scene-builders#createEdgeLightMesh.ts]].
+- **Cleanup:** no `dispose()`, todos os edge light meshes são removidos com `disposeEdgeLightMesh()` (libera materiais clonados + buffers de instância) e `disposeEdgeLightSharedResources()` libera as geometrias compartilhadas do módulo.
 
 ---
 
@@ -281,16 +282,10 @@ Cada edifício pode ter um efeito de **LED nas arestas** (4 arestas verticais no
 - Gerar prédios proceduralmente com [[scene-utils#random.ts|seeded random]]
 - Decidir quais chunks devem existir perto da câmera
 - Remover chunks distantes
-- Alternar materiais near/far por chunk com base em `envMapNearDistance`
+- Alternar materiais near/far por chunk com base em `ENV_MAP_NEAR_DISTANCE` (constante local; a key de config foi removida)
 
----
-
-### `createShadowManager.ts` _(referência arquitetural)_
-
-> [!warning] Não usado pelo runtime principal
-> Mantido no repositório como referência para seleção de candidatos de sombra.
-
-**Responsabilidade original:** escolher os prédios mais próximos da câmera para gerar sombra, limitando o custo do shadow map.
+> [!note] createShadowManager removido
+> Existia como referência de seleção de candidatos de sombra. Deletado junto com o sistema de sombras (cena não tem luz direcional — sombras nunca renderizavam).
 
 ## Quando Mexer em Managers
 

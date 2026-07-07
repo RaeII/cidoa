@@ -73,6 +73,8 @@ export type HorizonSettings = {
   enabled: boolean;
   color: string;
   distance: number;
+  /** Distância de renderização dos prédios atrás da câmera (cull direcional). */
+  backDistance: number;
   fogDensity: number;
   fogColor: string;
 };
@@ -187,6 +189,8 @@ export type BlockLayoutSettings = {
 
 export type SceneStats = {
   buildings: number;
+  /** Prédios ocultos pelo cull de distância (frontal + traseiro). */
+  culled: number;
   fpsMode: string;
   chunks: number;
 };

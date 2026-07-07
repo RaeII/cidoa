@@ -168,6 +168,7 @@ export function createCitySceneRuntime({
     blockLayoutSettings,
   });
   donationManager.setEnvMap(buildingCubeTarget.texture);
+  donationManager.setRenderDistance(horizonSettings.distance, horizonSettings.backDistance);
   terrainRig.setCityRadius(donationManager.getCityRadius());
 
   // EnvMap dos prédios só é recapturado quando algo visível muda (câmera ou cena).
@@ -255,6 +256,7 @@ export function createCitySceneRuntime({
   let cubeFrameCounter = 0;
   let cameraDebugAccumulator = 0;
   let accessoryCullAccumulator = 0;
+  const cullForward = new THREE.Vector3();
 
   const updateDynamicResolution = (fps: number) => {
     const previousScale = renderScale;
@@ -341,11 +343,16 @@ export function createCitySceneRuntime({
       donationManager.endEnvCapture();
     }
 
-    // Acessórios (letreiro, LED, holograma, topo) somem além da distância de detalhe.
+    // Acessórios somem além da distância de detalhe; prédios além da distância de renderização
+    // (frontal ou traseira, conforme direção da câmera).
     accessoryCullAccumulator += delta;
     if (accessoryCullAccumulator >= 0.25) {
       accessoryCullAccumulator = 0;
-      donationManager.updateAccessoryVisibility(camera.position);
+      const culled = donationManager.updateDistanceCulling(
+        camera.position,
+        camera.getWorldDirection(cullForward),
+      );
+      if (culled !== currentStats.culled) emitStatsPatch({ culled });
     }
 
     donationManager.tickAnimations(time / 1000, delta * 1000);
@@ -392,6 +399,12 @@ export function createCitySceneRuntime({
     },
     updateHorizonSettings(settings) {
       horizonSilhouette.updateSettings(settings);
+      // Distância controla o alcance de renderização: far plane acompanha a silhueta
+      // (+2 cobre a profundidade dos prédios da fileira, que ficam centrados na distância)
+      // e o manager faz cull real das instâncias além dela.
+      camera.far = settings.distance + 2;
+      camera.updateProjectionMatrix();
+      donationManager.setRenderDistance(settings.distance, settings.backDistance);
       if (scene.fog instanceof THREE.FogExp2) {
         scene.fog.color.set(settings.fogColor);
         scene.fog.density = settings.fogDensity;

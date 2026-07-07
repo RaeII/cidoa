@@ -182,41 +182,17 @@ type LightSettings = {
 
 ---
 
-### `ShadowSettings`
-
-Configurações de sombra:
-
-```typescript
-type ShadowSettings = {
-  enabled: boolean;
-  intensity: number;
-  bias: number;
-  normalBias: number;
-  radius: number;
-  blurSamples: number;
-  mapSize: number;
-  cameraNear: number;
-  cameraFar: number;
-  cameraLeft: number;
-  cameraRight: number;
-  cameraTop: number;
-  cameraBottom: number;
-  buildingCountWithShadow: number;
-}
-```
-
----
-
 ### `HorizonSettings`
 
 Configurações da silhueta do horizonte e da névoa da cena:
 
 ```typescript
 type HorizonSettings = {
-  color: string;       // cor dos prédios da silhueta
-  distance: number;    // distância da câmera até a fileira (padrão: 248)
-  fogDensity: number;  // densidade da névoa exponencial (FogExp2, padrão: 0.01)
-  fogColor: string;    // cor da névoa (padrão: "#090c11")
+  color: string;        // cor dos prédios da silhueta
+  distance: number;     // fileira + alcance de renderização (camera.far + cull) (padrão: 258.8)
+  backDistance: number; // alcance de renderização atrás da câmera (cull direcional, padrão: 258.8)
+  fogDensity: number;   // densidade da névoa exponencial (FogExp2, padrão: 0.01)
+  fogColor: string;     // cor da névoa (padrão: "#090c11")
 }
 ```
 
@@ -236,6 +212,9 @@ type RenderDirectionSettings = {
   backwardDistance: number;
 }
 ```
+
+> [!note] Só referência
+> Consumido apenas por `createChunkManager` (arquivo de referência arquitetural). Cadeia viva (config, UI, runtime) foi removida.
 
 ---
 
@@ -273,9 +252,9 @@ Métricas enviadas de volta para o React para exibição no painel:
 ```typescript
 type SceneStats = {
   buildings: number;         // prédios ativos na cena
+  culled: number;            // prédios ocultos pelo cull de distância (frontal + traseiro)
   fpsMode: string;           // modo FPS atual
   chunks: number;            // chunks carregados
-  buildingsWithShadow: number;
 }
 ```
 
