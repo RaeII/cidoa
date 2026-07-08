@@ -8,6 +8,9 @@ import {
   useKeyboardShortcuts,
   type KeyboardShortcut,
 } from "./hooks/useKeyboardShortcuts";
+import { useDonations } from "./hooks/useDonations";
+import { DonationLoadOverlay } from "./html/DonationLoadOverlay";
+import { DonationFilterBar } from "./html/DonationFilterBar";
 import { DEFAULT_SCENE_STATS } from "../scene/config/citySceneConfig";
 import { createDefaultBlockLayoutSettings } from "../scene/config/blockLayoutConfig";
 import { createDefaultBuildingSettings } from "../scene/config/buildingConfig";
@@ -36,42 +39,6 @@ import {
 } from "../scene/types";
 import { getLightMetrics } from "../scene/utils/lighting";
 
-const INITIAL_TEST_DONATIONS = [
-  1000,
-  880,
-  760,
-  640,
-  520,
-  400,
-  280,
-  180,
-  90,
-  40,
-] as const;
-
-const INITIAL_TWISTED_BUILDING_ID = 0;
-
-const createInitialTwistedCustomization = (): BuildingCustomization => ({
-  color: createDefaultBuildingSettings().color,
-  buildingShape: "twisted",
-  tilingScale: 1,
-  textureTransform: { ...DEFAULT_BUILDING_TEXTURE_TRANSFORM },
-  rooftopType: "none",
-  signText: "",
-  signSides: 1,
-  edgeLightType: "none",
-  hologramImage: null,
-  hologramColor: DEFAULT_HOLOGRAM_COLOR,
-  hologramOpacity: DEFAULT_HOLOGRAM_OPACITY,
-});
-
-const createInitialBuildingCustomizations = () =>
-  new Map<number, BuildingCustomization>([
-    [INITIAL_TWISTED_BUILDING_ID, createInitialTwistedCustomization()],
-  ]);
-
-const INITIAL_TEST_BUILDING_CUSTOMIZATIONS = createInitialBuildingCustomizations();
-
 const formatCameraValue = (value: number) => value.toFixed(2);
 
 export function CitySceneEditor() {
@@ -93,8 +60,24 @@ export function CitySceneEditor() {
   const [uiVisibility, setUIVisibility] = useState(loadUIVisibilitySettings);
   const [selectedBuildingId, setSelectedBuildingId] = useState<number | null>(null);
   const [buildingCustomizations, setBuildingCustomizations] = useState<Map<number, BuildingCustomization>>(
-    createInitialBuildingCustomizations,
+    () => new Map(),
   );
+
+  // Doações vêm do backend (snapshot cacheado) + filtro client-side por
+  // região/UF/cidade/ONG. Replace-all na cena a cada mudança de `donations`.
+  const { loadState, donations, cities, ongs, filter, setFilter, retry } = useDonations();
+  const [donationsApplied, setDonationsApplied] = useState(false);
+
+  useEffect(() => {
+    if (loadState.status !== "ready") return;
+    // setDonations é síncrono (rebuild inline ~0,5s p/ 100k) — o overlay só some
+    // depois desta linha, então o freeze fica mascarado pelo overlay ainda pintado.
+    canvasRef.current?.setDonations(donations);
+    // Sincroniza um sistema externo (cena Three.js) imperativo e reflete a
+    // conclusão no render p/ tirar o overlay — set-state-in-effect é intencional.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDonationsApplied(true);
+  }, [donations, loadState.status]);
 
   const lightMetrics = getLightMetrics(lightSettings);
 
@@ -277,8 +260,6 @@ export function CitySceneEditor() {
     <div className="relative h-screen w-full overflow-hidden bg-[#05070a]">
       <CitySceneCanvas
         ref={canvasRef}
-        initialDonations={INITIAL_TEST_DONATIONS}
-        initialBuildingCustomizations={INITIAL_TEST_BUILDING_CUSTOMIZATIONS}
         buildingSettings={buildingSettings}
         textureSettings={textureSettings}
         groundSettings={groundSettings}
@@ -293,6 +274,17 @@ export function CitySceneEditor() {
         onBuildingClick={handleBuildingClick}
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to from-black/35 to-transparent" />
+      {loadState.status === "ready" && (
+        <DonationFilterBar
+          cities={cities}
+          ongs={ongs}
+          filter={filter}
+          onChange={setFilter}
+        />
+      )}
+      {(loadState.status !== "ready" || !donationsApplied) && (
+        <DonationLoadOverlay state={loadState} onRetry={retry} />
+      )}
       {uiVisibility.cameraLog && cameraDebugInfo && (
         <div className="absolute bottom-4 left-4 z-30 w-[min(21rem,calc(100vw-2rem))] select-text rounded-lg border border-white/10 bg-black/70 px-3 py-2 font-mono text-[11px] leading-5 text-white/80 shadow-lg backdrop-blur-md">
           <div className="mb-1 font-sans text-xs font-semibold text-white">Camera default</div>

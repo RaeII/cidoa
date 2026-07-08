@@ -173,6 +173,8 @@ type DonationManagerOptions = {
 export type DonationManager = {
   addDonation: (value: number) => void;
   addDonations: (values: number[]) => void;
+  /** Replace-all com o dataset do backend (IDs preservados). Usado no load inicial e ao trocar filtro. */
+  setDonations: (entries: ReadonlyArray<{ id: number; value: number }>) => void;
   updateBuildingSettings: (settings: BuildingSettings) => void;
   updateTextureSettings: (settings: TextureSettings) => void;
   updateBlockLayout: (settings: BlockLayoutSettings) => void;
@@ -1635,6 +1637,45 @@ export function createDonationManager({
       }
       // Ordena uma vez e reconstrói uma vez para todo o lote
       donations.sort((a, b) => b.value - a.value);
+      growIfNeeded(donations.length);
+      rebuildInstances();
+    },
+    setDonations(entries) {
+      // Replace-all do dataset do backend. Acessórios (rooftop/sign/LED/holograma)
+      // são keyed por donationId e os sync* só ESCONDEM, nunca deletam (remoção de
+      // doação não existia antes) — como os IDs mudam por completo, todos viram
+      // órfãos: dispor e limpar aqui, espelhando dispose(). Os shared resources
+      // ficam (são reusados). customShapeMeshes é limpo por syncCustomShapes (validIds).
+      for (const [, entry] of rooftopMeshes) {
+        scene.remove(entry.group);
+        disposeRooftopMesh(entry.group);
+      }
+      rooftopMeshes.clear();
+      for (const [, entry] of signMeshes) {
+        scene.remove(entry.group);
+        disposeSignMesh(entry.group);
+      }
+      signMeshes.clear();
+      for (const [, entry] of edgeLightMeshes) {
+        scene.remove(entry.group);
+        disposeEdgeLightMesh(entry.group);
+      }
+      edgeLightMeshes.clear();
+      for (const [, entry] of hologramMeshes) {
+        scene.remove(entry.group);
+        disposeHologramMesh(entry);
+      }
+      hologramMeshes.clear();
+
+      donations.length = 0;
+      let maxId = 0;
+      for (const entry of entries) {
+        donations.push({ id: entry.id, value: entry.value });
+        if (entry.id > maxId) maxId = entry.id;
+      }
+      donations.sort((a, b) => b.value - a.value);
+      // IDs vêm do backend; nextId acima do maior p/ doação manual local não colidir
+      nextId = Math.max(maxId + 1, nextId);
       growIfNeeded(donations.length);
       rebuildInstances();
     },

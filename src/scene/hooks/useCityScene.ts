@@ -140,6 +140,13 @@ export function useCityScene({
     runtimeRef.current?.addDonations(values);
   }, []);
 
+  const setDonations = useCallback(
+    (entries: ReadonlyArray<{ id: number; value: number }>) => {
+      runtimeRef.current?.setDonations(entries);
+    },
+    [],
+  );
+
   const updateDonationCustomization = useCallback(
     (donationId: number, customization: BuildingCustomization) => {
       runtimeRef.current?.updateDonationCustomization(donationId, customization);
@@ -155,5 +162,5 @@ export function useCityScene({
     runtimeRef.current?.clearFocus();
   }, []);
 
-  return { addDonation, addDonations, updateDonationCustomization, focusOnDonation, clearFocus };
+  return { addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus };
 }

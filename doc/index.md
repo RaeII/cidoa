@@ -51,11 +51,17 @@ src/
   App.tsx
   main.tsx
   index.css
+  api/
+    http.ts
+    donationApi.ts
+    regions.ts
   components/
     CitySceneEditor.tsx
     html/
       CityControlPanel.tsx
       BuildingHeightInput.tsx
+      DonationLoadOverlay.tsx
+      DonationFilterBar.tsx
       BuildingCustomizePanel.tsx
       BuildingControls.tsx
       TextureControls.tsx
@@ -75,6 +81,7 @@ src/
         PointLightCard.tsx
     hooks/
       useKeyboardShortcuts.ts
+      useDonations.ts
     three/
       CitySceneCanvas.tsx
   scene/
@@ -121,6 +128,8 @@ src/
       devAssertions.ts
 doc/
   index.md                       ← você está aqui (mapa da documentação)
+  api/                           ← espelha src/api (camada de dados / doações)
+    donation-api.md
   components/                    ← espelha src/components (interface React)
     html-components.md
     three-components.md
@@ -166,7 +175,8 @@ E entrega para:
 
 Também gerencia:
 
-- Doações via `canvasRef.addDonation(value)` e `canvasRef.addDonations(values)`
+- Doações do backend via `useDonations` (snapshot cacheado, não mais `INITIAL_TEST_DONATIONS`) → `canvasRef.setDonations(donations)` quando `loadState.status === "ready"`. Ver [[donation-api]]
+- Doações manuais via `canvasRef.addDonation(value)` e `canvasRef.addDonations(values)`
 - Foco em edifício via `canvasRef.focusOnDonation(id)` e `canvasRef.clearFocus()`
 - Personalização via `canvasRef.updateDonationCustomization(id, customization)`
 
@@ -277,6 +287,9 @@ flowchart LR
 | Alterar torre One Trade (one-trade)              | [[scene-builders#createOneTradeBuildingMesh.ts]]  |
 
 | Alterar torre Chrysler (chrysler) | [[scene-builders#createChryslerBuildingMesh.ts]] |
+| Carregar/buscar doações do backend | [[donation-api]] |
+| Filtrar doações por região/UF/cidade/ONG | [[donation-api]] |
+| Overlay de carregamento / barra de filtros | [[html-components]] |
 | Alterar geração dos prédios de doação | [[scene-managers]] |
 | Alterar loteamento / lotes vazios / asfalto | [[scene-managers#Loteamento e Lotes Vazios]] |
 | Alterar calçada / faixa central / cruzamentos | [[scene-managers#Rede de Estradas (Asfalto)]] |

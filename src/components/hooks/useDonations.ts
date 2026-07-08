@@ -43,7 +43,6 @@ export function useDonations() {
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoadState({ status: "loading", loadedBytes: 0, totalBytes: null });
 
     fetchDonationSnapshot({
       signal: controller.signal,
@@ -66,7 +65,11 @@ export function useDonations() {
     return () => controller.abort();
   }, [reloadKey]);
 
-  const retry = useCallback(() => setReloadKey((key) => key + 1), []);
+  const retry = useCallback(() => {
+    // Reset síncrono aqui (não no effect) → volta ao spinner na hora do clique
+    setLoadState({ status: "loading", loadedBytes: 0, totalBytes: null });
+    setReloadKey((key) => key + 1);
+  }, []);
 
   const cityById = useMemo(() => {
     const map = new Map<number, City>();

@@ -92,6 +92,7 @@ type CitySceneRuntime = {
   // Doações
   addDonation(value: number): void
   addDonations(values: number[]): void
+  setDonations(entries: { id: number; value: number }[]): void  // replace-all do backend
 
   // Personalização individual
   updateDonationCustomization(donationId: number, customization: BuildingCustomization): void
@@ -101,6 +102,9 @@ type CitySceneRuntime = {
   dispose(): void
 }
 ```
+
+> [!note] setDonations
+> Replace-all do snapshot do backend ([[donation-api]]). Chama `donationManager.setDonations(entries)`, depois `syncTerrainToCity()` (relevo reabre a zona plana pro novo raio), `emitStatsPatch({ buildings })` (contador do painel) e `markCubeDirty()` (força recaptura do envMap). Ver [[scene-managers#setDonations]].
 
 > [!note] Evento de clique em edifícios
 > O runtime escuta `pointerdown`/`pointerup` no canvas. Se o cursor não se moveu mais de 5px (não é drag), faz raycast para identificar o edifício clicado e chama `onBuildingClick(donationId)` para o React abrir o painel de personalização.

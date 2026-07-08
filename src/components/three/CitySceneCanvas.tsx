@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle, useRef } from "react";
 import { useCityScene } from "../../scene/hooks/useCityScene";
 import type {
   BlockLayoutSettings,
@@ -17,14 +17,13 @@ import type {
 export type CitySceneCanvasHandle = {
   addDonation: (value: number) => void;
   addDonations: (values: number[]) => void;
+  setDonations: (entries: ReadonlyArray<{ id: number; value: number }>) => void;
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
   focusOnDonation: (donationId: number) => void;
   clearFocus: () => void;
 };
 
 export type CitySceneCanvasProps = {
-  initialDonations?: readonly number[];
-  initialBuildingCustomizations?: ReadonlyMap<number, BuildingCustomization>;
   buildingSettings: BuildingSettings;
   textureSettings: TextureSettings;
   groundSettings: GroundSettings;
@@ -42,8 +41,6 @@ export type CitySceneCanvasProps = {
 export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvasProps>(
   function CitySceneCanvas(
     {
-      initialDonations,
-      initialBuildingCustomizations,
       buildingSettings,
       textureSettings,
       groundSettings,
@@ -61,7 +58,7 @@ export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvas
   ) {
     const mountRef = useRef<HTMLDivElement | null>(null);
 
-    const { addDonation, addDonations, updateDonationCustomization, focusOnDonation, clearFocus } = useCityScene({
+    const { addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus } = useCityScene({
       mountRef,
       buildingSettings,
       textureSettings,
@@ -77,19 +74,10 @@ export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvas
       onBuildingClick,
     });
 
-    useEffect(() => {
-      if (!initialDonations?.length) return;
-
-      addDonations([...initialDonations]);
-      initialBuildingCustomizations?.forEach((customization, donationId) => {
-        updateDonationCustomization(donationId, { ...customization });
-      });
-    }, [addDonations, initialBuildingCustomizations, initialDonations, updateDonationCustomization]);
-
     useImperativeHandle(
       ref,
-      () => ({ addDonation, addDonations, updateDonationCustomization, focusOnDonation, clearFocus }),
-      [addDonation, addDonations, updateDonationCustomization, focusOnDonation, clearFocus],
+      () => ({ addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus }),
+      [addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus],
     );
 
     return <div ref={mountRef} className="h-full w-full cursor-grab active:cursor-grabbing" />;

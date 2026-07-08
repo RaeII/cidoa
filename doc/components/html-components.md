@@ -61,6 +61,44 @@ Overlay fixo no centro superior da página — é o input de doação. Monta 3 s
 
 ---
 
+### `DonationLoadOverlay.tsx`
+
+Overlay de carregamento do snapshot de doações do backend ([[donation-api]]). Card central sobre o canvas enquanto o dataset carrega.
+
+**Responsabilidades:**
+- Card central: spinner + barra de progresso `%` por bytes (`X-Snapshot-Bytes`) ou só MB carregados quando o header não vem (gzip zera `total` — ver [[donation-api#Gotcha: barra de progresso com gzip]])
+- Estado de erro: mensagem + botão **"Tentar novamente"** (chama `retry` do `useDonations`)
+- Fundo `pointer-events-none` — não bloqueia interação com a cena embaixo
+- Mascara o **freeze do rebuild**: só some depois de `setDonations` aplicar (o `rebuildInstances` trava o frame; overlay cobre o congelamento)
+
+**Props:**
+| Prop | Tipo | Descrição |
+|---|---|---|
+| `state` | `DonationsLoadState` | `loading` (bytes) / `ready` (count) / `error` (message) — ver [[donation-api#Estados de carga]] |
+| `onRetry` | `() => void` | Refaz o fetch (estado de erro) |
+
+---
+
+### `DonationFilterBar.tsx`
+
+Barra de filtros das doações. Presentacional — recebe listas e filtro, emite mudança. Filtragem real acontece no `useDonations` ([[donation-api#Filtro client-side]]).
+
+**Responsabilidades:**
+- Selects em **cascata**: Região → UF → Cidade (região deriva da UF via `UF_REGION`, não vem do backend)
+- Select de **ONG**
+- Botão **Limpar** — reseta o filtro
+- Sem estado próprio nem Three.js — só dispara `onChange`
+
+**Props:**
+| Prop | Tipo | Descrição |
+|---|---|---|
+| `cities` | `City[]` | Cidades presentes no dataset (para o select) |
+| `ongs` | `Ong[]` | ONGs presentes no dataset |
+| `filter` | `DonationFilter` | Filtro atual (`region`/`uf`/`cityId`/`ongId`) |
+| `onChange` | `(filter: DonationFilter) => void` | `setFilter` do `useDonations` |
+
+---
+
 ### `BuildingCustomizePanel.tsx`
 
 Painel de personalização de um edifício individual, exibido ao clicar em um prédio na cena. Posicionado no canto superior direito com scroll interno para caber em telas menores.

@@ -50,13 +50,21 @@ Componente pequeno por design. Faz três coisas:
 
 ### Handle Imperativo (`CitySceneCanvasHandle`)
 
-O componente expõe uma ref com método imperativo:
+O componente expõe uma ref com métodos imperativos:
 
 ```typescript
 canvasRef.current?.addDonation(value)
+canvasRef.current?.addDonations(values)
+canvasRef.current?.setDonations(entries)  // replace-all do backend
+canvasRef.current?.focusOnDonation(id)
+canvasRef.current?.clearFocus()
+canvasRef.current?.updateDonationCustomization(id, customization)
 ```
 
-Isso permite que `CitySceneEditor` dispare ações na cena sem criar ciclos de estado React.
+Isso permite que `CitySceneEditor` dispare ações na cena sem criar ciclos de estado React. `setDonations(entries)` aplica o snapshot filtrado do backend ([[donation-api]]) — replace-all preservando os IDs do backend (ver [[scene-managers#setDonations]]).
+
+> [!note] Doações iniciais vêm do backend
+> As props `initialDonations` e `initialBuildingCustomizations` foram **removidas** (junto do `useEffect` de mount que as aplicava). Agora `CitySceneEditor` carrega o snapshot via `useDonations` e empurra por `setDonations` quando `loadState.status === "ready"`. Ver [[donation-api]].
 
 ## O que ele NÃO faz
 

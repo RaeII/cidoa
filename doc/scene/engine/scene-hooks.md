@@ -83,13 +83,14 @@ O hook retorna um objeto com referências estáveis (via `useCallback`) que dele
 {
   addDonation: (value: number) => void
   addDonations: (values: number[]) => void
+  setDonations: (entries: { id: number; value: number }[]) => void
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void
   focusOnDonation: (donationId: number) => void
   clearFocus: () => void
 }
 ```
 
-Cada função é memorizada para não recriar o handle imperativo do [[three-components|CitySceneCanvas]] a cada render.
+Cada função é memorizada para não recriar o handle imperativo do [[three-components|CitySceneCanvas]] a cada render. `setDonations` é `useCallback` estável que delega ao runtime — o editor chama com o snapshot filtrado do backend ([[donation-api]]).
 
 ## `useEffectEvent`
 

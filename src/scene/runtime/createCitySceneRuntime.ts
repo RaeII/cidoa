@@ -49,6 +49,7 @@ export type CitySceneRuntime = {
   updateBlockLayout: (settings: BlockLayoutSettings) => void;
   addDonation: (value: number) => void;
   addDonations: (values: number[]) => void;
+  setDonations: (entries: ReadonlyArray<{ id: number; value: number }>) => void;
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
   focusOnDonation: (donationId: number) => void;
   clearFocus: () => void;
@@ -428,6 +429,12 @@ export function createCitySceneRuntime({
     },
     addDonations(values) {
       donationManager.addDonations(values);
+      syncTerrainToCity();
+      emitStatsPatch({ buildings: donationManager.getDonationCount() });
+      markCubeDirty();
+    },
+    setDonations(entries) {
+      donationManager.setDonations(entries);
       syncTerrainToCity();
       emitStatsPatch({ buildings: donationManager.getDonationCount() });
       markCubeDirty();

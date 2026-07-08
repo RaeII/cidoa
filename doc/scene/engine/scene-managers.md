@@ -146,6 +146,7 @@ Cena nunca fica vazia: o manager sempre desenha um **loteamento** (grade de quad
 // Doações
 addDonation(value: number): void
 addDonations(values: number[]): void
+setDonations(entries: { id: number; value: number }[]): void  // replace-all do backend — ver seção abaixo
 getDonationCount(): number
 getCityRadius(): number   // meia-extensão world do loteamento (piso r=1, nunca 0); consumido pelo relevo
 
@@ -179,6 +180,21 @@ dispose(): void
 
 > [!note] getCityRadius
 > Retorna a meia-extensão (half-extent) world do loteamento: `r * blockSpacing + blockFootprint/2 + slotSize`. Com o piso `MIN_LOTEAMENTO_RADIUS`, nunca é `0` — mesmo sem doações reflete a grade 3×3. O [[scene-runtime|runtime]] consome esse raio (`setCityRadius`) para escavar a zona plana do relevo ([[scene-builders#createTerrain.ts]]).
+
+#### setDonations
+
+Substitui **toda** a lista de doações de uma vez pelo snapshot do backend ([[donation-api]]). Usado no load inicial e a cada troca de filtro (região/UF/cidade/ONG). Contrasta com `addDonation`/`addDonations`, que só acrescentam.
+
+Passos:
+
+1. **Replace-all:** limpa a lista atual, reconstrói com os `entries` recebidos.
+2. **Preserva IDs do backend:** cada `DonationEntry` mantém o `id` que veio do snapshot (não gera novo). `nextId = max(maxId + 1, nextId)` — evita colisão se depois entrar doação manual.
+3. **Dispõe acessórios órfãos:** como os IDs mudam por completo na troca de filtro, os grupos antigos de `rooftopMeshes`/`signMeshes`/`edgeLightMeshes`/`hologramMeshes` viram órfãos e são **destruídos** (os `sync*` só **escondem**, não deletam — sem isso vazariam).
+4. **`customShapeMeshes`** é limpo automaticamente por `syncCustomShapes` (compara com `validIds`) — não precisa dispose manual.
+5. **`growIfNeeded` + `rebuildInstances`:** cresce a capacidade do `InstancedMesh` se preciso e reconstrói tudo (posições espiral, alturas proporcionais, cores).
+
+> [!warning] Doação manual descartada ao trocar filtro
+> `setDonations` é replace-all — qualquer doação adicionada localmente via `addDonation` some quando o editor reenvia o snapshot filtrado.
 
 #### Foco em Edifício (Destaque Visual)
 
