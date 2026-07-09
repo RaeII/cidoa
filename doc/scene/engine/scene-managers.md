@@ -162,12 +162,12 @@ endEnvCapture(): void     // restaura envMapIntensity após captura
 
 // LOD / cull de distância
 setRenderDistance(distance: number, backDistance: number): void  // alcance de renderização frente/trás (sliders da aba Horizonte)
-updateDistanceCulling(cameraPos: THREE.Vector3, cameraForward: THREE.Vector3): void  // esconde acessórios além de 80u; prédios além do limite direcional (dot com forward XZ < 0 → backDistance; instância vira matriz zero-scale — camera.far sozinho não poupa vértice de InstancedMesh)
+updateDistanceCulling(cameraPos: THREE.Vector3, cameraForward: THREE.Vector3): void  // esconde acessórios além de 80u; prédios além do limite direcional (dot com forward XZ < 0 → backDistance; instância vira matriz zero-scale — camera.far sozinho não poupa vértice de InstancedMesh). Loop das instâncias lê arrays paralelos (instPosX/Z), não Map — 100k Map.get por tick causava hitch
 tickAnimations(elapsedSeconds: number, deltaMs: number): void  // anima hologramas visíveis (pula os culled)
 
 // Interação
-getHoveredValue(event, camera, domElement): number | null       // raycast hover → valor da doação
-getClickedDonationId(event, camera, domElement): number | null  // raycast clique → donation ID
+getHoveredValue(event, camera, domElement): number | null       // picking hover → valor da doação (AABB por quadra, ver seção Picking)
+getClickedDonationId(event, camera, domElement): number | null  // picking clique → donation ID (idem)
 getDonationWorldPosition(donationId: number): THREE.Vector3 | null  // posição do topo do edifício
 
 // Foco e personalização
@@ -187,14 +187,27 @@ Substitui **toda** a lista de doações de uma vez pelo snapshot do backend ([[d
 
 Passos:
 
-1. **Replace-all:** limpa a lista atual, reconstrói com os `entries` recebidos.
-2. **Preserva IDs do backend:** cada `DonationEntry` mantém o `id` que veio do snapshot (não gera novo). `nextId = max(maxId + 1, nextId)` — evita colisão se depois entrar doação manual.
-3. **Dispõe acessórios órfãos:** como os IDs mudam por completo na troca de filtro, os grupos antigos de `rooftopMeshes`/`signMeshes`/`edgeLightMeshes`/`hologramMeshes` viram órfãos e são **destruídos** (os `sync*` só **escondem**, não deletam — sem isso vazariam).
-4. **`customShapeMeshes`** é limpo automaticamente por `syncCustomShapes` (compara com `validIds`) — não precisa dispose manual.
-5. **`growIfNeeded` + `rebuildInstances`:** cresce a capacidade do `InstancedMesh` se preciso e reconstrói tudo (posições espiral, alturas proporcionais, cores).
+1. **Reseta foco:** `applyFocus(null)` — id focado pode sair do dataset; sem reset, cena fica presa no dimming (0.15) com highlight órfão. Editor também limpa `selectedBuildingId` + chama `clearFocus()` (restaura câmera).
+2. **Replace-all:** limpa a lista atual, reconstrói com os `entries` recebidos.
+3. **Preserva IDs do backend:** cada `DonationEntry` mantém o `id` que veio do snapshot (não gera novo). `nextId = max(maxId + 1, nextId)` — evita colisão se depois entrar doação manual.
+4. **Preserva customização de ids sobreviventes:** `donation.customization` (cor/formato/tiling) é copiada da lista antiga pra ids que continuam no dataset — prédio customizado que sobrevive à troca de filtro não perde nada.
+5. **Dispõe acessórios só de ids ausentes:** grupos de `rooftopMeshes`/`signMeshes`/`edgeLightMeshes`/`hologramMeshes` cujo id saiu do dataset são **destruídos** (os `sync*` só **escondem**, não deletam — sem isso vazariam). Ids sobreviventes ficam e são reposicionados pelos `sync*` do `rebuildInstances`.
+6. **`customShapeMeshes`** é limpo automaticamente por `syncCustomShapes` (compara com `validIds`) — não precisa dispose manual.
+7. **`growIfNeeded` + `rebuildInstances`:** cresce a capacidade do `InstancedMesh` se preciso e reconstrói tudo (posições espiral, alturas proporcionais, cores).
 
 > [!warning] Doação manual descartada ao trocar filtro
-> `setDonations` é replace-all — qualquer doação adicionada localmente via `addDonation` some quando o editor reenvia o snapshot filtrado.
+> `setDonations` é replace-all — qualquer doação adicionada localmente via `addDonation` some quando o editor reenvia o snapshot filtrado. Customização de doação manual morre junto (id não existe no snapshot).
+
+#### Picking (hover/clique) por AABB de quadra
+
+Raycast do three em `InstancedMesh` é O(n) interno — itera as 100k instâncias por mousemove, trava o hover. `pickAt` substitui:
+
+1. `rebuildInstances` preenche arrays paralelos por índice de instância (`instPosX/Y/Z` + `instHalf*`) e 1 AABB por quadra (`pickBlocks`: min/max XZ + altura máx. + faixa contígua `start..end` de instâncias — instâncias são alocadas quadra a quadra, então a faixa é contígua de graça).
+2. Picking: `ray.intersectsBox` nos ~1,6k AABBs de quadra (µs) → `Ray.intersectBox` só nas instâncias das quadras atingidas (~dezenas). Prédio default é caixa — AABB é hit **exato**.
+3. Instância culled (`instanceHidden[i]`) é pulada — zero-scale não deve ser clicável.
+4. Custom shapes (poucos) seguem `raycaster.intersectObjects` normal; vence o hit mais próximo entre os dois caminhos.
+
+Os mesmos arrays alimentam o loop de instâncias do `updateDistanceCulling` (culling sem `Map.get` por instância; matriz de restauração recomposta dos arrays). Acessórios e custom shapes continuam via `donationTransforms` — são poucos.
 
 #### Foco em Edifício (Destaque Visual)
 
@@ -247,7 +260,7 @@ Pontos de integração:
 
 - Os clones são incluídos em `getAllFacadeMaterials()` / `getAllTopMaterials()` para que `applyTextureToFacade`, `applyTextureToTop`, `updateBuildingSettings`, `setEnvMap` e `beginEnvCapture`/`endEnvCapture` propaguem mudanças globais para eles.
 - `setFocusedDonation` dim os clones para `0.15` quando outro prédio está focado, mantém em `1.0` se o custom é o focado, e dispensa o `focusHighlightMesh` (o próprio Mesh já é separado).
-- `getHoveredValue` / `getClickedDonationId` estendem o raycast para `[mesh, ...customShapeMeshes]` e leem `donationId`/`donationValue` de `userData`.
+- `getHoveredValue` / `getClickedDonationId` (via `pickAt`) testam custom shapes com raycaster normal e leem `donationId`/`donationValue` de `userData`; instanciados vão pelo caminho AABB (ver [[scene-managers#Picking (hover/clique) por AABB de quadra|Picking]]).
 - O map `donationTransforms: Map<id, {position, scale}>` é a **fonte única** dos transforms lógicos: acessórios (rooftop/sign/edge) usam `readDonationTransform` que lê desse map, então funcionam igual para edifícios custom sem precisar saber se viraram Mesh separado.
 - `dispose()` limpa cada clone (`facadeMat.dispose()` + `topMat.dispose()`) e chama `disposeTwistedBuildingSharedResources()` / `disposeOctagonalBuildingSharedResources()` / `disposeSetbackBuildingSharedResources()`.
 

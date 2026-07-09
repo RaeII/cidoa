@@ -722,6 +722,23 @@ export function createDonationManager({
   const instanceToDonationId: number[] = [];
   const donationIdToInstanceIndex = new Map<number, number>();
   const donationTransforms = new Map<number, { position: THREE.Vector3; scale: THREE.Vector3 }>();
+  // Arrays paralelos por índice de instância (posição + meia-extensão do AABB).
+  // Culling e picking a 100k leem daqui — donationTransforms.get() por instância
+  // a cada tick custava 100k lookups de Map (hitches de vários ms).
+  let instPosX = new Float32Array(0);
+  let instPosY = new Float32Array(0);
+  let instPosZ = new Float32Array(0);
+  let instHalfX = new Float32Array(0);
+  let instHalfY = new Float32Array(0);
+  let instHalfZ = new Float32Array(0);
+  // Picking: 1 AABB por quadra + faixa contígua de instâncias (preenchidas quadra
+  // a quadra no rebuildInstances). Raycast testa ~centenas de quadras, depois só
+  // as instâncias das quadras atingidas — prédio default é caixa, AABB é hit exato.
+  type PickBlock = {
+    minX: number; maxX: number; minZ: number; maxZ: number; maxY: number;
+    start: number; end: number;
+  };
+  const pickBlocks: PickBlock[] = [];
   // Prédios com formato customizado (ex: twisted) renderizam como Mesh próprio
   // — pulam alocação no InstancedMesh e mantêm clones de material por edifício.
   type CustomShapeEntry = {
@@ -745,6 +762,13 @@ export function createDonationManager({
     instanceToValue[instanceIndex] = value;
     instanceToDonationId[instanceIndex] = donationId;
     donationIdToInstanceIndex.set(donationId, instanceIndex);
+    // dummy já está posicionado/escalado pelo chamador (rebuildInstances)
+    instPosX[instanceIndex] = dummy.position.x;
+    instPosY[instanceIndex] = dummy.position.y;
+    instPosZ[instanceIndex] = dummy.position.z;
+    instHalfX[instanceIndex] = dummy.scale.x / 2;
+    instHalfY[instanceIndex] = dummy.scale.y / 2;
+    instHalfZ[instanceIndex] = dummy.scale.z / 2;
   };
 
   // Lê position/scale lógicos da doação a partir de um map, independentemente
@@ -762,6 +786,63 @@ export function createDonationManager({
       tmpTransformScale,
     );
     return true;
+  };
+
+  // Picking sem raycast no InstancedMesh: three itera as 100k instâncias por
+  // mousemove (O(n) interno) — trava o hover. Aqui: intersectsBox nos ~1,6k AABBs
+  // de quadra (µs), depois Ray.intersectBox só nas instâncias das quadras atingidas
+  // (~dezenas). Custom shapes (poucos) seguem raycaster normal; vence o mais perto.
+  const pickBox = new THREE.Box3();
+  const pickPoint = new THREE.Vector3();
+
+  const pickAt = (
+    event: MouseEvent,
+    camera: THREE.Camera,
+    domElement: HTMLElement,
+  ): { donationId: number; value: number } | null => {
+    const rect = domElement.getBoundingClientRect();
+    mouseVec.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouseVec.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouseVec, camera);
+    const ray = raycaster.ray;
+
+    let bestIndex = -1;
+    let bestDist = Infinity;
+    for (const blk of pickBlocks) {
+      pickBox.min.set(blk.minX, 0, blk.minZ);
+      pickBox.max.set(blk.maxX, blk.maxY, blk.maxZ);
+      if (!ray.intersectsBox(pickBox)) continue;
+      for (let i = blk.start; i < blk.end; i++) {
+        if (instanceHidden[i]) continue; // culled = invisível = não pickável
+        pickBox.min.set(instPosX[i] - instHalfX[i], instPosY[i] - instHalfY[i], instPosZ[i] - instHalfZ[i]);
+        pickBox.max.set(instPosX[i] + instHalfX[i], instPosY[i] + instHalfY[i], instPosZ[i] + instHalfZ[i]);
+        if (!ray.intersectBox(pickBox, pickPoint)) continue;
+        const dist = pickPoint.distanceTo(ray.origin);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestIndex = i;
+        }
+      }
+    }
+
+    // Custom shapes: geometria não é caixa — raycaster normal (poucas unidades)
+    let customHit: THREE.Intersection | null = null;
+    if (customShapeMeshes.size > 0) {
+      const targets: THREE.Object3D[] = [];
+      for (const entry of customShapeMeshes.values()) targets.push(entry.mesh);
+      const hits = raycaster.intersectObjects(targets, false);
+      if (hits.length > 0) customHit = hits[0];
+    }
+
+    if (bestIndex >= 0 && (!customHit || bestDist <= customHit.distance)) {
+      return { donationId: instanceToDonationId[bestIndex], value: instanceToValue[bestIndex] };
+    }
+    if (customHit) {
+      const id = customHit.object.userData.donationId;
+      const value = customHit.object.userData.donationValue;
+      if (typeof id === "number" && typeof value === "number") return { donationId: id, value };
+    }
+    return null;
   };
 
   const getAllFacadeMaterials = (): THREE.MeshPhysicalMaterial[] => {
@@ -931,6 +1012,15 @@ export function createDonationManager({
     instanceToValue.length = 0;
     instanceToDonationId.length = 0;
     donationIdToInstanceIndex.clear();
+    pickBlocks.length = 0;
+    if (instPosX.length < capacity) {
+      instPosX = new Float32Array(capacity);
+      instPosY = new Float32Array(capacity);
+      instPosZ = new Float32Array(capacity);
+      instHalfX = new Float32Array(capacity);
+      instHalfY = new Float32Array(capacity);
+      instHalfZ = new Float32Array(capacity);
+    }
 
     const { blockSize, streetWidth, towerRatio, towersPerBlock, baseHeightCap } = currentBlockLayout;
     const tpb = Math.max(1, Math.min(towersPerBlock, blockSize * blockSize));
@@ -1042,6 +1132,7 @@ export function createDonationManager({
       const [bx, bz] = spiralPositions[b];
       const blockCenterX = bx * blockSpacing;
       const blockCenterZ = bz * blockSpacing;
+      const blockStartInstance = instanceIdx;
 
       const occupiedSlots = block.towers.length + block.base.length;
       const isComplete = occupiedSlots === buildingsPerBlock;
@@ -1126,6 +1217,20 @@ export function createDonationManager({
             blockCenterZ + orderedSlots[s][1],
           ]);
         }
+      }
+
+      // AABB da quadra p/ picking: min/max XZ + altura máx. das instâncias dela.
+      // Quadras só com custom shapes ficam de fora (raycast próprio em pickAt).
+      if (instanceIdx > blockStartInstance) {
+        let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity, maxY = 0;
+        for (let i = blockStartInstance; i < instanceIdx; i++) {
+          minX = Math.min(minX, instPosX[i] - instHalfX[i]);
+          maxX = Math.max(maxX, instPosX[i] + instHalfX[i]);
+          minZ = Math.min(minZ, instPosZ[i] - instHalfZ[i]);
+          maxZ = Math.max(maxZ, instPosZ[i] + instHalfZ[i]);
+          maxY = Math.max(maxY, instPosY[i] + instHalfY[i]);
+        }
+        pickBlocks.push({ minX, maxX, minZ, maxZ, maxY, start: blockStartInstance, end: instanceIdx });
       }
     }
 
@@ -1641,36 +1746,62 @@ export function createDonationManager({
       rebuildInstances();
     },
     setDonations(entries) {
-      // Replace-all do dataset do backend. Acessórios (rooftop/sign/LED/holograma)
-      // são keyed por donationId e os sync* só ESCONDEM, nunca deletam (remoção de
-      // doação não existia antes) — como os IDs mudam por completo, todos viram
-      // órfãos: dispor e limpar aqui, espelhando dispose(). Os shared resources
-      // ficam (são reusados). customShapeMeshes é limpo por syncCustomShapes (validIds).
-      for (const [, entry] of rooftopMeshes) {
+      // Replace-all do dataset do backend (load inicial e troca de filtro).
+      // Foco não sobrevive: o id focado pode sair do dataset e a cena ficaria
+      // presa no dimming (opacity 0.15) com o highlight órfão flutuando.
+      applyFocus(null);
+
+      const newIds = new Set<number>();
+      for (const entry of entries) newIds.add(entry.id);
+
+      // Acessórios (rooftop/sign/LED/holograma) são keyed por donationId e os
+      // sync* só ESCONDEM, nunca deletam (remoção de doação não existia antes) —
+      // dispose só dos ids que saíram do dataset; os que ficam são reposicionados
+      // pelos sync* do rebuildInstances. Shared resources ficam (são reusados).
+      // customShapeMeshes é limpo por syncCustomShapes (validIds).
+      for (const [donId, entry] of rooftopMeshes) {
+        if (newIds.has(donId)) continue;
         scene.remove(entry.group);
         disposeRooftopMesh(entry.group);
+        rooftopMeshes.delete(donId);
       }
-      rooftopMeshes.clear();
-      for (const [, entry] of signMeshes) {
+      for (const [donId, entry] of signMeshes) {
+        if (newIds.has(donId)) continue;
         scene.remove(entry.group);
         disposeSignMesh(entry.group);
+        signMeshes.delete(donId);
       }
-      signMeshes.clear();
-      for (const [, entry] of edgeLightMeshes) {
+      for (const [donId, entry] of edgeLightMeshes) {
+        if (newIds.has(donId)) continue;
         scene.remove(entry.group);
         disposeEdgeLightMesh(entry.group);
+        edgeLightMeshes.delete(donId);
       }
-      edgeLightMeshes.clear();
-      for (const [, entry] of hologramMeshes) {
+      for (const [donId, entry] of hologramMeshes) {
+        if (newIds.has(donId)) continue;
         scene.remove(entry.group);
         disposeHologramMesh(entry);
+        hologramMeshes.delete(donId);
       }
-      hologramMeshes.clear();
+
+      // Customização (cor/formato/tiling) vive em donation.customization —
+      // preservar p/ ids que continuam no dataset (ex.: prédio customizado que
+      // sobrevive à troca de filtro), senão o replace-all a apagaria da cena
+      // enquanto o painel do editor ainda a mostraria.
+      const prevCustomizations = new Map<number, BuildingCustomization>();
+      for (const donation of donations) {
+        if (donation.customization && newIds.has(donation.id)) {
+          prevCustomizations.set(donation.id, donation.customization);
+        }
+      }
 
       donations.length = 0;
       let maxId = 0;
       for (const entry of entries) {
-        donations.push({ id: entry.id, value: entry.value });
+        const donation: DonationEntry = { id: entry.id, value: entry.value };
+        const customization = prevCustomizations.get(entry.id);
+        if (customization) donation.customization = customization;
+        donations.push(donation);
         if (entry.id > maxId) maxId = entry.id;
       }
       donations.sort((a, b) => b.value - a.value);
@@ -1756,36 +1887,10 @@ export function createDonationManager({
       return cityHalfExtent;
     },
     getHoveredValue(event: MouseEvent, camera: THREE.Camera, domElement: HTMLElement) {
-      const rect = domElement.getBoundingClientRect();
-      mouseVec.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouseVec.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(mouseVec, camera);
-      const targets: THREE.Object3D[] = [mesh];
-      for (const entry of customShapeMeshes.values()) targets.push(entry.mesh);
-      const hits = raycaster.intersectObjects(targets, false);
-      if (hits.length === 0) return null;
-      const hit = hits[0];
-      if (hit.object === mesh && hit.instanceId !== undefined) {
-        return instanceToValue[hit.instanceId] ?? null;
-      }
-      const value = hit.object.userData.donationValue;
-      return typeof value === "number" ? value : null;
+      return pickAt(event, camera, domElement)?.value ?? null;
     },
     getClickedDonationId(event: MouseEvent, camera: THREE.Camera, domElement: HTMLElement) {
-      const rect = domElement.getBoundingClientRect();
-      mouseVec.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouseVec.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(mouseVec, camera);
-      const targets: THREE.Object3D[] = [mesh];
-      for (const entry of customShapeMeshes.values()) targets.push(entry.mesh);
-      const hits = raycaster.intersectObjects(targets, false);
-      if (hits.length === 0) return null;
-      const hit = hits[0];
-      if (hit.object === mesh && hit.instanceId !== undefined) {
-        return instanceToDonationId[hit.instanceId] ?? null;
-      }
-      const id = hit.object.userData.donationId;
-      return typeof id === "number" ? id : null;
+      return pickAt(event, camera, domElement)?.donationId ?? null;
     },
     getDonationWorldPosition(donationId: number) {
       if (!readDonationTransform(donationId)) return null;
@@ -1957,19 +2062,27 @@ export function createDonationManager({
 
       // Prédios instanciados: sem frustum cull por instância — zero-scale esconde de
       // verdade (some do render principal e da captura do envMap). Upload do buffer
-      // só quando algum estado muda.
+      // só quando algum estado muda. Lê dos arrays paralelos (100k Map.get por tick
+      // causava hitches); a matriz de restauração é recomposta dos mesmos arrays.
       let changed = false;
       for (let i = 0; i < mesh.count; i++) {
-        const donId = instanceToDonationId[i];
-        const t = donationTransforms.get(donId);
-        if (!t) continue;
-        const hidden = distSqTo(t.position) > limitSqFor(t.position) ? 1 : 0;
+        const dx = instPosX[i] - cameraPos.x;
+        const dz = instPosZ[i] - cameraPos.z;
+        const d = dx * dx + dz * dz;
+        const limit = hasDirection
+          ? (dx * fx + dz * fz < 0 ? backDistanceSq : renderDistanceSq)
+          : fallbackSq;
+        const hidden = d > limit ? 1 : 0;
         if (hidden) culled++;
         if (instanceHidden[i] === hidden) continue;
         instanceHidden[i] = hidden;
         if (hidden) {
           mesh.setMatrixAt(i, hiddenMatrix);
-        } else if (readDonationTransform(donId)) {
+        } else {
+          tmpTransformPosition.set(instPosX[i], instPosY[i], instPosZ[i]);
+          tmpTransformScale.set(instHalfX[i] * 2, instHalfY[i] * 2, instHalfZ[i] * 2);
+          tmpTransformQuaternion.identity();
+          tmpTransformMatrix.compose(tmpTransformPosition, tmpTransformQuaternion, tmpTransformScale);
           mesh.setMatrixAt(i, tmpTransformMatrix);
         }
         changed = true;

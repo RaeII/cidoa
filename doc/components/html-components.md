@@ -69,7 +69,7 @@ Overlay de carregamento do snapshot de doações do backend ([[donation-api]]). 
 - Card central: spinner + barra de progresso `%` por bytes (`X-Snapshot-Bytes`) ou só MB carregados quando o header não vem (gzip zera `total` — ver [[donation-api#Gotcha: barra de progresso com gzip]])
 - Estado de erro: mensagem + botão **"Tentar novamente"** (chama `retry` do `useDonations`)
 - Fundo `pointer-events-none` — não bloqueia interação com a cena embaixo
-- Mascara o **freeze do rebuild**: só some depois de `setDonations` aplicar (o `rebuildInstances` trava o frame; overlay cobre o congelamento)
+- Mascara o **freeze do rebuild**: só some depois de `setDonations` aplicar (o `rebuildInstances` trava o frame; overlay cobre o congelamento). Vale pro load inicial **e pra troca de filtro** — o editor derruba `donationsApplied`, espera duplo `requestAnimationFrame` (garante 1 paint do overlay; rAF simples dispara antes do paint) e só então chama `setDonations`
 
 **Props:**
 | Prop | Tipo | Descrição |

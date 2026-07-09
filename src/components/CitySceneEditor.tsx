@@ -70,13 +70,28 @@ export function CitySceneEditor() {
 
   useEffect(() => {
     if (loadState.status !== "ready") return;
-    // setDonations é síncrono (rebuild inline ~0,5s p/ 100k) — o overlay só some
-    // depois desta linha, então o freeze fica mascarado pelo overlay ainda pintado.
-    canvasRef.current?.setDonations(donations);
-    // Sincroniza um sistema externo (cena Three.js) imperativo e reflete a
-    // conclusão no render p/ tirar o overlay — set-state-in-effect é intencional.
+    // Replace-all pode remover o prédio focado/selecionado — limpar antes de
+    // aplicar (o manager reseta o dimming; aqui restaura câmera + fecha painel).
+    canvasRef.current?.clearFocus();
+    // Sincroniza um sistema externo (cena Three.js) imperativo e reflete o
+    // progresso no render (overlay) — set-state-in-effect é intencional.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDonationsApplied(true);
+    setSelectedBuildingId(null);
+    setDonationsApplied(false);
+    // setDonations é síncrono (rebuild inline ~0,5s p/ 100k). Duplo rAF: rAF
+    // dispara ANTES do paint do próprio frame — só o 2º garante o overlay
+    // pintado antes do freeze; sem isso, trocar filtro trava a UI sem máscara.
+    let rafInner = 0;
+    const rafOuter = requestAnimationFrame(() => {
+      rafInner = requestAnimationFrame(() => {
+        canvasRef.current?.setDonations(donations);
+        setDonationsApplied(true);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(rafOuter);
+      cancelAnimationFrame(rafInner);
+    };
   }, [donations, loadState.status]);
 
   const lightMetrics = getLightMetrics(lightSettings);
