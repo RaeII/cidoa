@@ -21,3 +21,15 @@ export interface CreateTestBuildingsResult {
 export interface DeleteAllBuildingsResult {
   deleted: number;
 }
+
+/** Contagens do catálogo IBGE (regiões/estados/municípios). Base de sync e status. */
+export interface IbgeCounts {
+  regions: number;
+  states: number;
+  cities: number;
+}
+
+/** Resposta de GET /admin/ibge/status — `linked` diz se o catálogo já foi carregado. */
+export interface IbgeStatus extends IbgeCounts {
+  linked: boolean;
+}

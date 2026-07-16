@@ -119,7 +119,7 @@ Layout: `SidebarProvider` (`h-svh`) + `AppSidebar` + conteúdo rolável + `Mobil
 | Módulo | Arquivo | Rotas |
 | --- | --- | --- |
 | Auth | `api/auth/auth.routes.ts` | `login`, `logout` |
-| Admin | `api/admin/admin.routes.ts` | `getDashboardStats`, `createTestBuildings`, `deleteAllBuildings` (ver [[edificios-teste]]) |
+| Admin | `api/admin/admin.routes.ts` | `getDashboardStats`, `createTestBuildings`, `deleteAllBuildings` (ver [[edificios-teste]]), `getIbgeStatus`, `syncIbge` (ver [[ibge]]) |
 | User | `api/user/user.types.ts` | tipo `User` (sem rotas no front admin) |
 
 ---
@@ -145,6 +145,7 @@ Cria/promove usuário com `is_admin=true` + senha bcrypt. Depois é só logar em
 | Tela de login | `src/pages/admin/Login.tsx` |
 | Tela de dashboard | `src/pages/admin/Dashboard.tsx` |
 | Gerar/excluir edifícios de teste | [[edificios-teste]] |
+| Vincular catálogo do IBGE | [[ibge]] |
 | Itens da sidebar/nav | `src/lib/nav.ts` |
 | Chamadas de API admin | `src/api/admin/admin.routes.ts` |
 | Cookie / evento de sessão | `src/api/http.ts` |

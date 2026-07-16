@@ -148,6 +148,7 @@ doc/
     componentes-html.md          ← base de UI: shadcn, tema, roteamento, componentes
     area-admin.md                ← login, dashboard, auth e API admin
     edificios-teste.md           ← gerar/excluir edifícios fictícios em massa
+    ibge.md                      ← vincular catálogo geográfico do IBGE
 ```
 
 ## Fluxo da Aplicação
@@ -306,6 +307,7 @@ flowchart LR
 | Mexer na UI/tema/componentes do admin | [[componentes-html]] |
 | Mexer no login, dashboard ou auth do admin | [[area-admin]] |
 | Gerar/excluir edifícios fictícios em massa (admin) | [[edificios-teste]] |
+| Vincular catálogo do IBGE (regiões/estados/municípios) | [[ibge]] |
 | Adicionar rota ou página no admin | [[componentes-html#Roteamento]] |
 
 ## Ordem de Leitura Recomendada

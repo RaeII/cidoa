@@ -11,6 +11,7 @@ const CitySceneEditor = lazy(() =>
 const Login = lazy(() => import("./pages/admin/Login"));
 const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
 const TestBuildings = lazy(() => import("./pages/admin/TestBuildings"));
+const Ibge = lazy(() => import("./pages/admin/Ibge"));
 
 function PageFallback() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
             <Route element={<RequireAuth />}>
               <Route path="/dale" element={<Dashboard />} />
               <Route path="/dale/edificios-teste" element={<TestBuildings />} />
+              <Route path="/dale/ibge" element={<Ibge />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />
