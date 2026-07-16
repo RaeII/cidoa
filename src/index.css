@@ -1,8 +1,146 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+/* Dark mode por classe: alternada por `.dark` no <html> (script anti-FOUC no index.html). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  Paleta da marca (mesma do base_vite) — usada pela área /admin (shadcn/ui).
+  A cena 3D não consome estes tokens; ela pinta o próprio canvas.
+  Light: fundo creme, primary navy. Dark: fundo navy, primary creme.
+*/
+:root {
+  color-scheme: light;
+
+  --radius: 0.5rem;
+
+  --background: #fbf5e6;
+  --foreground: #05111d;
+
+  --card: #f3ebd3;
+  --card-foreground: #05111d;
+
+  --popover: #f3ebd3;
+  --popover-foreground: #05111d;
+  --input: #e2d6b6;
+
+  --muted: #ece1c6;
+  --muted-foreground: #4b5563;
+
+  --border: #e2d6b6;
+
+  --primary: #04283d;
+  --primary-foreground: #f3ebd3;
+
+  --secondary: #e9dfc3;
+  --secondary-foreground: #04283d;
+
+  --accent: #c46a4a;
+  --accent-foreground: #2b1206;
+
+  --destructive: #b3261e;
+  --destructive-foreground: #fafafa;
+
+  --ring: #04283d;
+
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--secondary);
+  --sidebar-accent-foreground: var(--secondary-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --background: #05111d;
+  --foreground: #f3ebd3;
+
+  --card: #0a2233;
+  --card-foreground: #f3ebd3;
+
+  --popover: #04283d;
+  --popover-foreground: #f3ebd3;
+  --input: #424e5591;
+
+  --muted: #0a2233;
+  --muted-foreground: #a7b4c2;
+
+  --border: #071721;
+
+  --primary: #f3ebd3;
+  --primary-foreground: #05111d;
+
+  --secondary: #0a2233;
+  --secondary-foreground: #f3ebd3;
+
+  --accent: #c46a4a;
+  --accent-foreground: #2b1206;
+
+  --destructive: #e5544b;
+  --destructive-foreground: #fafafa;
+
+  --ring: #f3ebd3;
+
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--secondary);
+  --sidebar-accent-foreground: var(--secondary-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+
+/* Expõe os tokens como utilitários Tailwind: bg-primary, text-accent, border-border, … */
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-input: var(--input);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-ring: var(--ring);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+}
 
 @layer base {
   * {
     box-sizing: border-box;
+  }
+
+  /* shadcn: cor de borda padrão (utilitário `border` sem cor explícita). */
+  *,
+  ::after,
+  ::before {
+    border-color: var(--color-border);
   }
 
   html,
@@ -14,7 +152,9 @@
   body {
     margin: 0;
     min-width: 320px;
+    /* Cena ocupa a viewport inteira; as telas de /admin rolam internamente. */
     overflow: hidden;
+    /* Fundo escuro da cena enquanto o Three carrega (o /admin pinta bg-background por cima). */
     background: #05070a;
     color: rgba(255, 255, 255, 0.95);
     font-family:

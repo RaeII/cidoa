@@ -28,6 +28,7 @@ As páginas ficam em pastas que **espelham as pastas do código** — assim voc�
 | `components/`      | `src/components` | Interface React: painel de controle e canvas               |
 | `scene/engine/`    | `src/scene`      | Maquinaria que monta e roda a cena (runtime, hooks, managers, builders) |
 | `scene/foundation/`| `src/scene`      | Base que o engine consome: config, tipos e utils           |
+| `admin/`           | `src/components` · `src/pages/admin` | Área admin (fora da cena): UI HTML/shadcn, roteamento, login e dashboard |
 
 > [!tip] Adicionando uma página nova
 > 1. Crie o `.md` dentro da pasta cujo **tema** combina (componente novo → `components/`; peça nova da cena → `scene/engine/`; tipo/config novo → `scene/foundation/`).
@@ -143,6 +144,10 @@ doc/
       scene-config.md
       scene-types.md
       scene-utils.md
+  admin/                         ← área admin do front (fora da cena 3D)
+    componentes-html.md          ← base de UI: shadcn, tema, roteamento, componentes
+    area-admin.md                ← login, dashboard, auth e API admin
+    edificios-teste.md           ← gerar/excluir edifícios fictícios em massa
 ```
 
 ## Fluxo da Aplicação
@@ -150,7 +155,7 @@ doc/
 ### 1. Entrada
 
 - `src/main.tsx` → renderiza React no `#root`
-- `src/App.tsx` → renderiza `CitySceneEditor`
+- `src/App.tsx` → `BrowserRouter` com rotas lazy: `/` = `CitySceneEditor` (cena), `/dale/login` + `/dale` = área admin (ver [[componentes-html]] e [[area-admin]])
 
 ### 2. Container Principal
 
@@ -298,6 +303,10 @@ flowchart LR
 | Alterar o ciclo completo da cena | [[scene-runtime]] |
 | Entender o contrato dos dados | [[scene-types]] |
 | Entender como React sincroniza com Three.js | [[scene-hooks]] |
+| Mexer na UI/tema/componentes do admin | [[componentes-html]] |
+| Mexer no login, dashboard ou auth do admin | [[area-admin]] |
+| Gerar/excluir edifícios fictícios em massa (admin) | [[edificios-teste]] |
+| Adicionar rota ou página no admin | [[componentes-html#Roteamento]] |
 
 ## Ordem de Leitura Recomendada
 
