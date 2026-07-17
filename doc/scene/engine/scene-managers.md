@@ -190,6 +190,16 @@ Ao chamar `setFocusedDonation(null)`, a opacidade é restaurada a 1.0, o mesh is
 
 ---
 
+#### Animação de Entrada (Novo Edifício)
+
+`addDonation` (fluxo de pagamento, tecla `ArrowRight`) dispara `startEntrance(id)` após o `rebuildInstances`. Sem isso o prédio surgia instantâneo — impossível saber qual entrou. O prédio já surge pronto (escala cheia), animando só a posição vertical via `instanceMatrix` (doação nova não tem customização → sempre instanced).
+
+- **Queda com slam** (`tickEntrance`, `ENTRANCE_DURATION = 2.2s`): surge flutuando `ENTRANCE_LIFT = 5` acima da posição final; **levita** com bob leve até 30% do tempo (`HOVER_END`), **cai devagar** até 80% (`SLOW_END`, desce 60% da altura), depois **despenca** acelerando (`k²`, gravidade) até encostar no chão.
+- **Poeira de impacto** (`spawnDust` / `tickDust`): ao encostar (`offset ≤ 0.02`, uma vez via flag `landed`), solta um burst de `THREE.Points` (30 partículas, textura radial gerada por canvas — sem asset externo) com velocidade radial + jato pra cima; integra gravidade + arrasto e some em `DUST_DURATION = 0.9s`. `Points` único reusado (1 impacto por vez).
+- **Ciclo**: `tickEntrance` e `tickDust` são chamados por `tickAnimations`; `finishEntrance()` assenta o transform final exato. Uma entrada por vez — `startEntrance` encerra a anterior. O bulk (`addDonations`) permanece instantâneo.
+
+---
+
 #### Cores Individuais por Edifício
 
 Quando um edifício recebe uma customização via `updateDonationCustomization`, a cor é armazenada em `DonationEntry.customization` e aplicada via `InstancedBufferAttribute` (instanceColor). Edifícios sem customização usam a cor global do material. O sistema é reativado a cada `rebuildInstances` ou mudança de `BuildingSettings`.

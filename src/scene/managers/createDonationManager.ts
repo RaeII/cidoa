@@ -1615,6 +1615,163 @@ export function createDonationManager({
     }
   }
 
+  // --- Poeira de impacto ---
+  // Burst de partículas soltas do chão quando o prédio bate. Points único reusado
+  // (1 impacto por vez). Textura radial suave gerada por canvas — sem asset externo.
+  const DUST_COUNT = 30;
+  const DUST_DURATION = 0.9; // segundos
+  const makeDustTexture = () => {
+    const size = 64;
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext("2d")!;
+    const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    g.addColorStop(0, "rgba(255,255,255,0.95)");
+    g.addColorStop(0.5, "rgba(255,255,255,0.4)");
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+    return new THREE.CanvasTexture(canvas);
+  };
+  const dustTexture = makeDustTexture();
+  const dustMaterial = new THREE.PointsMaterial({
+    size: 1.2,
+    map: dustTexture,
+    color: new THREE.Color(0xbfb09a), // tom de terra/poeira
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    sizeAttenuation: true,
+  });
+  const dustPositions = new Float32Array(DUST_COUNT * 3);
+  const dustVelocities = new Float32Array(DUST_COUNT * 3);
+  const dustGeometry = new THREE.BufferGeometry();
+  dustGeometry.setAttribute("position", new THREE.BufferAttribute(dustPositions, 3));
+  const dustPoints = new THREE.Points(dustGeometry, dustMaterial);
+  dustPoints.visible = false;
+  dustPoints.frustumCulled = false;
+  scene.add(dustPoints);
+  let dustElapsed = 0;
+  let dustActive = false;
+
+  const spawnDust = (cx: number, cz: number, footprintX: number, footprintZ: number) => {
+    const spread = Math.max(footprintX, footprintZ) * 0.5 + 0.4;
+    for (let i = 0; i < DUST_COUNT; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r0 = Math.random() * spread;
+      dustPositions[i * 3] = cx + Math.cos(a) * r0;
+      dustPositions[i * 3 + 1] = 0.05 + Math.random() * 0.15;
+      dustPositions[i * 3 + 2] = cz + Math.sin(a) * r0;
+      const speed = 1.2 + Math.random() * 2.8;
+      dustVelocities[i * 3] = Math.cos(a) * speed;
+      dustVelocities[i * 3 + 1] = 1.0 + Math.random() * 2.2; // jato pra cima
+      dustVelocities[i * 3 + 2] = Math.sin(a) * speed;
+    }
+    dustGeometry.attributes.position.needsUpdate = true;
+    dustMaterial.opacity = 0.9;
+    dustMaterial.size = 1.2;
+    dustPoints.visible = true;
+    dustElapsed = 0;
+    dustActive = true;
+  };
+
+  const tickDust = (dt: number) => {
+    if (!dustActive) return;
+    dustElapsed += dt;
+    const p = Math.min(1, dustElapsed / DUST_DURATION);
+    const drag = Math.max(0, 1 - 2.5 * dt);
+    for (let i = 0; i < DUST_COUNT; i++) {
+      dustVelocities[i * 3 + 1] -= 5 * dt; // gravidade
+      dustVelocities[i * 3] *= drag;
+      dustVelocities[i * 3 + 2] *= drag;
+      dustPositions[i * 3] += dustVelocities[i * 3] * dt;
+      dustPositions[i * 3 + 1] = Math.max(0.02, dustPositions[i * 3 + 1] + dustVelocities[i * 3 + 1] * dt);
+      dustPositions[i * 3 + 2] += dustVelocities[i * 3 + 2] * dt;
+    }
+    dustGeometry.attributes.position.needsUpdate = true;
+    dustMaterial.opacity = 0.9 * (1 - p);
+    dustMaterial.size = 1.2 + p * 1.8; // dissipa crescendo
+    if (p >= 1) {
+      dustActive = false;
+      dustPoints.visible = false;
+    }
+  };
+
+  // --- Animação de entrada de novo edifício ---
+  // Prédio surge já pronto, flutuando acima da posição final: levita um instante,
+  // cai bem devagar e depois despenca de vez (slam), soltando poeira no impacto.
+  // Só o addDonation (fluxo de pagamento, 1 por vez) dispara; o bulk fica instantâneo.
+  const ENTRANCE_DURATION = 2.2; // segundos totais (levita + queda lenta + slam)
+  const ENTRANCE_LIFT = 5;       // altura inicial acima da posição final
+  const HOVER_END = 0.30;        // levitação até 30% do tempo
+  const SLOW_END = 0.82;         // quase parado de 30%→82%; slam rápido depois
+  let entranceAnim: { donationId: number; elapsed: number; landed: boolean } | null = null;
+
+  const finishEntrance = () => {
+    if (!entranceAnim) return;
+    const { donationId } = entranceAnim;
+    entranceAnim = null;
+    // Restaura o transform final exato (caso a animação tenha sido cortada no meio).
+    const idx = donationIdToInstanceIndex.get(donationId);
+    const transform = donationTransforms.get(donationId);
+    if (idx !== undefined && transform) {
+      dummy.position.copy(transform.position);
+      dummy.scale.copy(transform.scale);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(idx, dummy.matrix);
+      mesh.instanceMatrix.needsUpdate = true;
+    }
+  };
+
+  const startEntrance = (donationId: number) => {
+    finishEntrance(); // encerra a anterior (assenta o prédio antigo)
+    if (!donationTransforms.has(donationId)) return;
+    entranceAnim = { donationId, elapsed: 0, landed: false };
+  };
+
+  const tickEntrance = (dt: number) => {
+    if (!entranceAnim) return;
+    entranceAnim.elapsed += dt;
+    const t = Math.min(1, entranceAnim.elapsed / ENTRANCE_DURATION);
+
+    const idx = donationIdToInstanceIndex.get(entranceAnim.donationId);
+    const transform = donationTransforms.get(entranceAnim.donationId);
+    if (idx === undefined || !transform) {
+      finishEntrance();
+      return;
+    }
+
+    // Offset vertical acima da posição final; escala fica cheia o tempo todo.
+    let offset: number;
+    if (t < HOVER_END) {
+      offset = ENTRANCE_LIFT + Math.sin(t * 22) * 0.12; // levita com bob leve
+    } else if (t < SLOW_END) {
+      const k = (t - HOVER_END) / (SLOW_END - HOVER_END);
+      offset = ENTRANCE_LIFT * (1 - 0.2 * k); // quase não desce (só 20%)
+    } else {
+      const k = (t - SLOW_END) / (1 - SLOW_END);
+      offset = ENTRANCE_LIFT * 0.8 * (1 - k * k); // slam: despenca acelerando até 0
+    }
+
+    dummy.position.set(
+      transform.position.x,
+      transform.position.y + offset,
+      transform.position.z,
+    );
+    dummy.scale.copy(transform.scale);
+    dummy.updateMatrix();
+    mesh.setMatrixAt(idx, dummy.matrix);
+    mesh.instanceMatrix.needsUpdate = true;
+
+    // Impacto: solta poeira uma única vez quando encosta no chão.
+    if (!entranceAnim.landed && offset <= 0.02) {
+      entranceAnim.landed = true;
+      spawnDust(transform.position.x, transform.position.z, transform.scale.x, transform.scale.z);
+    }
+
+    if (t >= 1) finishEntrance();
+  };
+
   // Render inicial: mostra o loteamento vazio (quadras + asfalto + lotes) já na
   // criação, antes de qualquer doação. Também define cityHalfExtent pro relevo abrir
   // a zona plana logo no setup do runtime.
@@ -1622,10 +1779,12 @@ export function createDonationManager({
 
   return {
     addDonation(value) {
-      donations.push({ id: nextId++, value });
+      const id = nextId++;
+      donations.push({ id, value });
       donations.sort((a, b) => b.value - a.value);
       growIfNeeded(donations.length);
       rebuildInstances();
+      startEntrance(id);
     },
     addDonations(values) {
       for (const value of values) {
@@ -1887,8 +2046,15 @@ export function createDonationManager({
       for (const entry of hologramMeshes.values()) {
         tickHologram(entry, elapsedSeconds, deltaMs);
       }
+      tickEntrance(deltaMs / 1000);
+      tickDust(deltaMs / 1000);
     },
     dispose() {
+      finishEntrance();
+      scene.remove(dustPoints);
+      dustGeometry.dispose();
+      dustMaterial.dispose();
+      dustTexture.dispose();
       removeFocusHighlight();
       // Limpar acessórios de topo
       for (const [, entry] of rooftopMeshes) {
