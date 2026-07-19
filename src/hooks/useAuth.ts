@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { LoginInput } from "../api/auth/auth.types";
+import type { LoginInput, VerifyCodeInput } from "../api/auth/auth.types";
 import type { User } from "../api/user/user.types";
 
 export interface AuthContextValue {
@@ -7,8 +7,12 @@ export interface AuthContextValue {
   user: User | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
-  /** Autentica no backend (seta o cookie httpOnly) e persiste a sessão local. */
+  /** Login por senha (admin). Seta o cookie httpOnly e persiste a sessão local. */
   login: (input: LoginInput) => Promise<User>;
+  /** Passwordless: valida o código de login e abre a sessão. */
+  loginWithCode: (input: VerifyCodeInput) => Promise<User>;
+  /** Passwordless: valida o código de cadastro, cria a conta e abre a sessão. */
+  registerWithCode: (input: VerifyCodeInput) => Promise<User>;
   /** Remove o cookie no backend e limpa a sessão local. */
   logout: () => Promise<void>;
 }

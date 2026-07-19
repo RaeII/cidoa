@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CitySceneCanvas, type CitySceneCanvasHandle } from "./three/CitySceneCanvas";
+import { AuthMenu } from "./AuthMenu";
 import { BuildingHeightInput } from "./html/BuildingHeightInput";
 import { BuildingCustomizePanel } from "./html/BuildingCustomizePanel";
 import { CityControlPanel } from "./html/CityControlPanel";
@@ -289,6 +290,9 @@ export function CitySceneEditor() {
         onBuildingClick={handleBuildingClick}
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to from-black/35 to-transparent" />
+      <div className="absolute right-4 top-4 z-40">
+        <AuthMenu />
+      </div>
       {loadState.status === "ready" && (
         <DonationFilterBar
           cities={cities}

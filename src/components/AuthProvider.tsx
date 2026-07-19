@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { login as apiLogin, logout as apiLogout } from "../api/auth/auth.routes";
-import type { LoginInput } from "../api/auth/auth.types";
+import {
+  login as apiLogin,
+  logout as apiLogout,
+  verifyLoginCode as apiVerifyLoginCode,
+  verifyRegisterCode as apiVerifyRegisterCode,
+} from "../api/auth/auth.routes";
+import type { LoginInput, VerifyCodeInput } from "../api/auth/auth.types";
 import { SESSION_EXPIRED_EVENT } from "../api/http";
 import type { User } from "../api/user/user.types";
 import { AuthContext } from "../hooks/useAuth";
@@ -45,12 +50,37 @@ function saveSession(user: User, expiresIn: number) {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(loadSession);
 
-  const login = useCallback(async (input: LoginInput) => {
-    const { data: loggedUser, expiresIn } = await apiLogin(input);
+  // Ponto único que abre a sessão local — usado pelo login por senha e pelos
+  // fluxos passwordless (mesma resposta {data, expiresIn} do backend).
+  const establishSession = useCallback((loggedUser: User, expiresIn: number) => {
     saveSession(loggedUser, expiresIn);
     setUser(loggedUser);
     return loggedUser;
   }, []);
+
+  const login = useCallback(
+    async (input: LoginInput) => {
+      const { data, expiresIn } = await apiLogin(input);
+      return establishSession(data, expiresIn);
+    },
+    [establishSession],
+  );
+
+  const loginWithCode = useCallback(
+    async (input: VerifyCodeInput) => {
+      const { data, expiresIn } = await apiVerifyLoginCode(input);
+      return establishSession(data, expiresIn);
+    },
+    [establishSession],
+  );
+
+  const registerWithCode = useCallback(
+    async (input: VerifyCodeInput) => {
+      const { data, expiresIn } = await apiVerifyRegisterCode(input);
+      return establishSession(data, expiresIn);
+    },
+    [establishSession],
+  );
 
   const logout = useCallback(async () => {
     try {
@@ -78,9 +108,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: user !== null,
       isAdmin: user?.is_admin ?? false,
       login,
+      loginWithCode,
+      registerWithCode,
       logout,
     }),
-    [user, login, logout],
+    [user, login, loginWithCode, registerWithCode, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

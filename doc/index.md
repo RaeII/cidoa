@@ -306,6 +306,7 @@ flowchart LR
 | Entender como React sincroniza com Three.js | [[scene-hooks]] |
 | Mexer na UI/tema/componentes do admin | [[componentes-html]] |
 | Mexer no login, dashboard ou auth do admin | [[area-admin]] |
+| Botão de login + modal passwordless na cena | [[area-admin#Login público na cena (passwordless)]] |
 | Gerar/excluir edifícios fictícios em massa (admin) | [[edificios-teste]] |
 | Vincular catálogo do IBGE (regiões/estados/municípios) | [[ibge]] |
 | Adicionar rota ou página no admin | [[componentes-html#Roteamento]] |
