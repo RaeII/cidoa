@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ApiError } from "@/api/http";
-import { requestLoginCode, requestRegisterCode } from "@/api/auth/auth.routes";
-import type { AuthChallenge } from "@/api/auth/auth.types";
+import { requestLoginCode } from "@/api/auth/auth.routes";
+import type { AuthChallenge, RegistrationRequiredResult } from "@/api/auth/auth.types";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,25 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-type Mode = "login" | "register";
-type Step = "email" | "code";
-
-const COPY = {
-  login: {
-    title: "Entrar",
-    description: "Enviamos um código de 6 dígitos para o seu e-mail.",
-    request: requestLoginCode,
-    submit: "Entrar",
-    toggle: "Não tem conta? Criar conta",
-  },
-  register: {
-    title: "Criar conta",
-    description: "Enviamos um código para confirmar o seu e-mail.",
-    request: requestRegisterCode,
-    submit: "Criar conta",
-    toggle: "Já tem conta? Entrar",
-  },
-} as const;
+type Step = "email" | "code" | "profile";
 
 /** Segundos até `iso` (cooldown de reenvio), nunca negativo. */
 function secondsUntil(iso: string): number {
@@ -39,9 +21,9 @@ function secondsUntil(iso: string): number {
 }
 
 /**
- * Modal de autenticação passwordless: e-mail → código de 6 dígitos.
- * Login e cadastro no mesmo modal, alternados por `mode`. Ao validar o código,
- * o AuthProvider abre a sessão (cookie httpOnly) e o modal fecha.
+ * Modal passwordless único: e-mail → código → perfil apenas para conta nova.
+ * A prova do e-mail confirmado fica somente no estado React; fechar ou recarregar
+ * elimina o progresso e exige outro código.
  */
 export function AuthDialog({
   open,
@@ -50,24 +32,28 @@ export function AuthDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { loginWithCode, registerWithCode } = useAuth();
+  const { loginWithCode, completeRegistration } = useAuth();
 
-  const [mode, setMode] = useState<Mode>("login");
   const [step, setStep] = useState<Step>("email");
+  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [challenge, setChallenge] = useState<AuthChallenge | null>(null);
+  const [registration, setRegistration] = useState<RegistrationRequiredResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [resendIn, setResendIn] = useState(0);
 
   // Reset ao fechar — reabrir sempre começa limpo no passo de e-mail.
   const reset = useCallback(() => {
-    setMode("login");
     setStep("email");
+    setName("");
+    setUsername("");
     setEmail("");
     setCode("");
     setChallenge(null);
+    setRegistration(null);
     setError(null);
     setSubmitting(false);
     setResendIn(0);
@@ -85,19 +71,11 @@ export function AuthDialog({
     return () => clearInterval(t);
   }, [resendIn]);
 
-  function switchMode(next: Mode) {
-    setMode(next);
-    setStep("email");
-    setCode("");
-    setChallenge(null);
-    setError(null);
-  }
-
-  async function sendCode(targetMode: Mode) {
+  async function sendCode() {
     setError(null);
     setSubmitting(true);
     try {
-      const ch = await COPY[targetMode].request({ email });
+      const ch = await requestLoginCode({ email });
       setChallenge(ch);
       setStep("code");
       // Dev: backend devolve debugCode (nunca em produção) → já preenche o campo.
@@ -112,7 +90,7 @@ export function AuthDialog({
 
   async function handleEmailSubmit(e: FormEvent) {
     e.preventDefault();
-    await sendCode(mode);
+    await sendCode();
   }
 
   async function handleCodeSubmit(e: FormEvent) {
@@ -121,9 +99,16 @@ export function AuthDialog({
     setError(null);
     setSubmitting(true);
     try {
-      const verify = mode === "login" ? loginWithCode : registerWithCode;
-      await verify({ challengeId: challenge.challengeId, code });
-      handleOpenChange(false);
+      const result = await loginWithCode({ challengeId: challenge.challengeId, code });
+      if (result.status === "authenticated") {
+        handleOpenChange(false);
+        return;
+      }
+
+      setRegistration(result);
+      setChallenge(null);
+      setCode("");
+      setStep("profile");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Erro ao validar o código");
     } finally {
@@ -131,16 +116,46 @@ export function AuthDialog({
     }
   }
 
-  const copy = COPY[mode];
+  async function handleProfileSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!registration) return;
+
+    if (Date.now() >= new Date(registration.expiresAt).getTime()) {
+      setStep("email");
+      setRegistration(null);
+      setError("A verificação expirou. Envie um novo código.");
+      return;
+    }
+
+    setError(null);
+    setSubmitting(true);
+    try {
+      await completeRegistration({
+        registrationToken: registration.registrationToken,
+        name,
+        username,
+      });
+      handleOpenChange(false);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Erro ao criar a conta");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const title = step === "profile" ? "Criar conta" : "Entrar ou criar conta";
+  const description = step === "email"
+    ? "Informe seu e-mail para receber um código de 6 dígitos."
+    : step === "code"
+      ? `Digite o código enviado para ${email}.`
+      : `E-mail ${email} confirmado. Complete seu perfil para continuar.`;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>{copy.title}</DialogTitle>
-          <DialogDescription>
-            {step === "email" ? copy.description : `Digite o código enviado para ${email}.`}
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
         {step === "email" ? (
@@ -164,15 +179,8 @@ export function AuthDialog({
             <Button type="submit" disabled={submitting} className="w-full">
               {submitting ? "Enviando…" : "Enviar código"}
             </Button>
-            <button
-              type="button"
-              onClick={() => switchMode(mode === "login" ? "register" : "login")}
-              className="w-full text-center text-sm text-muted-foreground hover:text-foreground"
-            >
-              {copy.toggle}
-            </button>
           </form>
-        ) : (
+        ) : step === "code" ? (
           <form onSubmit={handleCodeSubmit} className="space-y-4">
             {challenge?.debugCode && (
               <p className="rounded-md bg-muted px-3 py-2 text-center text-sm text-muted-foreground">
@@ -197,7 +205,7 @@ export function AuthDialog({
               </p>
             )}
             <Button type="submit" disabled={submitting || code.length !== 6} className="w-full">
-              {submitting ? "Validando…" : copy.submit}
+              {submitting ? "Validando…" : "Continuar"}
             </Button>
             <div className="flex items-center justify-between text-sm">
               <button
@@ -213,12 +221,48 @@ export function AuthDialog({
               <button
                 type="button"
                 disabled={resendIn > 0 || submitting}
-                onClick={() => sendCode(mode)}
+                onClick={sendCode}
                 className="text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:hover:text-muted-foreground"
               >
                 {resendIn > 0 ? `Reenviar (${resendIn}s)` : "Reenviar código"}
               </button>
             </div>
+          </form>
+        ) : (
+          <form onSubmit={handleProfileSubmit} className="space-y-4">
+            <Input
+              id="auth-name"
+              label="Nome"
+              labelClassName="bg-background"
+              required
+              minLength={2}
+              maxLength={100}
+              autoComplete="name"
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <Input
+              id="auth-username"
+              label="Nome de usuário"
+              labelClassName="bg-background"
+              required
+              minLength={3}
+              maxLength={45}
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+            {error && (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            )}
+            <Button type="submit" disabled={submitting} className="w-full">
+              {submitting ? "Criando conta…" : "Criar conta"}
+            </Button>
           </form>
         )}
       </DialogContent>

@@ -1,11 +1,15 @@
 import { useState } from "react";
-import { LogOut, User as UserIcon } from "lucide-react";
+import { LogOut, UserRoundPen } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthDialog } from "@/components/AuthDialog";
+import { ProfileDialog } from "@/components/ProfileDialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -18,21 +22,47 @@ const overlayButton =
 export function AuthMenu() {
   const { isAuthenticated, user, logout } = useAuth();
   const [open, setOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   if (isAuthenticated && user) {
+    const visibleUsername = user.username.length > 18
+      ? `${user.username.slice(0, 18)}…`
+      : user.username;
+
     return (
-      <DropdownMenu>
-        <DropdownMenuTrigger className={`${overlayButton} max-w-[14rem]`}>
-          <UserIcon className="size-4 shrink-0" />
-          <span className="truncate">{user.username}</span>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => logout()}>
-            <LogOut />
-            Sair
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <>
+        <DropdownMenu>
+          <DropdownMenuTrigger className={`${overlayButton} max-w-[14rem]`} title={user.username}>
+            <Avatar className="size-6 shrink-0">
+              {user.profile_image && <AvatarImage src={user.profile_image} alt="" className="object-cover" />}
+              <AvatarFallback className="bg-white/10 text-[10px] text-white">
+                {user.username.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <span className="truncate">{visibleUsername}</span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuLabel className="min-w-0">
+              <span className="block truncate font-semibold">{user.username}</span>
+              <span className="block truncate text-xs font-normal text-muted-foreground">
+                {user.email ?? "Sem e-mail"}
+              </span>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setProfileOpen(true)}>
+              <UserRoundPen />
+              Perfil
+            </DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onClick={() => logout()}>
+              <LogOut />
+              Sair
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {profileOpen && (
+          <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
+        )}
+      </>
     );
   }
 

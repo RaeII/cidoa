@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { MOBILE_PRIMARY_COUNT, navItems, type NavItem } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Sheet,
   SheetClose,
@@ -119,6 +119,7 @@ function MoreSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
         <div className="border-t p-2">
           <div className="flex items-center gap-3 px-3 py-2">
             <Avatar className="size-8 rounded-lg">
+              {user?.profile_image && <AvatarImage src={user.profile_image} alt="" className="object-cover" />}
               <AvatarFallback className="rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                 {initials(name)}
               </AvatarFallback>

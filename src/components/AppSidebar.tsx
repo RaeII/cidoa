@@ -3,7 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { navItems } from "@/lib/nav";
 import { useAuth } from "@/hooks/useAuth";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -90,6 +90,7 @@ export function AppSidebar() {
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
                   <Avatar className="size-8 rounded-lg">
+                    {user?.profile_image && <AvatarImage src={user.profile_image} alt="" className="object-cover" />}
                     <AvatarFallback className="rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                       {initials(name)}
                     </AvatarFallback>
@@ -110,6 +111,7 @@ export function AppSidebar() {
                 <DropdownMenuLabel className="p-0 font-normal">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left">
                     <Avatar className="size-8 rounded-lg">
+                      {user?.profile_image && <AvatarImage src={user.profile_image} alt="" className="object-cover" />}
                       <AvatarFallback className="rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                         {initials(name)}
                       </AvatarFallback>

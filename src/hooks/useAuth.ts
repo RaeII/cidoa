@@ -1,6 +1,12 @@
 import { createContext, useContext } from "react";
-import type { LoginInput, VerifyCodeInput } from "../api/auth/auth.types";
+import type {
+  CompleteRegistrationInput,
+  LoginInput,
+  VerifyCodeInput,
+  VerifyCodeResult,
+} from "../api/auth/auth.types";
 import type { User } from "../api/user/user.types";
+import type { UpdateOwnProfileInput } from "../api/user/user.types";
 
 export interface AuthContextValue {
   /** Usuário logado, ou null sem sessão. */
@@ -9,10 +15,12 @@ export interface AuthContextValue {
   isAdmin: boolean;
   /** Login por senha (admin). Seta o cookie httpOnly e persiste a sessão local. */
   login: (input: LoginInput) => Promise<User>;
-  /** Passwordless: valida o código de login e abre a sessão. */
-  loginWithCode: (input: VerifyCodeInput) => Promise<User>;
-  /** Passwordless: valida o código de cadastro, cria a conta e abre a sessão. */
-  registerWithCode: (input: VerifyCodeInput) => Promise<User>;
+  /** Valida o e-mail; abre a sessão existente ou libera cadastro em memória. */
+  loginWithCode: (input: VerifyCodeInput) => Promise<VerifyCodeResult>;
+  /** Cria a conta após a confirmação do e-mail e abre a sessão. */
+  completeRegistration: (input: CompleteRegistrationInput) => Promise<User>;
+  /** Atualiza nome e nome de usuário do usuário autenticado. */
+  updateProfile: (input: UpdateOwnProfileInput) => Promise<User>;
   /** Remove o cookie no backend e limpa a sessão local. */
   logout: () => Promise<void>;
 }

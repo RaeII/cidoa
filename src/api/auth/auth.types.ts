@@ -17,9 +17,16 @@ export interface LoginResponse {
 
 // ─── Passwordless (código por e-mail) ───────────────────────────
 
-/** Body de request-code (login e cadastro): só o e-mail. */
-export interface RequestCodeInput {
+/** Body de request-code do login: só o e-mail. */
+export interface RequestLoginCodeInput {
   email: string;
+}
+
+/** Perfil enviado somente depois que o e-mail foi confirmado. */
+export interface CompleteRegistrationInput {
+  registrationToken: string;
+  username: string;
+  name: string;
 }
 
 /** Desafio criado pelo request-code — código de 6 dígitos enviado por e-mail. */
@@ -38,3 +45,18 @@ export interface VerifyCodeInput {
   challengeId: string;
   code: string;
 }
+
+export interface RegistrationRequiredResult {
+  status: "registration_required";
+  /** Prova curta do e-mail verificado. Deve existir somente em memória. */
+  registrationToken: string;
+  expiresAt: string;
+}
+
+export type VerifyLoginCodeResponse =
+  | (LoginResponse & { status: "authenticated" })
+  | RegistrationRequiredResult;
+
+export type VerifyCodeResult =
+  | { status: "authenticated"; user: User }
+  | RegistrationRequiredResult;

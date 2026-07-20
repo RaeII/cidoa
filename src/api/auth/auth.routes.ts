@@ -1,9 +1,11 @@
 import { http } from "../http";
 import type {
   AuthChallenge,
+  CompleteRegistrationInput,
   LoginInput,
   LoginResponse,
-  RequestCodeInput,
+  RequestLoginCodeInput,
+  VerifyLoginCodeResponse,
   VerifyCodeInput,
 } from "./auth.types";
 
@@ -22,22 +24,17 @@ export async function logout() {
 // Passwordless (código por e-mail). request-code envia o código; verify-code
 // valida e seta o mesmo cookie httpOnly do login por senha.
 
-export async function requestLoginCode(input: RequestCodeInput) {
+export async function requestLoginCode(input: RequestLoginCodeInput) {
   const { data } = await http.post<AuthChallenge>("/auth/login/request-code", input);
   return data;
 }
 
 export async function verifyLoginCode(input: VerifyCodeInput) {
-  const { data } = await http.post<LoginResponse>("/auth/login/verify-code", input);
+  const { data } = await http.post<VerifyLoginCodeResponse>("/auth/login/verify-code", input);
   return data;
 }
 
-export async function requestRegisterCode(input: RequestCodeInput) {
-  const { data } = await http.post<AuthChallenge>("/auth/register/request-code", input);
-  return data;
-}
-
-export async function verifyRegisterCode(input: VerifyCodeInput) {
-  const { data } = await http.post<LoginResponse>("/auth/register/verify-code", input);
+export async function completeRegistration(input: CompleteRegistrationInput) {
+  const { data } = await http.post<LoginResponse>("/auth/register/complete", input);
   return data;
 }

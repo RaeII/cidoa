@@ -2,12 +2,18 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import {
   login as apiLogin,
   logout as apiLogout,
+  completeRegistration as apiCompleteRegistration,
   verifyLoginCode as apiVerifyLoginCode,
-  verifyRegisterCode as apiVerifyRegisterCode,
 } from "../api/auth/auth.routes";
-import type { LoginInput, VerifyCodeInput } from "../api/auth/auth.types";
+import type {
+  CompleteRegistrationInput,
+  LoginInput,
+  VerifyCodeInput,
+} from "../api/auth/auth.types";
 import { SESSION_EXPIRED_EVENT } from "../api/http";
 import type { User } from "../api/user/user.types";
+import type { UpdateOwnProfileInput } from "../api/user/user.types";
+import { updateOwnProfile as apiUpdateOwnProfile } from "../api/user/user.routes";
 import { AuthContext } from "../hooks/useAuth";
 
 /**
@@ -47,6 +53,17 @@ function saveSession(user: User, expiresIn: number) {
   );
 }
 
+function replaceStoredUser(user: User) {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const session = JSON.parse(raw) as StoredSession;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...session, user }));
+  } catch {
+    localStorage.removeItem(STORAGE_KEY);
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(loadSession);
 
@@ -68,19 +85,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginWithCode = useCallback(
     async (input: VerifyCodeInput) => {
-      const { data, expiresIn } = await apiVerifyLoginCode(input);
+      const result = await apiVerifyLoginCode(input);
+      if (result.status === "registration_required") return result;
+
+      const user = establishSession(result.data, result.expiresIn);
+      return { status: "authenticated" as const, user };
+    },
+    [establishSession],
+  );
+
+  const completeRegistration = useCallback(
+    async (input: CompleteRegistrationInput) => {
+      const { data, expiresIn } = await apiCompleteRegistration(input);
       return establishSession(data, expiresIn);
     },
     [establishSession],
   );
 
-  const registerWithCode = useCallback(
-    async (input: VerifyCodeInput) => {
-      const { data, expiresIn } = await apiVerifyRegisterCode(input);
-      return establishSession(data, expiresIn);
-    },
-    [establishSession],
-  );
+  const updateProfile = useCallback(async (input: UpdateOwnProfileInput) => {
+    const updated = await apiUpdateOwnProfile(input);
+    replaceStoredUser(updated);
+    setUser(updated);
+    return updated;
+  }, []);
 
   const logout = useCallback(async () => {
     try {
@@ -109,10 +136,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: user?.is_admin ?? false,
       login,
       loginWithCode,
-      registerWithCode,
+      completeRegistration,
+      updateProfile,
       logout,
     }),
-    [user, login, loginWithCode, registerWithCode, logout],
+    [user, login, loginWithCode, completeRegistration, updateProfile, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

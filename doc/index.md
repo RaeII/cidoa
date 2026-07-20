@@ -54,9 +54,18 @@ src/
   index.css
   api/
     http.ts
+    auth/
+      auth.routes.ts              ← login e cadastro passwordless
+      auth.types.ts               ← contratos do perfil + desafio por código
+    user/
+      user.routes.ts              ← edição autenticada do próprio perfil
+      user.types.ts               ← usuário público, incluindo imagem de perfil base64
     donationApi.ts
     regions.ts
   components/
+    AuthDialog.tsx                ← login por e-mail; cadastro com nome + username único
+    AuthProvider.tsx              ← sessão local espelhada do cookie httpOnly
+    ProfileDialog.tsx             ← edição de nome, username e imagem de perfil
     CitySceneEditor.tsx
     html/
       CityControlPanel.tsx
@@ -71,6 +80,8 @@ src/
       SceneLightControls.tsx
       EnvironmentControls.tsx
       PointLightControls.tsx
+  lib/
+    image.ts                       ← valida e reduz imagens proporcionalmente para até 400 px
       PanelIntro.tsx
       KeyboardShortcutsHelp.tsx
       controls/
@@ -157,6 +168,7 @@ doc/
 
 - `src/main.tsx` → renderiza React no `#root`
 - `src/App.tsx` → `BrowserRouter` com rotas lazy: `/` = `CitySceneEditor` (cena), `/dale/login` + `/dale` = área admin (ver [[componentes-html]] e [[area-admin]])
+- Acesso público na cena → `AuthDialog`: e-mail → código; conta existente entra, conta nova informa `name` + `username` somente após confirmar o e-mail. Prova de cadastro fica só em memória; fechar ou recarregar exige novo código. Ver [[area-admin#Login público na cena (passwordless)]].
 
 ### 2. Container Principal
 
