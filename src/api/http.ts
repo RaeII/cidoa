@@ -32,7 +32,7 @@ http.interceptors.response.use(
     // 401 num fluxo de auth (login/cadastro por senha ou código) = credencial/
     // código inválido, não sessão expirada. Só 401 FORA desses fluxos limpa a
     // sessão local — o AuthProvider escuta este evento.
-    const isAuthFlow = /\/auth\/(login|register)/.test(error?.config?.url ?? "");
+    const isAuthFlow = /\/auth\/(login|register|google)/.test(error?.config?.url ?? "");
     if (status === 401 && !isAuthFlow) {
       window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
     }

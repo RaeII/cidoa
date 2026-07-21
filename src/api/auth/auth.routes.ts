@@ -2,6 +2,7 @@ import { http } from "../http";
 import type {
   AuthChallenge,
   CompleteRegistrationInput,
+  GoogleAuthInput,
   LoginInput,
   LoginResponse,
   RequestLoginCodeInput,
@@ -19,6 +20,13 @@ export async function login(input: LoginInput) {
 
 export async function logout() {
   await http.post("/auth/logout");
+}
+
+// Login com Google (GIS). O front recebe o ID token (`credential`) do popup do
+// Google e o envia aqui; o backend entra ou cadastra e seta o mesmo cookie httpOnly.
+export async function loginWithGoogle(input: GoogleAuthInput) {
+  const { data } = await http.post<LoginResponse>("/auth/google", input);
+  return data;
 }
 
 // Passwordless (código por e-mail). request-code envia o código; verify-code

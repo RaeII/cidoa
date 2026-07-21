@@ -17,6 +17,8 @@ export interface AuthContextValue {
   login: (input: LoginInput) => Promise<User>;
   /** Valida o e-mail; abre a sessão existente ou libera cadastro em memória. */
   loginWithCode: (input: VerifyCodeInput) => Promise<VerifyCodeResult>;
+  /** Login com Google (GIS): entra ou cadastra a partir do ID token e abre a sessão. */
+  loginWithGoogle: (credential: string) => Promise<User>;
   /** Cria a conta após a confirmação do e-mail e abre a sessão. */
   completeRegistration: (input: CompleteRegistrationInput) => Promise<User>;
   /** Atualiza nome e nome de usuário do usuário autenticado. */

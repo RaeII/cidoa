@@ -4,6 +4,7 @@ import {
   logout as apiLogout,
   completeRegistration as apiCompleteRegistration,
   verifyLoginCode as apiVerifyLoginCode,
+  loginWithGoogle as apiLoginWithGoogle,
 } from "../api/auth/auth.routes";
 import type {
   CompleteRegistrationInput,
@@ -102,6 +103,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [establishSession],
   );
 
+  const loginWithGoogle = useCallback(
+    async (credential: string) => {
+      const { data, expiresIn } = await apiLoginWithGoogle({ credential });
+      return establishSession(data, expiresIn);
+    },
+    [establishSession],
+  );
+
   const updateProfile = useCallback(async (input: UpdateOwnProfileInput) => {
     const updated = await apiUpdateOwnProfile(input);
     replaceStoredUser(updated);
@@ -136,11 +145,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: user?.is_admin ?? false,
       login,
       loginWithCode,
+      loginWithGoogle,
       completeRegistration,
       updateProfile,
       logout,
     }),
-    [user, login, loginWithCode, completeRegistration, updateProfile, logout],
+    [user, login, loginWithCode, loginWithGoogle, completeRegistration, updateProfile, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

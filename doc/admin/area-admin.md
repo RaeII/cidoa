@@ -47,10 +47,11 @@ flowchart TD
 
 `src/components/AuthProvider.tsx` + `src/hooks/useAuth.ts`.
 
-Expõe via Context: `user`, `isAuthenticated`, `isAdmin`, `login()`, `loginWithCode()`, `completeRegistration()`, `updateProfile()`, `logout()`.
+Expõe via Context: `user`, `isAuthenticated`, `isAdmin`, `login()`, `loginWithCode()`, `loginWithGoogle()`, `completeRegistration()`, `updateProfile()`, `logout()`.
 
 - `login(input)` → login por **senha** (admin), `POST /auth/login`.
 - `loginWithCode({ challengeId, code })` → passwordless, `POST /auth/login/verify-code`; autentica conta existente ou devolve prova efêmera para conta nova.
+- `loginWithGoogle(credential)` → `POST /auth/google` com o ID token do GIS; entra, vincula ou cadastra automaticamente e abre a sessão.
 - `completeRegistration({ registrationToken, name, username })` → `POST /auth/register/complete`; cria conta só após e-mail confirmado.
 - `updateProfile({ name, username, profile_image? })` → `PUT /user/me`; atualiza backend + espelho local sem alterar validade da sessão.
 - Login por senha, conta existente por código e cadastro concluído passam pelo mesmo `establishSession(user, expiresIn)`: salva o espelho (`cidoa.admin.session`) e seta `user`.
@@ -119,7 +120,8 @@ Usuário comum entra/cadastra **na própria cena 3D** (`/`), sem sair para outra
 
 - **`src/components/AuthMenu.tsx`** — botão no canto superior direito da cena. Deslogado: "Entrar" abre o modal. Logado: `username` limitado a 18 caracteres + reticências (valor completo no `title`) e dropdown com "Perfil" + "Sair". Estilo casa com os overlays da cena (vidro escuro), não com o tema das páginas.
 - **`src/components/ProfileDialog.tsx`** — perfil em modal com imagem ou iniciais, nome, username e e-mail confirmado. O cabeçalho compacto aproxima nome/avatar e renderiza `@username` sem espaçamento artificial. Um lápis sobre o avatar abre as ações mínimas de adicionar/trocar e remover a imagem; sem imagem, exibe apenas uma indicação curta abaixo do avatar. Aceita JPEG, PNG ou WebP de até 10 MB; `src/lib/image.ts` reduz proporcionalmente para no máximo 400×400 e o backend valida novamente antes de persistir. E-mail fica somente leitura porque é a identidade passwordless e exige confirmação por código para ser trocado.
-- **`src/components/AuthDialog.tsx`** — modal único (shadcn `Dialog`): e-mail → código. `request-code` envia o mesmo desafio para e-mail cadastrado ou não, sem `404` nem sinal de enumeração. Código correto autentica conta existente; conta nova avança para **nome** + **nome de usuário único** e só então conclui cadastro.
+- **`src/components/AuthDialog.tsx`** — modal único (shadcn `Dialog`): botão **Continuar com Google** + divisor "ou" + e-mail → código. `request-code` envia o mesmo desafio para e-mail cadastrado ou não, sem `404` nem sinal de enumeração. Código correto autentica conta existente; conta nova avança para **nome** + **nome de usuário único** e só então conclui cadastro.
+  - **Botão Google (GIS)**: o script `accounts.google.com/gsi/client` (carregado no `index.html`) renderiza o botão via `google.accounts.id`. O popup devolve o `credential` (ID token); o callback chama `loginWithGoogle(credential)` → `POST /auth/google` → mesma sessão do fluxo por código. Entrar e cadastrar são a **mesma ação** (o backend resolve). `GOOGLE_CLIENT_ID` vem de `VITE_GOOGLE_CLIENT_ID` (com default público embutido). Registre a **origem** do front em *Authorized JavaScript origins* no Google Console.
   - **Perfil depois da confirmação**: `POST /auth/register/complete` recebe `{ registrationToken, name, username }`. E-mail vem da prova assinada, nunca do body. Backend normaliza `username` para minúsculas, valida 3–45 caracteres e retorna `409` se já existir. `name` aceita 2–100 caracteres.
   - **Mesma sessão do modal**: `registrationToken` fica somente em estado React. Fechar modal, sair da página ou recarregar apaga a prova e exige novo código. Prova também expira no backend em 4 minutos.
   - **Reenvio**: botão com contagem regressiva do `resendAvailableAt` (cooldown do backend).
@@ -129,6 +131,8 @@ Usuário comum entra/cadastra **na própria cena 3D** (`/`), sem sair para outra
 ```mermaid
 flowchart TD
     Btn[AuthMenu 'Entrar'] --> Modal[AuthDialog]
+    Modal -->|Google popup: ID token| GG[POST /auth/google]
+    GG -->|entra / vincula / cadastra: cookie + user| AP
     Modal -->|email| RC[POST /auth/login/request-code]
     RC -->|challengeId + resendAt| Code[passo código]
     Code -->|challengeId + code| VC[POST /auth/login/verify-code]
