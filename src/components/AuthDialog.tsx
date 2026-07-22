@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { ApiError } from "@/api/http";
 import { requestLoginCode } from "@/api/auth/auth.routes";
 import type { AuthChallenge, RegistrationRequiredResult } from "@/api/auth/auth.types";
+import type { ReferrerPreview } from "@/api/referral/referral.types";
 import { useAuth } from "@/hooks/useAuth";
+import { ReferralPerson } from "@/components/referral/ReferralPerson";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -45,9 +47,23 @@ function secondsUntil(iso: string): number {
 export function AuthDialog({
   open,
   onOpenChange,
+  referralCode,
+  referralPreview,
+  referralLoading,
+  referralError,
+  onReferralCodeChange,
+  onCancelReferral,
+  onReferralApplied,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  referralCode: string;
+  referralPreview: ReferrerPreview | null;
+  referralLoading: boolean;
+  referralError: string | null;
+  onReferralCodeChange: (code: string) => void;
+  onCancelReferral: () => void;
+  onReferralApplied: () => void;
 }) {
   const { loginWithCode, completeRegistration, loginWithGoogle } = useAuth();
 
@@ -66,6 +82,7 @@ export function AuthDialog({
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [resendIn, setResendIn] = useState(0);
+  const referralBlocked = referralCode !== "" && (referralLoading || !referralPreview);
 
   // Reset ao fechar — reabrir sempre começa limpo no passo de e-mail.
   const reset = useCallback(() => {
@@ -82,8 +99,16 @@ export function AuthDialog({
   }, []);
 
   function handleOpenChange(next: boolean) {
-    if (!next) reset();
+    if (!next) {
+      reset();
+      onCancelReferral();
+    }
     onOpenChange(next);
+  }
+
+  function closeAfterAuth() {
+    reset();
+    onOpenChange(false);
   }
 
   // Contagem regressiva do cooldown de reenvio.
@@ -96,11 +121,12 @@ export function AuthDialog({
   // Mantém o handler do Google sempre atualizado (fecha no sucesso, mostra erro).
   useEffect(() => {
     handleGoogleRef.current = async (credential: string) => {
+      if (referralBlocked) return;
       setError(null);
       setSubmitting(true);
       try {
-        await loginWithGoogle(credential);
-        handleOpenChange(false);
+        await loginWithGoogle(credential, referralCode || undefined);
+        closeAfterAuth();
       } catch (err) {
         setError(err instanceof ApiError ? err.message : "Erro ao entrar com o Google");
       } finally {
@@ -178,7 +204,7 @@ export function AuthDialog({
     try {
       const result = await loginWithCode({ challengeId: challenge.challengeId, code });
       if (result.status === "authenticated") {
-        handleOpenChange(false);
+        closeAfterAuth();
         return;
       }
 
@@ -211,8 +237,10 @@ export function AuthDialog({
         registrationToken: registration.registrationToken,
         name,
         username,
+        referralCode: referralCode || undefined,
       });
-      handleOpenChange(false);
+      if (referralCode) onReferralApplied();
+      closeAfterAuth();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Erro ao criar a conta");
     } finally {
@@ -237,10 +265,32 @@ export function AuthDialog({
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
 
+        <div className="space-y-2">
+          <Input
+            id="auth-referral-code"
+            label="Código de indicação (opcional)"
+            labelClassName="bg-background"
+            maxLength={16}
+            autoCapitalize="characters"
+            spellCheck={false}
+            value={referralCode}
+            onChange={(event) => onReferralCodeChange(event.target.value)}
+          />
+          {referralLoading && (
+            <p className="text-xs text-muted-foreground">Verificando indicação…</p>
+          )}
+          {referralError && (
+            <p role="alert" className="text-sm text-destructive">{referralError}</p>
+          )}
+          {referralPreview && (
+            <ReferralPerson label="Você foi indicado por" person={referralPreview} />
+          )}
+        </div>
+
         {step === "email" ? (
           <div className="space-y-5">
             {/* Botão custom visível + botão real do GIS invisível por cima (recebe o clique). */}
-            <div className="group relative h-10">
+            <div className={`group relative h-10 ${referralBlocked ? "opacity-50" : ""}`}>
               <button
                 type="button"
                 aria-hidden
@@ -250,7 +300,10 @@ export function AuthDialog({
                 <GoogleG className="size-5" />
                 Continuar com Google
               </button>
-              <div ref={googleBtnRef} className="absolute inset-0 opacity-0" />
+              <div
+                ref={googleBtnRef}
+                className={`absolute inset-0 opacity-0 ${referralBlocked ? "pointer-events-none" : ""}`}
+              />
             </div>
             <div className="flex items-center gap-3">
               <span className="h-px flex-1 bg-border" />
@@ -274,7 +327,7 @@ export function AuthDialog({
                 {error}
               </p>
             )}
-            <Button type="submit" disabled={submitting} className="w-full">
+            <Button type="submit" disabled={submitting || referralBlocked} className="w-full">
               {submitting ? "Enviando…" : "Continuar com E-mail"}
             </Button>
             </form>
@@ -303,7 +356,11 @@ export function AuthDialog({
                 {error}
               </p>
             )}
-            <Button type="submit" disabled={submitting || code.length !== 6} className="w-full">
+            <Button
+              type="submit"
+              disabled={submitting || code.length !== 6 || referralBlocked}
+              className="w-full"
+            >
               {submitting ? "Validando…" : "Continuar"}
             </Button>
             <div className="flex items-center justify-between text-sm">
@@ -359,7 +416,7 @@ export function AuthDialog({
                 {error}
               </p>
             )}
-            <Button type="submit" disabled={submitting} className="w-full">
+            <Button type="submit" disabled={submitting || referralBlocked} className="w-full">
               {submitting ? "Criando conta…" : "Criar conta"}
             </Button>
           </form>

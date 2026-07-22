@@ -118,9 +118,9 @@ Layout: `SidebarProvider` (`h-svh`) + `AppSidebar` + conteúdo rolável + `Mobil
 
 Usuário comum entra/cadastra **na própria cena 3D** (`/`), sem sair para outra página. Fluxo **passwordless**: e-mail → código de 6 dígitos.
 
-- **`src/components/AuthMenu.tsx`** — botão no canto superior direito da cena. Deslogado: "Entrar" abre o modal. Logado: `username` limitado a 18 caracteres + reticências (valor completo no `title`) e dropdown com "Perfil" + "Sair". Estilo casa com os overlays da cena (vidro escuro), não com o tema das páginas.
-- **`src/components/ProfileDialog.tsx`** — perfil em modal com imagem ou iniciais, nome, username e e-mail confirmado. O cabeçalho compacto aproxima nome/avatar e renderiza `@username` sem espaçamento artificial. Um lápis sobre o avatar abre as ações mínimas de adicionar/trocar e remover a imagem; sem imagem, exibe apenas uma indicação curta abaixo do avatar. Aceita JPEG, PNG ou WebP de até 10 MB; `src/lib/image.ts` reduz proporcionalmente para no máximo 400×400 e o backend valida novamente antes de persistir. E-mail fica somente leitura porque é a identidade passwordless e exige confirmação por código para ser trocado.
-- **`src/components/AuthDialog.tsx`** — modal único (shadcn `Dialog`): botão **Continuar com Google** + divisor "ou" + e-mail → código. `request-code` envia o mesmo desafio para e-mail cadastrado ou não, sem `404` nem sinal de enumeração. Código correto autentica conta existente; conta nova avança para **nome** + **nome de usuário único** e só então conclui cadastro.
+- **`src/components/AuthMenu.tsx`** — botão no canto superior direito da cena. Deslogado: "Entrar" abre o modal. Logado: botão somente com ícone de compartilhar indicação ao lado do usuário, `username` limitado a 18 caracteres + reticências e dropdown com "Perfil" + "Sair". Também coordena código vindo de `?ref=`, preview, resumo e confirmação. Ver [[referral]].
+- **`src/components/ProfileDialog.tsx`** — perfil em modal com imagem ou iniciais, nome, username e e-mail confirmado. Mostra código/link próprio; indicador recebido só quando existe; total indicado só quando maior que zero. Um lápis sobre o avatar abre ações de adicionar/trocar e remover imagem. Aceita JPEG, PNG ou WebP de até 10 MB; `src/lib/image.ts` reduz proporcionalmente para no máximo 400×400.
+- **`src/components/AuthDialog.tsx`** — modal único (shadcn `Dialog`): campo opcional de indicação sempre visível + botão **Continuar com Google** + divisor "ou" + e-mail → código. Código de indicação válido mostra nome/imagem; inválido bloqueia login/cadastro até correção ou remoção. Conta nova envia código no cadastro; conta existente confirma depois do login.
   - **Botão Google (GIS)**: o script `accounts.google.com/gsi/client` (carregado no `index.html`) renderiza o botão via `google.accounts.id`. O popup devolve o `credential` (ID token); o callback chama `loginWithGoogle(credential)` → `POST /auth/google` → mesma sessão do fluxo por código. Entrar e cadastrar são a **mesma ação** (o backend resolve). `GOOGLE_CLIENT_ID` vem de `VITE_GOOGLE_CLIENT_ID` (com default público embutido). Registre a **origem** do front em *Authorized JavaScript origins* no Google Console.
   - **Perfil depois da confirmação**: `POST /auth/register/complete` recebe `{ registrationToken, name, username }`. E-mail vem da prova assinada, nunca do body. Backend normaliza `username` para minúsculas, valida 3–45 caracteres e retorna `409` se já existir. `name` aceita 2–100 caracteres.
   - **Mesma sessão do modal**: `registrationToken` fica somente em estado React. Fechar modal, sair da página ou recarregar apaga a prova e exige novo código. Prova também expira no backend em 4 minutos.
@@ -160,6 +160,7 @@ flowchart TD
 | Módulo | Arquivo | Rotas |
 | --- | --- | --- |
 | Auth | `api/auth/auth.routes.ts` | `login`, `logout`, `requestLoginCode`, `verifyLoginCode`, `completeRegistration` |
+| Referral | `api/referral/referral.routes.ts` | `getReferralPreview`, `getMyReferralSummary`, `applyMyReferral` — ver [[referral]] |
 | Admin | `api/admin/admin.routes.ts` | `getDashboardStats`, `createTestBuildings`, `deleteAllBuildings` (ver [[edificios-teste]]), `getIbgeStatus`, `syncIbge` (ver [[ibge]]) |
 | User | `api/user/user.routes.ts` + `user.types.ts` | `updateOwnProfile`; tipo `User`, incluindo `name: string \| null` para contas antigas |
 
@@ -186,6 +187,7 @@ Cria/promove usuário com `is_admin=true` + senha bcrypt. Depois é só logar em
 | Botão de login na cena (público) | `src/components/AuthMenu.tsx` |
 | Modal de login/cadastro passwordless | `src/components/AuthDialog.tsx` |
 | Visualização e edição do perfil | `src/components/ProfileDialog.tsx` + `src/api/user/user.routes.ts` |
+| Link, preview, confirmação e compartilhamento de indicação | `src/components/AuthMenu.tsx` + `src/components/referral/` + `src/api/referral/` |
 | Tela de login do admin (senha) | `src/pages/admin/Login.tsx` |
 | Tela de dashboard | `src/pages/admin/Dashboard.tsx` |
 | Gerar/excluir edifícios de teste | [[edificios-teste]] |

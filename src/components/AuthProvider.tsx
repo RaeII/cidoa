@@ -104,8 +104,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const loginWithGoogle = useCallback(
-    async (credential: string) => {
-      const { data, expiresIn } = await apiLoginWithGoogle({ credential });
+    async (credential: string, referralCode?: string) => {
+      const { data, expiresIn } = await apiLoginWithGoogle({ credential, referralCode });
       return establishSession(data, expiresIn);
     },
     [establishSession],

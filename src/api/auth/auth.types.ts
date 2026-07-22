@@ -18,6 +18,7 @@ export interface LoginResponse {
 /** Body do login com Google: o `credential` (ID token) devolvido pelo GIS. */
 export interface GoogleAuthInput {
   credential: string;
+  referralCode?: string;
 }
 
 // ─── Passwordless (código por e-mail) ───────────────────────────
@@ -32,6 +33,7 @@ export interface CompleteRegistrationInput {
   registrationToken: string;
   username: string;
   name: string;
+  referralCode?: string;
 }
 
 /** Desafio criado pelo request-code — código de 6 dígitos enviado por e-mail. */

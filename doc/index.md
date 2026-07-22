@@ -57,6 +57,10 @@ src/
     auth/
       auth.routes.ts              ← login e cadastro passwordless
       auth.types.ts               ← contratos do perfil + desafio por código
+    referral/
+      referral.routes.ts          ← preview, resumo e confirmação de indicação
+      referral.types.ts           ← contratos do sistema de indicação
+      referral.logic.ts           ← normalização e decisão do modal
     user/
       user.routes.ts              ← edição autenticada do próprio perfil
       user.types.ts               ← usuário público, incluindo imagem de perfil base64
@@ -66,6 +70,9 @@ src/
     AuthDialog.tsx                ← login por e-mail; cadastro com nome + username único
     AuthProvider.tsx              ← sessão local espelhada do cookie httpOnly
     ProfileDialog.tsx             ← edição de nome, username e imagem de perfil
+    referral/
+      ReferralDialog.tsx          ← confirmação e avisos da indicação
+      ReferralPerson.tsx          ← nome e imagem do indicador
     CitySceneEditor.tsx
     html/
       CityControlPanel.tsx
@@ -142,6 +149,7 @@ doc/
   index.md                       ← você está aqui (mapa da documentação)
   api/                           ← espelha src/api (camada de dados / doações)
     donation-api.md
+    referral.md                  ← links, código, confirmação e compartilhamento
   components/                    ← espelha src/components (interface React)
     html-components.md
     three-components.md
@@ -168,7 +176,7 @@ doc/
 
 - `src/main.tsx` → renderiza React no `#root`
 - `src/App.tsx` → `BrowserRouter` com rotas lazy: `/` = `CitySceneEditor` (cena), `/dale/login` + `/dale` = área admin (ver [[componentes-html]] e [[area-admin]])
-- Acesso público na cena → `AuthDialog`: e-mail → código; conta existente entra, conta nova informa `name` + `username` somente após confirmar o e-mail. Prova de cadastro fica só em memória; fechar ou recarregar exige novo código. Ver [[area-admin#Login público na cena (passwordless)]].
+- Acesso público na cena → `AuthDialog`: e-mail → código; conta existente entra, conta nova informa `name` + `username` somente após confirmar o e-mail. Campo opcional de indicação fica sempre visível; `?ref=` preenche código e preview. Ver [[area-admin#Login público na cena (passwordless)]] e [[referral]].
 
 ### 2. Container Principal
 

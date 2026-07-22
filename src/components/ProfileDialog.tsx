@@ -1,8 +1,10 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { ImagePlus, Mail, Pencil, Trash2, UserRound } from "lucide-react";
+import { ImagePlus, Mail, Pencil, Share2, Trash2, UserRound, Users } from "lucide-react";
 import { ApiError } from "@/api/http";
+import type { ReferralSummary } from "@/api/referral/referral.types";
 import { useAuth } from "@/hooks/useAuth";
 import { resizeImage } from "@/lib/image";
+import { ReferralPerson } from "@/components/referral/ReferralPerson";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,9 +26,17 @@ import {
 export function ProfileDialog({
   open,
   onOpenChange,
+  referralSummary,
+  referralError,
+  shareStatus,
+  onShareReferral,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  referralSummary: ReferralSummary | null;
+  referralError: string | null;
+  shareStatus: "idle" | "done" | "error";
+  onShareReferral: () => void;
 }) {
   const { user, updateProfile } = useAuth();
   const [name, setName] = useState(user?.name ?? "");
@@ -90,7 +100,7 @@ export function ProfileDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden p-0 sm:max-w-md">
+      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto p-0 sm:max-w-md">
         <div className="bg-gradient-to-br from-primary/15 via-background to-background px-6 pt-8 pb-6">
           <div className="flex items-center gap-2.5">
             <div className="flex shrink-0 flex-col items-center gap-2">
@@ -186,6 +196,43 @@ export function ProfileDialog({
               </div>
             </div>
           </div>
+
+          {referralSummary && (
+            <div className="rounded-xl border bg-muted/40 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-muted-foreground">Código de indicação</p>
+                  <p className="truncate font-mono text-sm font-semibold">{referralSummary.code}</p>
+                </div>
+                <Button type="button" size="sm" variant="outline" onClick={onShareReferral}>
+                  <Share2 />
+                  {shareStatus === "error" ? "Tentar novamente" : "Compartilhar"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {referralSummary?.referrer && (
+            <ReferralPerson label="Você foi indicado por" person={referralSummary.referrer} />
+          )}
+
+          {referralSummary && referralSummary.referral_count > 0 && (
+            <div className="flex items-center gap-3 rounded-xl border bg-muted/40 p-3">
+              <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-background shadow-xs">
+                <Users className="size-4 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Indicações realizadas</p>
+                <p className="text-sm font-semibold">
+                  {referralSummary.referral_count.toLocaleString("pt-BR")}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {referralError && (
+            <p role="alert" className="text-sm text-destructive">{referralError}</p>
+          )}
 
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
