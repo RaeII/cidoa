@@ -108,11 +108,15 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 - Atualizar cor, formato, letreiro, acessório de topo e LED de arestas em tempo real
 - Botão de fechar (X) para desselecionar o edifício
 
+> [!important] Opções vêm do backend (catálogo)
+> Nada de lista hardcoded. Opções (Formato/Topo/LED/Cor/Textura) vêm do catálogo do backend via [[customization-api]] (prop `catalog`). Cada seção só aparece se a categoria estiver **ativa** e tiver opção. Cor = **paleta cadastrada pelo admin** (não hex livre). `catalog = null` → mostra "Carregando personalizações…". Keys (`twisted`, `helipad`…) = contrato com builders do front; admin não cria formato novo sem deploy. Gestão em [[personalizacoes]].
+
 **Props:**
 
 | Prop | Tipo | Descrição |
 |---|---|---|
 | `donationId` | `number` | ID da doação selecionada |
+| `catalog` | `CustomizationCatalog \| null` | Catálogo de opções do backend (ver [[customization-api]]). `null` = carregando |
 | `initialColor` | `string` | Cor atual do edifício (customizada ou global) |
 | `initialBuildingShape` | `BuildingShape` | Formato atual (`"default"`, `"twisted"`, `"octagonal"`, `"setback"`, `"tapered"`, `"chrysler"`, `"hearst"`, `"empire"`, `"taipei"` ou `"one-trade"`) |
 | `initialTilingScale` | `number` | Multiplicador de tiling da textura (1.0 = sem alteração) |
@@ -133,14 +137,16 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 
 **Seções do painel:**
 
-| Seção | Controles | Descrição |
+Cada seção renderiza a partir de `catalog` (só se categoria ativa + tem opção):
+
+| Seção | Controles | Fonte |
 |---|---|---|
-| **Aparência** | `ColorField` | Cor individual do edifício (hex) |
-| **Formato** | Botões | Opções: padrão (caixa), torre torcida, torre octogonal, torre setback, torre afunilada, Chrysler, Hearst Tower, Empire State, Taipei 101 ou One Trade |
-| **Texturas** | `RangeField` | Tiling Scale, escala X/Y e offset X/Y — ajusta a repetição/alinhamento da textura **só nesse edifício**. Valores diferentes do padrão fazem o prédio sair do `InstancedMesh` |
-| **Letreiro** | Input de texto + seletor de lados | Marca/empresa na fachada (máx 30 chars). Seletor de lados (1–4) aparece quando há texto |
-| **Topo** | Botões | Opções: nenhum, holofotes, heliponto, jardim suspenso ou helicóptero |
-| **LED de arestas** | Botões | Liga/desliga o LED nas arestas verticais e topo |
+| **Cor** | Grid de swatches | `catalog.colors` — paleta cadastrada pelo admin (value = hex). Não é hex livre |
+| **Formato** | Botões | `catalog.shapes` — key casa com builder (`twisted`, `chrysler`…) |
+| **Letreiro** | Input texto + seletor de lados | Feature `catalog.features.sign`. Marca/empresa (máx 30). Lados (1–4) quando há texto |
+| **Topo** | Botões | `catalog.rooftops` — nenhum, holofotes, heliponto, jardim, helicóptero |
+| **LED de arestas** | Botões | `catalog.edgeLights` — liga/desliga LED |
+| **Holograma** | Upload + cor + opacidade | Feature `catalog.features.hologram`. Cor do holograma segue hex livre (tint cyberpunk, não é cor do prédio) |
 
 > [!note] Fluxo de personalização
 > Clique no edifício → `onBuildingClick(donationId)` → `CitySceneEditor` chama `focusOnDonation` (destaque visual) e abre `BuildingCustomizePanel` → cada mudança chama `updateCustomization` que monta o `BuildingCustomization` completo e envia ao runtime via `canvasRef.updateDonationCustomization(id, {...})`.

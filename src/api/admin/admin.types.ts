@@ -33,3 +33,56 @@ export interface IbgeCounts {
 export interface IbgeStatus extends IbgeCounts {
   linked: boolean;
 }
+
+// ─── Personalizações (catálogo) ─────────────────────────────────
+
+export type UnlockType = "free" | "donation" | "referral" | "combo";
+
+export interface CustomizationOption {
+  id: number;
+  key: string;
+  label: string;
+  value: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  isCodeBound: boolean;
+  unlockType: string;
+  unlockThreshold: number | null;
+}
+
+export interface CustomizationCategory {
+  id: number;
+  parentId: number | null;
+  key: string;
+  label: string;
+  kind: string;
+  sortOrder: number;
+  isActive: boolean;
+  isExtensible: boolean;
+  options: CustomizationOption[];
+}
+
+export interface CustomizationTree {
+  categories: CustomizationCategory[];
+}
+
+export interface CreateOptionInput {
+  categoryId: number;
+  key: string;
+  label: string;
+  value?: string;
+  sortOrder?: number;
+}
+
+export interface UpdateOptionInput {
+  label?: string;
+  value?: string | null;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface UpdateCategoryInput {
+  label?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}

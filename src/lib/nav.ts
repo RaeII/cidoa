@@ -1,4 +1,4 @@
-import { Blocks, Boxes, LayoutDashboard, MapPinned, type LucideIcon } from "lucide-react";
+import { Blocks, Boxes, LayoutDashboard, MapPinned, Palette, type LucideIcon } from "lucide-react";
 
 // Fonte única de navegação da área /dale (admin): AppSidebar (desktop) e MobileNav
 // (bottom bar) leem daqui. `to` presente = navega e marca ativo.
@@ -11,6 +11,7 @@ export type NavItem = {
 export const navItems: NavItem[] = [
   { title: "Dashboard", icon: LayoutDashboard, to: "/dale" },
   { title: "Edifícios de teste", icon: Blocks, to: "/dale/edificios-teste" },
+  { title: "Personalizações", icon: Palette, to: "/dale/personalizacoes" },
   { title: "IBGE", icon: MapPinned, to: "/dale/ibge" },
   { title: "Cena 3D", icon: Boxes, to: "/" },
 ];

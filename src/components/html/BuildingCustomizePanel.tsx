@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { PanelSection } from "./controls/PanelSection";
 import { ColorField } from "./controls/ColorField";
 import { RangeField } from "./controls/RangeField";
+import type { CustomizationCatalog } from "../../api/customizationApi";
 import type {
   BuildingShape,
   EdgeLightType,
@@ -19,32 +20,6 @@ function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
-const SHAPE_OPTIONS: { value: BuildingShape; label: string }[] = [
-  { value: "default", label: "Padrão" },
-  { value: "twisted", label: "Torre torcida" },
-  { value: "octagonal", label: "Torre octogonal" },
-  { value: "setback", label: "Torre setback" },
-  { value: "tapered", label: "Torre afunilada" },
-  { value: "chrysler", label: "Chrysler (NY)" },
-  { value: "hearst", label: "Hearst Tower" },
-  { value: "empire", label: "Empire State" },
-  { value: "taipei", label: "Taipei 101" },
-  { value: "one-trade", label: "One Trade" },
-];
-
-const ROOFTOP_OPTIONS: { value: RooftopType; label: string }[] = [
-  { value: "none", label: "Nenhuma" },
-  { value: "spotlights", label: "Holofotes" },
-  { value: "helipad", label: "Heliponto" },
-  { value: "garden", label: "Jardim suspenso" },
-  { value: "helicopter", label: "Helicóptero" },
-];
-
-const EDGE_LIGHT_OPTIONS: { value: EdgeLightType; label: string }[] = [
-  { value: "none", label: "Desligado" },
-  { value: "led", label: "LED" },
-];
-
 const SIDE_OPTIONS = [
   { value: 1, label: "1 lado" },
   { value: 2, label: "2 lados" },
@@ -54,6 +29,7 @@ const SIDE_OPTIONS = [
 
 type BuildingCustomizePanelProps = {
   donationId: number;
+  catalog: CustomizationCatalog | null;
   initialColor: string;
   initialBuildingShape: BuildingShape;
   initialRooftopType: RooftopType;
@@ -77,6 +53,7 @@ type BuildingCustomizePanelProps = {
 
 export function BuildingCustomizePanel({
   donationId,
+  catalog,
   initialColor,
   initialBuildingShape,
   initialRooftopType,
@@ -194,21 +171,43 @@ export function BuildingCustomizePanel({
         </button>
       </div>
       <div className="space-y-4 overflow-y-auto p-4">
-        <PanelSection title="Aparência">
-          <ColorField
-            label="Cor do edifício"
-            value={color}
-            onChange={handleColorChange}
-          />
+        {!catalog ? (
+          <p className="text-sm text-white/50">Carregando personalizações…</p>
+        ) : (
+          <>
+        {catalog.colors.length > 0 && (
+        <PanelSection title="Cor">
+          <div className="grid grid-cols-5 gap-2">
+            {catalog.colors.map((option) => {
+              const hex = option.value ?? "#000000";
+              const selected = color.toLowerCase() === hex.toLowerCase();
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => handleColorChange(hex)}
+                  title={option.label}
+                  aria-label={option.label}
+                  className={`h-8 w-full rounded-lg border transition-transform ${
+                    selected
+                      ? "border-white ring-2 ring-white/60"
+                      : "border-white/15 hover:scale-105"
+                  }`}
+                  style={{ backgroundColor: hex }}
+                />
+              );
+            })}
+          </div>
         </PanelSection>
+        )}
+        {catalog.shapes.length > 0 && (
         <PanelSection title="Formato">
           <div className="grid grid-cols-2 gap-2">
-            {SHAPE_OPTIONS.map((option) => (
+            {catalog.shapes.map((option) => (
               <button
-                key={option.value}
-                onClick={() => handleBuildingShapeChange(option.value)}
+                key={option.id}
+                onClick={() => handleBuildingShapeChange(option.key as BuildingShape)}
                 className={`rounded-lg border px-3 py-2 text-xs transition-colors ${
-                  buildingShape === option.value
+                  buildingShape === option.key
                     ? "border-white/40 bg-white/15 text-white"
                     : "border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70"
                 }`}
@@ -218,6 +217,8 @@ export function BuildingCustomizePanel({
             ))}
           </div>
         </PanelSection>
+        )}
+        {catalog.features.sign && (
         <PanelSection title="Letreiro">
           <label className="block">
             <span className="mb-2 block text-sm text-white/75">Marca ou empresa</span>
@@ -251,14 +252,16 @@ export function BuildingCustomizePanel({
             </div>
           )}
         </PanelSection>
+        )}
+        {catalog.rooftops.length > 0 && (
         <PanelSection title="Topo">
           <div className="grid grid-cols-2 gap-2">
-            {ROOFTOP_OPTIONS.map((option) => (
+            {catalog.rooftops.map((option) => (
               <button
-                key={option.value}
-                onClick={() => handleRooftopChange(option.value)}
+                key={option.id}
+                onClick={() => handleRooftopChange(option.key as RooftopType)}
                 className={`rounded-lg border px-3 py-2 text-xs transition-colors ${
-                  rooftopType === option.value
+                  rooftopType === option.key
                     ? "border-white/40 bg-white/15 text-white"
                     : "border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70"
                 }`}
@@ -268,14 +271,16 @@ export function BuildingCustomizePanel({
             ))}
           </div>
         </PanelSection>
+        )}
+        {catalog.edgeLights.length > 0 && (
         <PanelSection title="LED de arestas">
           <div className="grid grid-cols-2 gap-2">
-            {EDGE_LIGHT_OPTIONS.map((option) => (
+            {catalog.edgeLights.map((option) => (
               <button
-                key={option.value}
-                onClick={() => handleEdgeLightTypeChange(option.value)}
+                key={option.id}
+                onClick={() => handleEdgeLightTypeChange(option.key as EdgeLightType)}
                 className={`rounded-lg border px-3 py-2 text-xs transition-colors ${
-                  edgeLightType === option.value
+                  edgeLightType === option.key
                     ? "border-white/40 bg-white/15 text-white"
                     : "border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70"
                 }`}
@@ -286,6 +291,8 @@ export function BuildingCustomizePanel({
           </div>
 
         </PanelSection>
+        )}
+        {catalog.features.hologram && (
         <PanelSection title="Holograma">
           <p className="mb-2 text-xs text-white/50">
             Imagem ou GIF projetado acima do edifício com efeito cyberpunk.
@@ -351,6 +358,9 @@ export function BuildingCustomizePanel({
             </div>
           )}
         </PanelSection>
+        )}
+          </>
+        )}
       </div>
     </div>
   );

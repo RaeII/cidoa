@@ -10,6 +10,7 @@ import {
   type KeyboardShortcut,
 } from "./hooks/useKeyboardShortcuts";
 import { useDonations } from "./hooks/useDonations";
+import { useCustomizationCatalog } from "./hooks/useCustomizationCatalog";
 import { DonationLoadOverlay } from "./html/DonationLoadOverlay";
 import { DonationFilterBar } from "./html/DonationFilterBar";
 import { DEFAULT_SCENE_STATS } from "../scene/config/citySceneConfig";
@@ -67,6 +68,7 @@ export function CitySceneEditor() {
   // Doações vêm do backend (snapshot cacheado) + filtro client-side por
   // região/UF/cidade/ONG. Replace-all na cena a cada mudança de `donations`.
   const { loadState, donations, cities, ongs, filter, setFilter, retry } = useDonations();
+  const customizationCatalog = useCustomizationCatalog();
   const [donationsApplied, setDonationsApplied] = useState(false);
 
   useEffect(() => {
@@ -343,6 +345,7 @@ export function CitySceneEditor() {
           <BuildingCustomizePanel
             key={selectedBuildingId}
             donationId={selectedBuildingId}
+            catalog={customizationCatalog}
             initialColor={c.color}
             initialBuildingShape={c.buildingShape}
             initialRooftopType={c.rooftopType}

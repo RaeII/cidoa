@@ -65,6 +65,7 @@ src/
       user.routes.ts              ← edição autenticada do próprio perfil
       user.types.ts               ← usuário público, incluindo imagem de perfil base64
     donationApi.ts
+    customizationApi.ts             ← catálogo de personalizações (opções do backend)
     regions.ts
   components/
     AuthDialog.tsx                ← login por e-mail; cadastro com nome + username único
@@ -101,6 +102,7 @@ src/
     hooks/
       useKeyboardShortcuts.ts
       useDonations.ts
+      useCustomizationCatalog.ts   ← carrega catálogo de personalizações 1×
     three/
       CitySceneCanvas.tsx
   scene/
@@ -150,6 +152,7 @@ doc/
   api/                           ← espelha src/api (camada de dados / doações)
     donation-api.md
     referral.md                  ← links, código, confirmação e compartilhamento
+    customization-api.md         ← catálogo de personalizações + hook
   components/                    ← espelha src/components (interface React)
     html-components.md
     three-components.md
@@ -167,6 +170,7 @@ doc/
     componentes-html.md          ← base de UI: shadcn, tema, roteamento, componentes
     area-admin.md                ← login, dashboard, auth e API admin
     edificios-teste.md           ← gerar/excluir edifícios fictícios em massa
+    personalizacoes.md           ← CRUD do catálogo de personalizações
     ibge.md                      ← vincular catálogo geográfico do IBGE
 ```
 
@@ -293,6 +297,8 @@ flowchart LR
 | Adicionar/alterar atalho de teclado              | [[html-components#Atalhos de teclado]]            |
 | Mostrar/esconder componentes HTML da tela        | aba **Tela** → [[scene-config#uiVisibilityConfig.ts]] |
 | Alterar a UI de personalização de edifício       | [[html-components#BuildingCustomizePanel.tsx]]    |
+| Entender de onde vêm as opções de personalização | [[customization-api]]                             |
+| Cadastrar/ativar cores e opções (admin)          | [[personalizacoes]]                               |
 | Alterar o canvas ou a ligação com o hook         | [[three-components]]                              |
 | Alterar fórmulas de luz, clamp ou material       | [[scene-utils]]                                   |
 | Alterar criação do chão, grid, luzes ou ambiente | [[scene-builders]]                                |
