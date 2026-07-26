@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { CatalogOption } from "../../api/customizationApi";
 import type {
   BlockLayoutSettings,
   BuildingSettings,
@@ -29,6 +30,8 @@ type Tab = "geral" | "texturas" | "luz" | "horizonte" | "terreno" | "tela";
 export type CityControlPanelProps = {
   buildingSettings: BuildingSettings;
   textureSettings: TextureSettings;
+  /** Texturas ativas do catálogo — alimentam o seletor de fachada. */
+  facadeTextures: CatalogOption[];
   groundSettings: GroundSettings;
   blockLayoutSettings: BlockLayoutSettings;
   terrainSettings: TerrainSettings;
@@ -57,6 +60,7 @@ export type CityControlPanelProps = {
 export function CityControlPanel({
   buildingSettings,
   textureSettings,
+  facadeTextures,
   groundSettings,
   blockLayoutSettings,
   terrainSettings,
@@ -169,7 +173,7 @@ export function CityControlPanel({
 
         {activeTab === "texturas" && (
           <div className="space-y-6 pb-8 pt-2">
-            <TextureControls value={textureSettings} onChange={onTextureSettingsChange} />
+            <TextureControls value={textureSettings} facadeTextures={facadeTextures} onChange={onTextureSettingsChange} />
           </div>
         )}
 

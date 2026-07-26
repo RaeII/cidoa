@@ -141,6 +141,7 @@ export function CitySceneEditor() {
       return {
         color: existing?.color ?? buildingSettings.color,
         buildingShape: existing?.buildingShape ?? "default" as const,
+        textureKey: existing?.textureKey ?? null,
         rooftopType: existing?.rooftopType ?? "none" as const,
         signText: existing?.signText ?? "",
         signSides: existing?.signSides ?? 1,
@@ -161,6 +162,7 @@ export function CitySceneEditor() {
         const updated: BuildingCustomization = {
           color: existing?.color ?? buildingSettings.color,
           buildingShape: existing?.buildingShape ?? "default",
+          textureKey: existing?.textureKey ?? null,
           tilingScale: existing?.tilingScale ?? 1,
           textureTransform: existing?.textureTransform ?? { ...DEFAULT_BUILDING_TEXTURE_TRANSFORM },
           rooftopType: existing?.rooftopType ?? "none",
@@ -209,6 +211,12 @@ export function CitySceneEditor() {
   const handleBuildingShapeChange = useCallback(
     (donationId: number, buildingShape: BuildingShape) =>
       updateCustomization(donationId, { buildingShape }),
+    [updateCustomization],
+  );
+
+  const handleBuildingTextureKeyChange = useCallback(
+    (donationId: number, textureKey: string | null) =>
+      updateCustomization(donationId, { textureKey }),
     [updateCustomization],
   );
 
@@ -348,6 +356,7 @@ export function CitySceneEditor() {
             catalog={customizationCatalog}
             initialColor={c.color}
             initialBuildingShape={c.buildingShape}
+            initialTextureKey={c.textureKey}
             initialRooftopType={c.rooftopType}
             initialSignText={c.signText}
             initialSignSides={c.signSides}
@@ -357,6 +366,7 @@ export function CitySceneEditor() {
             initialHologramOpacity={c.hologramOpacity}
             onColorChange={handleBuildingColorChange}
             onBuildingShapeChange={handleBuildingShapeChange}
+            onTextureKeyChange={handleBuildingTextureKeyChange}
             onRooftopChange={handleRooftopChange}
             onSignTextChange={handleSignTextChange}
             onSignSidesChange={handleSignSidesChange}
@@ -372,6 +382,7 @@ export function CitySceneEditor() {
         <CityControlPanel
           buildingSettings={buildingSettings}
           textureSettings={textureSettings}
+          facadeTextures={customizationCatalog?.textures ?? []}
           groundSettings={groundSettings}
           blockLayoutSettings={blockLayoutSettings}
           terrainSettings={terrainSettings}

@@ -65,6 +65,7 @@ Configurações PBR das texturas de fachada:
 ```typescript
 type TextureSettings = {
   enabled: boolean;
+  textureKey: string;         // pasta da fachada (value do catálogo). Global da cena; por edifício em BuildingCustomization — ver [[scene-textures]]
   normalScale: number;
   displacementScale: number;  // relevo visual via displacement map
   tilingScale: number;        // UV repeat
@@ -311,6 +312,7 @@ Personalização visual de um edifício individual:
 type BuildingCustomization = {
   color: string;              // cor hex do edifício
   buildingShape: BuildingShape; // formato volumétrico
+  textureKey: string | null;  // pasta de textura da fachada (value do catálogo). null = herda a global
   tilingScale: number;        // multiplicador de tiling da textura (1.0 = global, 2.0 = texturas 2× menores, etc)
   textureTransform: {
     scaleX: number;           // escala horizontal da textura no edifício
@@ -331,6 +333,7 @@ Armazenada opcionalmente em cada `DonationEntry`. Cada campo controla um aspecto
 |---|---|---|
 | `color` | Cor individual do edifício | `InstancedBufferAttribute` (instanceColor) quando o prédio fica no `InstancedMesh`; cor direta no clone do material quando vira mesh próprio |
 | `buildingShape` | Formato volumétrico do edifício | `default`: caixa padrão; demais valores usam builders dedicados em [[scene-builders]] |
+| `textureKey` | Textura de fachada **só desse edifício** | `null` ou igual à textura global → fica no `InstancedMesh` (sem draw call próprio). Diferente da global → vira `Mesh` próprio com clone de material e set de texturas dedicado (`WeakMap<Material, FacadeTextureSet>`). Ver [[scene-textures]] |
 | `tilingScale` | Multiplicador de tiling da textura aplicado **só nesse edifício** | Faz o prédio sair do `InstancedMesh` (quando ≠ 1.0) e virar `Mesh` próprio com clone de material e uniform `uTilingMultiplier` dedicado |
 | `textureTransform` | Ajuste manual da textura aplicado **só nesse edifício** | Faz o prédio sair do `InstancedMesh` quando diferente do padrão e ajusta `scaleX`, `scaleY`, `offsetX`, `offsetY` via uniform dedicado |
 | `rooftopType` | Acessório 3D no topo do edifício | `THREE.Group` criado por [[scene-builders#createRooftopMesh.ts\|createRooftopMesh]], posicionado no topo |

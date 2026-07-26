@@ -31,7 +31,7 @@ Manager principal da cena atual. Gerencia os prédios como representações visu
 - Criar e atualizar um único `InstancedMesh` com capacidade para até 500 prédios
 - Posicionar prédios em **espiral quadrada** a partir do centro
 - Calcular altura proporcional ao valor máximo
-- Carregar e aplicar texturas PBR (cor, normal, roughness, metalness, displacement, emissive)
+- Aplicar texturas PBR de fachada (cor, normal, roughness, metalness, displacement, emissive) — fachada **e** topo vêm do loader lazy + assíncrono + cache, em KTX2 ([[scene-textures]]). Nenhuma textura é descartada no `dispose` (cache compartilhado)
 - Atualizar materiais em tempo real
 - Gerenciar envMap dinâmico via cube camera
 
@@ -235,6 +235,7 @@ Algumas personalizações precisam de **estado de material próprio** por edifí
 - `buildingShape !== "default"` (ex: torre torcida, octogonal, setback, tapered, Chrysler, Hearst, Empire, Taipei ou One Trade)
 - `Math.abs(tilingScale - 1) > 0.001` (tiling de textura customizado por edifício)
 - `textureTransform` diferente do padrão `{ scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0 }` (ajuste manual de textura por edifício)
+- `textureKey` apontando pra uma pasta **diferente** da textura global da cena (`hasOwnFacadeTexture`). `null` ou igual à global → continua no `InstancedMesh`. Trocar a textura global chama `rebuildInstances()`, porque prédios entram/saem dessa condição. Ver [[scene-textures]]
 
 Quando a flag transiciona (entra ou sai do `customShapeMeshes`), `updateDonationCustomization` chama `rebuildInstances()` e re-aplica `applyFocus(focusedDonationId)`. Mudanças que não atravessam essa fronteira (ex: ajustar tiling de 2.0 → 2.5 num prédio que já é custom) atualizam direto o uniform `uTilingMultiplier` do material — sem rebuild.
 
@@ -255,6 +256,7 @@ Para cada doação custom, `syncCustomShapes()`:
    - `shape === "one-trade"` → [[scene-builders#createOneTradeBuildingMesh.ts|createOneTradeBuildingMesh]] (geometria facetada com base chanfrada e pináculo, usando texturas PBR padrão).
    - `shape === "default"` → `THREE.Mesh(buildingGeometry, [facadeMat, topMat])` (mesma `BoxGeometry` do InstancedMesh).
 5. Adiciona à cena, registra em `customShapeMeshes` e seta `userData.donationId`/`userData.donationValue` para suportar raycast.
+6. Fora do bloco de criação (roda em **todo** sync, inclusive pra entry reusada): `applyBuildingFacadeTexture(entry.facadeMat, customization)` carrega/aplica a textura própria do prédio. É idempotente — compara com a pasta já aplicada e sai cedo se nada mudou.
 
 Pontos de integração:
 

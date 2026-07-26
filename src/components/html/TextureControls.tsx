@@ -1,3 +1,4 @@
+import type { CatalogOption } from "../../api/customizationApi";
 import type { TextureSettings } from "../../scene/types";
 import { CheckboxField } from "./controls/CheckboxField";
 import { PanelSection } from "./controls/PanelSection";
@@ -5,16 +6,42 @@ import { RangeField } from "./controls/RangeField";
 
 type TextureControlsProps = {
   value: TextureSettings;
+  /** Texturas ativas do catálogo (backend). Seleção troca a fachada de toda a cena. */
+  facadeTextures: CatalogOption[];
   onChange: (settings: TextureSettings) => void;
 };
 
-export function TextureControls({ value, onChange }: TextureControlsProps) {
+export function TextureControls({ value, facadeTextures, onChange }: TextureControlsProps) {
   return (
     <>
     <PanelSection
       title="Texturas dos edifícios"
       description="Controla as texturas PBR aplicadas nos prédios. Clay Render ativa o efeito de espelhamento nas superfícies."
     >
+      {facadeTextures.length > 0 && (
+        <div className="mb-3">
+          <span className="mb-2 block text-sm text-white/75">Textura da fachada</span>
+          <div className="grid grid-cols-2 gap-2">
+            {facadeTextures.map((tex) => {
+              const selected = value.textureKey === tex.value;
+              return (
+                <button
+                  key={tex.id}
+                  onClick={() => tex.value && onChange({ ...value, textureKey: tex.value })}
+                  className={`rounded-lg border px-3 py-2 text-xs transition-colors ${
+                    selected
+                      ? "border-white/40 bg-white/15 text-white"
+                      : "border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70"
+                  }`}
+                >
+                  {tex.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <CheckboxField
         label="Texturas ativadas"
         checked={value.enabled}

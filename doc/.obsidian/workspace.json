@@ -12,14 +12,10 @@
             "id": "cbfd1448c1037122",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "scene-config.md",
-                "mode": "source",
-                "source": false
-              },
+              "type": "empty",
+              "state": {},
               "icon": "lucide-file",
-              "title": "scene-config"
+              "title": "Nova aba"
             }
           }
         ]
@@ -33,14 +29,10 @@
             "id": "e5070b006d7f107a",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "html-components.md",
-                "mode": "source",
-                "source": false
-              },
+              "type": "empty",
+              "state": {},
               "icon": "lucide-file",
-              "title": "html-components"
+              "title": "Nova aba"
             }
           }
         ]

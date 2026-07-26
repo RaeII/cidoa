@@ -44,6 +44,11 @@ export type BuildingCustomization = {
   signSides: number; // 1–4 lados com letreiro
   edgeLightType: EdgeLightType;
   buildingShape: BuildingShape;
+  /**
+   * Pasta de textura da fachada deste edifício (`value` do catálogo).
+   * null = herda a textura global da cena ([[scene-types#TextureSettings]]).
+   */
+  textureKey: string | null;
   tilingScale: number; // multiplicador da textura por edifício (1.0 = sem alteração)
   textureTransform: BuildingTextureTransform; // ajuste manual da textura por edifício
   hologramImage: string | null; // data URL (PNG/JPG/GIF). null = sem holograma
@@ -98,6 +103,7 @@ export type TopTextureSettings = {
 
 export type TextureSettings = {
   enabled: boolean;
+  textureKey: string; // pasta de textura da fachada (value do catálogo). Global por ora.
   normalScale: number;
   displacementScale: number;
   tilingScale: number;

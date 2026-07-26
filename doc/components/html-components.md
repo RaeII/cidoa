@@ -119,6 +119,7 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 | `catalog` | `CustomizationCatalog \| null` | Catálogo de opções do backend (ver [[customization-api]]). `null` = carregando |
 | `initialColor` | `string` | Cor atual do edifício (customizada ou global) |
 | `initialBuildingShape` | `BuildingShape` | Formato atual (`"default"`, `"twisted"`, `"octagonal"`, `"setback"`, `"tapered"`, `"chrysler"`, `"hearst"`, `"empire"`, `"taipei"` ou `"one-trade"`) |
+| `initialTextureKey` | `string \| null` | Textura de fachada do edifício. `null` = "Padrão" (herda a global). Seção **Textura** lista `catalog.textures` + botão "Padrão". Ver [[scene-textures]] |
 | `initialTilingScale` | `number` | Multiplicador de tiling da textura (1.0 = sem alteração) |
 | `initialTextureTransform` | `BuildingTextureTransform` | Ajuste manual de escala/offset da textura |
 | `initialRooftopType` | `RooftopType` | Estado atual do acessório de topo |
@@ -127,6 +128,7 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 | `initialEdgeLightType` | `EdgeLightType` | Estado atual do LED nas arestas (`"none"` ou `"led"`) |
 | `onColorChange` | `(id: number, color: string) => void` | Callback de troca de cor |
 | `onBuildingShapeChange` | `(id: number, shape: BuildingShape) => void` | Callback de troca de formato |
+| `onTextureKeyChange` | `(id: number, textureKey: string \| null) => void` | Callback de troca de textura do edifício |
 | `onTilingScaleChange` | `(id: number, tilingScale: number) => void` | Callback de troca de tiling |
 | `onTextureTransformChange` | `(id: number, textureTransform: BuildingTextureTransform) => void` | Callback de ajuste manual da textura |
 | `onRooftopChange` | `(id: number, type: RooftopType) => void` | Callback de troca do acessório de topo |
@@ -275,8 +277,9 @@ Configurações de textura PBR das fachadas:
 | `metalnessIntensity` | Multiplicador do mapa de metalness (0–3, padrão 2) |
 | `emissiveIntensity` | Brilho/glow nas fachadas usando o colorMap como emissiveMap |
 
-Texturas carregadas de: `src/assets/texture/Facade006_1K-mirrored-PNG/`
-Mapas disponíveis: color, normal, roughness, metalness, displacement.
+**Seletor "Textura da fachada"** (topo da seção): prop `facadeTextures` = `catalog.textures` ativas do backend. Clicar seta `textureSettings.textureKey` = `value` da opção → troca a fachada de **toda a cena**. Por edifício: seção **Textura** do [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]]. Só aparece se houver textura ativa no catálogo.
+
+Assets no front (`src/assets/texture/`), em **KTX2** (comprimido na GPU), carregados **lazy + assíncrono + cache** pelo loader — ver [[scene-textures]]. Cadastro/controle das texturas em [[personalizacoes]]. Mapas por pasta: color, normal, roughness, metalness, displacement.
 
 ---
 

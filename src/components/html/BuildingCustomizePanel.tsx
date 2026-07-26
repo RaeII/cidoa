@@ -32,6 +32,7 @@ type BuildingCustomizePanelProps = {
   catalog: CustomizationCatalog | null;
   initialColor: string;
   initialBuildingShape: BuildingShape;
+  initialTextureKey: string | null;
   initialRooftopType: RooftopType;
   initialSignText: string;
   initialSignSides: number;
@@ -41,6 +42,7 @@ type BuildingCustomizePanelProps = {
   initialHologramOpacity: number;
   onColorChange: (donationId: number, color: string) => void;
   onBuildingShapeChange: (donationId: number, shape: BuildingShape) => void;
+  onTextureKeyChange: (donationId: number, textureKey: string | null) => void;
   onRooftopChange: (donationId: number, rooftopType: RooftopType) => void;
   onSignTextChange: (donationId: number, signText: string) => void;
   onSignSidesChange: (donationId: number, signSides: number) => void;
@@ -56,6 +58,7 @@ export function BuildingCustomizePanel({
   catalog,
   initialColor,
   initialBuildingShape,
+  initialTextureKey,
   initialRooftopType,
   initialSignText,
   initialSignSides,
@@ -65,6 +68,7 @@ export function BuildingCustomizePanel({
   initialHologramOpacity,
   onColorChange,
   onBuildingShapeChange,
+  onTextureKeyChange,
   onRooftopChange,
   onSignTextChange,
   onSignSidesChange,
@@ -76,6 +80,7 @@ export function BuildingCustomizePanel({
 }: BuildingCustomizePanelProps) {
   const [color, setColor] = useState(initialColor);
   const [buildingShape, setBuildingShape] = useState<BuildingShape>(initialBuildingShape);
+  const [textureKey, setTextureKey] = useState<string | null>(initialTextureKey);
   const [rooftopType, setRooftopType] = useState<RooftopType>(initialRooftopType);
   const [signText, setSignText] = useState(initialSignText);
   const [signSides, setSignSides] = useState(initialSignSides);
@@ -94,6 +99,11 @@ export function BuildingCustomizePanel({
   const handleBuildingShapeChange = (newShape: BuildingShape) => {
     setBuildingShape(newShape);
     onBuildingShapeChange(donationId, newShape);
+  };
+
+  const handleTextureKeyChange = (newKey: string | null) => {
+    setTextureKey(newKey);
+    onTextureKeyChange(donationId, newKey);
   };
 
   const handleRooftopChange = (newType: RooftopType) => {
@@ -208,6 +218,37 @@ export function BuildingCustomizePanel({
                 onClick={() => handleBuildingShapeChange(option.key as BuildingShape)}
                 className={`rounded-lg border px-3 py-2 text-xs transition-colors ${
                   buildingShape === option.key
+                    ? "border-white/40 bg-white/15 text-white"
+                    : "border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </PanelSection>
+        )}
+        {catalog.textures.length > 0 && (
+        <PanelSection title="Textura">
+          <div className="grid grid-cols-2 gap-2">
+            {/* null = herda a textura global da cena. Prédio nessa opção continua
+                dentro do InstancedMesh (sem draw call próprio). */}
+            <button
+              onClick={() => handleTextureKeyChange(null)}
+              className={`rounded-lg border px-3 py-2 text-xs transition-colors ${
+                textureKey === null
+                  ? "border-white/40 bg-white/15 text-white"
+                  : "border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70"
+              }`}
+            >
+              Padrão
+            </button>
+            {catalog.textures.map((option) => (
+              <button
+                key={option.id}
+                onClick={() => option.value && handleTextureKeyChange(option.value)}
+                className={`rounded-lg border px-3 py-2 text-xs transition-colors ${
+                  textureKey === option.value
                     ? "border-white/40 bg-white/15 text-white"
                     : "border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70"
                 }`}

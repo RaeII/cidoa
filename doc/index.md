@@ -48,6 +48,10 @@ O projeto é dividido em 3 grandes partes:
 ## Estrutura de Arquivos
 
 ```text
+scripts/
+  encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`)
+public/
+  basis/                       ← transcoder basis do KTX2Loader (js + wasm)
 src/
   App.tsx
   main.tsx
@@ -137,6 +141,9 @@ src/
     managers/
       createDonationManager.ts
       createChunkManager.ts   ← referência arquitetural
+    textures/
+      facadeTextureManifest.ts  ← descobre pastas de textura (glob, sem THREE). KTX2 > PNG/JPG
+      facadeTextureLoader.ts    ← carrega set PBR (KTX2Loader, lazy + async + cache)
     hooks/
       useCityScene.ts
     runtime/
@@ -162,6 +169,7 @@ doc/
       scene-hooks.md
       scene-managers.md
       scene-builders.md
+      scene-textures.md          ← texturas: manifesto, loader lazy/async/cache, pipeline KTX2, por-edifício
     foundation/                  ← base de dados consumida pelo engine
       scene-config.md
       scene-types.md
@@ -299,6 +307,10 @@ flowchart LR
 | Alterar a UI de personalização de edifício       | [[html-components#BuildingCustomizePanel.tsx]]    |
 | Entender de onde vêm as opções de personalização | [[customization-api]]                             |
 | Cadastrar/ativar cores e opções (admin)          | [[personalizacoes]]                               |
+| Trocar textura da fachada (UI) / entender loading | [[scene-textures]] · aba **texturas** → [[html-components#TextureControls.tsx]] |
+| Cadastrar textura nova (dropar pasta + `npm run textures:ktx2` + admin) | [[scene-textures]] · [[personalizacoes]] |
+| Textura por edifício (usuário escolhe a dele)    | [[scene-textures#Por edifício]] · [[html-components#BuildingCustomizePanel.tsx]] |
+| Mexer no pipeline KTX2 (codec, tamanho, qualidade) | [[scene-textures#Pipeline KTX2]] · `scripts/encode-ktx2.mjs` |
 | Alterar o canvas ou a ligação com o hook         | [[three-components]]                              |
 | Alterar fórmulas de luz, clamp ou material       | [[scene-utils]]                                   |
 | Alterar criação do chão, grid, luzes ou ambiente | [[scene-builders]]                                |

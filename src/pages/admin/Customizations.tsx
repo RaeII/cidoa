@@ -12,6 +12,11 @@ import type {
   CustomizationOption,
 } from "@/api/admin/admin.types";
 import { ApiError } from "@/api/http";
+import {
+  FACADE_TEXTURE_FOLDERS,
+  resolveFacadeFolder,
+  type FacadeTextureInfo,
+} from "@/scene/textures/facadeTextureManifest";
 import { AppSidebar } from "@/components/AppSidebar";
 import { MobileNav } from "@/components/MobileNav";
 import { Button } from "@/components/ui/button";
@@ -38,6 +43,17 @@ type Feedback = { ok: boolean; text: string } | null;
 
 function errMsg(err: unknown, fallback: string) {
   return err instanceof ApiError ? err.message : fallback;
+}
+
+/** Pasta -> key válida no backend (/^[a-z0-9-]+$/). */
+function folderToKey(folder: string): string {
+  return folder.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+/** Pastas de textura no repo que ainda não viraram opção do catálogo. */
+function unregisteredFacadeFolders(options: CustomizationOption[]): FacadeTextureInfo[] {
+  const registered = new Set(options.map((o) => resolveFacadeFolder(o.value)));
+  return FACADE_TEXTURE_FOLDERS.filter((f) => !registered.has(f.folder));
 }
 
 /** Diálogo criar/editar opção. Reinicia o form ao trocar de alvo (key no pai). */
@@ -243,6 +259,8 @@ function Customizations() {
       .filter((c) => c.parentId === category.id)
       .sort((a, b) => a.sortOrder - b.sortOrder);
     const isColor = category.key === "color";
+    const isTexture = category.key === "texture";
+    const unregistered = isTexture ? unregisteredFacadeFolders(category.options) : [];
     const busy = busyId === category.id;
 
     return (
@@ -293,7 +311,37 @@ function Customizations() {
                 Sem opções — controlado só pelo botão ativa/inativa.
               </p>
             )}
-            {category.isExtensible && (
+            {isTexture && unregistered.map((f) => (
+              <div key={f.folder} className="flex items-center gap-3 rounded-lg border border-dashed px-3 py-2">
+                <div className="min-w-0 flex-1">
+                  <span className="truncate text-sm font-medium text-muted-foreground">{f.label}</span>
+                  <span className="block text-xs text-muted-foreground">{f.folder} · não cadastrada</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() =>
+                    void run(
+                      category.id,
+                      async () => {
+                        await createCustomizationOption({
+                          categoryId: category.id,
+                          key: folderToKey(f.folder),
+                          label: f.label,
+                          value: f.folder,
+                        });
+                      },
+                      `Textura "${f.label}" cadastrada.`,
+                    )
+                  }
+                >
+                  <Plus className="size-4" />
+                  Cadastrar
+                </Button>
+              </div>
+            ))}
+            {category.isExtensible && !isTexture && (
               <Button variant="ghost" size="sm" onClick={() => setDialog({ mode: "create", category })}>
                 <Plus className="size-4" />
                 Adicionar opção

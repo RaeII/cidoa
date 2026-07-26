@@ -52,6 +52,7 @@ Valores padrão das texturas PBR das fachadas:
 | Campo | Padrão |
 |---|---|
 | `enabled` | `true` |
+| `textureKey` | `"texture/Facade006_1K-mirrored-PNG"` (= value seed; pasta da fachada ativa, ver [[scene-textures]]) |
 | `normalScale` | — |
 | `displacementScale` | — |
 | `tilingScale` | — |

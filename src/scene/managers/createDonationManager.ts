@@ -75,15 +75,19 @@ import {
 } from "../builders/createOneTradeBuildingMesh";
 import { seeded } from "../utils/random";
 
-import colorTextureSrc from "../../assets/texture/Facade006_1K-mirrored-PNG/Facade006_1K-PNG_Color.png";
-import normalTextureSrc from "../../assets/texture/Facade006_1K-mirrored-PNG/Facade006_1K-PNG_NormalGL.png";
-import roughnessTextureSrc from "../../assets/texture/Facade006_1K-mirrored-PNG/Facade006_1K-PNG_Roughness.png";
-import metalnessTextureSrc from "../../assets/texture/Facade006_1K-mirrored-PNG/Facade006_1K-PNG_Metalness.png";
-import displacementTextureSrc from "../../assets/texture/Facade006_1K-mirrored-PNG/Facade006_1K-PNG_Displacement.png";
-import concreteColorSrc from "../../assets/texture/Concrete024_1K-JPG/Concrete024_1K-JPG_Color.jpg";
-import concreteNormalSrc from "../../assets/texture/Concrete024_1K-JPG/Concrete024_1K-JPG_NormalGL.jpg";
-import concreteRoughnessSrc from "../../assets/texture/Concrete024_1K-JPG/Concrete024_1K-JPG_Roughness.jpg";
-import concreteDisplacementSrc from "../../assets/texture/Concrete024_1K-JPG/Concrete024_1K-JPG_Displacement.jpg";
+import {
+  initFacadeTextureLoader,
+  loadFacadeTextureSet,
+  peekFacadeTextureSet,
+  type FacadeTextureSet,
+} from "../textures/facadeTextureLoader";
+import { resolveFacadeFolder } from "../textures/facadeTextureManifest";
+
+// Pasta de fachada usada quando o catálogo aponta pra um asset que não existe mais.
+const DEFAULT_FACADE_FOLDER = "Facade006_1K-mirrored-PNG";
+// Topo dos prédios (concreto). Não faz parte do catálogo de fachada, mas passa
+// pelo mesmo loader — ganha KTX2, lazy e cache compartilhado de graça.
+const TOP_TEXTURE_FOLDER = "Concrete024_1K-JPG";
 
 // Configuração de layout do visualizador de doações
 export const DONATION_LAYOUT = {
@@ -195,23 +199,6 @@ export type DonationManager = {
   dispose: () => void;
 };
 
-function loadTexture(src: string): THREE.Texture {
-  const loader = new THREE.TextureLoader();
-  const texture = loader.load(src);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  return texture;
-}
-
-function loadDataTexture(src: string): THREE.Texture {
-  const loader = new THREE.TextureLoader();
-  const texture = loader.load(src);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  return texture;
-}
-
 function isTexturelessMaterial(material: THREE.Material): boolean {
   return material.userData.textureless === true;
 }
@@ -223,29 +210,27 @@ export function createDonationManager({
   textureSettings,
   blockLayoutSettings,
 }: DonationManagerOptions): DonationManager {
-  const colorMap = loadTexture(colorTextureSrc);
-  const normalMap = loadDataTexture(normalTextureSrc);
-  const roughnessMap = loadDataTexture(roughnessTextureSrc);
-  const metalnessMap = loadDataTexture(metalnessTextureSrc);
-  const displacementMap = loadDataTexture(displacementTextureSrc);
-  // Emissive reusa o color map (mesmo arquivo) — evita segunda cópia na GPU.
-  const emissiveMap = colorMap;
-
-  const concreteColorMap = loadTexture(concreteColorSrc);
-  const concreteNormalMap = loadDataTexture(concreteNormalSrc);
-  const concreteRoughnessMap = loadDataTexture(concreteRoughnessSrc);
-  const concreteDisplacementMap = loadDataTexture(concreteDisplacementSrc);
-
-  const allTextures = [
-    colorMap, normalMap, roughnessMap, metalnessMap, displacementMap,
-    concreteColorMap, concreteNormalMap, concreteRoughnessMap, concreteDisplacementMap,
-  ];
-
   // 4 é suficiente visualmente; anisotropia máxima (16) castiga o fill rate.
   const maxAniso = Math.min(4, renderer.capabilities.getMaxAnisotropy());
-  for (const tex of allTextures) {
-    tex.anisotropy = maxAniso;
-  }
+  initFacadeTextureLoader(renderer);
+
+  // Textura é assíncrona: nada é baixado no construtor. `peek` devolve o set se
+  // ele já estiver no cache do loader (recriação do manager, ou troca de volta
+  // pra uma textura já vista) — nesse caso a cena nasce texturizada, sem 1 frame
+  // cinza. Se não, o material sobe sem mapas e recebe os mapas quando chegarem.
+  //
+  // Fachada: vem do catálogo (global, trocável em runtime via textureKey), e por
+  // edifício via `customization.textureKey` (ver materialFacadeSets).
+  // Emissive reusa o color map — evita uma 2ª cópia da mesma imagem na GPU.
+  let facadeSet: FacadeTextureSet | null = peekFacadeTextureSet(textureSettings.textureKey);
+  let topSet: FacadeTextureSet | null = peekFacadeTextureSet(TOP_TEXTURE_FOLDER);
+
+  // Set de fachada por material. Ausente = usa o `facadeSet` global. Só os clones
+  // de prédio com textura própria entram aqui. WeakMap, não userData: Material.copy
+  // serializa userData com JSON, o que estouraria com THREE.Texture dentro.
+  const materialFacadeSets = new WeakMap<THREE.Material, FacadeTextureSet>();
+  const facadeSetFor = (material: THREE.Material): FacadeTextureSet | null =>
+    materialFacadeSets.get(material) ?? facadeSet;
 
   const tilingUniform = { value: textureSettings.tilingScale };
   const topTilingUniform = { value: textureSettings.top.tilingScale };
@@ -366,7 +351,6 @@ export function createDonationManager({
     color: buildingSettings.color,
     roughness: buildingSettings.roughness,
     metalness: buildingSettings.metalness,
-    bumpMap: displacementMap,
     envMapIntensity: 1.8,
     emissive: new THREE.Color(0xffffff),
     emissiveIntensity: 0,
@@ -377,7 +361,6 @@ export function createDonationManager({
     color: buildingSettings.color,
     roughness: buildingSettings.roughness,
     metalness: buildingSettings.metalness,
-    bumpMap: concreteDisplacementMap,
     envMapIntensity: 1.8,
   });
   applyTriplanarShader(topMaterial, "donation-top-triplanar", topTilingUniform);
@@ -857,39 +840,46 @@ export function createDonationManager({
     return list;
   };
 
-  const applyTextureToFacade = (settings: TextureSettings) => {
-    const targets = getAllFacadeMaterials();
-    for (const mat of targets) {
-      const textureless = isTexturelessMaterial(mat);
-      if (settings.enabled && !textureless) {
-        mat.map = colorMap;
-        mat.normalMap = normalMap;
-        mat.normalScale.set(settings.normalScale, settings.normalScale);
-        mat.roughnessMap = roughnessMap;
-        mat.metalnessMap = metalnessMap;
-        mat.roughness = settings.roughnessIntensity;
-        mat.metalness = settings.metalnessIntensity;
-        mat.bumpMap = displacementMap;
-        // Com scale 0 o displacement é um fetch de vértice inútil — só liga quando ativo.
-        mat.displacementMap = settings.displacementScale > 0 ? displacementMap : null;
-        mat.displacementScale = settings.displacementScale;
-        mat.emissiveMap = emissiveMap;
-      } else {
-        mat.map = null;
-        mat.normalMap = null;
-        mat.roughnessMap = null;
-        mat.metalnessMap = null;
-        mat.bumpMap = textureless ? null : displacementMap;
-        mat.displacementMap = null;
-        mat.displacementScale = 0;
-        mat.emissiveMap = null;
-      }
-      mat.emissiveIntensity = textureless ? 0 : settings.emissiveIntensity;
-      if (!textureless) {
-        mat.envMapIntensity = settings.envMapIntensity;
-      }
-      mat.needsUpdate = true;
+  // Um material só. Chamado em lote (applyTextureToFacade) e isolado quando o set
+  // de um prédio específico chega do loader.
+  const applyFacadeMaterial = (
+    mat: THREE.MeshPhysicalMaterial,
+    settings: TextureSettings,
+  ) => {
+    const set = facadeSetFor(mat);
+    const textureless = isTexturelessMaterial(mat);
+    if (settings.enabled && !textureless && set) {
+      mat.map = set.color;
+      mat.normalMap = set.normal;
+      mat.normalScale.set(settings.normalScale, settings.normalScale);
+      mat.roughnessMap = set.roughness;
+      mat.metalnessMap = set.metalness;
+      mat.roughness = settings.roughnessIntensity;
+      mat.metalness = settings.metalnessIntensity;
+      mat.bumpMap = set.displacement;
+      // Com scale 0 o displacement é um fetch de vértice inútil — só liga quando ativo.
+      mat.displacementMap = settings.displacementScale > 0 ? set.displacement : null;
+      mat.displacementScale = settings.displacementScale;
+      mat.emissiveMap = set.color;
+    } else {
+      mat.map = null;
+      mat.normalMap = null;
+      mat.roughnessMap = null;
+      mat.metalnessMap = null;
+      mat.bumpMap = textureless ? null : (set?.displacement ?? null);
+      mat.displacementMap = null;
+      mat.displacementScale = 0;
+      mat.emissiveMap = null;
     }
+    mat.emissiveIntensity = textureless ? 0 : settings.emissiveIntensity;
+    if (!textureless) {
+      mat.envMapIntensity = settings.envMapIntensity;
+    }
+    mat.needsUpdate = true;
+  };
+
+  const applyTextureToFacade = (settings: TextureSettings) => {
+    for (const mat of getAllFacadeMaterials()) applyFacadeMaterial(mat, settings);
   };
 
   const applyTextureToTop = (settings: TextureSettings) => {
@@ -897,21 +887,21 @@ export function createDonationManager({
     const targets = getAllTopMaterials();
     for (const mat of targets) {
       const textureless = isTexturelessMaterial(mat);
-      if (settings.enabled && !textureless) {
-        mat.map = concreteColorMap;
-        mat.normalMap = concreteNormalMap;
+      if (settings.enabled && !textureless && topSet) {
+        mat.map = topSet.color;
+        mat.normalMap = topSet.normal;
         mat.normalScale.set(top.normalScale, top.normalScale);
-        mat.roughnessMap = concreteRoughnessMap;
+        mat.roughnessMap = topSet.roughness;
         mat.roughness = top.roughnessIntensity;
         mat.metalness = top.metalnessIntensity;
-        mat.bumpMap = concreteDisplacementMap;
-        mat.displacementMap = top.displacementScale > 0 ? concreteDisplacementMap : null;
+        mat.bumpMap = topSet.displacement;
+        mat.displacementMap = top.displacementScale > 0 ? topSet.displacement : null;
         mat.displacementScale = top.displacementScale;
       } else {
         mat.map = null;
         mat.normalMap = null;
         mat.roughnessMap = null;
-        mat.bumpMap = textureless ? null : concreteDisplacementMap;
+        mat.bumpMap = textureless ? null : (topSet?.displacement ?? null);
         mat.displacementMap = null;
         mat.displacementScale = 0;
       }
@@ -922,8 +912,40 @@ export function createDonationManager({
     }
   };
 
+  // Troca da textura GLOBAL de fachada. O token descarta resolução de uma seleção
+  // que já foi superada por outra (usuário clicando rápido no seletor).
+  let facadeRequestToken = 0;
+  const requestGlobalFacadeSet = (value: string) => {
+    const token = ++facadeRequestToken;
+    const cached = peekFacadeTextureSet(value);
+    if (cached) {
+      facadeSet = cached;
+      applyTextureToFacade(currentTextureSettings);
+      return;
+    }
+    void loadFacadeTextureSet(value, maxAniso)
+      .then((set) => {
+        // Pasta inexistente: cai no padrão em vez de deixar a cidade sem textura.
+        if (set || resolveFacadeFolder(value) === DEFAULT_FACADE_FOLDER) return set;
+        return loadFacadeTextureSet(DEFAULT_FACADE_FOLDER, maxAniso);
+      })
+      .then((set) => {
+        if (!set || token !== facadeRequestToken) return;
+        facadeSet = set;
+        applyTextureToFacade(currentTextureSettings);
+      });
+  };
+
   applyTextureToFacade(textureSettings);
   applyTextureToTop(textureSettings);
+  if (!facadeSet) requestGlobalFacadeSet(textureSettings.textureKey);
+  if (!topSet) {
+    void loadFacadeTextureSet(TOP_TEXTURE_FOLDER, maxAniso).then((set) => {
+      if (!set) return;
+      topSet = set;
+      applyTextureToTop(currentTextureSettings);
+    });
+  }
 
   // Expande o InstancedMesh e as posições de espiral quando o total excede a capacidade atual.
   const growIfNeeded = (needed: number) => {
@@ -954,7 +976,54 @@ export function createDonationManager({
     if (c.buildingShape !== "default") return true;
     if (Math.abs(c.tilingScale - 1) > 0.001) return true;
     if (!isDefaultTextureTransform(c.textureTransform)) return true;
+    if (hasOwnFacadeTexture(c)) return true;
     return false;
+  };
+
+  // Textura por edifício só custa um mesh dedicado quando difere da global — quem
+  // escolheu justamente a textura da cena continua dentro do InstancedMesh.
+  // ponytail: prédio com textura própria = 1 draw call. Serve pro catálogo curado
+  // atual; se a maioria dos prédios passar a ter textura própria, agrupar em um
+  // InstancedMesh por textura (draw calls = nº de texturas, não de prédios).
+  const hasOwnFacadeTexture = (c?: BuildingCustomization): boolean => {
+    if (!c?.textureKey) return false;
+    return (
+      resolveFacadeFolder(c.textureKey) !==
+      resolveFacadeFolder(currentTextureSettings.textureKey)
+    );
+  };
+
+  // Aplica a textura própria de UM prédio no material clonado dele.
+  // "" = herda a global. Idempotente: rechamar com a mesma pasta não faz nada,
+  // então syncCustomShapes pode chamar em todo rebuild sem custo.
+  const materialFacadeKeys = new WeakMap<THREE.Material, string>();
+  const applyBuildingFacadeTexture = (
+    facadeMat: THREE.MeshPhysicalMaterial,
+    customization?: BuildingCustomization,
+  ) => {
+    const desired = hasOwnFacadeTexture(customization)
+      ? resolveFacadeFolder(customization!.textureKey)
+      : "";
+    if (materialFacadeKeys.get(facadeMat) === desired) return;
+    materialFacadeKeys.set(facadeMat, desired);
+
+    if (!desired) {
+      materialFacadeSets.delete(facadeMat);
+      applyFacadeMaterial(facadeMat, currentTextureSettings);
+      return;
+    }
+    const cached = peekFacadeTextureSet(desired);
+    if (cached) {
+      materialFacadeSets.set(facadeMat, cached);
+      applyFacadeMaterial(facadeMat, currentTextureSettings);
+      return;
+    }
+    void loadFacadeTextureSet(desired, maxAniso).then((set) => {
+      // Seleção mudou enquanto baixava — descarta o resultado velho.
+      if (!set || materialFacadeKeys.get(facadeMat) !== desired) return;
+      materialFacadeSets.set(facadeMat, set);
+      applyFacadeMaterial(facadeMat, currentTextureSettings);
+    });
   };
 
   const isDefaultTextureTransform = (textureTransform?: BuildingTextureTransform): boolean => {
@@ -1711,6 +1780,10 @@ export function createDonationManager({
         customShapeMeshes.set(donation.id, entry);
       }
 
+      // Fora do bloco de criação: a textura própria do prédio também muda quando
+      // a textura GLOBAL muda (o mesmo textureKey deixa de ser "igual à global").
+      applyBuildingFacadeTexture(entry.facadeMat, donation.customization);
+
       entry.mesh.position.copy(transform.position);
       entry.mesh.scale.copy(transform.scale);
       entry.mesh.userData.donationValue = donation.value;
@@ -1834,11 +1907,18 @@ export function createDonationManager({
       applyInstanceColors();
     },
     updateTextureSettings(settings) {
+      const folderChanged =
+        resolveFacadeFolder(settings.textureKey) !==
+        resolveFacadeFolder(currentTextureSettings.textureKey);
       currentTextureSettings = { ...settings };
       tilingUniform.value = settings.tilingScale;
       topTilingUniform.value = settings.top.tilingScale;
-      applyTextureToFacade(settings);
+      if (folderChanged) requestGlobalFacadeSet(settings.textureKey);
+      applyTextureToFacade(settings); // relê facadeSet (inclui clones custom)
       applyTextureToTop(settings);
+      // Prédio com textura própria entra/sai do InstancedMesh conforme ela passe
+      // a coincidir (ou não) com a nova textura global.
+      if (folderChanged) rebuildInstances();
     },
     updateBlockLayout(settings) {
       // Cores: aplicam direto nos materiais compartilhados, sem rebuild.
@@ -1915,6 +1995,7 @@ export function createDonationManager({
       const prevTilingScale = prevCustomization?.tilingScale ?? 1;
       const prevTextureTransform = prevCustomization?.textureTransform ??
         DEFAULT_BUILDING_TEXTURE_TRANSFORM;
+      const prevTextureKey = prevCustomization?.textureKey ?? null;
       const prevHologramImage = prevCustomization?.hologramImage ?? null;
       const prevHologramColor = prevCustomization?.hologramColor ?? DEFAULT_HOLOGRAM_COLOR;
       const prevHologramOpacity = prevCustomization?.hologramOpacity ?? DEFAULT_HOLOGRAM_OPACITY;
@@ -1941,6 +2022,14 @@ export function createDonationManager({
           entry.facadeMat.userData.tilingMultiplier.value = customization.tilingScale;
           entry.topMat.userData.tilingMultiplier.value = customization.tilingScale;
         }
+      }
+
+      // Troca de textura em prédio que JÁ tem mesh próprio (ex: já era twisted):
+      // só recarrega o material, sem rebuild. A transição instanced <-> mesh
+      // próprio já saiu acima, pelo needsCustomMesh.
+      if (customization.textureKey !== prevTextureKey) {
+        const entry = customShapeMeshes.get(donationId);
+        if (entry) applyBuildingFacadeTexture(entry.facadeMat, customization);
       }
 
       if (!sameTextureTransform(customization.textureTransform, prevTextureTransform)) {
@@ -2139,9 +2228,8 @@ export function createDonationManager({
       buildingGeometry.dispose();
       facadeMaterial.dispose();
       topMaterial.dispose();
-      for (const tex of allTextures) {
-        tex.dispose();
-      }
+      // Nenhuma textura é descartada aqui: fachada E topo vêm do cache compartilhado
+      // do loader, reusado entre recriações do manager.
       for (const m of roadMeshes) {
         scene.remove(m);
         m.geometry.dispose();
