@@ -79,7 +79,7 @@ export function TextureControls({ value, facadeTextures, onChange }: TextureCont
         value={value.tilingScale}
         min={0.1}
         max={10}
-        step={0.4}
+        step={0.1}
         valueLabel={value.tilingScale.toFixed(1)}
         onChange={(tilingScale) => onChange({ ...value, tilingScale })}
       />
@@ -158,7 +158,7 @@ export function TextureControls({ value, facadeTextures, onChange }: TextureCont
         value={value.top.tilingScale}
         min={0.1}
         max={10}
-        step={0.4}
+        step={0.1}
         valueLabel={value.top.tilingScale.toFixed(1)}
         onChange={(tilingScale) =>
           onChange({ ...value, top: { ...value.top, tilingScale } })

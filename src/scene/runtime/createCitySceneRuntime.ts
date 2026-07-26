@@ -209,6 +209,13 @@ export function createCitySceneRuntime({
       }
     : null;
   if (handleMouseMove) renderer.domElement.addEventListener("mousemove", handleMouseMove);
+  const handleMouseLeave = onHoverChange
+    ? () => {
+        pendingHoverEvent = null;
+        onHoverChange(null, 0, 0);
+      }
+    : null;
+  if (handleMouseLeave) renderer.domElement.addEventListener("mouseleave", handleMouseLeave);
 
   // Clique: detectar edifício clicado (só dispara se não houve drag)
   let pointerDownPos: { x: number; y: number } | null = null;
@@ -492,6 +499,7 @@ export function createCitySceneRuntime({
     },
     dispose() {
       if (handleMouseMove) renderer.domElement.removeEventListener("mousemove", handleMouseMove);
+      if (handleMouseLeave) renderer.domElement.removeEventListener("mouseleave", handleMouseLeave);
       if (onBuildingClick) renderer.domElement.removeEventListener("pointerdown", handlePointerDown);
       if (handlePointerUp) renderer.domElement.removeEventListener("pointerup", handlePointerUp);
       if (hoverRafId !== null) cancelAnimationFrame(hoverRafId);

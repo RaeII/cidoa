@@ -300,7 +300,7 @@ export function CitySceneEditor() {
         onBuildingClick={handleBuildingClick}
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to from-black/35 to-transparent" />
-      <div className="absolute right-4 top-4 z-40">
+      <div className="absolute right-4 top-4 z-20">
         <AuthMenu />
       </div>
       {loadState.status === "ready" && (
