@@ -732,6 +732,15 @@ export function createDonationManager({
   };
   const customShapeMeshes = new Map<number, CustomShapeEntry>();
   const currentBuildingColor = new THREE.Color(buildingSettings.color);
+  // No shader, instanceColor é MULTIPLICADO pela cor do material
+  // (`diffuseColor *= vColor`). Logo, enquanto o InstancedMesh tiver instanceColor,
+  // a base dos materiais tem que ser branca — senão a cor sai ao quadrado e todos
+  // os prédios escurecem no instante em que um único recebe cor customizada.
+  const INSTANCE_COLOR_BASE = new THREE.Color(0xffffff);
+  const setInstancedBaseColor = (color: THREE.Color) => {
+    facadeMaterial.color.copy(color);
+    topMaterial.color.copy(color);
+  };
   const tmpTransformMatrix = new THREE.Matrix4();
   const tmpTransformPosition = new THREE.Vector3();
   const tmpTransformQuaternion = new THREE.Quaternion();
@@ -1372,6 +1381,7 @@ export function createDonationManager({
 
     setMatOpacity(facadeMaterial, 0.15);
     setMatOpacity(topMaterial, 0.15);
+    setInstancedBaseColor(currentBuildingColor);
     mesh.instanceColor = null;
 
     for (const [donId, entry] of customShapeMeshes) {
@@ -1405,13 +1415,18 @@ export function createDonationManager({
   const applyInstanceColors = () => {
     if (mesh.count === 0) return;
 
+    // Em foco, as instâncias ficam sem cor própria (só o mesh destacado tem).
     // Verificar se alguma doação tem customização
-    const hasAnyCustom = donations.some((d) => d.customization);
+    const hasAnyCustom = focusedDonationId === null && donations.some((d) => d.customization);
     if (!hasAnyCustom) {
       // Sem customizações: remover instanceColor para usar cor do material
+      setInstancedBaseColor(currentBuildingColor);
       mesh.instanceColor = null;
       return;
     }
+
+    // Cor real vai toda no instanceColor → base branca (ver INSTANCE_COLOR_BASE).
+    setInstancedBaseColor(INSTANCE_COLOR_BASE);
 
     if (instanceColorArray.length < capacity * 3) {
       instanceColorArray = new Float32Array(capacity * 3);

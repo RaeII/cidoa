@@ -216,7 +216,7 @@ Quando o usuário clica em um edifício, `setFocusedDonation(donationId)` cria u
 1. **Instanced mesh** fica semitransparente (`opacity: 0.15`) — toda a cidade some sutilmente
 2. **Mesh isolado** (`focusHighlightMesh`) é criado com os materiais de foco (`focusFacadeMaterial` / `focusTopMaterial`) na posição exata do edifício, com opacidade total
 3. Se o edifício tem **cor customizada**, os materiais de foco recebem essa cor
-4. O `instanceColor` do instanced mesh é limpo durante o foco para usar a opacidade uniforme
+4. O `instanceColor` do instanced mesh é limpo durante o foco para usar a opacidade uniforme — e a cor base dos materiais volta pra `currentBuildingColor` (ver aviso em [[scene-managers#Cores Individuais por Edifício]])
 
 Ao chamar `setFocusedDonation(null)`, a opacidade é restaurada a 1.0, o mesh isolado é removido e o `instanceColor` é reaplicado.
 
@@ -224,7 +224,17 @@ Ao chamar `setFocusedDonation(null)`, a opacidade é restaurada a 1.0, o mesh is
 
 #### Cores Individuais por Edifício
 
-Quando um edifício recebe uma customização via `updateDonationCustomization`, a cor é armazenada em `DonationEntry.customization` e aplicada via `InstancedBufferAttribute` (instanceColor). Edifícios sem customização usam a cor global do material. O sistema é reativado a cada `rebuildInstances` ou mudança de `BuildingSettings`.
+Quando um edifício recebe uma customização via `updateDonationCustomization`, a cor é armazenada em `DonationEntry.customization` e aplicada via `InstancedBufferAttribute` (instanceColor). Edifícios sem customização recebem a cor global (`currentBuildingColor`) **no próprio instanceColor**, não na cor do material. O sistema é reativado a cada `rebuildInstances` ou mudança de `BuildingSettings`.
+
+> [!warning] instanceColor multiplica, não substitui
+> Shader do three.js faz `diffuseColor *= vColor` — instanceColor é **multiplicado** pela cor do material, não troca ela. Então `applyInstanceColors` alterna a base:
+>
+> | Estado | `facadeMaterial.color` / `topMaterial.color` | `mesh.instanceColor` |
+> |---|---|---|
+> | Nenhuma customização, ou foco ativo | `currentBuildingColor` | `null` |
+> | Alguma customização | branco (`INSTANCE_COLOR_BASE`) | cor real por instância |
+>
+> Sem a base branca, cor sai ao quadrado: `#9c9c9c` (linear 0.33) × 0.33 = 0.11 → cidade toda escurecia no instante em que um único prédio recebia cor customizada.
 
 Para edifícios com `buildingShape !== "default"`, a cor é aplicada diretamente nos materiais clonados (sem instanceColor) via `updateCustomShapeColor`.
 
