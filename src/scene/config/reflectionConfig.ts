@@ -14,7 +14,7 @@ export const DEFAULT_REFLECTION_SETTINGS: ReflectionSettings = {
   // 0.2 de offset UV = ~36° de céu descendo abaixo do horizonte, direção que a fachada
   // vertical espelha quando a câmera olha o prédio de frente e de cima.
   skyDrop: -0.030,
-  updateInterval: 4,
+  updateInterval: 30,
   continuous: false,
   // Chão chapado tapa o hemisfério de baixo do cube: fora da captura por padrão.
   includeGround: false,
