@@ -62,7 +62,7 @@ Cria o relevo procedural (colinas verdes) ao redor da cidade — partes sem edif
 **Retorna:** `TerrainRig` com `mesh`, `update`, `setCityRadius`, `setGroundColor`, `dispose`.
 
 > [!important] Chão infinito abaixo do relevo = sem z-fighting
-> Plano cinza **sempre visível** (`groundPlane.mesh.visible` nunca é forçado a `false` no render), em `y=−0.05`, ABAIXO do piso do relevo (`−0.04`). Onde há relevo, o terreno (opaco) cobre o plano; além da borda do relevo (mesh fixo, 700u na origem), o plano — que **segue a câmera** — preenche o vazio → cidade grande **não tem limite** ao mover a câmera. Fica sempre abaixo → **sem z-fighting** (antes ele ficava ACIMA do terreno e as duas superfícies cinza piscavam). Na captura do envMap o relevo é ocultado e sobra o plano cinza (piso neutro do reflexo).
+> Plano cinza **sempre visível** (`groundPlane.mesh.visible` nunca é forçado a `false` no render), em `y=−0.05`, ABAIXO do piso do relevo (`−0.04`). Onde há relevo, o terreno (opaco) cobre o plano; além da borda do relevo (mesh fixo, 700u na origem), o plano — que **segue a câmera** — preenche o vazio → cidade grande **não tem limite** ao mover a câmera. Fica sempre abaixo → **sem z-fighting** (antes ele ficava ACIMA do terreno e as duas superfícies cinza piscavam). Na captura do envMap relevo **e** plano cinza são ocultados — nenhum chão chapado no reflexo, sobra céu (ver [[scene-runtime#Probe de reflexo (envMap dos prédios)]]).
 
 > [!important] `update()` é debounced (60ms)
 > Arrastar um slider dispara muitos `update()` por segundo. Regenerar o heightfield (até 256² vértices) a cada tick travaria a UI — por isso `update()` é **debounced em 60ms**.
@@ -70,7 +70,7 @@ Cria o relevo procedural (colinas verdes) ao redor da cidade — partes sem edif
 **Constantes** (em [[scene-config#terrainConfig.ts|terrainConfig.ts]]): `TERRAIN_SEGMENT_OPTIONS` (`[64,96,128,192,256]`, opções do select de resolução), `TERRAIN_CITY_PADDING`, `TERRAIN_TRANSITION` (largura MÍNIMA do degradê, cresce com a altura), `TERRAIN_GROUND_Y` (−0.04, nível plano do relevo, logo acima do chão infinito). `size`/`segments` são campos de [[scene-types#TerrainSettings]].
 
 > [!important] Não aparece no reflexo dos edifícios
-> O [[scene-runtime|runtime]] esconde `terrainRig.mesh` (`visible=false`) durante a captura do cube envMap. Sem isso, o verde do relevo vazaria nas fachadas refletivas. O plano cinza embaixo ainda entra no reflexo (chão neutro).
+> O [[scene-runtime|runtime]] esconde `terrainRig.mesh` (`visible=false`) durante a captura do cube envMap. Sem isso, o verde do relevo vazaria nas fachadas refletivas. O plano cinza embaixo também sai da captura, junto com o piso da cidade (`beginEnvCapture`) — o hemisfério de baixo do reflexo é céu.
 
 > [!note] Colinas recuam quando a cidade cresce
 > O runtime chama `setCityRadius(donationManager.getCityRadius())` a cada doação/mudança de quadra. Raio maior → zona plana maior → anel de colinas recua. `setCityRadius` só recalcula a malha quando o raio muda de fato (ganho de anel).

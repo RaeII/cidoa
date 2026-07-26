@@ -181,6 +181,29 @@ export type EnvironmentSettings = {
   offsetZ: number;
 };
 
+// Probe de reflexo dos prédios (CubeCamera + WebGLCubeRenderTarget do runtime).
+// Ver [[scene-runtime#Probe de reflexo (envMap dos prédios)]].
+export type ReflectionSettings = {
+  enabled: boolean;
+  /** Lado do cube render target em px (potência de 2: 128–1024). Recria o target. */
+  resolution: number;
+  probeX: number;
+  probeY: number;
+  probeZ: number;
+  /** Probe na câmera em vez de ancorado na cidade (recaptura todo intervalo). */
+  followCamera: boolean;
+  /** Offset UV extra do céu só na captura: desce a faixa de céu abaixo do horizonte. */
+  skyDrop: number;
+  /** Frames entre capturas (1 = todo frame). */
+  updateInterval: number;
+  /** Recaptura a cada intervalo mesmo sem mudança na cena. */
+  continuous: boolean;
+  /** Plano cinza + relevo visíveis na captura. */
+  includeGround: boolean;
+  /** Asfalto, calçada e lotes visíveis na captura. */
+  includeCityFloor: boolean;
+};
+
 export type BlockLayoutSettings = {
   blockSize: number;
   streetWidth: number;

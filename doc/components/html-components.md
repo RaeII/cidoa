@@ -182,12 +182,13 @@ Componente que monta o painel completo de configuração da cena. **Escondido po
 |---|---|
 | **Geral** | Intro, prédios, chão, **quadras** (cor dos lotes vazios → [[scene-types#BlockLayoutSettings]]), calçada, ambiente |
 | **Texturas** | Configurações PBR das fachadas |
+| **Reflexo** | Probe do envMap: on/off, intensidade, resolução, posição, céu na captura, o que entra na captura, cadência — ver [[#ReflectionControls.tsx]] |
 | **Luz** | Ambient, hemisphere, directional |
 | **Horizonte** | Configurações de HDRI e skybox |
 | **Terreno** | Relevo procedural ao redor da cidade — ver [[#TerrainControls.tsx]] |
 | **Tela** | Checkbox por componente HTML sobreposto (log de câmera + 3 inputs de geração/posição). Liga/desliga visibilidade; preferência persistida em `localStorage` via [[scene-config#uiVisibilityConfig.ts]] |
 
-Tipo da aba ativa: `"geral" | "texturas" | "luz" | "horizonte" | "terreno" | "tela"`.
+Tipo da aba ativa: `"geral" | "texturas" | "reflexo" | "luz" | "horizonte" | "terreno" | "tela"`. Sete abas → rótulo em `text-xs` pra caber nos 360px do painel.
 
 Props extras da aba **Tela**: `uiVisibility: UIVisibilitySettings` + `onUIVisibilityChange`. Ver [[scene-types#UIVisibilitySettings]].
 
@@ -280,6 +281,30 @@ Configurações de textura PBR das fachadas:
 **Seletor "Textura da fachada"** (topo da seção): prop `facadeTextures` = `catalog.textures` ativas do backend. Clicar seta `textureSettings.textureKey` = `value` da opção → troca a fachada de **toda a cena**. Por edifício: seção **Textura** do [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]]. Só aparece se houver textura ativa no catálogo.
 
 Assets no front (`src/assets/texture/`), em **KTX2** (comprimido na GPU), carregados **lazy + assíncrono + cache** pelo loader — ver [[scene-textures]]. Cadastro/controle das texturas em [[personalizacoes]]. Mapas por pasta: color, normal, roughness, metalness, displacement.
+
+---
+
+### `ReflectionControls.tsx`
+
+Aba **reflexo**: tudo do probe de envMap dos prédios. Props: `value: ReflectionSettings` + `onChange`, mais `textureSettings: TextureSettings` + `onTextureSettingsChange` (seção Intensidade).
+
+| Seção | Controles |
+|---|---|
+| **Reflexo** | `enabled` |
+| **Intensidade** | `envMapIntensity` (fachada e topo), `roughnessIntensity` (nitidez), `metalnessIntensity` (espelhamento) — campos de `TextureSettings` |
+| **Qualidade** | `resolution` (slider anda no **expoente**: 6–10 → 64–1024px, rótulo em px) |
+| **Posição do probe** | `followCamera`, `probeY` (0–120), `probeX`/`probeZ` (−200–200) |
+| **Céu no reflexo** | `skyDrop` (−0.5–0.5) |
+| **Conteúdo da captura** | `includeGround`, `includeCityFloor` |
+| **Atualização** | `updateInterval` (1–60 frames), `continuous` |
+
+> [!warning] Intensidade é do material, não do probe
+> Os sliders da seção Intensidade escrevem em `TextureSettings` — mesmos campos da aba **texturas**, sem estado duplicado. Ranges idênticos aos de lá (envMap 0–5, roughness 0–100, metalness 0–10) pra não clampar valor existente.
+
+> [!note] Resolução em potência de 2
+> Mipmap do cube exige potência de 2. O `RangeField` guarda `log2(resolution)` e devolve `2 ** exp` — evita criar um componente de select só pra isso.
+
+Ver [[scene-types#ReflectionSettings]], [[scene-config#reflectionConfig.ts]] e [[scene-runtime#Probe de reflexo (envMap dos prédios)]].
 
 ---
 

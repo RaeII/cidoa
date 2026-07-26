@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2, Lock, Palette, Pencil, Plus, Trash2 } from "lucide-react";
+import { EllipsisVertical, Loader2, Lock, Palette, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   createCustomizationOption,
   deleteCustomizationOption,
@@ -31,15 +31,29 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { Switch } from "@/components/ui/switch";
 
 type Feedback = { ok: boolean; text: string } | null;
+type ToggleTarget = {
+  type: "category" | "option";
+  id: number;
+  label: string;
+  isActive: boolean;
+};
 
 function errMsg(err: unknown, fallback: string) {
   return err instanceof ApiError ? err.message : fallback;
@@ -199,17 +213,39 @@ function OptionRow({
         </div>
         <span className="text-xs text-muted-foreground">{option.key}{option.value ? ` · ${option.value}` : ""}</span>
       </div>
-      <Button variant="ghost" size="sm" disabled={busy} onClick={onToggle}>
+      <span className="text-xs font-medium text-muted-foreground">
         {option.isActive ? "Ativa" : "Inativa"}
-      </Button>
-      <Button variant="ghost" size="icon" disabled={busy} onClick={onEdit} aria-label="Editar">
-        <Pencil className="size-4" />
-      </Button>
-      {!option.isCodeBound && (
-        <Button variant="ghost" size="icon" disabled={busy} onClick={onDelete} aria-label="Excluir">
-          <Trash2 className="size-4 text-destructive" />
-        </Button>
-      )}
+      </span>
+      <Switch
+        checked={option.isActive}
+        disabled={busy}
+        onCheckedChange={onToggle}
+        aria-label={`${option.isActive ? "Desativar" : "Ativar"} opção ${option.label}`}
+      />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={busy}
+            aria-label={`Ações de ${option.label}`}
+          >
+            <EllipsisVertical className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={onEdit}>
+            <Pencil />
+            Editar
+          </DropdownMenuItem>
+          {!option.isCodeBound && (
+            <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+              <Trash2 />
+              Excluir
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
@@ -220,6 +256,7 @@ function Customizations() {
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [dialog, setDialog] = useState<DialogState | null>(null);
+  const [toggleTarget, setToggleTarget] = useState<ToggleTarget | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -254,6 +291,20 @@ function Customizations() {
     }
   }
 
+  function confirmToggle() {
+    if (!toggleTarget) return;
+
+    const { type, id, label, isActive } = toggleTarget;
+    setToggleTarget(null);
+    void run(
+      id,
+      () => type === "category"
+        ? updateCustomizationCategory(id, { isActive: !isActive })
+        : updateCustomizationOption(id, { isActive: !isActive }),
+      `${type === "category" ? "Categoria" : "Opção"} "${label}" ${isActive ? "desativada" : "ativada"}.`,
+    );
+  }
+
   function renderCategory(category: CustomizationCategory, all: CustomizationCategory[]) {
     const children = all
       .filter((c) => c.parentId === category.id)
@@ -276,13 +327,22 @@ function Customizations() {
                   : `${category.options.length} opção(ões)`}
             </CardDescription>
           </div>
-          <Button variant="outline" size="sm" disabled={busy} onClick={() =>
-            void run(category.id, () => updateCustomizationCategory(category.id, { isActive: !category.isActive }),
-              `Categoria "${category.label}" ${category.isActive ? "desativada" : "ativada"}.`)
-          }>
-            {busy && <Loader2 className="animate-spin" />}
-            {category.isActive ? "Ativa" : "Inativa"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">
+              {category.isActive ? "Ativa" : "Inativa"}
+            </span>
+            <Switch
+              checked={category.isActive}
+              disabled={busy}
+              onCheckedChange={() => setToggleTarget({
+                type: "category",
+                id: category.id,
+                label: category.label,
+                isActive: category.isActive,
+              })}
+              aria-label={`${category.isActive ? "Desativar" : "Ativar"} categoria ${category.label}`}
+            />
+          </div>
         </CardHeader>
 
         {category.kind !== "group" && (
@@ -296,10 +356,12 @@ function Customizations() {
                   option={option}
                   isColor={isColor}
                   busy={busyId === option.id}
-                  onToggle={() =>
-                    void run(option.id, () => updateCustomizationOption(option.id, { isActive: !option.isActive }),
-                      `Opção "${option.label}" ${option.isActive ? "desativada" : "ativada"}.`)
-                  }
+                  onToggle={() => setToggleTarget({
+                    type: "option",
+                    id: option.id,
+                    label: option.label,
+                    isActive: option.isActive,
+                  })}
                   onEdit={() => setDialog({ mode: "edit", category, option })}
                   onDelete={() =>
                     void run(option.id, () => deleteCustomizationOption(option.id), `Opção "${option.label}" excluída.`)
@@ -417,6 +479,33 @@ function Customizations() {
           }}
         />
       )}
+
+      <Dialog open={toggleTarget !== null} onOpenChange={(open) => !open && setToggleTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {toggleTarget?.isActive ? "Desativar" : "Ativar"}{" "}
+              {toggleTarget?.type === "category" ? "categoria" : "opção"}?
+            </DialogTitle>
+            <DialogDescription>
+              Confirme para {toggleTarget?.isActive ? "desativar" : "ativar"}{" "}
+              <strong>{toggleTarget?.label}</strong>. A alteração afeta as personalizações
+              disponíveis na cena.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setToggleTarget(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant={toggleTarget?.isActive ? "destructive" : "default"}
+              onClick={confirmToggle}
+            >
+              Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 }

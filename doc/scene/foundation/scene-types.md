@@ -231,6 +231,29 @@ type EnvironmentSettings = {
 }
 ```
 
+### `ReflectionSettings`
+
+Probe de reflexo dos prédios (`CubeCamera` + `WebGLCubeRenderTarget` do runtime). Defaults em [[scene-config#reflectionConfig.ts]], UI na aba **reflexo** ([[html-components#ReflectionControls.tsx]]), mecânica em [[scene-runtime#Probe de reflexo (envMap dos prédios)]].
+
+```typescript
+type ReflectionSettings = {
+  enabled: boolean;          // false → envMap null; fachada cai no scene.environment (HDRI)
+  resolution: number;        // lado do cube em px, potência de 2 (64–1024); trocar recria o target
+  probeX: number;            // posição da captura
+  probeY: number;            // sobe = mais céu, desce = mais fachada
+  probeZ: number;
+  followCamera: boolean;     // probe na câmera (recaptura todo intervalo)
+  skyDrop: number;           // offsetY extra do céu SÓ na captura
+  updateInterval: number;    // frames entre capturas
+  continuous: boolean;       // recaptura mesmo sem mudança na cena
+  includeGround: boolean;    // plano cinza + relevo entram na captura
+  includeCityFloor: boolean; // asfalto, calçada e lotes entram na captura
+}
+```
+
+> [!warning] Intensidade não mora aqui
+> `envMapIntensity`, `roughnessIntensity` e `metalnessIntensity` são do **material** ([[scene-types#TextureSettings]]) — a aba **reflexo** edita os mesmos campos que a aba **texturas**, sem estado duplicado.
+
 ### `UIVisibilitySettings`
 
 Liga/desliga componentes HTML sobrepostos na tela. Persistido em `localStorage`. Defaults e helpers de load/save em [[scene-config#uiVisibilityConfig.ts]]. Controlado pela aba **tela** do painel.

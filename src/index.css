@@ -5,9 +5,9 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
-  Paleta da marca (mesma do base_vite) — usada pela área /admin (shadcn/ui).
+  Paleta usada pela área /admin (shadcn/ui).
   A cena 3D não consome estes tokens; ela pinta o próprio canvas.
-  Light: fundo creme, primary navy. Dark: fundo navy, primary creme.
+  Light: paleta da marca. Dark: escala neutra padrão do shadcn.
 */
 :root {
   color-scheme: light;
@@ -56,34 +56,34 @@
 .dark {
   color-scheme: dark;
 
-  --background: #05111d;
-  --foreground: #f3ebd3;
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
 
-  --card: #0a2233;
-  --card-foreground: #f3ebd3;
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
 
-  --popover: #04283d;
-  --popover-foreground: #f3ebd3;
-  --input: #424e5591;
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --input: oklch(1 0 0 / 15%);
 
-  --muted: #0a2233;
-  --muted-foreground: #a7b4c2;
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
 
-  --border: #071721;
+  --border: oklch(1 0 0 / 10%);
 
-  --primary: #f3ebd3;
-  --primary-foreground: #05111d;
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
 
-  --secondary: #0a2233;
-  --secondary-foreground: #f3ebd3;
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
 
-  --accent: #c46a4a;
-  --accent-foreground: #2b1206;
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
 
-  --destructive: #e5544b;
-  --destructive-foreground: #fafafa;
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
 
-  --ring: #f3ebd3;
+  --ring: oklch(0.556 0 0);
 
   --sidebar: var(--card);
   --sidebar-foreground: var(--foreground);

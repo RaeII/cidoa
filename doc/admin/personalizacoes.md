@@ -18,12 +18,13 @@ Página de gestão do catálogo de personalizações da cena. Rota `/dale/person
 Carrega a árvore completa (`GET /admin/customization`, inclui inativas) e renderiza categorias top-level; **Customização** aninha subcategorias (Letreiro/Topo/LED/Holograma).
 
 Por opção:
-- **Ativa/Inativa** — toggle (`PUT /admin/customization/options/:id`). Desativada some da cena.
-- **Editar** — dialog: label + value (hex, se Cor/Textura).
-- **Excluir** — só se **não** presa a código (`DELETE`). Presas a código (🔒 Formato/Topo/LED) só desativam.
+- **Ativa/Inativa** — `Switch` shadcn controlado. Abre confirmação antes do `PUT /admin/customization/options/:id`; cancelar preserva estado. Desativada some da cena.
+- **Ações** — botão vertical de três pontos abre `DropdownMenu` shadcn.
+  - **Editar** — dialog: label + value (hex, se Cor/Textura).
+  - **Excluir** — ação destrutiva, só se **não** presa a código (`DELETE`). Presas a código (🔒 Formato/Topo/LED) não exibem essa ação.
 
 Por categoria:
-- **Ativa/Inativa** — toggle (`PUT /admin/customization/categories/:id`). Serve pra ligar/desligar features (Letreiro/Holograma) e categorias inteiras.
+- **Ativa/Inativa** — `Switch` shadcn controlado. Abre confirmação antes do `PUT /admin/customization/categories/:id`; cancelar preserva estado. Serve pra ligar/desligar features (Letreiro/Holograma) e categorias inteiras.
 - **Adicionar opção** — só em categoria extensível. **Cor** = dialog com hex.
 
 ## Textura: cadastradas × não-cadastradas

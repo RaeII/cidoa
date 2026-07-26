@@ -6,6 +6,7 @@ import type {
   EnvironmentSettings,
   GroundSettings,
   LightSettings,
+  ReflectionSettings,
   SceneStats,
   TerrainSettings,
   TextureSettings,
@@ -19,13 +20,14 @@ import { TerrainControls } from "./TerrainControls";
 import { PanelIntro } from "./PanelIntro";
 import { SceneLightControls } from "./SceneLightControls";
 import { TextureControls } from "./TextureControls";
+import { ReflectionControls } from "./ReflectionControls";
 import { HorizonControls } from "./HorizonControls";
 import { PanelSection } from "./controls/PanelSection";
 import { CheckboxField } from "./controls/CheckboxField";
 import { ColorField } from "./controls/ColorField";
 import { RangeField } from "./controls/RangeField";
 
-type Tab = "geral" | "texturas" | "luz" | "horizonte" | "terreno" | "tela";
+type Tab = "geral" | "texturas" | "reflexo" | "luz" | "horizonte" | "terreno" | "tela";
 
 export type CityControlPanelProps = {
   buildingSettings: BuildingSettings;
@@ -37,6 +39,7 @@ export type CityControlPanelProps = {
   terrainSettings: TerrainSettings;
   lightSettings: LightSettings;
   environmentSettings: EnvironmentSettings;
+  reflectionSettings: ReflectionSettings;
   horizonSettings: HorizonSettings;
   uiVisibility: UIVisibilitySettings;
   sceneStats: SceneStats;
@@ -52,6 +55,7 @@ export type CityControlPanelProps = {
   onTerrainSettingsChange: (settings: TerrainSettings) => void;
   onLightSettingsChange: (settings: LightSettings) => void;
   onEnvironmentSettingsChange: (settings: EnvironmentSettings) => void;
+  onReflectionSettingsChange: (settings: ReflectionSettings) => void;
   onHorizonSettingsChange: (settings: HorizonSettings) => void;
   onUIVisibilityChange: (settings: UIVisibilitySettings) => void;
   onClose: () => void;
@@ -66,6 +70,7 @@ export function CityControlPanel({
   terrainSettings,
   lightSettings,
   environmentSettings,
+  reflectionSettings,
   horizonSettings,
   uiVisibility,
   sceneStats,
@@ -77,6 +82,7 @@ export function CityControlPanel({
   onTerrainSettingsChange,
   onLightSettingsChange,
   onEnvironmentSettingsChange,
+  onReflectionSettingsChange,
   onHorizonSettingsChange,
   onUIVisibilityChange,
   onClose,
@@ -86,11 +92,11 @@ export function CityControlPanel({
   return (
     <div className="absolute right-0 top-0 z-20 flex h-screen w-full max-w-[360px] flex-col border-l border-white/10 bg-black/55 text-white shadow-2xl backdrop-blur-md">
       <div className="flex items-stretch border-b border-white/10">
-        {(["geral", "texturas", "luz", "horizonte", "terreno", "tela"] as Tab[]).map((tab) => (
+        {(["geral", "texturas", "reflexo", "luz", "horizonte", "terreno", "tela"] as Tab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-3 text-sm font-medium capitalize tracking-wide transition-colors ${
+            className={`flex-1 py-3 text-xs font-medium capitalize tracking-wide transition-colors ${
               activeTab === tab
                 ? "border-b-2 border-white text-white"
                 : "text-white/40 hover:text-white/70"
@@ -174,6 +180,17 @@ export function CityControlPanel({
         {activeTab === "texturas" && (
           <div className="space-y-6 pb-8 pt-2">
             <TextureControls value={textureSettings} facadeTextures={facadeTextures} onChange={onTextureSettingsChange} />
+          </div>
+        )}
+
+        {activeTab === "reflexo" && (
+          <div className="space-y-6 pb-8 pt-2">
+            <ReflectionControls
+              value={reflectionSettings}
+              textureSettings={textureSettings}
+              onChange={onReflectionSettingsChange}
+              onTextureSettingsChange={onTextureSettingsChange}
+            />
           </div>
         )}
 

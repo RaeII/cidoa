@@ -183,7 +183,8 @@ export type DonationManager = {
   updateTextureSettings: (settings: TextureSettings) => void;
   updateBlockLayout: (settings: BlockLayoutSettings) => void;
   setEnvMap: (envMap: THREE.Texture | null) => void;
-  beginEnvCapture: () => void;
+  /** `includeCityFloor`: mantém asfalto/calçada/lotes visíveis durante a captura do cube. */
+  beginEnvCapture: (includeCityFloor: boolean) => void;
   endEnvCapture: () => void;
   getDonationCount: () => number;
   getCityRadius: () => number;
@@ -1963,9 +1964,16 @@ export function createDonationManager({
         mat.needsUpdate = true;
       }
     },
-    beginEnvCapture() {
+    beginEnvCapture(includeCityFloor) {
       for (const mat of getAllFacadeMaterials()) mat.envMapIntensity = 0;
       for (const mat of getAllTopMaterials()) mat.envMapIntensity = 0;
+      // Piso da cidade (asfalto, calçada, lotes) fora da captura por padrão: o probe olha de
+      // cima, e esse piso escuro tapa o hemisfério de baixo do cube inteiro. Sem ele, o raio
+      // refletido que aponta pra baixo alcança o céu → fachada reflete céu vista de frente.
+      if (includeCityFloor) return;
+      for (const m of roadMeshes) m.visible = false;
+      if (sidewalkMesh) sidewalkMesh.visible = false;
+      if (lotMesh) lotMesh.visible = false;
     },
     endEnvCapture() {
       for (const mat of getAllFacadeMaterials()) {
@@ -1974,6 +1982,9 @@ export function createDonationManager({
       for (const mat of getAllTopMaterials()) {
         mat.envMapIntensity = currentTextureSettings.top.envMapIntensity;
       }
+      for (const m of roadMeshes) m.visible = true;
+      if (sidewalkMesh) sidewalkMesh.visible = true;
+      if (lotMesh) lotMesh.visible = true;
     },
     getDonationCount() {
       return donations.length;

@@ -157,8 +157,8 @@ updateBlockLayout(settings: BlockLayoutSettings): void
 
 // EnvMap
 setEnvMap(texture: THREE.Texture): void
-beginEnvCapture(): void   // zera envMapIntensity durante captura do CubeCamera
-endEnvCapture(): void     // restaura envMapIntensity após captura
+beginEnvCapture(includeCityFloor: boolean): void // zera envMapIntensity; esconde piso (asfalto, calçada, lotes) salvo includeCityFloor
+endEnvCapture(): void     // restaura envMapIntensity e o piso após captura
 
 // LOD / cull de distância
 setRenderDistance(distance: number, backDistance: number): void  // alcance de renderização frente/trás (sliders da aba Horizonte)

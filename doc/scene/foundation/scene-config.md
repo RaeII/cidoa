@@ -174,6 +174,27 @@ Valores padrão do ambiente HDRI:
 
 ---
 
+### `reflectionConfig.ts`
+
+Padrões do probe de reflexo dos prédios. `createDefaultReflectionSettings()` + `DEFAULT_REFLECTION_SETTINGS`.
+
+| Campo | Padrão | Por quê |
+|---|---|---|
+| `enabled` | `true` | — |
+| `resolution` | `256` | Fachada é espelho (`roughness 0`, amostra mip 0); 128 vira mancha lisa |
+| `probeX/Y/Z` | `0, 18, 0` | Centro da cidade, logo acima dos telhados |
+| `followCamera` | `false` | Probe na câmera = reflexo escorrega com a órbita |
+| `skyDrop` | `0.2` | ~36° de céu abaixo do horizonte — direção que a fachada espelha vista de frente |
+| `updateInterval` | `4` | Frames entre capturas |
+| `continuous` | `false` | Captura só quando a cena muda |
+| `includeGround` | `false` | Chão chapado tapa o hemisfério de baixo do cube |
+| `includeCityFloor` | `false` | Idem para asfalto/calçada/lotes |
+
+> [!note]
+> Editável na aba **reflexo** do painel. Tipo em [[scene-types#ReflectionSettings]], mecânica em [[scene-runtime#Probe de reflexo (envMap dos prédios)]].
+
+---
+
 ### `uiVisibilityConfig.ts`
 
 Controla visibilidade dos componentes HTML sobrepostos na tela. Persiste preferência em `localStorage` (chave `cidoa:ui-visibility`).
@@ -234,7 +255,7 @@ Configuração mais global da cena. Define a estrutura completa de `CitySceneCon
 ## Diferença entre Configs por Domínio e Config Global
 
 Use os arquivos menores quando a configuração pertencer a um domínio específico:
-- `buildingConfig`, `groundConfig`, `lightConfig`, `textureConfig`, `environmentConfig`, `terrainConfig`, `blockLayoutConfig`
+- `buildingConfig`, `groundConfig`, `lightConfig`, `textureConfig`, `environmentConfig`, `reflectionConfig`, `terrainConfig`, `blockLayoutConfig`
 
 Use `citySceneConfig.ts` quando for estrutural da cena inteira (tamanhos, câmera, FPS, fog).
 

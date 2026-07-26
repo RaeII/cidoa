@@ -8,6 +8,7 @@ import type {
   EnvironmentSettings,
   GroundSettings,
   LightSettings,
+  ReflectionSettings,
   SceneStats,
   TerrainSettings,
   TextureSettings,
@@ -23,6 +24,7 @@ type UseCitySceneOptions = {
   lightSettings: LightSettings;
   horizonSettings: HorizonSettings;
   environmentSettings: EnvironmentSettings;
+  reflectionSettings: ReflectionSettings;
   blockLayoutSettings: BlockLayoutSettings;
   onStatsChange: (stats: SceneStats) => void;
   onCameraDebugChange?: (cameraInfo: CameraDebugInfo) => void;
@@ -39,6 +41,7 @@ export function useCityScene({
   lightSettings,
   horizonSettings,
   environmentSettings,
+  reflectionSettings,
   blockLayoutSettings,
   onStatsChange,
   onCameraDebugChange,
@@ -54,6 +57,7 @@ export function useCityScene({
     lightSettings,
     horizonSettings,
     environmentSettings,
+    reflectionSettings,
     blockLayoutSettings,
   });
 
@@ -126,6 +130,10 @@ export function useCityScene({
   useEffect(() => {
     runtimeRef.current?.updateEnvironmentSettings(environmentSettings);
   }, [environmentSettings]);
+
+  useEffect(() => {
+    runtimeRef.current?.updateReflectionSettings(reflectionSettings);
+  }, [reflectionSettings]);
 
   useEffect(() => {
     runtimeRef.current?.updateBlockLayout(blockLayoutSettings);

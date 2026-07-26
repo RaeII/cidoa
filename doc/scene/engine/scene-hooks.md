@@ -62,6 +62,10 @@ useEffect(() => {
 }, [environmentSettings]);
 
 useEffect(() => {
+  runtimeRef.current?.updateReflectionSettings(reflectionSettings);
+}, [reflectionSettings]);
+
+useEffect(() => {
   runtimeRef.current?.updateBlockLayout(blockLayoutSettings);
 }, [blockLayoutSettings]);
 

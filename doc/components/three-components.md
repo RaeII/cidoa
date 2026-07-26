@@ -42,6 +42,7 @@ Componente pequeno por design. Faz três coisas:
 | `groundSettings` | `GroundSettings` | Material e cor do chão |
 | `lightSettings` | `LightSettings` | Luzes da cena |
 | `environmentSettings` | `EnvironmentSettings` | HDRI / skybox |
+| `reflectionSettings` | `ReflectionSettings` | Probe do envMap dos prédios ([[scene-runtime#Probe de reflexo (envMap dos prédios)]]) |
 | `blockLayoutSettings` | `BlockLayoutSettings` | Tamanho de quadra e largura de rua |
 | `onStatsChange` | `(stats: SceneStats) => void` | Callback de métricas |
 

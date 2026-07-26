@@ -72,6 +72,8 @@ src/
     customizationApi.ts             ← catálogo de personalizações (opções do backend)
     regions.ts
   components/
+    ui/
+      switch.tsx                    ← Switch shadcn usado nas ativações do admin
     AuthDialog.tsx                ← login por e-mail; cadastro com nome + username único
     AuthProvider.tsx              ← sessão local espelhada do cookie httpOnly
     ProfileDialog.tsx             ← edição de nome, username e imagem de perfil
@@ -87,6 +89,7 @@ src/
       BuildingCustomizePanel.tsx
       BuildingControls.tsx
       TextureControls.tsx
+      ReflectionControls.tsx         ← aba reflexo: probe do envMap dos prédios
       GroundControls.tsx
       TerrainControls.tsx
       SceneLightControls.tsx
@@ -119,6 +122,7 @@ src/
       terrainConfig.ts
       lightConfig.ts
       environmentConfig.ts
+      reflectionConfig.ts
       blockLayoutConfig.ts
       uiVisibilityConfig.ts
     builders/
@@ -198,7 +202,7 @@ Ele guarda todos os estados:
 
 - `buildingSettings`, `textureSettings`, `groundSettings`
 - `lightSettings`
-- `environmentSettings`, `horizonSettings`, `blockLayoutSettings`, `terrainSettings`
+- `environmentSettings`, `reflectionSettings`, `horizonSettings`, `blockLayoutSettings`, `terrainSettings`
 - `sceneStats`, `hoverInfo`
 - `showControlPanel` — toggle do painel de configuração (escondido por padrão)
 - `selectedBuildingId` — edifício selecionado para personalização
@@ -340,6 +344,8 @@ flowchart LR
 | Trocar a cor das quadras (UI) | aba **geral** → seção Quadras → [[html-components#CityControlPanel.tsx]] |
 | Trocar cor/altura da calçada (UI) | aba **geral** → seção Calçada → [[html-components#CityControlPanel.tsx]] |
 | Alterar o ciclo completo da cena | [[scene-runtime]] |
+| Ajustar reflexo dos prédios (probe do envMap) | [[scene-runtime#Probe de reflexo (envMap dos prédios)]] |
+| Controlar reflexo pela UI (posição, qualidade, cadência) | aba **reflexo** → [[html-components#ReflectionControls.tsx]] |
 | Entender o contrato dos dados | [[scene-types]] |
 | Entender como React sincroniza com Three.js | [[scene-hooks]] |
 | Mexer na UI/tema/componentes do admin | [[componentes-html]] |

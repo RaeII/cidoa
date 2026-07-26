@@ -20,6 +20,7 @@ import { createDefaultEnvironmentSettings } from "../scene/config/environmentCon
 import { createDefaultGroundSettings } from "../scene/config/groundConfig";
 import { createDefaultTerrainSettings } from "../scene/config/terrainConfig";
 import { createDefaultLightSettings } from "../scene/config/lightConfig";
+import { createDefaultReflectionSettings } from "../scene/config/reflectionConfig";
 import { createDefaultTextureSettings } from "../scene/config/textureConfig";
 import { createDefaultHorizonSettings } from "../scene/config/horizonConfig";
 import {
@@ -52,6 +53,7 @@ export function CitySceneEditor() {
   const [terrainSettings, setTerrainSettings] = useState(createDefaultTerrainSettings);
   const [lightSettings, setLightSettings] = useState(createDefaultLightSettings);
   const [environmentSettings, setEnvironmentSettings] = useState(createDefaultEnvironmentSettings);
+  const [reflectionSettings, setReflectionSettings] = useState(createDefaultReflectionSettings);
   const [horizonSettings, setHorizonSettings] = useState(createDefaultHorizonSettings);
   const [blockLayoutSettings, setBlockLayoutSettings] = useState(createDefaultBlockLayoutSettings);
   const [sceneStats, setSceneStats] = useState<SceneStats>({ ...DEFAULT_SCENE_STATS });
@@ -292,6 +294,7 @@ export function CitySceneEditor() {
         terrainSettings={terrainSettings}
         lightSettings={lightSettings}
         environmentSettings={environmentSettings}
+        reflectionSettings={reflectionSettings}
         horizonSettings={horizonSettings}
         blockLayoutSettings={blockLayoutSettings}
         onStatsChange={setSceneStats}
@@ -396,9 +399,11 @@ export function CitySceneEditor() {
           onTerrainSettingsChange={setTerrainSettings}
           onLightSettingsChange={setLightSettings}
           environmentSettings={environmentSettings}
+          reflectionSettings={reflectionSettings}
           horizonSettings={horizonSettings}
           uiVisibility={uiVisibility}
           onEnvironmentSettingsChange={setEnvironmentSettings}
+          onReflectionSettingsChange={setReflectionSettings}
           onHorizonSettingsChange={setHorizonSettings}
           onUIVisibilityChange={setUIVisibility}
           onClose={() => setShowControlPanel(false)}

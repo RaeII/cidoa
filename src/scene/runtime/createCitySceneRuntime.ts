@@ -16,6 +16,7 @@ import type {
   GroundSettings,
   LightSettings,
   HorizonSettings,
+  ReflectionSettings,
   SceneStats,
   TerrainSettings,
   TextureSettings,
@@ -31,6 +32,7 @@ type CitySceneRuntimeOptions = {
   lightSettings: LightSettings;
   horizonSettings: HorizonSettings;
   environmentSettings: EnvironmentSettings;
+  reflectionSettings: ReflectionSettings;
   blockLayoutSettings: BlockLayoutSettings;
   onStatsChange: (stats: SceneStats) => void;
   onCameraDebugChange?: (cameraInfo: CameraDebugInfo) => void;
@@ -46,6 +48,7 @@ export type CitySceneRuntime = {
   updateLightSettings: (settings: LightSettings) => void;
   updateHorizonSettings: (settings: HorizonSettings) => void;
   updateEnvironmentSettings: (settings: EnvironmentSettings) => void;
+  updateReflectionSettings: (settings: ReflectionSettings) => void;
   updateBlockLayout: (settings: BlockLayoutSettings) => void;
   addDonation: (value: number) => void;
   addDonations: (values: number[]) => void;
@@ -65,6 +68,7 @@ export function createCitySceneRuntime({
   lightSettings,
   horizonSettings,
   environmentSettings,
+  reflectionSettings,
   blockLayoutSettings,
   onStatsChange,
   onCameraDebugChange,
@@ -134,6 +138,20 @@ export function createCitySceneRuntime({
   let loadedBgTexture: THREE.Texture | null = null;
   let isDisposed = false;
 
+  // EnvMap dos prédios só é recapturado quando a CENA muda. Órbita não suja o cube: probe é
+  // estático (ver envProbePosition), então girar a câmera daria captura idêntica — o reflexo
+  // varia sozinho pelo reflect() no shader.
+  let cubeDirty = true;
+  const markCubeDirty = () => {
+    cubeDirty = true;
+  };
+
+  // Asset assíncrono que chega DEPOIS da primeira captura tem que sujar o cube. Sem isso o
+  // HDRI (fetch + decode de um JPG 4K) entra na cena bem depois do frame 4 e o reflexo fica
+  // sem céu até alguma outra mudança — antes a órbita escondia o problema recapturando sempre.
+  // onLoad do manager default cobre TextureLoader (HDRI) e KTX2Loader (fachadas).
+  THREE.DefaultLoadingManager.onLoad = markCubeDirty;
+
   const environmentUpdater = loadEnvironment(
     scene,
     renderer,
@@ -141,6 +159,7 @@ export function createCitySceneRuntime({
     (envMap, bgTexture) => {
       loadedEnvMap = envMap;
       loadedBgTexture = bgTexture;
+      markCubeDirty();
     },
     () => isDisposed,
   );
@@ -153,13 +172,35 @@ export function createCitySceneRuntime({
   // plano preenche o vazio → sem limite ao mover a câmera numa cidade grande.
   const horizonSilhouette = createHorizonSilhouette(scene, horizonSettings);
 
-  const buildingCubeTarget = new THREE.WebGLCubeRenderTarget(128, {
-    type: THREE.HalfFloatType,
-    generateMipmaps: true,
-    minFilter: THREE.LinearMipmapLinearFilter,
-  });
-  const buildingCubeCamera = new THREE.CubeCamera(0.1, CITY_SCENE_CONFIG.far, buildingCubeTarget);
-  scene.add(buildingCubeCamera);
+  // Probe de reflexo. Tudo (resolução, posição, intervalo, o que entra na captura) vem de
+  // ReflectionSettings — ver aba "reflexo" do painel e [[scene-config#reflectionConfig.ts]].
+  //
+  // Probe ancorado na CIDADE por padrão, não na câmera: com o probe na câmera, olhar o prédio
+  // de frente amostrava a direção que sai da câmera (céu/chão vazio atrás dela) → "sem
+  // reflexo"; e o conteúdo do cube escorregava junto com a órbita → reflexo só "aparecia" em
+  // certo ângulo. Ancorado, o reflexo mostra a cidade em qualquer ângulo e fica estável.
+  //
+  // skyDrop desce a faixa de céu só na captura (0.2 de offset UV = ~36°): olhar o prédio de
+  // frente com a câmera acima espelha pra BAIXO do horizonte, faixa onde o HDRI só tem cinza
+  // chapado — parecia "sem reflexo". Com o céu descido, azul/nuvens caem nessa direção.
+  let currentReflection = reflectionSettings;
+  let currentEnvironment = environmentSettings;
+  const envProbePosition = new THREE.Vector3();
+
+  const createCubeProbe = (resolution: number) => {
+    const target = new THREE.WebGLCubeRenderTarget(resolution, {
+      type: THREE.HalfFloatType,
+      generateMipmaps: true,
+      minFilter: THREE.LinearMipmapLinearFilter,
+    });
+    const cubeCamera = new THREE.CubeCamera(0.1, CITY_SCENE_CONFIG.far, target);
+    scene.add(cubeCamera);
+    return { target, cubeCamera };
+  };
+
+  let { target: buildingCubeTarget, cubeCamera: buildingCubeCamera } = createCubeProbe(
+    reflectionSettings.resolution,
+  );
 
   const donationManager = createDonationManager({
     scene,
@@ -168,17 +209,9 @@ export function createCitySceneRuntime({
     textureSettings,
     blockLayoutSettings,
   });
-  donationManager.setEnvMap(buildingCubeTarget.texture);
+  donationManager.setEnvMap(reflectionSettings.enabled ? buildingCubeTarget.texture : null);
   donationManager.setRenderDistance(horizonSettings.distance, horizonSettings.backDistance);
   terrainRig.setCityRadius(donationManager.getCityRadius());
-
-  // EnvMap dos prédios só é recapturado quando algo visível muda (câmera ou cena).
-  // Câmera parada + cena estática = zero renders extras.
-  let cubeDirty = true;
-  const markCubeDirty = () => {
-    cubeDirty = true;
-  };
-  controls.addEventListener("change", markCubeDirty);
 
   // Reabre a zona plana do relevo quando a cidade cresce. Cheap: setCityRadius
   // só recalcula a malha quando o raio muda (ganho de anel).
@@ -333,22 +366,52 @@ export function createCitySceneRuntime({
       frames = 0;
     }
 
-    // Captura no máximo a cada 4 frames, e só quando câmera/cena mudou desde a última.
-    cubeFrameCounter = (cubeFrameCounter + 1) % 4;
-    if (cubeFrameCounter === 0 && cubeDirty) {
+    // Captura no máximo a cada updateInterval frames. Fora de continuous/followCamera, só
+    // quando a cena mudou desde a última (probe estático → captura idêntica não paga).
+    cubeFrameCounter = (cubeFrameCounter + 1) % Math.max(1, Math.round(currentReflection.updateInterval));
+    if (
+      currentReflection.enabled &&
+      cubeFrameCounter === 0 &&
+      (cubeDirty || currentReflection.continuous || currentReflection.followCamera)
+    ) {
       cubeDirty = false;
-      buildingCubeCamera.position.copy(camera.position);
-      donationManager.beginEnvCapture();
-      // Relevo verde fora da captura (edifícios não devem refletir o terreno); plano cinza
-      // dentro da captura (piso neutro do reflexo, já que ele fica escondido no render normal).
+      if (currentReflection.followCamera) {
+        envProbePosition.copy(camera.position);
+      } else {
+        envProbePosition.set(
+          currentReflection.probeX,
+          currentReflection.probeY,
+          currentReflection.probeZ,
+        );
+      }
+      buildingCubeCamera.position.copy(envProbePosition);
+      // Céu segue a câmera no render normal — na captura tem que seguir o PROBE, senão a
+      // esfera (raio 200) fica deslocada ou até atrás dele.
+      environmentUpdater.updatePosition(
+        envProbePosition.x,
+        envProbePosition.y,
+        envProbePosition.z,
+      );
+      environmentUpdater.updateSettings({
+        ...currentEnvironment,
+        offsetY: currentEnvironment.offsetY + currentReflection.skyDrop,
+      });
+      donationManager.beginEnvCapture(currentReflection.includeCityFloor);
+      // Relevo verde e plano cinza fora da captura: os dois são chão chapado e tapam o
+      // hemisfério de baixo do cube — o que sobra ali é o céu (ver skyDrop).
       const terrainWasVisible = terrainRig.mesh.visible;
       const groundWasVisible = groundPlane.mesh.visible;
-      terrainRig.mesh.visible = false;
-      groundPlane.mesh.visible = true;
+      if (!currentReflection.includeGround) {
+        terrainRig.mesh.visible = false;
+        groundPlane.mesh.visible = false;
+      }
       buildingCubeCamera.update(renderer, scene);
       terrainRig.mesh.visible = terrainWasVisible;
       groundPlane.mesh.visible = groundWasVisible;
       donationManager.endEnvCapture();
+      // Devolve o céu pra câmera antes do render principal deste frame.
+      environmentUpdater.updateSettings(currentEnvironment);
+      environmentUpdater.updatePosition(camera.position.x, camera.position.y, camera.position.z);
     }
 
     // Acessórios somem além da distância de detalhe; prédios além da distância de renderização
@@ -360,7 +423,11 @@ export function createCitySceneRuntime({
         camera.position,
         camera.getWorldDirection(cullForward),
       );
-      if (culled !== currentStats.culled) emitStatsPatch({ culled });
+      // Prédio sumiu/voltou pelo cull → conteúdo do reflexo mudou.
+      if (culled !== currentStats.culled) {
+        emitStatsPatch({ culled });
+        markCubeDirty();
+      }
     }
 
     donationManager.tickAnimations(time / 1000, delta * 1000);
@@ -424,7 +491,26 @@ export function createCitySceneRuntime({
       markCubeDirty();
     },
     updateEnvironmentSettings(settings) {
+      currentEnvironment = settings;
       environmentUpdater.updateSettings(settings);
+      markCubeDirty();
+    },
+    updateReflectionSettings(settings) {
+      const resolutionChanged = settings.resolution !== currentReflection.resolution;
+      const enabledChanged = settings.enabled !== currentReflection.enabled;
+      currentReflection = settings;
+      // Resolução do cube é imutável no target: trocar exige recriar target + CubeCamera e
+      // reapontar o envMap das fachadas.
+      if (resolutionChanged) {
+        scene.remove(buildingCubeCamera);
+        buildingCubeTarget.dispose();
+        const probe = createCubeProbe(settings.resolution);
+        buildingCubeTarget = probe.target;
+        buildingCubeCamera = probe.cubeCamera;
+      }
+      if (resolutionChanged || enabledChanged) {
+        donationManager.setEnvMap(settings.enabled ? buildingCubeTarget.texture : null);
+      }
       markCubeDirty();
     },
 
@@ -505,7 +591,7 @@ export function createCitySceneRuntime({
       if (hoverRafId !== null) cancelAnimationFrame(hoverRafId);
       cancelAnimationFrame(animationId);
       window.removeEventListener("resize", handleResize);
-      controls.removeEventListener("change", markCubeDirty);
+      THREE.DefaultLoadingManager.onLoad = () => {};
       controls.dispose();
       donationManager.dispose();
       groundPlane.dispose();

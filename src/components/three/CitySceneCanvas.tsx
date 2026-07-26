@@ -8,6 +8,7 @@ import type {
   EnvironmentSettings,
   GroundSettings,
   LightSettings,
+  ReflectionSettings,
   SceneStats,
   TerrainSettings,
   TextureSettings,
@@ -31,6 +32,7 @@ export type CitySceneCanvasProps = {
   lightSettings: LightSettings;
   horizonSettings: HorizonSettings;
   environmentSettings: EnvironmentSettings;
+  reflectionSettings: ReflectionSettings;
   blockLayoutSettings: BlockLayoutSettings;
   onStatsChange: (stats: SceneStats) => void;
   onCameraDebugChange?: (cameraInfo: CameraDebugInfo) => void;
@@ -48,6 +50,7 @@ export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvas
       lightSettings,
       horizonSettings,
       environmentSettings,
+      reflectionSettings,
       blockLayoutSettings,
       onStatsChange,
       onCameraDebugChange,
@@ -67,6 +70,7 @@ export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvas
       lightSettings,
       horizonSettings,
       environmentSettings,
+      reflectionSettings,
       blockLayoutSettings,
       onStatsChange,
       onCameraDebugChange,

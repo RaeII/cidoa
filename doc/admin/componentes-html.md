@@ -42,7 +42,7 @@ src/
   App.tsx                      ← BrowserRouter + rotas (cena, admin)
   components/
     ui/                        ← primitivos shadcn (vendorizados, não editar à toa)
-      button.tsx  input.tsx  card.tsx  sidebar.tsx  sheet.tsx
+      button.tsx  input.tsx  card.tsx  sidebar.tsx  sheet.tsx  switch.tsx
       dropdown-menu.tsx  avatar.tsx  tooltip.tsx  separator.tsx  skeleton.tsx
     AuthProvider.tsx           ← sessão global (login/logout)
     RequireAuth.tsx            ← guarda da área /dale (exige admin)
@@ -74,7 +74,7 @@ src/
 
 ## Renderização HTML & tema
 
-Tokens da marca ficam em `src/index.css`: blocos `:root` (light) e `.dark` (dark), expostos como utilitários Tailwind via `@theme inline` (`bg-background`, `text-foreground`, `border-border`, `bg-primary`…). Paleta = navy + creme + terracota.
+Tokens ficam em `src/index.css`: blocos `:root` (light) e `.dark` (dark), expostos como utilitários Tailwind via `@theme inline` (`bg-background`, `text-foreground`, `border-border`, `bg-primary`…). Light mantém paleta da marca; dark usa escala neutra padrão do shadcn. Azul-marinho e terracota não entram no dark; vermelho fica restrito ao token semântico `destructive`.
 
 Regras de layout que convivem com a cena:
 
