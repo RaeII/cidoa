@@ -156,6 +156,30 @@ export function ReflectionControls({
       </PanelSection>
 
       <PanelSection
+        title="Direção do reflexo"
+        description="Corrige a direção amostrada no material, sem recaptura. Fachada vertical vista de cima espelha PRA BAIXO do horizonte, onde o cube só tem cinza — puxar pro horizonte devolve o skyline com o MESMO padrão em toda face."
+      >
+        <RangeField
+          label="Puxar pro horizonte"
+          value={value.envHorizon}
+          min={0}
+          max={0.95}
+          step={0.05}
+          valueLabel={value.envHorizon.toFixed(2)}
+          onChange={(envHorizon) => onChange({ ...value, envHorizon })}
+        />
+        <RangeField
+          label="Giro horizontal (Y)"
+          value={value.envRotY}
+          min={-180}
+          max={180}
+          step={1}
+          valueLabel={`${value.envRotY}°`}
+          onChange={(envRotY) => onChange({ ...value, envRotY })}
+        />
+      </PanelSection>
+
+      <PanelSection
         title="Conteúdo da captura"
         description="Chão chapado tapa o hemisfério de baixo do cube e mata o reflexo de céu na visão frontal."
       >

@@ -14,6 +14,11 @@ export const DEFAULT_REFLECTION_SETTINGS: ReflectionSettings = {
   // 0.2 de offset UV = ~36° de céu descendo abaixo do horizonte, direção que a fachada
   // vertical espelha quando a câmera olha o prédio de frente e de cima.
   skyDrop: -0.030,
+  // Fachada vertical vista de cima espelha PRA BAIXO do horizonte (R.y = -V.y), onde o cube
+  // só tem cinza. 0.6 puxa o vetor de reflexão de volta pro horizonte — igual em toda face,
+  // porque só escala Y. 0 = comportamento cru do probe.
+  envHorizon: 0.6,
+  envRotY: 0,
   updateInterval: 30,
   continuous: false,
   // Chão chapado tapa o hemisfério de baixo do cube: fora da captura por padrão.

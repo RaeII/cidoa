@@ -295,6 +295,7 @@ Aba **reflexo**: tudo do probe de envMap dos prédios. Props: `value: Reflection
 | **Qualidade** | `resolution` (slider anda no **expoente**: 6–10 → 64–1024px, rótulo em px) |
 | **Posição do probe** | `followCamera`, `probeY` (0–120), `probeX`/`probeZ` (−200–200) |
 | **Céu no reflexo** | `skyDrop` (−0.5–0.5) |
+| **Direção do reflexo** | `envHorizon` (0–0.95, puxa o reflexo pro horizonte), `envRotY` (−180–180°) — corrige a amostragem no material, sem recaptura |
 | **Conteúdo da captura** | `includeGround`, `includeCityFloor` |
 | **Atualização** | `updateInterval` (1–60 frames), `continuous` |
 

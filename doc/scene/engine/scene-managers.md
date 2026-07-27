@@ -137,6 +137,11 @@ Cena nunca fica vazia: o manager sempre desenha um **loteamento** (grade de quad
 > [!note] Por que shader triplanar?
 > Prédios dentro do mesmo `InstancedMesh` têm alturas diferentes. O shader triplanar garante que a textura de fachada seja aplicada corretamente sem distorção, independente da escala de cada instância.
 
+> [!bug] Projeção precisa do SINAL da normal
+> A seleção XY/ZY/XZ usava só `abs(aProjNormal)`, então `+X` e `−X` (idem `+Z`/`−Z`) liam o mesmo UV — visto de fora, `+u` cai pra **esquerda** numa face e pra **direita** na outra. Consequência real: o tangent frame do three é derivado por `dFdx/dFdy` de `vNormalMapUv` (`getTangentFrame`, sem atributo `tangent`), então ele espelha junto. Com `normalScale = 20` o normal map domina a normal final → os bumps invertem e o **reflexo da face frontal não bate com o das laterais**.
+>
+> Correção: multiplicar a coordenada horizontal pelo sinal do eixo dominante (`+X → −z`, `−X → +z`, `+Z → +x`, `−Z → −x`). Handedness igual nas quatro faces verticais.
+
 > [!note] Atributos `aProjPosition` / `aProjNormal`
 > O shader não usa `position`/`objectNormal` diretamente — usa atributos customizados `aProjPosition`/`aProjNormal` para selecionar a projeção (XY/ZY/XZ) e calcular o UV. Na geometria default eles são cópias de `position`/`normal` (comportamento idêntico). Na geometria torcida ([[scene-builders#createTwistedBuildingMesh.ts|createTwistedBuildingMesh]]) eles preservam os valores **pré-twist** (axis-aligned), evitando que a normal twisted atravesse a fronteira entre projeções no meio do prédio. Na geometria octogonal ([[scene-builders#createOctagonalBuildingMesh.ts|createOctagonalBuildingMesh]]), as faces diagonais usam normais de projeção cardinalizadas para evitar ambiguidade entre projeções X/Z. Na geometria setback ([[scene-builders#createSetbackBuildingMesh.ts|createSetbackBuildingMesh]]), cada patamar grava normais cardinais/lajes horizontais para manter a textura estável nos recuos. Na geometria Taipei ([[scene-builders#createTaipeiBuildingMesh.ts|createTaipeiBuildingMesh]]) e One Trade ([[scene-builders#createOneTradeBuildingMesh.ts|createOneTradeBuildingMesh]]), módulos chanfrados, bordas e pináculos também gravam esses atributos para manter a textura triplanar do projeto.
 
@@ -157,6 +162,8 @@ updateBlockLayout(settings: BlockLayoutSettings): void
 
 // EnvMap
 setEnvMap(texture: THREE.Texture): void
+setEnvMapRotation(yDeg: number): void   // material.envMapRotation (só eixo Y) em fachada + topo; sem recaptura nem needsUpdate
+setEnvHorizon(amount: number): void     // uniform uEnvHorizon (clamp 0–0.95): achata reflectVec.y no getIBLRadiance
 beginEnvCapture(includeCityFloor: boolean): void // zera envMapIntensity; esconde piso (asfalto, calçada, lotes) salvo includeCityFloor
 endEnvCapture(): void     // restaura envMapIntensity e o piso após captura
 

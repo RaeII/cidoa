@@ -133,8 +133,10 @@ Fachada usa o cube do `buildingCubeTarget` como `envMap` (ver [[scene-managers|s
 | `resolution` | `256` | Lado do `WebGLCubeRenderTarget`; trocar **recria** target + `CubeCamera` |
 | `probeX/Y/Z` | `0, 18, 0` | Posição da captura (Y sobe = mais céu, desce = mais fachada) |
 | `followCamera` | `false` | Probe na câmera; força recaptura todo intervalo |
-| `skyDrop` | `0.2` | `offsetY` extra do céu **só na captura** (~36°) |
-| `updateInterval` | `4` | Frames entre capturas (`cubeFrameCounter % max(1, n)`) |
+| `skyDrop` | `-0.030` | `offsetY` extra do céu **só na captura** |
+| `envHorizon` | `0.6` | `donationManager.setEnvHorizon` → uniform `uEnvHorizon`; achata `reflectVec.y` no `getIBLRadiance`. Muda a **direção amostrada**, não a captura |
+| `envRotY` | `0` | Graus. `donationManager.setEnvMapRotation` → `material.envMapRotation` (só eixo Y) |
+| `updateInterval` | `30` | Frames entre capturas (`cubeFrameCounter % max(1, n)`) |
 | `continuous` | `false` | Recaptura mesmo sem `cubeDirty` |
 | `includeGround` | `false` | Mantém plano cinza + relevo na captura |
 | `includeCityFloor` | `false` | Mantém asfalto/calçada/lotes (repassado a `beginEnvCapture`) |
@@ -152,6 +154,17 @@ Fachada usa o cube do `buildingCubeTarget` como `envMap` (ver [[scene-managers|s
 > 3. `skyDrop` soma `+0.2` ao `offsetY` do céu **durante a captura** (`updateSettings` → restaurado antes do `renderer.render`): a faixa azul/nuvens/sol desce ~36°, então o raio que aponta pra baixo ainda pega céu de verdade. O fundo da cena não se move — o offset do `EnvironmentSettings` que o usuário controla continua valendo no render normal.
 >
 > Sobra do prédio pra baixo: telhados e fachadas dos vizinhos, com céu nos vãos. Só em vista quase de topo (>40° abaixo) o reflexo volta a pegar cinza.
+>
+> 4. **`envHorizon`** (seção *Direção do reflexo*) ataca o mesmo problema pelo outro lado: em vez de mover conteúdo dentro da captura, corrige a direção **na hora de amostrar**. Custo zero: nenhuma recaptura, nenhum `needsUpdate`.
+
+> [!warning] Rotação rígida não iguala as faces
+> A primeira tentativa foi `material.envMapRotation` no eixo X. Não funciona: uma `mat3` de rotação em torno de X deixa as direções **±X quase paradas** (estão sobre o eixo) e gira **±Z pelo ângulo inteiro** — a própria correção vira dependente da face, e o padrão do reflexo frontal deixa de bater com o das laterais.
+>
+> `envHorizon` escala só o Y do `reflectVec` (`reflectVec.y *= 1 − uEnvHorizon`, renormalizado), operação **simétrica em torno do eixo vertical**: toda fachada vertical passa a amostrar a mesma faixa de elevação do cube. Injetado no `getIBLRadiance` pelo `onBeforeCompile` do triplanar ([[scene-managers#Shader triplanar]]), ancorado em `reflectVec = inverseTransformDirection( reflectVec, viewMatrix );` — em DEV, âncora ausente vira `console.warn`. Clamp em `0.95`: com `1.0` um reflexo apontando reto pra cima viraria `vec3(0)` → NaN.
+>
+> Sobra a diferença de **azimute**: cada face amostra uma direção horizontal distinta de um probe único, então o conteúdo continua diferente (a frente espelha o que está atrás da câmera, a lateral atravessa a cidade). Isso só some com `roughnessIntensity` maior (cone largo média o conteúdo) ou probe por edifício.
+>
+> `envRotY` continua útil e é seguro: rotação em Y gira o azimute de todas as fachadas verticais **igualmente**.
 
 Consequências:
 

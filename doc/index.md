@@ -346,6 +346,7 @@ flowchart LR
 | Alterar o ciclo completo da cena | [[scene-runtime]] |
 | Ajustar reflexo dos prédios (probe do envMap) | [[scene-runtime#Probe de reflexo (envMap dos prédios)]] |
 | Controlar reflexo pela UI (posição, qualidade, cadência) | aba **reflexo** → [[html-components#ReflectionControls.tsx]] |
+| Mudar a direção do reflexo (reflexo só nas laterais) | aba **reflexo** → seção Direção do reflexo → [[scene-runtime#Probe de reflexo (envMap dos prédios)]] |
 | Entender o contrato dos dados | [[scene-types]] |
 | Entender como React sincroniza com Three.js | [[scene-hooks]] |
 | Mexer na UI/tema/componentes do admin | [[componentes-html]] |

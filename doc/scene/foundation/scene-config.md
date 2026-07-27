@@ -184,8 +184,10 @@ Padrões do probe de reflexo dos prédios. `createDefaultReflectionSettings()` +
 | `resolution` | `256` | Fachada é espelho (`roughness 0`, amostra mip 0); 128 vira mancha lisa |
 | `probeX/Y/Z` | `0, 18, 0` | Centro da cidade, logo acima dos telhados |
 | `followCamera` | `false` | Probe na câmera = reflexo escorrega com a órbita |
-| `skyDrop` | `0.2` | ~36° de céu abaixo do horizonte — direção que a fachada espelha vista de frente |
-| `updateInterval` | `4` | Frames entre capturas |
+| `skyDrop` | `-0.030` | Desce a faixa de céu na captura — direção que a fachada espelha vista de frente |
+| `envHorizon` | `0.6` | Achata `reflectVec.y` no shader. Fachada vertical espelha pra baixo (`R.y = −V.y`) onde o cube só tem cinza; puxar pro horizonte devolve o skyline. Escala só Y → **igual em toda face** |
+| `envRotY` | `0` | Giro horizontal do envMap no material (graus). Único eixo de rotação rígida que preserva simetria entre faces |
+| `updateInterval` | `30` | Frames entre capturas |
 | `continuous` | `false` | Captura só quando a cena muda |
 | `includeGround` | `false` | Chão chapado tapa o hemisfério de baixo do cube |
 | `includeCityFloor` | `false` | Idem para asfalto/calçada/lotes |

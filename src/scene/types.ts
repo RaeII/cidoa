@@ -194,6 +194,12 @@ export type ReflectionSettings = {
   followCamera: boolean;
   /** Offset UV extra do céu só na captura: desce a faixa de céu abaixo do horizonte. */
   skyDrop: number;
+  /** 0–0.95: achata o vetor de reflexão em direção ao horizonte. Simétrico no eixo
+   *  vertical → toda fachada amostra a mesma faixa de elevação do cube. */
+  envHorizon: number;
+  /** Giro horizontal do envMap na fachada, em graus (eixo Y). Único eixo que preserva
+   *  a simetria entre as faces. */
+  envRotY: number;
   /** Frames entre capturas (1 = todo frame). */
   updateInterval: number;
   /** Recaptura a cada intervalo mesmo sem mudança na cena. */

@@ -210,6 +210,8 @@ export function createCitySceneRuntime({
     blockLayoutSettings,
   });
   donationManager.setEnvMap(reflectionSettings.enabled ? buildingCubeTarget.texture : null);
+  donationManager.setEnvMapRotation(reflectionSettings.envRotY);
+  donationManager.setEnvHorizon(reflectionSettings.envHorizon);
   donationManager.setRenderDistance(horizonSettings.distance, horizonSettings.backDistance);
   terrainRig.setCityRadius(donationManager.getCityRadius());
 
@@ -511,6 +513,9 @@ export function createCitySceneRuntime({
       if (resolutionChanged || enabledChanged) {
         donationManager.setEnvMap(settings.enabled ? buildingCubeTarget.texture : null);
       }
+      // Direção só muda a amostragem no material — não invalida a captura.
+      donationManager.setEnvMapRotation(settings.envRotY);
+      donationManager.setEnvHorizon(settings.envHorizon);
       markCubeDirty();
     },
 

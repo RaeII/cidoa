@@ -244,6 +244,8 @@ type ReflectionSettings = {
   probeZ: number;
   followCamera: boolean;     // probe na câmera (recaptura todo intervalo)
   skyDrop: number;           // offsetY extra do céu SÓ na captura
+  envHorizon: number;        // 0–0.95; achata reflectVec.y no shader (mesma faixa de elevação em toda face)
+  envRotY: number;           // graus; gira o envMap no eixo vertical (único eixo que preserva simetria)
   updateInterval: number;    // frames entre capturas
   continuous: boolean;       // recaptura mesmo sem mudança na cena
   includeGround: boolean;    // plano cinza + relevo entram na captura

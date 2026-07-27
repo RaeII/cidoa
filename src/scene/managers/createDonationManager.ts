@@ -183,6 +183,10 @@ export type DonationManager = {
   updateTextureSettings: (settings: TextureSettings) => void;
   updateBlockLayout: (settings: BlockLayoutSettings) => void;
   setEnvMap: (envMap: THREE.Texture | null) => void;
+  /** Giro horizontal do envMap na fachada/topo (graus). Muda a direção amostrada, não a captura. */
+  setEnvMapRotation: (yDeg: number) => void;
+  /** 0–0.95: achata o vetor de reflexão em direção ao horizonte, igual em toda fachada. */
+  setEnvHorizon: (amount: number) => void;
   /** `includeCityFloor`: mantém asfalto/calçada/lotes visíveis durante a captura do cube. */
   beginEnvCapture: (includeCityFloor: boolean) => void;
   endEnvCapture: () => void;
@@ -235,6 +239,8 @@ export function createDonationManager({
 
   const tilingUniform = { value: textureSettings.tilingScale };
   const topTilingUniform = { value: textureSettings.top.tilingScale };
+  // Compartilhado por todos os materiais triplanares (inclui clones de custom shape).
+  const envHorizonUniform = { value: 0 };
 
   // Geometria 1×1×1 — escala via instanceMatrix
   const buildingGeometry = new THREE.BoxGeometry(1, 1, 1, 1, 1, 1);
@@ -303,14 +309,18 @@ export function createDonationManager({
         #endif
         vTriplanarWorldPos = triWp.xyz;
         vTriplanarObjNormal = aProjNormal;
+        // Projeção COM SINAL. Sem o sinal, +X e +Z leem a textura com handedness oposta
+        // (visto de fora, +u aponta pra esquerda numa face e pra direita na outra): o
+        // tangent frame derivado de vNormalMapUv espelha junto, e com normalScale alto o
+        // normal map inverte os bumps → face frontal e lateral com padrão diferente.
         vec3 triAbsN = abs(aProjNormal);
         vec2 triUV;
         if (triAbsN.y >= triAbsN.x && triAbsN.y >= triAbsN.z) {
-          triUV = triWp.xz;
+          triUV = vec2(triWp.x, triWp.z * (aProjNormal.y < 0.0 ? -1.0 : 1.0));
         } else if (triAbsN.x >= triAbsN.z) {
-          triUV = triWp.zy;
+          triUV = vec2(-triWp.z * (aProjNormal.x < 0.0 ? -1.0 : 1.0), triWp.y);
         } else {
-          triUV = triWp.xy;
+          triUV = vec2(triWp.x * (aProjNormal.z < 0.0 ? -1.0 : 1.0), triWp.y);
         }
         triUV *= uTiling * uTilingMultiplier;
         triUV = triUV * uTextureTransform.xy + uTextureTransform.zw;
@@ -336,11 +346,26 @@ export function createDonationManager({
           vEmissiveMapUv = triUV;
         #endif`,
       );
+      shader.uniforms.uEnvHorizon = envHorizonUniform;
       shader.fragmentShader = shader.fragmentShader.replace(
         "#include <common>",
         `#include <common>
+        uniform float uEnvHorizon;
         varying vec3 vTriplanarWorldPos;
         varying vec3 vTriplanarObjNormal;`,
+      );
+      // Achata o vetor de reflexão em direção ao horizonte. Rotação rígida (envMapRotation)
+      // NÃO serve aqui: girar no X quase não mexe nas direções ±X e gira ±Z inteiro — a
+      // própria correção fica dependente da face. Escalar só o Y é simétrico no eixo
+      // vertical, então toda fachada vertical amostra a MESMA faixa de elevação do cube.
+      const IBL_ANCHOR = "reflectVec = inverseTransformDirection( reflectVec, viewMatrix );";
+      if (import.meta.env.DEV && !shader.fragmentShader.includes(IBL_ANCHOR)) {
+        console.warn("[donationManager] âncora do getIBLRadiance sumiu — uEnvHorizon inativo");
+      }
+      shader.fragmentShader = shader.fragmentShader.replace(
+        IBL_ANCHOR,
+        `${IBL_ANCHOR}
+        reflectVec = normalize(vec3(reflectVec.x, reflectVec.y * (1.0 - uEnvHorizon), reflectVec.z));`,
       );
     };
   };
@@ -1963,6 +1988,19 @@ export function createDonationManager({
         mat.envMap = envMap;
         mat.needsUpdate = true;
       }
+    },
+    setEnvMapRotation(yDeg) {
+      // Só Y: rotação no eixo vertical gira o azimute de TODA fachada igualmente. Girar no
+      // X quebraria a simetria (deixa ±X quase parado e vira ±Z inteiro).
+      // envMapRotation vira uniform a cada frame (WebGLMaterials) — sem needsUpdate.
+      // Clones de custom shape nascem de facadeMaterial/topMaterial e copiam o Euler.
+      const y = THREE.MathUtils.degToRad(yDeg);
+      for (const mat of getAllFacadeMaterials()) mat.envMapRotation.set(0, y, 0);
+      for (const mat of getAllTopMaterials()) mat.envMapRotation.set(0, y, 0);
+    },
+    setEnvHorizon(amount) {
+      // Clamp em 0.95: com 1.0 um reflexo apontando reto pra cima vira vec3(0) → NaN.
+      envHorizonUniform.value = THREE.MathUtils.clamp(amount, 0, 0.95);
     },
     beginEnvCapture(includeCityFloor) {
       for (const mat of getAllFacadeMaterials()) mat.envMapIntensity = 0;
