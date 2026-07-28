@@ -74,6 +74,7 @@ src/
   components/
     ui/
       switch.tsx                    ← Switch shadcn usado nas ativações do admin
+      select.tsx                    ← Select shadcn; filtro de personalização no admin
     AuthDialog.tsx                ← login por e-mail; cadastro com nome + username único
     AuthProvider.tsx              ← sessão local espelhada do cookie httpOnly
     ProfileDialog.tsx             ← edição de nome, username e imagem de perfil

@@ -15,7 +15,7 @@ Página de gestão do catálogo de personalizações da cena. Rota `/dale/person
 
 ## O que faz
 
-Carrega a árvore completa (`GET /admin/customization`, inclui inativas) e renderiza categorias top-level; **Customização** aninha subcategorias (Letreiro/Topo/LED/Holograma).
+Carrega a árvore completa (`GET /admin/customization`, inclui inativas). Mostra **uma** categoria top-level por vez — `Select` shadcn no topo escolhe qual (rótulo + `(inativa)` quando desligada). Sem scroll longo. Estado = `selectedId`; fallback pro primeiro top-level (`sortOrder`) quando nada escolhido. **Customização** aninha subcategorias (Letreiro/Topo/LED/Holograma), renderizadas dentro da escolhida.
 
 Por opção:
 - **Ativa/Inativa** — `Switch` shadcn controlado. Abre confirmação antes do `PUT /admin/customization/options/:id`; cancelar preserva estado. Desativada some da cena.

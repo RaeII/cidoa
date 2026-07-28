@@ -43,6 +43,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Switch } from "@/components/ui/switch";
@@ -258,6 +265,7 @@ function Customizations() {
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [toggleTarget, setToggleTarget] = useState<ToggleTarget | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -424,6 +432,7 @@ function Customizations() {
   const topLevel = categories
     ?.filter((c) => c.parentId === null)
     .sort((a, b) => a.sortOrder - b.sortOrder);
+  const selected = topLevel?.find((c) => c.id === selectedId) ?? topLevel?.[0];
 
   return (
     <SidebarProvider className="h-svh">
@@ -459,7 +468,26 @@ function Customizations() {
               <Skeleton className="mt-8 h-64 w-full" />
             ) : (
               <div className="mt-8 space-y-4">
-                {topLevel.map((category) => renderCategory(category, categories!))}
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-medium">Personalização</span>
+                  <Select
+                    value={selected ? String(selected.id) : undefined}
+                    onValueChange={(v) => setSelectedId(Number(v))}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecione uma personalização" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {topLevel.map((c) => (
+                        <SelectItem key={c.id} value={String(c.id)}>
+                          {c.label}
+                          {c.isActive ? "" : " (inativa)"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </label>
+                {selected && renderCategory(selected, categories!)}
               </div>
             )}
           </main>
