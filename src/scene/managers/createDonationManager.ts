@@ -36,43 +36,12 @@ import {
   type HologramEntry,
 } from "../builders/createHologramMesh";
 import { DEFAULT_HOLOGRAM_COLOR, DEFAULT_HOLOGRAM_OPACITY } from "../types";
+import { setEmpireBuildingMeshColor } from "../builders/createEmpireBuildingMesh";
 import {
-  createTwistedBuildingMesh,
-  disposeTwistedBuildingSharedResources,
-} from "../builders/createTwistedBuildingMesh";
-import {
-  createOctagonalBuildingMesh,
-  disposeOctagonalBuildingSharedResources,
-} from "../builders/createOctagonalBuildingMesh";
-import {
-  createSetbackBuildingMesh,
-  disposeSetbackBuildingSharedResources,
-} from "../builders/createSetbackBuildingMesh";
-import {
-  createTaperedBuildingMesh,
-  disposeTaperedBuildingSharedResources,
-} from "../builders/createTaperedBuildingMesh";
-import {
-  createChryslerBuildingMesh,
-  disposeChryslerBuildingSharedResources,
-} from "../builders/createChryslerBuildingMesh";
-import {
-  createHearstBuildingMesh,
-  disposeHearstBuildingSharedResources,
-} from "../builders/createHearstBuildingMesh";
-import {
-  createEmpireBuildingMesh,
-  disposeEmpireBuildingSharedResources,
-  setEmpireBuildingMeshColor,
-} from "../builders/createEmpireBuildingMesh";
-import {
-  createTaipeiBuildingMesh,
-  disposeTaipeiBuildingSharedResources,
-} from "../builders/createTaipeiBuildingMesh";
-import {
-  createOneTradeBuildingMesh,
-  disposeOneTradeBuildingSharedResources,
-} from "../builders/createOneTradeBuildingMesh";
+  createBuildingShapeMesh,
+  createUnitBuildingGeometry,
+  disposeBuildingShapeSharedResources,
+} from "../builders/createBuildingShapeMesh";
 import { seeded } from "../utils/random";
 
 import {
@@ -243,21 +212,7 @@ export function createDonationManager({
   const envHorizonUniform = { value: 0 };
 
   // Geometria 1×1×1 — escala via instanceMatrix
-  const buildingGeometry = new THREE.BoxGeometry(1, 1, 1, 1, 1, 1);
-  for (const group of buildingGeometry.groups) {
-    group.materialIndex = group.materialIndex === 2 ? 1 : 0;
-  }
-  // Atributos de projeção (cópia da posição/normal axis-aligned). O shader triplanar
-  // os consome unificadamente — geometria torcida sobrescreve essas atribuições com
-  // os valores PRÉ-twist (ver createTwistedBuildingMesh).
-  buildingGeometry.setAttribute(
-    "aProjPosition",
-    new THREE.BufferAttribute(new Float32Array(buildingGeometry.attributes.position.array), 3),
-  );
-  buildingGeometry.setAttribute(
-    "aProjNormal",
-    new THREE.BufferAttribute(new Float32Array(buildingGeometry.attributes.normal.array), 3),
-  );
+  const buildingGeometry = createUnitBuildingGeometry();
 
   // Shader triplanar: aplica textura usando coordenadas de mundo, não UV locais.
   // Necessário para instanced mesh onde cada prédio tem escala/posição diferente.
@@ -1785,32 +1740,14 @@ export function createDonationManager({
         setMaterialTextureTransform(facadeMat, customization.textureTransform);
         setMaterialTextureTransform(topMat, customization.textureTransform);
 
-        let sceneMesh: THREE.Mesh;
-        if (shape === "twisted") {
-          sceneMesh = createTwistedBuildingMesh(facadeMat, topMat);
-        } else if (shape === "octagonal") {
-          sceneMesh = createOctagonalBuildingMesh(facadeMat, topMat);
-        } else if (shape === "setback") {
-          sceneMesh = createSetbackBuildingMesh(facadeMat, topMat);
-        } else if (shape === "tapered") {
-          sceneMesh = createTaperedBuildingMesh(facadeMat, topMat);
-        } else if (shape === "chrysler") {
-          sceneMesh = createChryslerBuildingMesh(facadeMat, topMat);
-        } else if (shape === "hearst") {
-          sceneMesh = createHearstBuildingMesh(facadeMat, topMat);
-        } else if (shape === "empire") {
-          sceneMesh = createEmpireBuildingMesh(facadeMat, topMat);
+        // Shape `default` aqui = precisa de mesh próprio por outro motivo
+        // (ex: tiling customizado) — reusa a geometria caixa do InstancedMesh.
+        const sceneMesh = createBuildingShapeMesh(shape, facadeMat, topMat, buildingGeometry);
+        if (shape === "empire") {
           tmpColor.set(customization.color);
           if (!tmpColor.equals(currentBuildingColor)) {
             setEmpireBuildingMeshColor(sceneMesh, customization.color);
           }
-        } else if (shape === "taipei") {
-          sceneMesh = createTaipeiBuildingMesh(facadeMat, topMat);
-        } else if (shape === "one-trade") {
-          sceneMesh = createOneTradeBuildingMesh(facadeMat, topMat);
-        } else {
-          // Formato default mas precisa de mesh próprio (ex: tiling customizado).
-          sceneMesh = new THREE.Mesh(buildingGeometry, [facadeMat, topMat]);
         }
 
         sceneMesh.userData.donationId = donation.id;
@@ -2276,15 +2213,7 @@ export function createDonationManager({
         disposeCustomShapeEntry(entry);
       }
       customShapeMeshes.clear();
-      disposeTwistedBuildingSharedResources();
-      disposeOctagonalBuildingSharedResources();
-      disposeSetbackBuildingSharedResources();
-      disposeTaperedBuildingSharedResources();
-      disposeChryslerBuildingSharedResources();
-      disposeHearstBuildingSharedResources();
-      disposeEmpireBuildingSharedResources();
-      disposeTaipeiBuildingSharedResources();
-      disposeOneTradeBuildingSharedResources();
+      disposeBuildingShapeSharedResources();
       focusFacadeMaterial.dispose();
       focusTopMaterial.dispose();
       scene.remove(mesh);

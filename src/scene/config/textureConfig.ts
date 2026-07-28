@@ -12,7 +12,7 @@ export const DEFAULT_TOP_TEXTURE_SETTINGS: TopTextureSettings = {
 export const DEFAULT_TEXTURE_SETTINGS: TextureSettings = {
   enabled: true,
   textureKey: "texture/Facade006_1K-mirrored-PNG", // = value seed da textura padrão
-  normalScale: 20,
+  normalScale: 0,
   displacementScale: 0.0,
   tilingScale: 0.4,
   roughnessIntensity: 0,

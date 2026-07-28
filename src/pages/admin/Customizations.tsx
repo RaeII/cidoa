@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { EllipsisVertical, Loader2, Lock, Palette, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   createCustomizationOption,
@@ -17,6 +17,8 @@ import {
   resolveFacadeFolder,
   type FacadeTextureInfo,
 } from "@/scene/textures/facadeTextureManifest";
+import { isBuildingShape } from "@/scene/builders/createBuildingShapeMesh";
+import type { BuildingShape } from "@/scene/types";
 import { AppSidebar } from "@/components/AppSidebar";
 import { MobileNav } from "@/components/MobileNav";
 import { Button } from "@/components/ui/button";
@@ -53,6 +55,16 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Switch } from "@/components/ui/switch";
+
+// three.js (~570 kB) só entra quando a categoria Formato aparece na tela — as
+// outras páginas do admin compartilham o mesmo chunk e não podem pagar por isso.
+const shapePreviewModule = () => import("@/components/three/BuildingShapePreview");
+const ShapeThumb = lazy(() =>
+  shapePreviewModule().then((m) => ({ default: m.BuildingShapeThumb })),
+);
+const ShapePreview = lazy(() =>
+  shapePreviewModule().then((m) => ({ default: m.BuildingShapePreview })),
+);
 
 type Feedback = { ok: boolean; text: string } | null;
 type ToggleTarget = {
@@ -191,20 +203,38 @@ function OptionDialog({
 function OptionRow({
   option,
   isColor,
+  shape,
   busy,
   onToggle,
   onEdit,
   onDelete,
+  onPreview,
 }: {
   option: CustomizationOption;
   isColor: boolean;
+  /** Formato com builder no front — mostra miniatura 3D clicável. */
+  shape: BuildingShape | null;
   busy: boolean;
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onPreview: () => void;
 }) {
   return (
     <div className="flex items-center gap-3 rounded-lg border px-3 py-2">
+      {shape && (
+        <button
+          type="button"
+          onClick={onPreview}
+          title={`Ver ${option.label} em 3D`}
+          aria-label={`Ver formato ${option.label} em 3D`}
+          className={`size-12 shrink-0 overflow-hidden rounded-md border bg-muted/40 transition-colors hover:border-foreground/40 ${option.isActive ? "" : "opacity-40"}`}
+        >
+          <Suspense fallback={null}>
+            <ShapeThumb shape={shape} className="size-full object-contain" />
+          </Suspense>
+        </button>
+      )}
       {isColor && option.value && (
         <span
           className="size-5 shrink-0 rounded border"
@@ -266,6 +296,7 @@ function Customizations() {
   const [toggleTarget, setToggleTarget] = useState<ToggleTarget | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [preview, setPreview] = useState<{ shape: BuildingShape; label: string } | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -318,6 +349,7 @@ function Customizations() {
       .filter((c) => c.parentId === category.id)
       .sort((a, b) => a.sortOrder - b.sortOrder);
     const isColor = category.key === "color";
+    const isShape = category.key === "shape";
     const isTexture = category.key === "texture";
     const unregistered = isTexture ? unregisteredFacadeFolders(category.options) : [];
     const busy = busyId === category.id;
@@ -358,11 +390,14 @@ function Customizations() {
             {category.options
               .slice()
               .sort((a, b) => a.sortOrder - b.sortOrder)
-              .map((option) => (
+              .map((option) => {
+                const shape = isShape && isBuildingShape(option.key) ? option.key : null;
+                return (
                 <OptionRow
                   key={option.id}
                   option={option}
                   isColor={isColor}
+                  shape={shape}
                   busy={busyId === option.id}
                   onToggle={() => setToggleTarget({
                     type: "option",
@@ -374,8 +409,10 @@ function Customizations() {
                   onDelete={() =>
                     void run(option.id, () => deleteCustomizationOption(option.id), `Opção "${option.label}" excluída.`)
                   }
+                  onPreview={() => shape && setPreview({ shape, label: option.label })}
                 />
-              ))}
+                );
+              })}
             {category.kind === "feature" && category.options.length === 0 && (
               <p className="text-sm text-muted-foreground">
                 Sem opções — controlado só pelo botão ativa/inativa.
@@ -507,6 +544,29 @@ function Customizations() {
           }}
         />
       )}
+
+      {/* Preview grande: só monta quando aberto — 1 contexto WebGL por vez. */}
+      <Dialog open={preview !== null} onOpenChange={(open) => !open && setPreview(null)}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Formato · {preview?.label}</DialogTitle>
+            <DialogDescription>
+              Arraste para girar, scroll para aproximar. Mesma geometria usada na cena 3D.
+            </DialogDescription>
+          </DialogHeader>
+          {preview && (
+            <Suspense
+              fallback={<Skeleton className="h-[55vh] w-full rounded-xl" />}
+            >
+              <ShapePreview
+                key={preview.shape}
+                shape={preview.shape}
+                className="h-[55vh] w-full cursor-grab overflow-hidden rounded-xl border bg-muted/30 active:cursor-grabbing"
+              />
+            </Suspense>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={toggleTarget !== null} onOpenChange={(open) => !open && setToggleTarget(null)}>
         <DialogContent>

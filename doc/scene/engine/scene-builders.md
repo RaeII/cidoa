@@ -289,6 +289,31 @@ disposeEdgeLightSharedResources(): void                             // libera ge
 
 ---
 
+### `createBuildingShapeMesh.ts`
+
+Registro único formato → builder. Ponto de entrada de **todo** consumidor de formato: [[scene-managers|DonationManager]] na cena e [[three-components#BuildingShapePreview.tsx|BuildingShapePreview]] no admin.
+
+**Responsabilidades:**
+- `SHAPE_BUILDERS`: `Record<Exclude<BuildingShape, "default">, builder>` — `Record` exaustivo, formato novo em [[scene-types#BuildingShape]] sem builder **não compila**
+- `createBuildingShapeMesh(shape, facadeMaterial, topMaterial, defaultGeometry)` — devolve o Mesh do formato; `default` usa a geometria caixa que o caller já tem em mãos
+- `createUnitBuildingGeometry()` — caixa 1×1×1 com grupos remapeados (topo = material 1, resto = 0) + atributos `aProjPosition`/`aProjNormal` do shader triplanar. Instância nova por chamada, quem cria descarta
+- `BUILDING_SHAPES` / `isBuildingShape(key)` — lista e guard pra key vinda do catálogo do banco ([[customization-api]]), que pode ter opção sem builder no front
+- `disposeBuildingShapeSharedResources()` — descarta a geometria compartilhada dos 9 formatos de uma vez
+
+**Quando mexer aqui:**
+- Adicionar formato novo (uma linha no mapa + uma no dispose)
+- Mudar a geometria caixa do formato `default`
+
+> [!note] Cor do Empire fica fora
+> `createEmpireBuildingMesh` cria materiais extras (janela, metal, calcário claro/escuro), então cor customizada exige `setEmpireBuildingMeshColor`. Esse caso continua no caller — o mapa só constrói.
+
+> [!important] Não chame o dispose no admin
+> As geometrias são cache module-level compartilhado. `disposeBuildingShapeSharedResources()` é do teardown do manager; o preview do admin só descarta os **materiais** que criou.
+
+**Checagem:** `node scripts/check-building-shapes.mjs` — monta os 10 formatos fora do navegador (sem WebGL) e afirma geometria não-degenerada, altura unitária e slots de material na ordem fachada/topo.
+
+---
+
 ### `createTwistedBuildingMesh.ts`
 
 Cria um `THREE.Mesh` com geometria torcida (estilo **Cayan Tower**) para edifícios com `BuildingShape === "twisted"`.

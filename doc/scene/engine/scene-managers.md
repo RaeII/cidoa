@@ -261,7 +261,7 @@ Para cada doação custom, `syncCustomShapes()`:
 1. Clona `facadeMaterial`/`topMaterial`.
 2. **Re-aplica `applyTriplanarShader` no clone** para que ele tenha seu próprio `uTilingMultiplier` (default 1.0). Sem isso, o clone herdaria o `onBeforeCompile` do original, apontando para o uniform compartilhado.
 3. Define cor (`customization.color`), tiling (`customization.tilingScale`) e ajuste manual de textura (`customization.textureTransform`) no clone.
-4. Cria o mesh:
+4. Cria o mesh via [[scene-builders#createBuildingShapeMesh.ts|createBuildingShapeMesh(shape, facadeMat, topMat, buildingGeometry)]] — mapa formato → builder, sem `if` no manager:
    - `shape === "twisted"` → [[scene-builders#createTwistedBuildingMesh.ts|createTwistedBuildingMesh]] (geometria espiralada compartilhada).
    - `shape === "octagonal"` → [[scene-builders#createOctagonalBuildingMesh.ts|createOctagonalBuildingMesh]] (geometria octogonal compartilhada).
    - `shape === "setback"` → [[scene-builders#createSetbackBuildingMesh.ts|createSetbackBuildingMesh]] (geometria em patamares compartilhada).
@@ -271,7 +271,8 @@ Para cada doação custom, `syncCustomShapes()`:
    - `shape === "empire"` → [[scene-builders#createEmpireBuildingMesh.ts|createEmpireBuildingMesh]] (geometria art déco textureless compartilhada).
    - `shape === "taipei"` → [[scene-builders#createTaipeiBuildingMesh.ts|createTaipeiBuildingMesh]] (geometria modular compartilhada inspirada no Taipei 101).
    - `shape === "one-trade"` → [[scene-builders#createOneTradeBuildingMesh.ts|createOneTradeBuildingMesh]] (geometria facetada com base chanfrada e pináculo, usando texturas PBR padrão).
-   - `shape === "default"` → `THREE.Mesh(buildingGeometry, [facadeMat, topMat])` (mesma `BoxGeometry` do InstancedMesh).
+   - `shape === "default"` → `THREE.Mesh(buildingGeometry, [facadeMat, topMat])` (mesma `BoxGeometry` do InstancedMesh, criada por `createUnitBuildingGeometry()`).
+   - `shape === "empire"` também recebe `setEmpireBuildingMeshColor` quando a cor do prédio difere da cor global — o caso fica no manager, o mapa só constrói.
 5. Adiciona à cena, registra em `customShapeMeshes` e seta `userData.donationId`/`userData.donationValue` para suportar raycast.
 6. Fora do bloco de criação (roda em **todo** sync, inclusive pra entry reusada): `applyBuildingFacadeTexture(entry.facadeMat, customization)` carrega/aplica a textura própria do prédio. É idempotente — compara com a pasta já aplicada e sai cedo se nada mudou.
 
@@ -281,7 +282,7 @@ Pontos de integração:
 - `setFocusedDonation` dim os clones para `0.15` quando outro prédio está focado, mantém em `1.0` se o custom é o focado, e dispensa o `focusHighlightMesh` (o próprio Mesh já é separado).
 - `getHoveredValue` / `getClickedDonationId` (via `pickAt`) testam custom shapes com raycaster normal e leem `donationId`/`donationValue` de `userData`; instanciados vão pelo caminho AABB (ver [[scene-managers#Picking (hover/clique) por AABB de quadra|Picking]]).
 - O map `donationTransforms: Map<id, {position, scale}>` é a **fonte única** dos transforms lógicos: acessórios (rooftop/sign/edge) usam `readDonationTransform` que lê desse map, então funcionam igual para edifícios custom sem precisar saber se viraram Mesh separado.
-- `dispose()` limpa cada clone (`facadeMat.dispose()` + `topMat.dispose()`) e chama `disposeTwistedBuildingSharedResources()` / `disposeOctagonalBuildingSharedResources()` / `disposeSetbackBuildingSharedResources()`.
+- `dispose()` limpa cada clone (`facadeMat.dispose()` + `topMat.dispose()`) e chama `disposeBuildingShapeSharedResources()` — libera de uma vez a geometria compartilhada de todos os formatos.
 
 > [!tip] Adicionando novas customizações de material
 > Para uma futura personalização que precise de estado de material próprio (ex: normalScale individual), basta:

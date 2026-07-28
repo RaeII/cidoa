@@ -50,6 +50,7 @@ O projeto é dividido em 3 grandes partes:
 ```text
 scripts/
   encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`)
+  check-building-shapes.mjs    ← checa os 10 formatos sem navegador (`node scripts/check-building-shapes.mjs`)
 public/
   basis/                       ← transcoder basis do KTX2Loader (js + wasm)
 src/
@@ -113,6 +114,7 @@ src/
       useCustomizationCatalog.ts   ← carrega catálogo de personalizações 1×
     three/
       CitySceneCanvas.tsx
+      BuildingShapePreview.tsx     ← miniatura + preview 3D de um formato (admin)
   scene/
     types.ts
     config/
@@ -133,6 +135,7 @@ src/
       createRooftopMesh.ts
       createSignMesh.ts
       createEdgeLightMesh.ts
+      createBuildingShapeMesh.ts   ← registro formato → builder (cena + admin)
       createTwistedBuildingMesh.ts
       createOctagonalBuildingMesh.ts
       createSetbackBuildingMesh.ts
@@ -259,14 +262,15 @@ flowchart TD
     M --> N[createRooftopMesh]
     M --> O[createSignMesh]
     M --> Q[createEdgeLightMesh]
-    M --> T[createTwistedBuildingMesh]
-    M --> U[createOctagonalBuildingMesh]
-    M --> V[createSetbackBuildingMesh]
-    M --> W[createTaperedBuildingMesh]
-    M --> X[createHearstBuildingMesh]
-    M --> Y[createEmpireBuildingMesh]
-    M --> Z[createTaipeiBuildingMesh]
-    M --> OT[createOneTradeBuildingMesh]
+    M --> BS[createBuildingShapeMesh]
+    BS --> T[createTwistedBuildingMesh]
+    BS --> U[createOctagonalBuildingMesh]
+    BS --> V[createSetbackBuildingMesh]
+    BS --> W[createTaperedBuildingMesh]
+    BS --> X[createHearstBuildingMesh]
+    BS --> Y[createEmpireBuildingMesh]
+    BS --> Z[createTaipeiBuildingMesh]
+    BS --> OT[createOneTradeBuildingMesh]
     M --> HG[createHologramMesh]
     E --> C
     P --> C
@@ -286,15 +290,9 @@ flowchart LR
     UC --> Runtime[runtime.updateDonationCustomization]
     Runtime --> DM[donationManager]
     DM --> |cor| IC[instanceColor]
-    DM --> |formato twisted| TW[createTwistedBuildingMesh]
-    DM --> |formato octagonal| OC[createOctagonalBuildingMesh]
-    DM --> |formato setback| SB[createSetbackBuildingMesh]
-    DM --> |formato tapered| TP[createTaperedBuildingMesh]
-    DM --> |formato chrysler| CH[createChryslerBuildingMesh]
-    DM --> |formato hearst| HT[createHearstBuildingMesh]
-    DM --> |formato empire| EM[createEmpireBuildingMesh]
-    DM --> |formato taipei| TP101[createTaipeiBuildingMesh]
-    DM --> |formato one-trade| OT[createOneTradeBuildingMesh]
+    DM --> |formato| BS[createBuildingShapeMesh]
+    BS --> SH["builder do formato<br/>twisted · octagonal · setback · tapered · chrysler<br/>hearst · empire · taipei · one-trade"]
+    Admin[Admin · Personalizações] --> BS
     DM --> |topo| RM[createRooftopMesh]
     DM --> |sign| SM[createSignMesh]
     DM --> |LED| EL[createEdgeLightMesh]
@@ -326,6 +324,8 @@ flowchart LR
 | Alterar letreiros de fachada (signs)             | [[scene-builders#createSignMesh.ts]]              |
 | Alterar LED de arestas                           | [[scene-builders#createEdgeLightMesh.ts]]         |
 | Alterar holograma cyberpunk                      | [[scene-builders#createHologramMesh.ts]]          |
+| Adicionar formato de edifício novo               | [[scene-builders#createBuildingShapeMesh.ts]] + [[scene-types#BuildingShape]] |
+| Ver formato em 3D no admin (miniatura + dialog)  | [[personalizacoes#Formato: miniatura 3D]] · [[three-components#BuildingShapePreview.tsx]] |
 | Alterar torre torcida (twisted)                  | [[scene-builders#createTwistedBuildingMesh.ts]]   |
 | Alterar torre octogonal (octagonal)              | [[scene-builders#createOctagonalBuildingMesh.ts]] |
 | Alterar torre setback (setback)                  | [[scene-builders#createSetbackBuildingMesh.ts]]   |

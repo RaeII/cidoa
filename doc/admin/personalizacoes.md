@@ -27,6 +27,17 @@ Por categoria:
 - **Ativa/Inativa** — `Switch` shadcn controlado. Abre confirmação antes do `PUT /admin/customization/categories/:id`; cancelar preserva estado. Serve pra ligar/desligar features (Letreiro/Holograma) e categorias inteiras.
 - **Adicionar opção** — só em categoria extensível. **Cor** = dialog com hex.
 
+## Formato: miniatura 3D
+
+Categoria **Formato** mostra o edifício, não só o nome — admin reconhece o modelo de relance.
+
+- **Miniatura** — quadrado 48px na linha da opção, renderizado com a **mesma geometria da cena** ([[three-components#BuildingShapePreview.tsx|BuildingShapeThumb]]). Um render por formato, depois cache.
+- **Clique na miniatura** — dialog com o edifício inteiro: arrastar gira, scroll aproxima, auto-rotate parado quando o usuário assume.
+
+Key da opção precisa ter builder no front (`isBuildingShape`, ver [[scene-builders#createBuildingShapeMesh.ts]]). Opção com key desconhecida = linha normal, sem miniatura — nada quebra.
+
+three.js entra por import dinâmico: as outras páginas do admin dividem o mesmo chunk e não podem pagar 570 kB por isso.
+
 ## Textura: cadastradas × não-cadastradas
 
 Categoria **Textura** não usa dialog de digitar caminho. Compara pastas do repo (`FACADE_TEXTURE_FOLDERS`, ver [[scene-textures]]) com o catálogo:

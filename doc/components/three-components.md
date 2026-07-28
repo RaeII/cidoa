@@ -23,6 +23,11 @@ A pasta `src/components/three` isola o ponto de montagem da cena.
 - Three.js cuida do conteúdo dentro do canvas
 - A cena não deve ser construída diretamente dentro do painel HTML
 
+## Arquivos
+
+- `CitySceneCanvas.tsx` — cena principal
+- `BuildingShapePreview.tsx` — preview isolado de um formato (admin)
+
 ## Arquivo Principal
 
 ### `CitySceneCanvas.tsx`
@@ -86,6 +91,28 @@ Exemplos:
 - adicionar comportamento visual no wrapper
 
 Sem essa separação, qualquer mudança simples no container exigiria mexer no código 3D pesado.
+
+## `BuildingShapePreview.tsx`
+
+Mostra **um** formato de edifício fora da cena. Usado no admin ([[personalizacoes]]) pra ver o modelo, não só o nome. Mesma geometria da cena — pega tudo de [[scene-builders#createBuildingShapeMesh.ts|createBuildingShapeMesh]], nada é remodelado aqui.
+
+Dois exports, mesma cena interna (`createPreviewScene`):
+
+| Export | Uso | Custo |
+|---|---|---|
+| `BuildingShapeThumb` | miniatura na lista | render 1× por formato → PNG data URL em cache module-level; depois é só `<img>` |
+| `BuildingShapePreview` | preview grande no dialog | canvas vivo com `OrbitControls` (arrastar/zoom, auto-rotate), 1 contexto WebGL enquanto montado |
+
+**Detalhes:**
+- **Luz própria** — admin não tem HDRI nem `scene.environment`: ambient + 2 direcionais. Sem sombra (regra do projeto, ver [[index]])
+- **Prédio esticado 3× no Y** — geometria é 1×1×1; sem esticar, Empire/Chrysler viram cubos e o admin não reconhece o formato
+- **Enquadramento por bounding sphere** — `frame(aspect)` devolve a distância que faz o prédio caber; `place(distance)` posiciona a câmera. Separados porque resize não pode desfazer o giro do usuário
+- **Miniatura em `requestAnimationFrame`** — render sai do commit do React; lista com 10 formatos não trava o paint
+- **Sem WebGL** (contexto perdido, driver ruim) → cache guarda `""` e o componente devolve um bloco vazio, sem quebrar a página
+- **Dispose** — só os materiais e a caixa criados aqui. Geometrias de formato são cache compartilhado dos builders
+
+> [!important] three.js entra por import dinâmico
+> ~570 kB. `Customizations.tsx` importa este arquivo via `lazy()` + `Suspense`, senão o three cai no chunk compartilhado do admin e **toda** página admin paga o download.
 
 ## Relação com o Hook
 
