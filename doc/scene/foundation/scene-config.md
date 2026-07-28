@@ -189,8 +189,8 @@ Padrões do probe de reflexo dos prédios. `createDefaultReflectionSettings()` +
 | `envRotY` | `0` | Giro horizontal do envMap no material (graus). Único eixo de rotação rígida que preserva simetria entre faces |
 | `updateInterval` | `30` | Frames entre capturas |
 | `continuous` | `false` | Captura só quando a cena muda |
-| `includeGround` | `false` | Chão chapado tapa o hemisfério de baixo do cube |
-| `includeCityFloor` | `false` | Idem para asfalto/calçada/lotes |
+| `includeGround` | `true` | Plano cinza + relevo entram no cube e aparecem nos reflexos |
+| `includeCityFloor` | `true` | Asfalto/calçada/lotes entram no cube e aparecem nos reflexos |
 
 > [!note]
 > Editável na aba **reflexo** do painel. Tipo em [[scene-types#ReflectionSettings]], mecânica em [[scene-runtime#Probe de reflexo (envMap dos prédios)]].

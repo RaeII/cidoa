@@ -399,8 +399,8 @@ export function createCitySceneRuntime({
         offsetY: currentEnvironment.offsetY + currentReflection.skyDrop,
       });
       donationManager.beginEnvCapture(currentReflection.includeCityFloor);
-      // Relevo verde e plano cinza fora da captura: os dois são chão chapado e tapam o
-      // hemisfério de baixo do cube — o que sobra ali é o céu (ver skyDrop).
+      // Quando excluídos pelo controle de reflexo, relevo e plano cinza deixam o hemisfério
+      // de baixo do cube livre para o céu (ver skyDrop).
       const terrainWasVisible = terrainRig.mesh.visible;
       const groundWasVisible = groundPlane.mesh.visible;
       if (!currentReflection.includeGround) {

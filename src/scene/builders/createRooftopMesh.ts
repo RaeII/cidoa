@@ -1554,6 +1554,11 @@ const FACTORIES: Record<Exclude<RooftopType, "none">, RooftopFactory> = {
   helicopter: createHelicopter,
 };
 
+/** Guard pra keys vindas do catálogo (banco pode ter opção sem builder). */
+export function isRooftopType(key: string): key is RooftopType {
+  return key === "none" || key in FACTORIES;
+}
+
 /**
  * Cria um Group Three.js para o acessório de topo do edifício.
  * Retorna null se o tipo for "none".

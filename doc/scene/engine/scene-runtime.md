@@ -121,7 +121,7 @@ type CitySceneRuntime = {
 > [!note] Relevo (terrainRig)
 > O runtime possui o `terrainRig` ([[scene-builders#createTerrain.ts]]) — opção `terrainSettings` + método `updateTerrainSettings`. Sincroniza a zona plana via `syncTerrainToCity`, que chama `terrainRig.setCityRadius(donationManager.getCityRadius())` após `addDonation`/`addDonations`/`updateBlockLayout` (toda mudança de doação ou layout de quadra). Cor do chão sincronizada via `terrainRig.setGroundColor` em `updateGroundSettings`. Ver [[scene-managers|getCityRadius]].
 >
-> **Chão infinito:** o `groundPlane` fica **sempre visível** (`y=−0.05`, abaixo do piso do relevo em `−0.04`) e **segue a câmera** (`setPosition` no loop). Onde há relevo, o terreno cobre; além da borda do relevo (mesh fixo, 700u na origem), o plano preenche o vazio → cidade grande **não tem limite** ao mover a câmera. Fica sempre abaixo do terreno → **sem z-fighting** (antes o plano era escondido com o relevo ligado, pra não piscar por ficar acima). Na **captura do cube envMap** relevo e plano cinza são ocultados por um frame (`visible = false`; prédios **não refletem** verde nem chão chapado) — o hemisfério de baixo do reflexo fica com céu. Visibilidade restaurada depois. Reversível pelo `includeGround` da aba **reflexo**.
+> **Chão infinito:** o `groundPlane` fica **sempre visível** (`y=−0.05`, abaixo do piso do relevo em `−0.04`) e **segue a câmera** (`setPosition` no loop). Onde há relevo, o terreno cobre; além da borda do relevo (mesh fixo, 700u na origem), o plano preenche o vazio → cidade grande **não tem limite** ao mover a câmera. Fica sempre abaixo do terreno → **sem z-fighting** (antes o plano era escondido com o relevo ligado, pra não piscar por ficar acima). Na **captura do cube envMap**, relevo e plano cinza permanecem visíveis por padrão e aparecem nos reflexos. Desmarcar `includeGround` os oculta apenas durante a captura; a visibilidade do render principal não muda.
 
 ### Probe de reflexo (envMap dos prédios)
 
@@ -138,22 +138,22 @@ Fachada usa o cube do `buildingCubeTarget` como `envMap` (ver [[scene-managers|s
 | `envRotY` | `0` | Graus. `donationManager.setEnvMapRotation` → `material.envMapRotation` (só eixo Y) |
 | `updateInterval` | `30` | Frames entre capturas (`cubeFrameCounter % max(1, n)`) |
 | `continuous` | `false` | Recaptura mesmo sem `cubeDirty` |
-| `includeGround` | `false` | Mantém plano cinza + relevo na captura |
-| `includeCityFloor` | `false` | Mantém asfalto/calçada/lotes (repassado a `beginEnvCapture`) |
+| `includeGround` | `true` | Mantém plano cinza + relevo na captura |
+| `includeCityFloor` | `true` | Mantém asfalto/calçada/lotes (repassado a `beginEnvCapture`) |
 
 `updateReflectionSettings` só paga o custo alto quando precisa: `resolution` diferente → dispose do target antigo, `createCubeProbe(res)`, `setEnvMap` na textura nova; `enabled` diferente → só `setEnvMap`. Resto é troca de variável + `markCubeDirty`.
 
 > [!bug] Por que não na câmera
 > Probe na posição da câmera = reflexo só aparecia de lado, em certo ângulo. Motivo: o shader amostra o cube pela direção `reflect()`. Prédio de frente → direção de amostragem sai da câmera pra trás/pra baixo → céu e chão vazios atrás do observador = fachada lisa. Girando a órbita, o cube inteiro escorregava junto → reflexo "surgia" em ângulos específicos. Probe fixo no centro: qualquer ângulo amostra a cidade e a imagem fica estável.
 
-> [!bug] Céu abaixo do horizonte (prédio de frente)
-> Espelho vertical visto **de cima** reflete pra **baixo**: `R.y = −V.y`. Câmera 24° acima do prédio → o raio refletido sai 24° abaixo do horizonte, faixa onde só havia chão chapado (plano cinza + asfalto/lote/calçada) e, mais longe, a metade cinza lisa do HDRI. Reflexo sem imagem = fachada parecia opaca de frente. Três coisas põem céu ali:
+> [!note] Equilíbrio entre piso e céu abaixo do horizonte
+> Espelho vertical visto **de cima** reflete pra **baixo**: `R.y = −V.y`. Câmera 24° acima do prédio → o raio refletido sai 24° abaixo do horizonte, faixa que agora contém chão, asfalto, lote e calçada por padrão. Se a prioridade for destacar céu/skyline, os controles permitem retirar essas superfícies da captura:
 >
 > 1. `groundPlane.mesh.visible = false` na captura (antes era forçado a `true`) — desligável por `includeGround`.
 > 2. `donationManager.beginEnvCapture(includeCityFloor)` esconde o piso da cidade (asfalto, calçada, lotes) — ver [[scene-managers#beginEnvCapture]].
 > 3. `skyDrop` soma `+0.2` ao `offsetY` do céu **durante a captura** (`updateSettings` → restaurado antes do `renderer.render`): a faixa azul/nuvens/sol desce ~36°, então o raio que aponta pra baixo ainda pega céu de verdade. O fundo da cena não se move — o offset do `EnvironmentSettings` que o usuário controla continua valendo no render normal.
 >
-> Sobra do prédio pra baixo: telhados e fachadas dos vizinhos, com céu nos vãos. Só em vista quase de topo (>40° abaixo) o reflexo volta a pegar cinza.
+> Com os dois controles ligados, o cubemap preserva o piso real da cena. Desligados, sobram telhados e fachadas dos vizinhos, com céu nos vãos.
 >
 > 4. **`envHorizon`** (seção *Direção do reflexo*) ataca o mesmo problema pelo outro lado: em vez de mover conteúdo dentro da captura, corrige a direção **na hora de amostrar**. Custo zero: nenhuma recaptura, nenhum `needsUpdate`.
 
@@ -170,7 +170,7 @@ Consequências:
 
 - **Órbita não suja o cube.** Girar a câmera daria captura idêntica — o reflexo varia sozinho pelo `reflect()`. `controls` não tem mais listener `change` → `markCubeDirty`. Único vínculo com a câmera é o cull de distância (suja o cube quando o número de prédios ocultos muda). Exceções pagas por escolha do usuário: `followCamera` e `continuous` capturam todo `updateInterval`.
 - **Asset assíncrono suja o cube.** `THREE.DefaultLoadingManager.onLoad = markCubeDirty` (+ `markCubeDirty()` no `onLoaded` do [[scene-builders#loadEnvironment.ts|loadEnvironment]]). Obrigatório desde que a órbita parou de sujar: a primeira captura roda no frame 4 e o HDRI (fetch + decode de JPG 4K) só entra na cena muito depois — sem isso o reflexo ficava **sem céu** até alguma outra mudança acontecer. `dispose` limpa o `onLoad`.
-- **Céu segue o probe durante a captura.** No render normal a esfera de céu segue a câmera; na captura recebe a posição do probe (`environmentUpdater.updatePosition`) e volta pra câmera antes do `renderer.render` do mesmo frame. Sem isso a esfera (raio 200) ficaria deslocada ou atrás do probe. Chão não precisa: fica oculto (`includeGround = false`).
+- **Céu segue o probe durante a captura.** No render normal a esfera de céu segue a câmera; na captura recebe a posição do probe (`environmentUpdater.updatePosition`) e volta pra câmera antes do `renderer.render` do mesmo frame. Sem isso a esfera (raio 200) ficaria deslocada ou atrás do probe. Chão e piso urbano ficam visíveis por padrão.
 - **256px, não 128.** Fachada com `roughnessIntensity = 0` é espelho e amostra o mip 0 — em 128px céu e skyline viravam mancha lisa. Custo cabe porque a captura deixou de rodar a cada frame de órbita. `resolution` vai de 64 a 1024 pelo painel; cada passo dobra o custo (6 renders da cena por captura).
 
 > [!tip] Reflexo lavado

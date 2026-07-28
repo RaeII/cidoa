@@ -21,9 +21,10 @@ export const DEFAULT_REFLECTION_SETTINGS: ReflectionSettings = {
   envRotY: 0,
   updateInterval: 30,
   continuous: false,
-  // Chão chapado tapa o hemisfério de baixo do cube: fora da captura por padrão.
-  includeGround: false,
-  includeCityFloor: false,
+  // Chão, relevo e piso urbano entram no cube para aparecerem nos reflexos dos edifícios.
+  // Os controles permitem excluí-los quando a prioridade for destacar céu/skyline.
+  includeGround: true,
+  includeCityFloor: true,
 };
 
 export function createDefaultReflectionSettings(): ReflectionSettings {

@@ -1942,9 +1942,8 @@ export function createDonationManager({
     beginEnvCapture(includeCityFloor) {
       for (const mat of getAllFacadeMaterials()) mat.envMapIntensity = 0;
       for (const mat of getAllTopMaterials()) mat.envMapIntensity = 0;
-      // Piso da cidade (asfalto, calçada, lotes) fora da captura por padrão: o probe olha de
-      // cima, e esse piso escuro tapa o hemisfério de baixo do cube inteiro. Sem ele, o raio
-      // refletido que aponta pra baixo alcança o céu → fachada reflete céu vista de frente.
+      // O controle pode retirar o piso da cidade (asfalto, calçada, lotes) para liberar o
+      // hemisfério de baixo do cube ao céu e destacar o skyline na fachada.
       if (includeCityFloor) return;
       for (const m of roadMeshes) m.visible = false;
       if (sidewalkMesh) sidewalkMesh.visible = false;

@@ -797,6 +797,11 @@ const FACTORIES: Record<Exclude<EdgeLightType, "none">, EdgeLightFactory> = {
   led: createLed,
 };
 
+/** Guard pra keys vindas do catálogo (banco pode ter opção sem builder). */
+export function isEdgeLightType(key: string): key is EdgeLightType {
+  return key === "none" || key in FACTORIES;
+}
+
 /**
  * Cria um Group Three.js para o efeito de LED nas arestas do edifício.
  * O grupo deve ser posicionado na BASE do edifício (não no topo); local Y=0
