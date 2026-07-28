@@ -8,10 +8,8 @@ export const CITY_SCENE_CONFIG: CitySceneConfig = {
   minHeight: 1.8,
   maxHeight: 18,
   maxBuildingsPerChunk: 180,
-  dprCap: 1.5,
-  targetFps: 55,
-  minRenderScale: 0.55,
-  maxRenderScale: 1,
+  // Teto do devicePixelRatio. 2 = qualidade nativa em telas retina; só corta 3x+.
+  dprCap: 2,
   far: 260,
   shadowBuildingCap: 500,
   maxSolarIntensity: 20,

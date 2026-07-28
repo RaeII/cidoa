@@ -21,7 +21,7 @@ export function BuildingInfoModal({ value, onCustomize, onClose }: BuildingInfoM
   return (
     // Overlay sem dim/blur e pointer-events-none: cena visível e interativa atrás.
     // Card sempre à direita, no topo. <900px: versão um pouco menor.
-    <div className="pointer-events-none absolute inset-0 z-40 flex items-start justify-end p-4 min-[900px]:p-6">
+    <div className="pointer-events-none absolute inset-0 z-40 flex items-start justify-end p-4 pt-24 min-[900px]:p-6 min-[900px]:pt-32">
       <div className="group pointer-events-auto w-full max-w-xs overflow-hidden rounded-2xl border border-white/10 bg-black/80 text-white shadow-2xl backdrop-blur-md min-[900px]:max-w-sm min-[900px]:w-80">
         <div className="relative">
           <img

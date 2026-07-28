@@ -112,9 +112,10 @@ export function createCitySceneRuntime({
   renderer.shadowMap.enabled = shadowSettings.enabled;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-  let renderScale = 1;
+  // Qualidade fixa no máximo: sem escala dinâmica de resolução. Render sempre no
+  // devicePixelRatio nativo (limitado pelo dprCap só para telas 3x+ absurdas).
   const getPixelRatio = () =>
-    Math.min(window.devicePixelRatio || 1, CITY_SCENE_CONFIG.dprCap) * renderScale;
+    Math.min(window.devicePixelRatio || 1, CITY_SCENE_CONFIG.dprCap);
 
   renderer.setPixelRatio(getPixelRatio());
   renderer.setSize(mount.clientWidth, mount.clientHeight);
@@ -187,6 +188,16 @@ export function createCitySceneRuntime({
   // Hover: raycast com throttle por RAF para não impactar o loop de animação
   let pendingHoverEvent: MouseEvent | null = null;
   let hoverRafId: number | null = null;
+  // Limpa o tooltip e mata o RAF pendente — sem isso um raycast agendado antes
+  // da saída/clique repõe o valor logo depois de ele ser escondido.
+  const clearHover = () => {
+    if (hoverRafId !== null) {
+      cancelAnimationFrame(hoverRafId);
+      hoverRafId = null;
+    }
+    pendingHoverEvent = null;
+    onHoverChange?.(null, 0, 0);
+  };
   const handleMouseMove = onHoverChange
     ? (event: MouseEvent) => {
         pendingHoverEvent = event;
@@ -206,12 +217,22 @@ export function createCitySceneRuntime({
         }
       }
     : null;
+  // pointerleave cobre saída do canvas; blur cobre alt-tab/perda de foco com o
+  // cursor ainda em cima do canvas.
+  const handleHoverEnd = onHoverChange ? () => clearHover() : null;
   if (handleMouseMove) renderer.domElement.addEventListener("mousemove", handleMouseMove);
+  if (handleHoverEnd) {
+    renderer.domElement.addEventListener("pointerleave", handleHoverEnd);
+    renderer.domElement.addEventListener("pointercancel", handleHoverEnd);
+    window.addEventListener("blur", handleHoverEnd);
+  }
 
   // Clique: detectar edifício clicado (só dispara se não houve drag)
   let pointerDownPos: { x: number; y: number } | null = null;
   const handlePointerDown = (event: PointerEvent) => {
     pointerDownPos = { x: event.clientX, y: event.clientY };
+    // Clique/drag escondem o valor: ele só volta no próximo mousemove.
+    clearHover();
   };
   const handlePointerUp = onBuildingClick
     ? (event: PointerEvent) => {
@@ -228,7 +249,7 @@ export function createCitySceneRuntime({
         onBuildingClick(donationId);
       }
     : null;
-  if (onBuildingClick) {
+  if (onBuildingClick || handleMouseMove) {
     renderer.domElement.addEventListener("pointerdown", handlePointerDown);
   }
   if (handlePointerUp) renderer.domElement.addEventListener("pointerup", handlePointerUp);
@@ -250,23 +271,8 @@ export function createCitySceneRuntime({
   let animationId = 0;
   let lastTime = performance.now();
   let fpsAccumulator = 0;
-  let frames = 0;
-  let smoothedFps = 60;
   let cubeFrameCounter = 0;
   let cameraDebugAccumulator = 0;
-
-  const updateDynamicResolution = (fps: number) => {
-    const previousScale = renderScale;
-    if (fps < CITY_SCENE_CONFIG.targetFps - 8) {
-      renderScale = Math.max(CITY_SCENE_CONFIG.minRenderScale, renderScale - 0.05);
-    } else if (fps > CITY_SCENE_CONFIG.targetFps + 5) {
-      renderScale = Math.min(CITY_SCENE_CONFIG.maxRenderScale, renderScale + 0.025);
-    }
-    if (previousScale !== renderScale) {
-      renderer.setPixelRatio(getPixelRatio());
-      renderer.setSize(mount.clientWidth, mount.clientHeight, false);
-    }
-  };
 
   const animate = (time: number) => {
     animationId = requestAnimationFrame(animate);
@@ -312,14 +318,9 @@ export function createCitySceneRuntime({
     }
 
     fpsAccumulator += delta;
-    frames += 1;
     if (fpsAccumulator >= 0.5) {
-      const currentFps = frames / fpsAccumulator;
-      smoothedFps = smoothedFps * 0.72 + currentFps * 0.28;
-      updateDynamicResolution(smoothedFps);
       emitStatsPatch({ buildings: donationManager.getDonationCount() });
       fpsAccumulator = 0;
-      frames = 0;
     }
 
     cubeFrameCounter = (cubeFrameCounter + 1) % 4;
@@ -463,7 +464,14 @@ export function createCitySceneRuntime({
     },
     dispose() {
       if (handleMouseMove) renderer.domElement.removeEventListener("mousemove", handleMouseMove);
-      if (onBuildingClick) renderer.domElement.removeEventListener("pointerdown", handlePointerDown);
+      if (handleHoverEnd) {
+        renderer.domElement.removeEventListener("pointerleave", handleHoverEnd);
+        renderer.domElement.removeEventListener("pointercancel", handleHoverEnd);
+        window.removeEventListener("blur", handleHoverEnd);
+      }
+      if (onBuildingClick || handleMouseMove) {
+        renderer.domElement.removeEventListener("pointerdown", handlePointerDown);
+      }
       if (handlePointerUp) renderer.domElement.removeEventListener("pointerup", handlePointerUp);
       if (hoverRafId !== null) cancelAnimationFrame(hoverRafId);
       cancelAnimationFrame(animationId);

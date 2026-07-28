@@ -113,7 +113,7 @@ Cada fase é um bloco com `AnimatePresence` animando `height` (auto↔0), então
 | `onExited` | `() => void` | Após o cartão sair de tela → libera próxima seta |
 
 > [!note] Trava de um-por-vez
-> `CitySceneEditor` guarda `paymentBusyRef`: a seta `→` ignora novas chamadas enquanto um cartão está na tela (inclusive durante a saída). Valor sorteado entre `RANDOM_DONATION_MIN`/`RANDOM_DONATION_MAX`.
+> `CitySceneEditor` guarda `paymentBusyRef`: a seta `→` ignora novas chamadas enquanto um cartão está na tela (inclusive durante a saída). Valor = `min(DONATION_MAX_VALUE, maxDonationRef + incremento)`, com incremento sorteado entre `DONATION_INCREMENT_MIN`/`DONATION_INCREMENT_MAX` — então o edifício novo é **o mais alto da cidade** e assume o centro da espiral, até bater o teto `DONATION_MAX_VALUE` (150). `maxDonationRef` parte de `INITIAL_MAX_DONATION` e sobe em `handleDonation`/`handleBulkDonation`, então doações digitadas no input também contam (input não tem teto).
 
 > [!info] Dependência `motion`
 > Único componente que importa `motion`. Demais animações de UI continuam em CSS/Tailwind.

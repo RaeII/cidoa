@@ -58,19 +58,13 @@ A cada frame:
 1. `controls.update()` — aplica damping do OrbitControls
 2. `groundPlane.setPosition(camera.x, camera.z)` — chão segue a câmera
 3. `environmentUpdater.updatePosition(...)` — skybox segue a câmera
-4. **Métricas de FPS** — acumula e suaviza a cada 0.5s
-5. **Resolução dinâmica** — ajusta `renderScale` para atingir `targetFps`
-6. **CubeCamera** — atualiza a cada 4 frames para capturar reflexos
-8. `renderer.render(scene, camera)` — renderiza o frame
+4. **Stats** — emite contagem de prédios a cada 0.5s
+5. **CubeCamera** — atualiza a cada 4 frames para capturar reflexos
+6. `renderer.render(scene, camera)` — renderiza o frame
 
-#### Resolução Dinâmica
+#### Resolução Fixa
 
-```
-FPS < targetFps - 8  → renderScale -= 0.05 (reduz qualidade)
-FPS > targetFps + 5  → renderScale += 0.025 (aumenta qualidade)
-```
-
-O `renderScale` é multiplicado pelo `devicePixelRatio` (limitado pelo `dprCap`).
+Sem escala dinâmica. Render sempre no `devicePixelRatio` nativo, limitado pelo `dprCap` (2 — corta só telas 3x+). Qualidade nunca cai quando FPS baixa.
 
 ### 3. Atualizações do React
 
@@ -106,6 +100,9 @@ type CitySceneRuntime = {
 > [!note] Evento de clique em edifícios
 > O runtime escuta `pointerdown`/`pointerup` no canvas. Se o cursor não se moveu mais de 5px (não é drag), faz raycast para identificar o edifício clicado e chama `onBuildingClick(donationId)` para o React abrir o painel de personalização.
 
+> [!note] Hover do valor (tooltip)
+> `mousemove` no canvas → raycast throttled por RAF → `onHoverChange(value, x, y)`. Tooltip some via `clearHover()` (cancela RAF pendente + `onHoverChange(null, 0, 0)`) em `pointerleave`, `pointercancel`, `blur` da janela e `pointerdown`. Sem isso o valor ficava grudado ao sair do canvas, ao abrir modal no clique, ou quando um raycast agendado antes da saída repunha o valor logo depois. Valor só reaparece no próximo `mousemove`.
+
 > [!note] Sistema de foco
 > `focusOnDonation` delega para `donationManager.setFocusedDonation(id)`, que deixa toda a cidade semitransparente e cria um mesh isolado do edifício selecionado. `clearFocus` restaura a opacidade original.
 >
@@ -126,7 +123,8 @@ Limpeza completa ao desmontar:
 ```
 dispose()
   ├── removeEventListener('mousemove')     ← hover
-  ├── removeEventListener('pointerdown')   ← clique (detecção de drag)
+  ├── removeEventListener('pointerleave' | 'pointercancel' | window 'blur')  ← fim do hover
+  ├── removeEventListener('pointerdown')   ← clique (detecção de drag) + limpa hover
   ├── removeEventListener('pointerup')     ← clique (raycast)
   ├── cancelAnimationFrame
   ├── removeEventListener('resize')

@@ -42,17 +42,25 @@ import {
 import { getLightMetrics } from "../scene/utils/lighting";
 
 // Cena começa com um único edifício (modelo padrão/quadrado).
-// Novos edifícios entram via seta direita com tamanho aleatório.
-const INITIAL_TEST_DONATIONS = [500] as const;
+// Novos edifícios entram via seta direita, sempre superando o mais alto atual.
+const INITIAL_TEST_DONATIONS = [30] as const;
 
 const INITIAL_DONATION_TOTAL = INITIAL_TEST_DONATIONS.reduce((sum, v) => sum + v, 0);
 
-// Faixa de valores sorteados a cada seta direita (define a altura proporcional).
-const RANDOM_DONATION_MIN = 50;
-const RANDOM_DONATION_MAX = 1000;
+// Cada seta direita gera um edifício que supera o maior valor atual da cidade
+// (vira o mais alto e assume o centro da espiral), até o teto de DONATION_MAX_VALUE.
+// O sorteio define só quanto ele ultrapassa o líder.
+const DONATION_INCREMENT_MIN = 10;
+const DONATION_INCREMENT_MAX = 40;
+// Teto do valor gerado pelo botão/seta — nenhuma doação simulada passa disso.
+const DONATION_MAX_VALUE = 150;
 
-const randomDonationValue = () =>
-  Math.round(RANDOM_DONATION_MIN + Math.random() * (RANDOM_DONATION_MAX - RANDOM_DONATION_MIN));
+const randomDonationIncrement = () =>
+  Math.round(
+    DONATION_INCREMENT_MIN + Math.random() * (DONATION_INCREMENT_MAX - DONATION_INCREMENT_MIN),
+  );
+
+const INITIAL_MAX_DONATION = Math.max(0, ...INITIAL_TEST_DONATIONS);
 
 // Sem customizações iniciais — todos os edifícios usam o formato padrão.
 const createInitialBuildingCustomizations = () =>
@@ -102,6 +110,8 @@ export function CitySceneEditor() {
   const [payment, setPayment] = useState<Payment | null>(null);
   const paymentIdRef = useRef(0);
   const paymentBusyRef = useRef(false);
+  // Maior doação já registrada — base para o próximo edifício da seta direita.
+  const maxDonationRef = useRef(INITIAL_MAX_DONATION);
 
   const lightMetrics = getLightMetrics(lightSettings);
 
@@ -165,23 +175,31 @@ export function CitySceneEditor() {
 
   const handleDonation = (value: number) => {
     canvasRef.current?.addDonation(value);
+    maxDonationRef.current = Math.max(maxDonationRef.current, value);
     setDonationTotal((t) => t + value);
     setDonationCount((c) => c + 1);
   };
 
   const handleBulkDonation = (values: number[]) => {
     canvasRef.current?.addDonations(values);
+    maxDonationRef.current = Math.max(maxDonationRef.current, ...values);
     setDonationTotal((t) => t + values.reduce((sum, v) => sum + v, 0));
     setDonationCount((c) => c + values.length);
   };
 
-  // Seta direita → inicia a simulação de pagamento de um valor aleatório.
+  // Seta direita → inicia a simulação de pagamento. Valor = maior doação atual +
+  // incremento sorteado, limitado a DONATION_MAX_VALUE: o edifício novo é o mais
+  // alto da cidade enquanto o teto não chegar, e nunca passa dele.
   // Ignora novas chamadas enquanto um cartão ainda está na tela.
   const startPayment = useCallback(() => {
     if (paymentBusyRef.current) return;
     paymentBusyRef.current = true;
     paymentIdRef.current += 1;
-    setPayment({ id: paymentIdRef.current, amount: randomDonationValue() });
+    const amount = Math.min(
+      DONATION_MAX_VALUE,
+      maxDonationRef.current + randomDonationIncrement(),
+    );
+    setPayment({ id: paymentIdRef.current, amount });
   }, []);
 
   const handleHoverChange = useCallback(

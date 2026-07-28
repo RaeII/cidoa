@@ -246,9 +246,6 @@ export type CitySceneConfig = {
   maxHeight: number;
   maxBuildingsPerChunk: number;
   dprCap: number;
-  targetFps: number;
-  minRenderScale: number;
-  maxRenderScale: number;
   far: number;
   shadowBuildingCap: number;
   maxSolarIntensity: number;

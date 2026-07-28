@@ -237,10 +237,7 @@ Configuração mais global da cena. Define a estrutura completa de `CitySceneCon
 | `minHeight` | Altura mínima dos prédios |
 | `maxHeight` | Cap visual absoluto (teto de altura; prédios nunca ultrapassam) |
 | `maxBuildingsPerChunk` | Limite de prédios por chunk |
-| `dprCap` | Limite máximo de device pixel ratio |
-| `targetFps` | FPS alvo para resolução dinâmica |
-| `minRenderScale` | Escala mínima de render |
-| `maxRenderScale` | Escala máxima de render |
+| `dprCap` | Limite máximo de device pixel ratio (2 = qualidade nativa em retina) |
 | `far` | Far plane da câmera |
 | `shadowBuildingCap` | Limite global de prédios com sombra |
 | `maxSolarIntensity` | Intensidade solar máxima |
