@@ -31,6 +31,7 @@ import type {
   BuildingShape,
   CameraDebugInfo,
   EdgeLightType,
+  FacadeStyle,
   RooftopType,
   SceneStats,
 } from "../scene/types";
@@ -247,6 +248,7 @@ export function CitySceneEditor() {
       const existing = buildingCustomizations.get(donationId);
       return {
         color: existing?.color ?? buildingSettings.color,
+        facadeStyle: existing?.facadeStyle ?? "default" as const,
         buildingShape: existing?.buildingShape ?? "default" as const,
         rooftopType: existing?.rooftopType ?? "none" as const,
         signText: existing?.signText ?? "",
@@ -267,6 +269,7 @@ export function CitySceneEditor() {
         const existing = next.get(donationId);
         const updated: BuildingCustomization = {
           color: existing?.color ?? buildingSettings.color,
+          facadeStyle: existing?.facadeStyle ?? "default",
           buildingShape: existing?.buildingShape ?? "default",
           tilingScale: existing?.tilingScale ?? 1,
           textureTransform: existing?.textureTransform ?? { ...DEFAULT_BUILDING_TEXTURE_TRANSFORM },
@@ -289,6 +292,12 @@ export function CitySceneEditor() {
 
   const handleBuildingColorChange = useCallback(
     (donationId: number, color: string) => updateCustomization(donationId, { color }),
+    [updateCustomization],
+  );
+
+  const handleFacadeStyleChange = useCallback(
+    (donationId: number, facadeStyle: FacadeStyle) =>
+      updateCustomization(donationId, { facadeStyle }),
     [updateCustomization],
   );
 
@@ -469,6 +478,7 @@ export function CitySceneEditor() {
             key={selectedBuildingId}
             donationId={selectedBuildingId}
             initialColor={c.color}
+            initialFacadeStyle={c.facadeStyle}
             initialBuildingShape={c.buildingShape}
             initialRooftopType={c.rooftopType}
             initialSignText={c.signText}
@@ -478,6 +488,7 @@ export function CitySceneEditor() {
             initialHologramColor={c.hologramColor}
             initialHologramOpacity={c.hologramOpacity}
             onColorChange={handleBuildingColorChange}
+            onFacadeStyleChange={handleFacadeStyleChange}
             onBuildingShapeChange={handleBuildingShapeChange}
             onRooftopChange={handleRooftopChange}
             onSignTextChange={handleSignTextChange}

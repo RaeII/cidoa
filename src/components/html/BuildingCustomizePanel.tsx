@@ -5,6 +5,7 @@ import { RangeField } from "./controls/RangeField";
 import type {
   BuildingShape,
   EdgeLightType,
+  FacadeStyle,
   RooftopType,
 } from "../../scene/types";
 
@@ -32,6 +33,13 @@ const SHAPE_OPTIONS: { value: BuildingShape; label: string }[] = [
   { value: "one-trade", label: "One Trade" },
 ];
 
+const FACADE_STYLE_OPTIONS: { value: FacadeStyle; label: string }[] = [
+  { value: "default", label: "Padrão" },
+  { value: "facade001", label: "Vidro azul" },
+  { value: "facade002", label: "Vidro noturno" },
+  { value: "facade018a", label: "Tijolo" },
+];
+
 const ROOFTOP_OPTIONS: { value: RooftopType; label: string }[] = [
   { value: "none", label: "Nenhuma" },
   { value: "spotlights", label: "Holofotes" },
@@ -55,6 +63,7 @@ const SIDE_OPTIONS = [
 type BuildingCustomizePanelProps = {
   donationId: number;
   initialColor: string;
+  initialFacadeStyle: FacadeStyle;
   initialBuildingShape: BuildingShape;
   initialRooftopType: RooftopType;
   initialSignText: string;
@@ -64,6 +73,7 @@ type BuildingCustomizePanelProps = {
   initialHologramColor: string;
   initialHologramOpacity: number;
   onColorChange: (donationId: number, color: string) => void;
+  onFacadeStyleChange: (donationId: number, facadeStyle: FacadeStyle) => void;
   onBuildingShapeChange: (donationId: number, shape: BuildingShape) => void;
   onRooftopChange: (donationId: number, rooftopType: RooftopType) => void;
   onSignTextChange: (donationId: number, signText: string) => void;
@@ -78,6 +88,7 @@ type BuildingCustomizePanelProps = {
 export function BuildingCustomizePanel({
   donationId,
   initialColor,
+  initialFacadeStyle,
   initialBuildingShape,
   initialRooftopType,
   initialSignText,
@@ -87,6 +98,7 @@ export function BuildingCustomizePanel({
   initialHologramColor,
   initialHologramOpacity,
   onColorChange,
+  onFacadeStyleChange,
   onBuildingShapeChange,
   onRooftopChange,
   onSignTextChange,
@@ -98,6 +110,7 @@ export function BuildingCustomizePanel({
   onClose,
 }: BuildingCustomizePanelProps) {
   const [color, setColor] = useState(initialColor);
+  const [facadeStyle, setFacadeStyle] = useState<FacadeStyle>(initialFacadeStyle);
   const [buildingShape, setBuildingShape] = useState<BuildingShape>(initialBuildingShape);
   const [rooftopType, setRooftopType] = useState<RooftopType>(initialRooftopType);
   const [signText, setSignText] = useState(initialSignText);
@@ -112,6 +125,11 @@ export function BuildingCustomizePanel({
   const handleColorChange = (newColor: string) => {
     setColor(newColor);
     onColorChange(donationId, newColor);
+  };
+
+  const handleFacadeStyleChange = (newStyle: FacadeStyle) => {
+    setFacadeStyle(newStyle);
+    onFacadeStyleChange(donationId, newStyle);
   };
 
   const handleBuildingShapeChange = (newShape: BuildingShape) => {
@@ -200,6 +218,23 @@ export function BuildingCustomizePanel({
             value={color}
             onChange={handleColorChange}
           />
+        </PanelSection>
+        <PanelSection title="Fachada">
+          <div className="grid grid-cols-2 gap-2">
+            {FACADE_STYLE_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => handleFacadeStyleChange(option.value)}
+                className={`rounded-lg border px-3 py-2 text-xs transition-colors ${
+                  facadeStyle === option.value
+                    ? "border-white/40 bg-white/15 text-white"
+                    : "border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </PanelSection>
         <PanelSection title="Formato">
           <div className="grid grid-cols-2 gap-2">

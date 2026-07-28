@@ -285,6 +285,7 @@ flowchart LR
 | Alterar letreiros de fachada (signs)             | [[scene-builders#createSignMesh.ts]]              |
 | Alterar LED de arestas                           | [[scene-builders#createEdgeLightMesh.ts]]         |
 | Alterar holograma cyberpunk                      | [[scene-builders#createHologramMesh.ts]]          |
+| Adicionar/trocar estilo de fachada por edifício  | [[scene-managers#Estilos de fachada por edifício (`facadeStyle`)]] |
 | Alterar torre torcida (twisted)                  | [[scene-builders#createTwistedBuildingMesh.ts]]   |
 | Alterar torre octogonal (octagonal)              | [[scene-builders#createOctagonalBuildingMesh.ts]] |
 | Alterar torre setback (setback)                  | [[scene-builders#createSetbackBuildingMesh.ts]]   |

@@ -37,8 +37,16 @@ export type BuildingShape =
   | "taipei"
   | "one-trade";
 
+// Conjunto PBR de fachada por edifício. "default" = Facade006 (textura global da cena).
+export type FacadeStyle =
+  | "default"
+  | "facade001"
+  | "facade002"
+  | "facade018a";
+
 export type BuildingCustomization = {
   color: string;
+  facadeStyle: FacadeStyle; // conjunto PBR da fachada deste edifício
   rooftopType: RooftopType;
   signText: string;
   signSides: number; // 1–4 lados com letreiro

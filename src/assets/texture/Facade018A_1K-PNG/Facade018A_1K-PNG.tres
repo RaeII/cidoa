@@ -1,0 +1,26 @@
+[gd_resource type="StandardMaterial3D" load_steps=8 format=3 uid="acg_j17k5lrv"]
+
+[ext_resource type="Texture2D" uid="uid://acg_yzqf281l" id="Color" path="./Facade018A_1K-PNG_Color.png"]
+[ext_resource type="Texture2D" uid="uid://acg_hy1k9wvz" id="AmbientOcclusion" path="./Facade018A_1K-PNG_AmbientOcclusion.png"]
+[ext_resource type="Texture2D" uid="uid://acg_smqkg8an" id="Emission" path="./Facade018A_1K-PNG_Emission.png"]
+[ext_resource type="Texture2D" uid="uid://acg_6axc19fs" id="Metalness" path="./Facade018A_1K-PNG_Metalness.png"]
+[ext_resource type="Texture2D" uid="uid://acg_kjhu3w2y" id="Displacement" path="./Facade018A_1K-PNG_Displacement.png"]
+[ext_resource type="Texture2D" uid="uid://acg_74qjv8ko" id="Roughness" path="./Facade018A_1K-PNG_Roughness.png"]
+[ext_resource type="Texture2D" uid="uid://acg_iso8j3m9" id="NormalGL" path="./Facade018A_1K-PNG_NormalGL.png"]
+[resource]
+albedo_texture = ExtResource("Color")
+ao_enabled = true
+ao_texture = ExtResource("AmbientOcclusion")
+ao_texture_channel = 4
+metallic_texture = ExtResource("Metalness")
+metallic = 1.0
+metallic_texture_channel = 4
+roughness_texture = ExtResource("Roughness")
+roughness_texture_channel = 4
+emission_texture = ExtResource("Emission")
+emission_enabled = true
+normal_texture = ExtResource("NormalGL")
+normal_enabled = true
+heightmap_texture = ExtResource("Displacement")
+heightmap_scale = 1.0
+heightmap_enabled = true

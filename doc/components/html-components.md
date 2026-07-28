@@ -126,7 +126,7 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 
 **Responsabilidades:**
 - Exibir campos de personalização para o edifício selecionado
-- Atualizar cor, formato, letreiro, acessório de topo e LED de arestas em tempo real
+- Atualizar cor, fachada, formato, letreiro, acessório de topo e LED de arestas em tempo real
 - Botão de fechar (X) para desselecionar o edifício
 
 **Props:**
@@ -135,6 +135,7 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 |---|---|---|
 | `donationId` | `number` | ID da doação selecionada |
 | `initialColor` | `string` | Cor atual do edifício (customizada ou global) |
+| `initialFacadeStyle` | `FacadeStyle` | Fachada atual (`"default"`, `"facade001"`, `"facade002"` ou `"facade018a"`) |
 | `initialBuildingShape` | `BuildingShape` | Formato atual (`"default"`, `"twisted"`, `"octagonal"`, `"setback"`, `"tapered"`, `"chrysler"`, `"hearst"`, `"empire"`, `"taipei"` ou `"one-trade"`) |
 | `initialTilingScale` | `number` | Multiplicador de tiling da textura (1.0 = sem alteração) |
 | `initialTextureTransform` | `BuildingTextureTransform` | Ajuste manual de escala/offset da textura |
@@ -143,6 +144,7 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 | `initialSignSides` | `number` | Quantidade de lados com letreiro (1–4) |
 | `initialEdgeLightType` | `EdgeLightType` | Estado atual do LED nas arestas (`"none"` ou `"led"`) |
 | `onColorChange` | `(id: number, color: string) => void` | Callback de troca de cor |
+| `onFacadeStyleChange` | `(id: number, facadeStyle: FacadeStyle) => void` | Callback de troca de fachada |
 | `onBuildingShapeChange` | `(id: number, shape: BuildingShape) => void` | Callback de troca de formato |
 | `onTilingScaleChange` | `(id: number, tilingScale: number) => void` | Callback de troca de tiling |
 | `onTextureTransformChange` | `(id: number, textureTransform: BuildingTextureTransform) => void` | Callback de ajuste manual da textura |
@@ -157,6 +159,7 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 | Seção | Controles | Descrição |
 |---|---|---|
 | **Aparência** | `ColorField` | Cor individual do edifício (hex) |
+| **Fachada** | Botões | Opções: padrão (Facade006), vidro azul (Facade001), vidro noturno (Facade002, janelas acesas) e tijolo (Facade018A). Estilo ≠ padrão tira o prédio do `InstancedMesh` |
 | **Formato** | Botões | Opções: padrão (caixa), torre torcida, torre octogonal, torre setback, torre afunilada, Chrysler, Hearst Tower, Empire State, Taipei 101 ou One Trade |
 | **Texturas** | `RangeField` | Tiling Scale, escala X/Y e offset X/Y — ajusta a repetição/alinhamento da textura **só nesse edifício**. Valores diferentes do padrão fazem o prédio sair do `InstancedMesh` |
 | **Letreiro** | Input de texto + seletor de lados | Marca/empresa na fachada (máx 30 chars). Seletor de lados (1–4) aparece quando há texto |
@@ -168,6 +171,7 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 
 > [!tip] Onde cada personalização é aplicada
 > - **Cor** → `InstancedBufferAttribute` (instanceColor) quando o prédio fica no `InstancedMesh`; clone de material quando o prédio vira mesh próprio
+> - **Fachada** → conjunto PBR carregado sob demanda + clone de material com `userData.facadeStyle` (ver [[scene-managers#Estilos de fachada por edifício (`facadeStyle`)|facadeStyle]])
 > - **Formato** → `Mesh` próprio via builders dedicados em [[scene-builders]] (pula alocação no `InstancedMesh`)
 > - **Texturas (Tiling)** → uniform `uTilingMultiplier` por material clonado; valores ≠ 1.0 movem o prédio para `customShapeMeshes` (ver [[scene-managers#Customizações que exigem Mesh próprio (`needsCustomMesh`)|needsCustomMesh]])
 > - **Letreiro** → `CanvasTexture` + `PlaneGeometry` via [[scene-builders#createSignMesh.ts|createSignMesh]]

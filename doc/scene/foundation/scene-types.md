@@ -324,6 +324,20 @@ type BuildingShape =
 
 Quando `buildingShape !== "default"`, a doação é desenhada como um `Mesh` próprio (ver [[scene-builders]]) e pula a alocação no `InstancedMesh`. O manager mantém clones de material (facade + top) por edifício customizado.
 
+### `FacadeStyle`
+
+Conjunto PBR da fachada, por edifício:
+
+```typescript
+type FacadeStyle =
+  | "default"        // Facade006 — textura global da cena
+  | "facade001"      // Facade001 — cortina de vidro azul
+  | "facade002"      // Facade002 — vidro noturno (traz mapa de emissão próprio)
+  | "facade018a"     // Facade018A — tijolo com janelas
+```
+
+Quando `facadeStyle !== "default"`, a doação sai do `InstancedMesh` e vira `Mesh` próprio com clone de material. Os mapas do estilo só baixam na primeira vez que algum edifício pede o estilo (ver [[scene-managers#Estilos de fachada por edifício (`facadeStyle`)|facadeStyle]]).
+
 ### `BuildingCustomization`
 
 Personalização visual de um edifício individual:
@@ -331,6 +345,7 @@ Personalização visual de um edifício individual:
 ```typescript
 type BuildingCustomization = {
   color: string;              // cor hex do edifício
+  facadeStyle: FacadeStyle;   // conjunto PBR da fachada ("default" = Facade006 global)
   buildingShape: BuildingShape; // formato volumétrico
   tilingScale: number;        // multiplicador de tiling da textura (1.0 = global, 2.0 = texturas 2× menores, etc)
   textureTransform: {
@@ -351,6 +366,7 @@ Armazenada opcionalmente em cada `DonationEntry`. Cada campo controla um aspecto
 | Campo | Efeito | Implementação |
 |---|---|---|
 | `color` | Cor individual do edifício | `InstancedBufferAttribute` (instanceColor) quando o prédio fica no `InstancedMesh`; cor direta no clone do material quando vira mesh próprio |
+| `facadeStyle` | Conjunto de texturas PBR da fachada **só nesse edifício** | Faz o prédio sair do `InstancedMesh` (quando ≠ `"default"`) e virar `Mesh` próprio com clone de material; mapas carregados sob demanda (ver [[scene-managers#Estilos de fachada por edifício (`facadeStyle`)\|facadeStyle]]) |
 | `buildingShape` | Formato volumétrico do edifício | `default`: caixa padrão; demais valores usam builders dedicados em [[scene-builders]] |
 | `tilingScale` | Multiplicador de tiling da textura aplicado **só nesse edifício** | Faz o prédio sair do `InstancedMesh` (quando ≠ 1.0) e virar `Mesh` próprio com clone de material e uniform `uTilingMultiplier` dedicado |
 | `textureTransform` | Ajuste manual da textura aplicado **só nesse edifício** | Faz o prédio sair do `InstancedMesh` quando diferente do padrão e ajusta `scaleX`, `scaleY`, `offsetX`, `offsetY` via uniform dedicado |

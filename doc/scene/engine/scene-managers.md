@@ -211,6 +211,7 @@ Para edifícios com `buildingShape !== "default"`, a cor é aplicada diretamente
 Algumas personalizações precisam de **estado de material próprio** por edifício e não cabem no `InstancedMesh` (que compartilha um único material). O helper `needsCustomMesh(customization)` define quando uma doação sai do InstancedMesh e passa a ser desenhada como `Mesh` dedicado em `customShapeMeshes`:
 
 - `buildingShape !== "default"` (ex: torre torcida, octogonal, setback, tapered, Chrysler, Hearst, Empire, Taipei ou One Trade)
+- `facadeStyle !== "default"` (conjunto PBR de fachada próprio por edifício)
 - `Math.abs(tilingScale - 1) > 0.001` (tiling de textura customizado por edifício)
 - `textureTransform` diferente do padrão `{ scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0 }` (ajuste manual de textura por edifício)
 
@@ -220,7 +221,7 @@ Para cada doação custom, `syncCustomShapes()`:
 
 1. Clona `facadeMaterial`/`topMaterial`.
 2. **Re-aplica `applyTriplanarShader` no clone** para que ele tenha seu próprio `uTilingMultiplier` (default 1.0). Sem isso, o clone herdaria o `onBeforeCompile` do original, apontando para o uniform compartilhado.
-3. Define cor (`customization.color`), tiling (`customization.tilingScale`) e ajuste manual de textura (`customization.textureTransform`) no clone.
+3. Define cor (`customization.color`), tiling (`customization.tilingScale`) e ajuste manual de textura (`customization.textureTransform`) no clone. Grava `facadeMat.userData.facadeStyle` e chama `applyFacadeTextures(facadeMat, currentTextureSettings)` para trocar os mapas da fachada.
 4. Cria o mesh:
    - `shape === "twisted"` → [[scene-builders#createTwistedBuildingMesh.ts|createTwistedBuildingMesh]] (geometria espiralada compartilhada).
    - `shape === "octagonal"` → [[scene-builders#createOctagonalBuildingMesh.ts|createOctagonalBuildingMesh]] (geometria octogonal compartilhada).
@@ -241,6 +242,25 @@ Pontos de integração:
 - `getHoveredValue` / `getClickedDonationId` estendem o raycast para `[mesh, ...customShapeMeshes]` e leem `donationId`/`donationValue` de `userData`.
 - O map `donationTransforms: Map<id, {position, scale}>` é a **fonte única** dos transforms lógicos: acessórios (rooftop/sign/edge) usam `readDonationTransform` que lê desse map, então funcionam igual para edifícios custom sem precisar saber se viraram Mesh separado.
 - `dispose()` limpa cada clone (`facadeMat.dispose()` + `topMat.dispose()`) e chama `disposeTwistedBuildingSharedResources()` / `disposeOctagonalBuildingSharedResources()` / `disposeSetbackBuildingSharedResources()`.
+
+#### Estilos de fachada por edifício (`facadeStyle`)
+
+Cada estilo é um conjunto PBR (color, normal GL, roughness, metalness, displacement, emission opcional) vindo de `src/assets/texture/`:
+
+| `facadeStyle` | Pasta | Observação |
+|---|---|---|
+| `"default"` | `Facade006_1K-mirrored-PNG` | Textura global da cena, já carregada na criação do manager |
+| `"facade001"` | `Facade001_1K-PNG` | Cortina de vidro azul |
+| `"facade002"` | `Facade002_1K-PNG` | Vidro noturno — usa `_Emission.png` como `emissiveMap` (janelas acesas) |
+| `"facade018a"` | `Facade018A_1K-PNG` | Tijolo com janelas |
+
+Mecânica:
+
+- `FACADE_STYLE_SOURCES` (nível de módulo) guarda só as **URLs** dos assets. Nada baixa no boot.
+- `getFacadeTextures(style)` carrega e cacheia o conjunto na primeira vez que um edifício pede o estilo, aplicando `maxAnisotropy`. `"default"` já entra pré-populado no cache.
+- `applyFacadeTextures(mat, settings)` aplica os mapas num material. A escolha do conjunto vem de `mat.userData.facadeStyle` — string simples, sobrevive ao `JSON` clone que o `Material.copy` faz do `userData`. `applyTextureToFacade` é só o loop disso sobre `getAllFacadeMaterials()`, então ajustes globais de textura respeitam o estilo de cada clone.
+- Troca entre dois estilos custom (ex: `facade001` → `facade002`) não faz rebuild: o prédio já tem mesh próprio, então `updateDonationCustomization` só regrava `userData.facadeStyle` e reaplica os mapas. Entrar/sair de `"default"` atravessa `needsCustomMesh` e cai no `rebuildInstances()`.
+- `dispose()` libera os conjuntos carregados sob demanda (o `"default"` já sai em `allTextures`; `emissive` só é descartado quando não é o mesmo objeto do color map).
 
 > [!tip] Adicionando novas customizações de material
 > Para uma futura personalização que precise de estado de material próprio (ex: normalScale individual), basta:

@@ -8,6 +8,7 @@ import type {
   BuildingSettings,
   DonationEntry,
   EdgeLightType,
+  FacadeStyle,
   RooftopType,
   TextureSettings,
 } from "../types";
@@ -84,6 +85,22 @@ import roughnessTextureSrc from "../../assets/texture/Facade006_1K-mirrored-PNG/
 import metalnessTextureSrc from "../../assets/texture/Facade006_1K-mirrored-PNG/Facade006_1K-PNG_Metalness.png";
 import displacementTextureSrc from "../../assets/texture/Facade006_1K-mirrored-PNG/Facade006_1K-PNG_Displacement.png";
 import emissiveTextureSrc from "../../assets/texture/Facade006_1K-mirrored-PNG/Facade006_1K-PNG_Color.png";
+import facade001ColorSrc from "../../assets/texture/Facade001_1K-PNG/Facade001_1K-PNG_Color.png";
+import facade001NormalSrc from "../../assets/texture/Facade001_1K-PNG/Facade001_1K-PNG_NormalGL.png";
+import facade001RoughnessSrc from "../../assets/texture/Facade001_1K-PNG/Facade001_1K-PNG_Roughness.png";
+import facade001MetalnessSrc from "../../assets/texture/Facade001_1K-PNG/Facade001_1K-PNG_Metalness.png";
+import facade001DisplacementSrc from "../../assets/texture/Facade001_1K-PNG/Facade001_1K-PNG_Displacement.png";
+import facade002ColorSrc from "../../assets/texture/Facade002_1K-PNG/Facade002_1K-PNG_Color.png";
+import facade002NormalSrc from "../../assets/texture/Facade002_1K-PNG/Facade002_1K-PNG_NormalGL.png";
+import facade002RoughnessSrc from "../../assets/texture/Facade002_1K-PNG/Facade002_1K-PNG_Roughness.png";
+import facade002MetalnessSrc from "../../assets/texture/Facade002_1K-PNG/Facade002_1K-PNG_Metalness.png";
+import facade002DisplacementSrc from "../../assets/texture/Facade002_1K-PNG/Facade002_1K-PNG_Displacement.png";
+import facade002EmissionSrc from "../../assets/texture/Facade002_1K-PNG/Facade002_1K-PNG_Emission.png";
+import facade018aColorSrc from "../../assets/texture/Facade018A_1K-PNG/Facade018A_1K-PNG_Color.png";
+import facade018aNormalSrc from "../../assets/texture/Facade018A_1K-PNG/Facade018A_1K-PNG_NormalGL.png";
+import facade018aRoughnessSrc from "../../assets/texture/Facade018A_1K-PNG/Facade018A_1K-PNG_Roughness.png";
+import facade018aMetalnessSrc from "../../assets/texture/Facade018A_1K-PNG/Facade018A_1K-PNG_Metalness.png";
+import facade018aDisplacementSrc from "../../assets/texture/Facade018A_1K-PNG/Facade018A_1K-PNG_Displacement.png";
 import concreteColorSrc from "../../assets/texture/Concrete024_1K-JPG/Concrete024_1K-JPG_Color.jpg";
 import concreteNormalSrc from "../../assets/texture/Concrete024_1K-JPG/Concrete024_1K-JPG_NormalGL.jpg";
 import concreteRoughnessSrc from "../../assets/texture/Concrete024_1K-JPG/Concrete024_1K-JPG_Roughness.jpg";
@@ -212,6 +229,52 @@ function isTexturelessMaterial(material: THREE.Material): boolean {
   return material.userData.textureless === true;
 }
 
+type FacadeTextureSet = {
+  color: THREE.Texture;
+  normal: THREE.Texture;
+  roughness: THREE.Texture;
+  metalness: THREE.Texture;
+  displacement: THREE.Texture;
+  emissive: THREE.Texture;
+};
+
+// Conjuntos PBR alternativos de fachada. Só as URLs ficam no bundle — o download
+// acontece na primeira vez que algum edifício pede o estilo (ver getFacadeTextures).
+const FACADE_STYLE_SOURCES: Record<
+  Exclude<FacadeStyle, "default">,
+  {
+    color: string;
+    normal: string;
+    roughness: string;
+    metalness: string;
+    displacement: string;
+    emission?: string; // só alguns conjuntos trazem janelas acesas próprias
+  }
+> = {
+  facade001: {
+    color: facade001ColorSrc,
+    normal: facade001NormalSrc,
+    roughness: facade001RoughnessSrc,
+    metalness: facade001MetalnessSrc,
+    displacement: facade001DisplacementSrc,
+  },
+  facade002: {
+    color: facade002ColorSrc,
+    normal: facade002NormalSrc,
+    roughness: facade002RoughnessSrc,
+    metalness: facade002MetalnessSrc,
+    displacement: facade002DisplacementSrc,
+    emission: facade002EmissionSrc,
+  },
+  facade018a: {
+    color: facade018aColorSrc,
+    normal: facade018aNormalSrc,
+    roughness: facade018aRoughnessSrc,
+    metalness: facade018aMetalnessSrc,
+    displacement: facade018aDisplacementSrc,
+  },
+};
+
 export function createDonationManager({
   scene,
   renderer,
@@ -240,6 +303,39 @@ export function createDonationManager({
   for (const tex of allTextures) {
     tex.anisotropy = maxAniso;
   }
+
+  const defaultFacadeTextures: FacadeTextureSet = {
+    color: colorMap,
+    normal: normalMap,
+    roughness: roughnessMap,
+    metalness: metalnessMap,
+    displacement: displacementMap,
+    emissive: emissiveMap,
+  };
+  // Cache por estilo. O conjunto default já vem carregado; os demais entram na
+  // rede só quando um edifício escolhe aquele estilo.
+  const facadeTextureCache = new Map<FacadeStyle, FacadeTextureSet>([
+    ["default", defaultFacadeTextures],
+  ]);
+
+  const getFacadeTextures = (style: FacadeStyle = "default"): FacadeTextureSet => {
+    const cached = facadeTextureCache.get(style);
+    if (cached) return cached;
+    const src = FACADE_STYLE_SOURCES[style as Exclude<FacadeStyle, "default">];
+    if (!src) return defaultFacadeTextures;
+    const color = loadTexture(src.color);
+    const set: FacadeTextureSet = {
+      color,
+      normal: loadDataTexture(src.normal),
+      roughness: loadDataTexture(src.roughness),
+      metalness: loadDataTexture(src.metalness),
+      displacement: loadDataTexture(src.displacement),
+      emissive: src.emission ? loadTexture(src.emission) : color,
+    };
+    for (const tex of Object.values(set)) tex.anisotropy = maxAniso;
+    facadeTextureCache.set(style, set);
+    return set;
+  };
 
   const tilingUniform = { value: textureSettings.tilingScale };
   const topTilingUniform = { value: textureSettings.top.tilingScale };
@@ -778,37 +874,46 @@ export function createDonationManager({
     return list;
   };
 
+  // Aplica os mapas da fachada num material. O conjunto vem de
+  // `mat.userData.facadeStyle` (clones per-edifício) ou do default da cena.
+  const applyFacadeTextures = (
+    mat: THREE.MeshPhysicalMaterial,
+    settings: TextureSettings,
+  ) => {
+    const textureless = isTexturelessMaterial(mat);
+    const tex = getFacadeTextures(mat.userData.facadeStyle as FacadeStyle | undefined);
+    if (settings.enabled && !textureless) {
+      mat.map = tex.color;
+      mat.normalMap = tex.normal;
+      mat.normalScale.set(settings.normalScale, settings.normalScale);
+      mat.roughnessMap = tex.roughness;
+      mat.metalnessMap = tex.metalness;
+      mat.roughness = settings.roughnessIntensity;
+      mat.metalness = settings.metalnessIntensity;
+      mat.bumpMap = tex.displacement;
+      mat.displacementMap = tex.displacement;
+      mat.displacementScale = settings.displacementScale;
+      mat.emissiveMap = tex.emissive;
+    } else {
+      mat.map = null;
+      mat.normalMap = null;
+      mat.roughnessMap = null;
+      mat.metalnessMap = null;
+      mat.bumpMap = textureless ? null : tex.displacement;
+      mat.displacementMap = textureless ? null : tex.displacement;
+      mat.displacementScale = 0;
+      mat.emissiveMap = null;
+    }
+    mat.emissiveIntensity = textureless ? 0 : settings.emissiveIntensity;
+    if (!textureless) {
+      mat.envMapIntensity = settings.envMapIntensity;
+    }
+    mat.needsUpdate = true;
+  };
+
   const applyTextureToFacade = (settings: TextureSettings) => {
-    const targets = getAllFacadeMaterials();
-    for (const mat of targets) {
-      const textureless = isTexturelessMaterial(mat);
-      if (settings.enabled && !textureless) {
-        mat.map = colorMap;
-        mat.normalMap = normalMap;
-        mat.normalScale.set(settings.normalScale, settings.normalScale);
-        mat.roughnessMap = roughnessMap;
-        mat.metalnessMap = metalnessMap;
-        mat.roughness = settings.roughnessIntensity;
-        mat.metalness = settings.metalnessIntensity;
-        mat.bumpMap = displacementMap;
-        mat.displacementMap = displacementMap;
-        mat.displacementScale = settings.displacementScale;
-        mat.emissiveMap = emissiveMap;
-      } else {
-        mat.map = null;
-        mat.normalMap = null;
-        mat.roughnessMap = null;
-        mat.metalnessMap = null;
-        mat.bumpMap = textureless ? null : displacementMap;
-        mat.displacementMap = textureless ? null : displacementMap;
-        mat.displacementScale = 0;
-        mat.emissiveMap = null;
-      }
-      mat.emissiveIntensity = textureless ? 0 : settings.emissiveIntensity;
-      if (!textureless) {
-        mat.envMapIntensity = settings.envMapIntensity;
-      }
-      mat.needsUpdate = true;
+    for (const mat of getAllFacadeMaterials()) {
+      applyFacadeTextures(mat, settings);
     }
   };
 
@@ -874,6 +979,7 @@ export function createDonationManager({
   const needsCustomMesh = (c?: BuildingCustomization): boolean => {
     if (!c) return false;
     if (c.buildingShape !== "default") return true;
+    if (c.facadeStyle && c.facadeStyle !== "default") return true;
     if (Math.abs(c.tilingScale - 1) > 0.001) return true;
     if (!isDefaultTextureTransform(c.textureTransform)) return true;
     return false;
@@ -1561,6 +1667,8 @@ export function createDonationManager({
         topMat.userData.tilingMultiplier.value = customization.tilingScale;
         setMaterialTextureTransform(facadeMat, customization.textureTransform);
         setMaterialTextureTransform(topMat, customization.textureTransform);
+        facadeMat.userData.facadeStyle = customization.facadeStyle ?? "default";
+        applyFacadeTextures(facadeMat, currentTextureSettings);
 
         let sceneMesh: THREE.Mesh;
         if (shape === "twisted") {
@@ -1955,6 +2063,7 @@ export function createDonationManager({
       const prevSignSides = prevCustomization?.signSides ?? 1;
       const prevEdgeLightType = prevCustomization?.edgeLightType ?? "none";
       const prevShape = prevCustomization?.buildingShape ?? "default";
+      const prevFacadeStyle = prevCustomization?.facadeStyle ?? "default";
       const prevTilingScale = prevCustomization?.tilingScale ?? 1;
       const prevTextureTransform = prevCustomization?.textureTransform ??
         DEFAULT_BUILDING_TEXTURE_TRANSFORM;
@@ -1974,6 +2083,16 @@ export function createDonationManager({
           applyFocus(focusedDonationId);
         }
         return;
+      }
+
+      // Troca de estilo de fachada entre dois estilos custom: o prédio já tem
+      // mesh próprio, então só troca os mapas do material clonado.
+      if ((customization.facadeStyle ?? "default") !== prevFacadeStyle) {
+        const entry = customShapeMeshes.get(donationId);
+        if (entry) {
+          entry.facadeMat.userData.facadeStyle = customization.facadeStyle ?? "default";
+          applyFacadeTextures(entry.facadeMat, currentTextureSettings);
+        }
       }
 
       // Atualização de tiling em prédio que já está em customShapeMeshes:
@@ -2106,6 +2225,16 @@ export function createDonationManager({
       for (const tex of allTextures) {
         tex.dispose();
       }
+      for (const [style, set] of facadeTextureCache) {
+        if (style === "default") continue; // já coberto por allTextures
+        set.color.dispose();
+        set.normal.dispose();
+        set.roughness.dispose();
+        set.metalness.dispose();
+        set.displacement.dispose();
+        if (set.emissive !== set.color) set.emissive.dispose();
+      }
+      facadeTextureCache.clear();
       for (const m of roadMeshes) {
         scene.remove(m);
         m.geometry.dispose();
