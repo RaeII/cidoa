@@ -50,7 +50,7 @@ O projeto é dividido em 3 grandes partes:
 ```text
 scripts/
   encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`)
-  check-building-shapes.mjs    ← checa os 10 formatos sem navegador (`node scripts/check-building-shapes.mjs`)
+  check-building-shapes.mjs    ← checa os 10 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
 public/
   basis/                       ← transcoder basis do KTX2Loader (js + wasm)
 src/
@@ -114,7 +114,7 @@ src/
       useCustomizationCatalog.ts   ← carrega catálogo de personalizações 1×
     three/
       CitySceneCanvas.tsx
-      BuildingShapePreview.tsx     ← miniatura + preview 3D de um formato (admin)
+      CustomizationPreview.tsx     ← miniatura + preview 3D de formato/topo/LED (admin)
   scene/
     types.ts
     config/
@@ -136,6 +136,7 @@ src/
       createSignMesh.ts
       createEdgeLightMesh.ts
       createBuildingShapeMesh.ts   ← registro formato → builder (cena + admin)
+      createPreviewScene.ts        ← cena isolada de 1 personalização (preview do admin)
       createTwistedBuildingMesh.ts
       createOctagonalBuildingMesh.ts
       createSetbackBuildingMesh.ts
@@ -292,11 +293,15 @@ flowchart LR
     DM --> |cor| IC[instanceColor]
     DM --> |formato| BS[createBuildingShapeMesh]
     BS --> SH["builder do formato<br/>twisted · octagonal · setback · tapered · chrysler<br/>hearst · empire · taipei · one-trade"]
-    Admin[Admin · Personalizações] --> BS
     DM --> |topo| RM[createRooftopMesh]
     DM --> |sign| SM[createSignMesh]
     DM --> |LED| EL[createEdgeLightMesh]
     DM --> |holograma| HM[createHologramMesh]
+    Admin[Admin · Personalizações] --> CP[CustomizationPreview]
+    CP --> PS[createPreviewScene]
+    PS --> BS
+    PS --> RM
+    PS --> EL
 ```
 
 ## Onde Mexer?
@@ -325,7 +330,8 @@ flowchart LR
 | Alterar LED de arestas                           | [[scene-builders#createEdgeLightMesh.ts]]         |
 | Alterar holograma cyberpunk                      | [[scene-builders#createHologramMesh.ts]]          |
 | Adicionar formato de edifício novo               | [[scene-builders#createBuildingShapeMesh.ts]] + [[scene-types#BuildingShape]] |
-| Ver formato em 3D no admin (miniatura + dialog)  | [[personalizacoes#Formato: miniatura 3D]] · [[three-components#BuildingShapePreview.tsx]] |
+| Ver formato/topo/LED em 3D no admin              | [[personalizacoes#Preview 3D: Formato, Topo e LED]] · [[three-components#CustomizationPreview.tsx]] |
+| Dar preview 3D a outra categoria do catálogo     | `PREVIEW_KIND` em `src/pages/admin/Customizations.tsx` + [[scene-builders#createPreviewScene.ts]] |
 | Alterar torre torcida (twisted)                  | [[scene-builders#createTwistedBuildingMesh.ts]]   |
 | Alterar torre octogonal (octagonal)              | [[scene-builders#createOctagonalBuildingMesh.ts]] |
 | Alterar torre setback (setback)                  | [[scene-builders#createSetbackBuildingMesh.ts]]   |

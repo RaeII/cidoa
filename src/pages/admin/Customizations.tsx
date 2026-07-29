@@ -17,7 +17,7 @@ import {
   resolveFacadeFolder,
   type FacadeTextureInfo,
 } from "@/scene/textures/facadeTextureManifest";
-import type { PreviewSubject } from "@/components/three/CustomizationPreview";
+import type { PreviewSubject } from "@/scene/builders/createPreviewScene";
 import { AppSidebar } from "@/components/AppSidebar";
 import { MobileNav } from "@/components/MobileNav";
 import { Button } from "@/components/ui/button";

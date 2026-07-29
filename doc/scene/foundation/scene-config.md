@@ -187,6 +187,9 @@ Padrões do probe de reflexo dos prédios. `createDefaultReflectionSettings()` +
 | `skyDrop` | `-0.030` | Desce a faixa de céu na captura — direção que a fachada espelha vista de frente |
 | `envHorizon` | `0.6` | Achata `reflectVec.y` no shader. Fachada vertical espelha pra baixo (`R.y = −V.y`) onde o cube só tem cinza; puxar pro horizonte devolve o skyline. Escala só Y → **igual em toda face** |
 | `envRotY` | `0` | Giro horizontal do envMap no material (graus). Único eixo de rotação rígida que preserva simetria entre faces |
+| `heightFadeStart` | `32.8` | Altura da câmera onde começa a suavização |
+| `heightFadeEnd` | `57.6` | Altura onde o desfoque chega ao máximo |
+| `heightBlur` | `0.65` | Rugosidade mínima do reflexo na altura máxima |
 | `updateInterval` | `30` | Frames entre capturas |
 | `continuous` | `false` | Captura só quando a cena muda |
 | `includeGround` | `true` | Plano cinza + relevo entram no cube e aparecem nos reflexos |

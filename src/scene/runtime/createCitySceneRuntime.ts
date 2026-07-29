@@ -334,6 +334,15 @@ export function createCitySceneRuntime({
       }
     }
 
+    donationManager.setReflectionRoughnessFloor(
+      currentReflection.enabled
+        ? THREE.MathUtils.smoothstep(
+            camera.position.y - groundPlane.mesh.position.y,
+            currentReflection.heightFadeStart,
+            currentReflection.heightFadeEnd,
+          ) * currentReflection.heightBlur
+        : 0,
+    );
     groundPlane.setPosition(camera.position.x, camera.position.z);
     horizonSilhouette.update(camera);
     environmentUpdater.updatePosition(camera.position.x, camera.position.y, camera.position.z);
@@ -500,6 +509,16 @@ export function createCitySceneRuntime({
     updateReflectionSettings(settings) {
       const resolutionChanged = settings.resolution !== currentReflection.resolution;
       const enabledChanged = settings.enabled !== currentReflection.enabled;
+      const captureChanged =
+        resolutionChanged ||
+        enabledChanged ||
+        settings.probeX !== currentReflection.probeX ||
+        settings.probeY !== currentReflection.probeY ||
+        settings.probeZ !== currentReflection.probeZ ||
+        settings.followCamera !== currentReflection.followCamera ||
+        settings.skyDrop !== currentReflection.skyDrop ||
+        settings.includeGround !== currentReflection.includeGround ||
+        settings.includeCityFloor !== currentReflection.includeCityFloor;
       currentReflection = settings;
       // Resolução do cube é imutável no target: trocar exige recriar target + CubeCamera e
       // reapontar o envMap das fachadas.
@@ -516,7 +535,7 @@ export function createCitySceneRuntime({
       // Direção só muda a amostragem no material — não invalida a captura.
       donationManager.setEnvMapRotation(settings.envRotY);
       donationManager.setEnvHorizon(settings.envHorizon);
-      markCubeDirty();
+      if (captureChanged) markCubeDirty();
     },
 
     addDonation(value) {

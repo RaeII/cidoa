@@ -27,16 +27,22 @@ Por categoria:
 - **Ativa/Inativa** — `Switch` shadcn controlado. Abre confirmação antes do `PUT /admin/customization/categories/:id`; cancelar preserva estado. Serve pra ligar/desligar features (Letreiro/Holograma) e categorias inteiras.
 - **Adicionar opção** — só em categoria extensível. **Cor** = dialog com hex.
 
-## Formato: miniatura 3D
+## Preview 3D: Formato, Topo e LED
 
-Categoria **Formato** mostra o edifício, não só o nome — admin reconhece o modelo de relance.
+Essas três categorias mostram o modelo, não só o nome — admin reconhece de relance.
 
-- **Miniatura** — quadrado 48px na linha da opção, renderizado com a **mesma geometria da cena** ([[three-components#BuildingShapePreview.tsx|BuildingShapeThumb]]). Um render por formato, depois cache.
-- **Clique na miniatura** — dialog com o edifício inteiro: arrastar gira, scroll aproxima, auto-rotate parado quando o usuário assume.
+- **Miniatura** — quadrado 48px na linha da opção, renderizada com a **mesma geometria da cena** ([[three-components#CustomizationPreview.tsx|CustomizationThumb]]). Um render por opção, depois cache.
+- **Clique na miniatura** — dialog com o modelo inteiro: arrastar gira, scroll aproxima, auto-rotate parado quando o usuário assume.
 
-Key da opção precisa ter builder no front (`isBuildingShape`, ver [[scene-builders#createBuildingShapeMesh.ts]]). Opção com key desconhecida = linha normal, sem miniatura — nada quebra.
+| Categoria | Key da categoria | O que aparece |
+|---|---|---|
+| Formato | `shape` | o edifício do formato |
+| Topo | `rooftop` | prédio baixo com o acessório no telhado |
+| LED de arestas | `edge_light` | prédio alto com o LED aceso, fundo noturno |
 
-three.js entra por import dinâmico: as outras páginas do admin dividem o mesmo chunk e não podem pagar 570 kB por isso.
+Opção `none` (Nenhuma/Desligado) não tem miniatura — não há o que renderizar. Key sem builder no front (`resolveSubject`, ver [[three-components#CustomizationPreview.tsx]]) = linha normal, sem miniatura — nada quebra.
+
+three.js entra por import dinâmico: as outras páginas do admin dividem o mesmo chunk e não podem pagar ~600 kB por isso. Por isso a página **não** importa nada de `scene/` fora de `import type`.
 
 ## Textura: cadastradas × não-cadastradas
 

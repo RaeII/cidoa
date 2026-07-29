@@ -200,6 +200,12 @@ export type ReflectionSettings = {
   /** Giro horizontal do envMap na fachada, em graus (eixo Y). Único eixo que preserva
    *  a simetria entre as faces. */
   envRotY: number;
+  /** Altura da câmera onde começa a suavização do reflexo. */
+  heightFadeStart: number;
+  /** Altura da câmera onde a suavização atinge o máximo. */
+  heightFadeEnd: number;
+  /** Rugosidade mínima aplicada ao reflexo na altura máxima (0–1). */
+  heightBlur: number;
   /** Frames entre capturas (1 = todo frame). */
   updateInterval: number;
   /** Recaptura a cada intervalo mesmo sem mudança na cena. */

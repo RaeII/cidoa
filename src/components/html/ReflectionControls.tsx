@@ -14,6 +14,8 @@ type ReflectionControlsProps = {
 // Resolução do cube precisa ser potência de 2 pra mipmap: slider anda no expoente.
 const MIN_RESOLUTION_EXP = 6; // 64
 const MAX_RESOLUTION_EXP = 10; // 1024
+const MIN_CAMERA_HEIGHT = 0;
+const MAX_CAMERA_HEIGHT = 120;
 
 export function ReflectionControls({
   value,
@@ -176,6 +178,39 @@ export function ReflectionControls({
           step={1}
           valueLabel={`${value.envRotY}°`}
           onChange={(envRotY) => onChange({ ...value, envRotY })}
+        />
+      </PanelSection>
+
+      <PanelSection
+        title="Suavização por altura"
+        description="Mantém o reflexo nítido perto do chão e aumenta o desfoque somente quando a câmera sobe."
+      >
+        <RangeField
+          label="Altura inicial"
+          value={value.heightFadeStart}
+          min={MIN_CAMERA_HEIGHT}
+          max={value.heightFadeEnd - 0.5}
+          step={0.5}
+          valueLabel={value.heightFadeStart.toFixed(1)}
+          onChange={(heightFadeStart) => onChange({ ...value, heightFadeStart })}
+        />
+        <RangeField
+          label="Altura final"
+          value={value.heightFadeEnd}
+          min={value.heightFadeStart + 0.5}
+          max={MAX_CAMERA_HEIGHT}
+          step={0.5}
+          valueLabel={value.heightFadeEnd.toFixed(1)}
+          onChange={(heightFadeEnd) => onChange({ ...value, heightFadeEnd })}
+        />
+        <RangeField
+          label="Desfoque máximo"
+          value={value.heightBlur}
+          min={0}
+          max={1}
+          step={0.05}
+          valueLabel={value.heightBlur.toFixed(2)}
+          onChange={(heightBlur) => onChange({ ...value, heightBlur })}
         />
       </PanelSection>
 

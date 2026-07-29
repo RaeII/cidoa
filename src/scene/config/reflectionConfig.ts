@@ -19,6 +19,9 @@ export const DEFAULT_REFLECTION_SETTINGS: ReflectionSettings = {
   // porque só escala Y. 0 = comportamento cru do probe.
   envHorizon: 0.6,
   envRotY: 0,
+  heightFadeStart: 32.8,
+  heightFadeEnd: 57.6,
+  heightBlur: 0.65,
   updateInterval: 30,
   continuous: false,
   // Chão, relevo e piso urbano entram no cube para aparecerem nos reflexos dos edifícios.

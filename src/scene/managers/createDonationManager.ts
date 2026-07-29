@@ -156,6 +156,8 @@ export type DonationManager = {
   setEnvMapRotation: (yDeg: number) => void;
   /** 0–0.95: achata o vetor de reflexão em direção ao horizonte, igual em toda fachada. */
   setEnvHorizon: (amount: number) => void;
+  /** Piso de rugosidade aplicado ao reflexo distante. */
+  setReflectionRoughnessFloor: (roughness: number) => void;
   /** `includeCityFloor`: mantém asfalto/calçada/lotes visíveis durante a captura do cube. */
   beginEnvCapture: (includeCityFloor: boolean) => void;
   endEnvCapture: () => void;
@@ -210,6 +212,7 @@ export function createDonationManager({
   const topTilingUniform = { value: textureSettings.top.tilingScale };
   // Compartilhado por todos os materiais triplanares (inclui clones de custom shape).
   const envHorizonUniform = { value: 0 };
+  const reflectionRoughnessFloorUniform = { value: 0 };
 
   // Geometria 1×1×1 — escala via instanceMatrix
   const buildingGeometry = createUnitBuildingGeometry();
@@ -302,12 +305,23 @@ export function createDonationManager({
         #endif`,
       );
       shader.uniforms.uEnvHorizon = envHorizonUniform;
+      shader.uniforms.uReflectionRoughnessFloor = reflectionRoughnessFloorUniform;
       shader.fragmentShader = shader.fragmentShader.replace(
         "#include <common>",
         `#include <common>
         uniform float uEnvHorizon;
+        uniform float uReflectionRoughnessFloor;
         varying vec3 vTriplanarWorldPos;
         varying vec3 vTriplanarObjNormal;`,
+      );
+      const ROUGHNESS_ANCHOR = "#include <roughnessmap_fragment>";
+      if (import.meta.env.DEV && !shader.fragmentShader.includes(ROUGHNESS_ANCHOR)) {
+        console.warn("[donationManager] âncora de roughness sumiu — suavização por altura inativa");
+      }
+      shader.fragmentShader = shader.fragmentShader.replace(
+        ROUGHNESS_ANCHOR,
+        `${ROUGHNESS_ANCHOR}
+        roughnessFactor = max(roughnessFactor, uReflectionRoughnessFloor);`,
       );
       // Achata o vetor de reflexão em direção ao horizonte. Rotação rígida (envMapRotation)
       // NÃO serve aqui: girar no X quase não mexe nas direções ±X e gira ±Z inteiro — a
@@ -1938,6 +1952,9 @@ export function createDonationManager({
     setEnvHorizon(amount) {
       // Clamp em 0.95: com 1.0 um reflexo apontando reto pra cima vira vec3(0) → NaN.
       envHorizonUniform.value = THREE.MathUtils.clamp(amount, 0, 0.95);
+    },
+    setReflectionRoughnessFloor(roughness) {
+      reflectionRoughnessFloorUniform.value = THREE.MathUtils.clamp(roughness, 0, 1);
     },
     beginEnvCapture(includeCityFloor) {
       for (const mat of getAllFacadeMaterials()) mat.envMapIntensity = 0;

@@ -291,7 +291,7 @@ disposeEdgeLightSharedResources(): void                             // libera ge
 
 ### `createBuildingShapeMesh.ts`
 
-Registro único formato → builder. Ponto de entrada de **todo** consumidor de formato: [[scene-managers|DonationManager]] na cena e [[three-components#BuildingShapePreview.tsx|BuildingShapePreview]] no admin.
+Registro único formato → builder. Ponto de entrada de **todo** consumidor de formato: [[scene-managers|DonationManager]] na cena e [[three-components#CustomizationPreview.tsx|CustomizationPreview]] no admin.
 
 **Responsabilidades:**
 - `SHAPE_BUILDERS`: `Record<Exclude<BuildingShape, "default">, builder>` — `Record` exaustivo, formato novo em [[scene-types#BuildingShape]] sem builder **não compila**
@@ -310,7 +310,33 @@ Registro único formato → builder. Ponto de entrada de **todo** consumidor de 
 > [!important] Não chame o dispose no admin
 > As geometrias são cache module-level compartilhado. `disposeBuildingShapeSharedResources()` é do teardown do manager; o preview do admin só descarta os **materiais** que criou.
 
-**Checagem:** `node scripts/check-building-shapes.mjs` — monta os 10 formatos fora do navegador (sem WebGL) e afirma geometria não-degenerada, altura unitária e slots de material na ordem fachada/topo.
+**Checagem:** `node scripts/check-building-shapes.mjs` — monta os 10 formatos fora do navegador (sem WebGL) e afirma geometria não-degenerada, altura unitária e slots de material na ordem fachada/topo. Cobre também o preview do admin: `resolveSubject` pra toda key semeada e o `frameBox` ignorando volumétrico.
+
+> [!note] Guards irmãos nos acessórios
+> `isRooftopType` ([[scene-builders#createRooftopMesh.ts|createRooftopMesh]]) e `isEdgeLightType` ([[scene-builders#createEdgeLightMesh.ts|createEdgeLightMesh]]) seguem o mesmo padrão: `key in FACTORIES`, pra validar key vinda do catálogo antes de chamar o builder.
+
+---
+
+### `createPreviewScene.ts`
+
+Cena isolada com **uma** personalização, pro preview do admin ([[personalizacoes#Preview 3D: Formato, Topo e LED]]). Não é usado pela cena principal. O componente React ([[three-components#CustomizationPreview.tsx|CustomizationPreview]]) só cria o renderer e chama daqui.
+
+**Responsabilidades:**
+- `resolveSubject({ kind, key })` — key crua do catálogo → builder, via `isBuildingShape`/`isRooftopType`/`isEdgeLightType`. `null` = sem builder no front ou `none` (ausência de acessório)
+- Montar prédio-base + acessório: `rooftop` vai no topo (`+height/2`), `edgeLight` na base (`-height/2`)
+- `VIEW` — altura do prédio-base e elevação da câmera por `kind`. O alvo tem que dominar o quadro: topo pede prédio baixo com câmera alta, formato pede prédio alto (geometria é 1×1×1 — sem esticar, Empire/Chrysler viram cubos)
+- Luz própria (ambient + 2 direcionais, sem sombra) — admin não tem HDRI nem `scene.environment`
+- Fundo escuro só no LED: halo é `AdditiveBlending` e some em fundo claro
+- `frame(aspect)` / `place(distance)` — enquadramento por bounding sphere, separados pra resize não desfazer o giro do usuário
+- `frameBox(root)` — bounding box que **ignora volumétrico** (transparente com `depthWrite: false`): o feixe do holofote tem 10 unidades e deixaria o prédio um ponto
+- `dispose()` — materiais e caixa criados aqui + `disposeRooftopMesh`/`disposeEdgeLightMesh`
+
+**Quando mexer aqui:**
+- Dar preview a outra categoria do catálogo (novo `kind` + entrada em `VIEW` + `PREVIEW_KIND` no admin)
+- Ajustar enquadramento/altura de um tipo de preview
+
+> [!important] Não descarte recurso compartilhado
+> As geometrias de formato e acessório são cache module-level que a cena também usa. O preview descarta só o que **ele** criou — nunca `disposeBuildingShapeSharedResources()` e companhia.
 
 ---
 

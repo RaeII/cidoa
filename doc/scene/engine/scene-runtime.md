@@ -136,6 +136,8 @@ Fachada usa o cube do `buildingCubeTarget` como `envMap` (ver [[scene-managers|s
 | `skyDrop` | `-0.030` | `offsetY` extra do céu **só na captura** |
 | `envHorizon` | `0.6` | `donationManager.setEnvHorizon` → uniform `uEnvHorizon`; achata `reflectVec.y` no `getIBLRadiance`. Muda a **direção amostrada**, não a captura |
 | `envRotY` | `0` | Graus. `donationManager.setEnvMapRotation` → `material.envMapRotation` (só eixo Y) |
+| `heightFadeStart/End` | `32.8 / 57.6` | Faixa de altura sobre o chão usada pelo `smoothstep` |
+| `heightBlur` | `0.65` | Piso máximo de rugosidade aplicado quando a câmera está alta |
 | `updateInterval` | `30` | Frames entre capturas (`cubeFrameCounter % max(1, n)`) |
 | `continuous` | `false` | Recaptura mesmo sem `cubeDirty` |
 | `includeGround` | `true` | Mantém plano cinza + relevo na captura |
@@ -168,6 +170,7 @@ Fachada usa o cube do `buildingCubeTarget` como `envMap` (ver [[scene-managers|s
 
 Consequências:
 
+- **Câmera alta suaviza o reflexo.** A altura é `camera.position.y − groundPlane.mesh.position.y`, independente da distância horizontal ao centro. `heightFadeStart`/`heightFadeEnd` delimitam a transição; `heightBlur` define a rugosidade máxima. Um único uniform atende materiais instanciados e clones: sem loop por prédio, textura extra, recaptura ou novo probe. Alterar esses campos não suja o cubemap.
 - **Órbita não suja o cube.** Girar a câmera daria captura idêntica — o reflexo varia sozinho pelo `reflect()`. `controls` não tem mais listener `change` → `markCubeDirty`. Único vínculo com a câmera é o cull de distância (suja o cube quando o número de prédios ocultos muda). Exceções pagas por escolha do usuário: `followCamera` e `continuous` capturam todo `updateInterval`.
 - **Asset assíncrono suja o cube.** `THREE.DefaultLoadingManager.onLoad = markCubeDirty` (+ `markCubeDirty()` no `onLoaded` do [[scene-builders#loadEnvironment.ts|loadEnvironment]]). Obrigatório desde que a órbita parou de sujar: a primeira captura roda no frame 4 e o HDRI (fetch + decode de JPG 4K) só entra na cena muito depois — sem isso o reflexo ficava **sem céu** até alguma outra mudança acontecer. `dispose` limpa o `onLoad`.
 - **Céu segue o probe durante a captura.** No render normal a esfera de céu segue a câmera; na captura recebe a posição do probe (`environmentUpdater.updatePosition`) e volta pra câmera antes do `renderer.render` do mesmo frame. Sem isso a esfera (raio 200) ficaria deslocada ou atrás do probe. Chão e piso urbano ficam visíveis por padrão.

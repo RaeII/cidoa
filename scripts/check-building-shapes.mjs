@@ -1,7 +1,8 @@
 /**
- * Checagem dos formatos de edifício: todo formato do catálogo tem que produzir
- * mesh com geometria real e os 2 slots de material (fachada/topo). Roda sem
- * navegador — só matemática de BufferGeometry, nada de WebGL.
+ * Checagem dos formatos de edifício (todo formato do catálogo produz mesh com
+ * geometria real e os 2 slots de material) + do preview do admin (keys do
+ * catálogo resolvem pro builder certo; enquadramento ignora volumétrico).
+ * Roda sem navegador — só matemática de BufferGeometry, nada de WebGL.
  *
  * Uso: node scripts/check-building-shapes.mjs
  */
@@ -27,6 +28,44 @@ for (const shape of BUILDING_SHAPES) {
   assert.ok(size.y > 0.5 && size.y < 1.5, `${shape}: altura ${size.y} — geometria não é unitária`);
   console.log(`ok ${shape} — ${size.toArray().map((n) => n.toFixed(2)).join(" × ")}`);
 }
+
+// --- Preview do admin ---
+const { resolveSubject, frameBox } = await server.ssrLoadModule(
+  "/src/scene/builders/createPreviewScene.ts",
+);
+
+// Keys semeadas na migration 0008. `none` = ausência de acessório: sem preview.
+const SUBJECTS = [
+  ...BUILDING_SHAPES.map((key) => ["shape", key, true]),
+  ["rooftop", "spotlights", true],
+  ["rooftop", "helipad", true],
+  ["rooftop", "garden", true],
+  ["rooftop", "helicopter", true],
+  ["rooftop", "none", false],
+  ["edgeLight", "led", true],
+  ["edgeLight", "none", false],
+  ["shape", "inexistente", false],
+  ["rooftop", "inexistente", false],
+];
+
+for (const [kind, key, expected] of SUBJECTS) {
+  const resolved = resolveSubject({ kind, key });
+  assert.equal(Boolean(resolved), expected, `${kind}:${key}: resolveSubject devia dar ${expected}`);
+}
+console.log(`ok resolveSubject — ${SUBJECTS.length} keys`);
+
+// Feixe de holofote tem 10 unidades e não pode mandar no enquadramento.
+const root = new THREE.Group();
+root.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial()));
+const beam = new THREE.Mesh(
+  new THREE.BoxGeometry(1, 10, 1),
+  new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }),
+);
+beam.position.y = 5;
+root.add(beam);
+const framed = frameBox(root).getSize(new THREE.Vector3());
+assert.ok(framed.y <= 1.001, `enquadramento pegou o volumétrico (altura ${framed.y})`);
+console.log("ok frameBox — volumétrico ignorado");
 
 await server.close();
 console.log(`\n${BUILDING_SHAPES.length} formatos OK`);

@@ -246,6 +246,9 @@ type ReflectionSettings = {
   skyDrop: number;           // offsetY extra do céu SÓ na captura
   envHorizon: number;        // 0–0.95; achata reflectVec.y no shader (mesma faixa de elevação em toda face)
   envRotY: number;           // graus; gira o envMap no eixo vertical (único eixo que preserva simetria)
+  heightFadeStart: number; // altura onde começa a suavização
+  heightFadeEnd: number;   // altura onde o desfoque chega ao máximo
+  heightBlur: number;      // rugosidade mínima na altura máxima (0–1)
   updateInterval: number;    // frames entre capturas
   continuous: boolean;       // recaptura mesmo sem mudança na cena
   includeGround: boolean;    // plano cinza + relevo entram na captura
