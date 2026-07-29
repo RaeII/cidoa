@@ -16,6 +16,7 @@ const MIN_RESOLUTION_EXP = 6; // 64
 const MAX_RESOLUTION_EXP = 10; // 1024
 const MIN_CAMERA_HEIGHT = 0;
 const MAX_CAMERA_HEIGHT = 120;
+const MAX_REFLECTION_DISTANCE = 600;
 
 export function ReflectionControls({
   value,
@@ -211,6 +212,34 @@ export function ReflectionControls({
           step={0.05}
           valueLabel={value.heightBlur.toFixed(2)}
           onChange={(heightBlur) => onChange({ ...value, heightBlur })}
+        />
+      </PanelSection>
+
+      <PanelSection
+        title="Reflexo por proximidade"
+        description="Prédios próximos refletem normalmente. O reflexo desaparece gradualmente nos prédios distantes da câmera."
+      >
+        <RangeField
+          label="Reflexo total até"
+          value={value.reflectionDistanceStart}
+          min={0}
+          max={value.reflectionDistanceEnd - 1}
+          step={1}
+          valueLabel={value.reflectionDistanceStart.toFixed(0)}
+          onChange={(reflectionDistanceStart) =>
+            onChange({ ...value, reflectionDistanceStart })
+          }
+        />
+        <RangeField
+          label="Sem reflexo após"
+          value={value.reflectionDistanceEnd}
+          min={value.reflectionDistanceStart + 1}
+          max={MAX_REFLECTION_DISTANCE}
+          step={1}
+          valueLabel={value.reflectionDistanceEnd.toFixed(0)}
+          onChange={(reflectionDistanceEnd) =>
+            onChange({ ...value, reflectionDistanceEnd })
+          }
         />
       </PanelSection>
 

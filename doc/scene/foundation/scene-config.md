@@ -190,6 +190,8 @@ Padrões do probe de reflexo dos prédios. `createDefaultReflectionSettings()` +
 | `heightFadeStart` | `32.8` | Altura da câmera onde começa a suavização |
 | `heightFadeEnd` | `57.6` | Altura onde o desfoque chega ao máximo |
 | `heightBlur` | `0.65` | Rugosidade mínima do reflexo na altura máxima |
+| `reflectionDistanceStart` | `40` | Distância horizontal com reflexo completo |
+| `reflectionDistanceEnd` | `90` | Distância horizontal onde o reflexo desaparece |
 | `updateInterval` | `30` | Frames entre capturas |
 | `continuous` | `false` | Captura só quando a cena muda |
 | `includeGround` | `true` | Plano cinza + relevo entram no cube e aparecem nos reflexos |

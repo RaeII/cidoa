@@ -206,6 +206,10 @@ export type ReflectionSettings = {
   heightFadeEnd: number;
   /** Rugosidade mínima aplicada ao reflexo na altura máxima (0–1). */
   heightBlur: number;
+  /** Distância horizontal até onde o reflexo permanece completo. */
+  reflectionDistanceStart: number;
+  /** Distância horizontal a partir da qual o reflexo desaparece. */
+  reflectionDistanceEnd: number;
   /** Frames entre capturas (1 = todo frame). */
   updateInterval: number;
   /** Recaptura a cada intervalo mesmo sem mudança na cena. */

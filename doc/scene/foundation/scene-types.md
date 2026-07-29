@@ -249,6 +249,8 @@ type ReflectionSettings = {
   heightFadeStart: number; // altura onde começa a suavização
   heightFadeEnd: number;   // altura onde o desfoque chega ao máximo
   heightBlur: number;      // rugosidade mínima na altura máxima (0–1)
+  reflectionDistanceStart: number; // distância horizontal com reflexo completo
+  reflectionDistanceEnd: number;   // distância onde o reflexo desaparece
   updateInterval: number;    // frames entre capturas
   continuous: boolean;       // recaptura mesmo sem mudança na cena
   includeGround: boolean;    // plano cinza + relevo entram na captura

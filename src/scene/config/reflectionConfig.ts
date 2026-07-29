@@ -22,6 +22,8 @@ export const DEFAULT_REFLECTION_SETTINGS: ReflectionSettings = {
   heightFadeStart: 32.8,
   heightFadeEnd: 57.6,
   heightBlur: 0.65,
+  reflectionDistanceStart: 40,
+  reflectionDistanceEnd: 90,
   updateInterval: 30,
   continuous: false,
   // Chão, relevo e piso urbano entram no cube para aparecerem nos reflexos dos edifícios.

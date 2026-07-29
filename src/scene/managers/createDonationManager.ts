@@ -158,6 +158,8 @@ export type DonationManager = {
   setEnvHorizon: (amount: number) => void;
   /** Piso de rugosidade aplicado ao reflexo distante. */
   setReflectionRoughnessFloor: (roughness: number) => void;
+  /** Faixa horizontal onde o reflexo desaparece conforme a distância da câmera. */
+  setReflectionDistanceRange: (start: number, end: number) => void;
   /** `includeCityFloor`: mantém asfalto/calçada/lotes visíveis durante a captura do cube. */
   beginEnvCapture: (includeCityFloor: boolean) => void;
   endEnvCapture: () => void;
@@ -213,6 +215,8 @@ export function createDonationManager({
   // Compartilhado por todos os materiais triplanares (inclui clones de custom shape).
   const envHorizonUniform = { value: 0 };
   const reflectionRoughnessFloorUniform = { value: 0 };
+  const reflectionDistanceStartUniform = { value: 0 };
+  const reflectionDistanceEndUniform = { value: 1 };
 
   // Geometria 1×1×1 — escala via instanceMatrix
   const buildingGeometry = createUnitBuildingGeometry();
@@ -306,11 +310,15 @@ export function createDonationManager({
       );
       shader.uniforms.uEnvHorizon = envHorizonUniform;
       shader.uniforms.uReflectionRoughnessFloor = reflectionRoughnessFloorUniform;
+      shader.uniforms.uReflectionDistanceStart = reflectionDistanceStartUniform;
+      shader.uniforms.uReflectionDistanceEnd = reflectionDistanceEndUniform;
       shader.fragmentShader = shader.fragmentShader.replace(
         "#include <common>",
         `#include <common>
         uniform float uEnvHorizon;
         uniform float uReflectionRoughnessFloor;
+        uniform float uReflectionDistanceStart;
+        uniform float uReflectionDistanceEnd;
         varying vec3 vTriplanarWorldPos;
         varying vec3 vTriplanarObjNormal;`,
       );
@@ -335,6 +343,20 @@ export function createDonationManager({
         IBL_ANCHOR,
         `${IBL_ANCHOR}
         reflectVec = normalize(vec3(reflectVec.x, reflectVec.y * (1.0 - uEnvHorizon), reflectVec.z));`,
+      );
+      const IBL_RETURN_ANCHOR = "return envMapColor.rgb * envMapIntensity;";
+      if (import.meta.env.DEV && !shader.fragmentShader.includes(IBL_RETURN_ANCHOR)) {
+        console.warn("[donationManager] retorno do getIBLRadiance sumiu — alcance inativo");
+      }
+      shader.fragmentShader = shader.fragmentShader.replace(
+        IBL_RETURN_ANCHOR,
+        `float reflectionDistance = distance(vTriplanarWorldPos.xz, cameraPosition.xz);
+        float reflectionProximity = 1.0 - smoothstep(
+          uReflectionDistanceStart,
+          uReflectionDistanceEnd,
+          reflectionDistance
+        );
+        return envMapColor.rgb * envMapIntensity * reflectionProximity;`,
       );
     };
   };
@@ -1955,6 +1977,10 @@ export function createDonationManager({
     },
     setReflectionRoughnessFloor(roughness) {
       reflectionRoughnessFloorUniform.value = THREE.MathUtils.clamp(roughness, 0, 1);
+    },
+    setReflectionDistanceRange(start, end) {
+      reflectionDistanceStartUniform.value = Math.max(0, start);
+      reflectionDistanceEndUniform.value = Math.max(reflectionDistanceStartUniform.value + 1, end);
     },
     beginEnvCapture(includeCityFloor) {
       for (const mat of getAllFacadeMaterials()) mat.envMapIntensity = 0;

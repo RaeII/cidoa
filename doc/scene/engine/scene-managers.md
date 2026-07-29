@@ -165,6 +165,7 @@ setEnvMap(texture: THREE.Texture): void
 setEnvMapRotation(yDeg: number): void   // material.envMapRotation (só eixo Y) em fachada + topo; sem recaptura nem needsUpdate
 setEnvHorizon(amount: number): void     // uniform uEnvHorizon (clamp 0–0.95): achata reflectVec.y no getIBLRadiance
 setReflectionRoughnessFloor(roughness: number): void // uniform compartilhado; impõe piso de roughness sem percorrer materiais
+setReflectionDistanceRange(start: number, end: number): void // fade horizontal do envMap por proximidade da câmera
 beginEnvCapture(includeCityFloor: boolean): void // zera envMapIntensity; esconde piso (asfalto, calçada, lotes) salvo includeCityFloor
 endEnvCapture(): void     // restaura envMapIntensity e o piso após captura
 

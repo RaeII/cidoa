@@ -297,6 +297,7 @@ Aba **reflexo**: tudo do probe de envMap dos prédios. Props: `value: Reflection
 | **Céu no reflexo** | `skyDrop` (−0.5–0.5) |
 | **Direção do reflexo** | `envHorizon` (0–0.95, puxa o reflexo pro horizonte), `envRotY` (−180–180°) — corrige a amostragem no material, sem recaptura |
 | **Suavização por altura** | `heightFadeStart`, `heightFadeEnd` (altura sobre o chão), `heightBlur` (0–1) |
+| **Reflexo por proximidade** | `reflectionDistanceStart` (reflexo completo), `reflectionDistanceEnd` (sem reflexo) |
 | **Conteúdo da captura** | `includeGround`, `includeCityFloor` |
 | **Atualização** | `updateInterval` (1–60 frames), `continuous` |
 
