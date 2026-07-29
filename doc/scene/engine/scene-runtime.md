@@ -60,7 +60,7 @@ A cada frame:
 3. `environmentUpdater.updatePosition(...)` — skybox segue a câmera
 4. **Métricas de FPS** — acumula e suaviza a cada 0.5s
 5. **Resolução dinâmica** — ajusta `renderScale` para atingir `targetFps`
-6. **CubeCamera** — captura reflexos só quando `cubeDirty` (cena mudou via `add*/update*`, asset assíncrono chegou, ou o cull de distância escondeu/devolveu prédio), no máximo a cada `updateInterval` frames (4 no padrão). Render target de `resolution` px (256 no padrão). Ver [[#Probe de reflexo (envMap dos prédios)]].
+6. **CubeCamera** — captura reflexos só quando `cubeDirty` (cena mudou via `add*/update*` ou asset assíncrono chegou), após 180ms sem nova alteração e no máximo a cada `updateInterval` frames (30 no padrão). O culling da câmera principal não invalida o probe fixo. Ver [[#Probe de reflexo (envMap dos prédios)]].
 7. **Culling de acessórios** — a cada 0.25s chama `donationManager.updateAccessoryVisibility(camera.position)`: letreiro, LED, topo e holograma somem além de 80 unidades (fog já os apaga; só a silhueta do prédio importa)
 8. `renderer.render(scene, camera)` — renderiza o frame
 
@@ -68,10 +68,10 @@ A cada frame:
 
 ```
 FPS < targetFps - 8  → renderScale -= 0.05 (reduz qualidade)
-FPS > targetFps + 5  → renderScale += 0.025 (aumenta qualidade)
+FPS > targetFps + 1  → renderScale += 0.025 (aumenta qualidade)
 ```
 
-O `renderScale` é multiplicado pelo `devicePixelRatio` (limitado pelo `dprCap`).
+O `renderScale` é multiplicado pelo `devicePixelRatio` (limitado pelo `dprCap`). Mudanças têm cooldown de 1,5s; o delta imediatamente posterior à captura do cubemap não entra na média, evitando que um frame esporádico de CubeCamera/PMREM deixe a resolução permanentemente baixa em monitores de 60 Hz.
 
 ### 3. Atualizações do React
 
@@ -144,7 +144,7 @@ Fachada usa o cube do `buildingCubeTarget` como `envMap` (ver [[scene-managers|s
 | `includeGround` | `true` | Mantém plano cinza + relevo na captura |
 | `includeCityFloor` | `true` | Mantém asfalto/calçada/lotes (repassado a `beginEnvCapture`) |
 
-`updateReflectionSettings` só paga o custo alto quando precisa: `resolution` diferente → dispose do target antigo, `createCubeProbe(res)`, `setEnvMap` na textura nova; `enabled` diferente → só `setEnvMap`. Resto é troca de variável + `markCubeDirty`.
+`updateReflectionSettings` só paga o custo alto quando precisa: `resolution` diferente → dispose do target antigo, `createCubeProbe(res)`, `setEnvMap` na textura nova; `enabled` diferente → só `setEnvMap`. Alterações que mudam a captura são agrupadas pelo debounce de 180ms. O cube bruto usa `LinearFilter` sem mipmaps nativos: `MeshPhysicalMaterial` já solicita ao three.js um PMREM separado, portanto gerar uma segunda cadeia de mipmaps seria trabalho redundante.
 
 > [!bug] Por que não na câmera
 > Probe na posição da câmera = reflexo só aparecia de lado, em certo ângulo. Motivo: o shader amostra o cube pela direção `reflect()`. Prédio de frente → direção de amostragem sai da câmera pra trás/pra baixo → céu e chão vazios atrás do observador = fachada lisa. Girando a órbita, o cube inteiro escorregava junto → reflexo "surgia" em ângulos específicos. Probe fixo no centro: qualquer ângulo amostra a cidade e a imagem fica estável.
@@ -172,11 +172,11 @@ Fachada usa o cube do `buildingCubeTarget` como `envMap` (ver [[scene-managers|s
 Consequências:
 
 - **Câmera alta suaviza o reflexo.** A altura é `camera.position.y − groundPlane.mesh.position.y`, independente da distância horizontal ao centro. `heightFadeStart`/`heightFadeEnd` delimitam a transição; `heightBlur` define a rugosidade máxima. Um único uniform atende materiais instanciados e clones: sem loop por prédio, textura extra, recaptura ou novo probe. Alterar esses campos não suja o cubemap.
-- **Só prédios próximos refletem.** O shader mede `distance(vTriplanarWorldPos.xz, cameraPosition.xz)`: abaixo de `reflectionDistanceStart`, reflexo completo; entre início/fim, `smoothstep`; após `reflectionDistanceEnd`, radiância especular do envMap = zero. Distância X/Z evita gradiente vertical dentro do mesmo prédio. Dois uniforms, nenhum loop de CPU ou recaptura.
-- **Órbita não suja o cube.** Girar a câmera daria captura idêntica — o reflexo varia sozinho pelo `reflect()`. `controls` não tem mais listener `change` → `markCubeDirty`. Único vínculo com a câmera é o cull de distância (suja o cube quando o número de prédios ocultos muda). Exceções pagas por escolha do usuário: `followCamera` e `continuous` capturam todo `updateInterval`.
-- **Asset assíncrono suja o cube.** `THREE.DefaultLoadingManager.onLoad = markCubeDirty` (+ `markCubeDirty()` no `onLoaded` do [[scene-builders#loadEnvironment.ts|loadEnvironment]]). Obrigatório desde que a órbita parou de sujar: a primeira captura roda no frame 4 e o HDRI (fetch + decode de JPG 4K) só entra na cena muito depois — sem isso o reflexo ficava **sem céu** até alguma outra mudança acontecer. `dispose` limpa o `onLoad`.
+- **Só prédios próximos refletem.** O shader testa primeiro a distância horizontal ao quadrado. Após `reflectionDistanceEnd`, retorna antes de `textureCubeUV`; dentro da transição conserva o `smoothstep` linear. O controle de alcance agora reduz amostragens do cubemap, não apenas multiplica uma leitura já feita por zero. Durante a captura, `envMapIntensity = 0` também retorna antes das leituras de irradiância/radiância.
+- **Órbita e culling não sujam o cube.** Girar a câmera daria captura idêntica — o reflexo varia sozinho pelo `reflect()`. Antes da CubeCamera, `beginEnvCapture` recompõe temporariamente todas as instâncias e custom shapes; `endEnvCapture` restaura o buffer compacto da câmera principal. Assim o probe fixo representa a cidade, não a lista visível da câmera. Exceções pagas por escolha do usuário: `followCamera` e `continuous` capturam todo `updateInterval`.
+- **Asset assíncrono suja o cube.** `THREE.DefaultLoadingManager.onLoad = markCubeDirty` (+ `markCubeDirty()` no `onLoaded` do [[scene-builders#loadEnvironment.ts|loadEnvironment]]). O debounce deixa HDRI/texturas que chegam próximos compartilharem uma captura. `dispose` limpa o `onLoad`.
 - **Céu segue o probe durante a captura.** No render normal a esfera de céu segue a câmera; na captura recebe a posição do probe (`environmentUpdater.updatePosition`) e volta pra câmera antes do `renderer.render` do mesmo frame. Sem isso a esfera (raio 200) ficaria deslocada ou atrás do probe. Chão e piso urbano ficam visíveis por padrão.
-- **256px, não 128.** Fachada com `roughnessIntensity = 0` é espelho e amostra o mip 0 — em 128px céu e skyline viravam mancha lisa. Custo cabe porque a captura deixou de rodar a cada frame de órbita. `resolution` vai de 64 a 1024 pelo painel; cada passo dobra o custo (6 renders da cena por captura).
+- **256px, não 128.** Fachada com `roughnessIntensity = 0` é espelho e amostra o nível mais nítido do PMREM — em 128px céu e skyline viravam mancha lisa. Custo cabe porque a captura é event-driven e debounced. `resolution` vai de 64 a 1024 pelo painel; dobrar o lado quadruplica o número de pixels das seis faces e do PMREM.
 
 > [!tip] Reflexo lavado
 > `envMapIntensity` da fachada (4.8 no padrão) multiplica o especular do cube; alto demais + ACES achata o contraste do reflexo até parecer chapado. Baixar o slider revela a imagem refletida. `normalScale = 20` também embaralha a normal por pixel → reflexo cintilante em vez de imagem legível. Sliders nas abas **texturas** e **reflexo** (mesmo `TextureSettings` — intensidade vive no material, não no probe).

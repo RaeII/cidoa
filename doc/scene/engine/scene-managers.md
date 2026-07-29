@@ -97,9 +97,11 @@ O manager usa um único par de materiais para prédios e um material de asfalto 
 | `sidewalkSideMaterial` | `MeshStandardMaterial` | Cor das laterais da calçada (de `blockLayoutSettings.sidewalkSideColor`, padrão #55575c, mais escura) — dá efeito de sombra p/ enxergar a altura. O `sidewalkGeometry` remapeia os grupos de face (topo → material 0, laterais+base → material 1) |
 | `lotMaterial` | `MeshStandardMaterial` | Cor das quadras (de `blockLayoutSettings.lotColor`, padrão #5b5048), roughness 0.98 — tile de lote vazio. `onBeforeCompile` injeta borda escura (`vLotPos`) demarcando cada lote, mantendo luz + sombra |
 
+`applyFacadeMaterial` e `applyTextureToTop` só mantêm mapas cujo efeito está ativo. `normalScale = 0`, `roughnessIntensity = 0`, `emissiveIntensity = 0` e `displacementScale = 0` retiram os respectivos mapas/defines do shader; mudanças apenas de uniform não forçam `material.needsUpdate`. A caixa padrão e a calçada reordenam os índices do `BoxGeometry` em dois grupos reais (laterais/base + topo), em vez de conservar os seis draws originais.
+
 #### Rede de Estradas (Asfalto)
 
-Como o loteamento tem piso mínimo `r ≥ MIN_LOTEAMENTO_RADIUS` (= 1), há sempre mais de um bloco. `rebuildRoads(r, blockSpacing, streetWidth)` cria faixas de `Mesh` planas que preenchem o espaço entre as quadras:
+Como o loteamento tem piso mínimo `r ≥ MIN_LOTEAMENTO_RADIUS` (= 1), há sempre mais de um bloco. `rebuildRoads(r, blockSpacing, streetWidth)` agrega todas as vias em **dois meshes** — um `BufferGeometry` para o asfalto e outro para o tracejado:
 
 - **Faixas longitudinais** (correm na direção Z): posicionadas em `x = (bx + 0.5) × blockSpacing` para cada gap entre colunas de blocos
 - **Faixas transversais** (correm na direção X): posicionadas em `z = (bz + 0.5) × blockSpacing` para cada gap entre linhas de blocos
@@ -108,8 +110,9 @@ Como o loteamento tem piso mínimo `r ≥ MIN_LOTEAMENTO_RADIUS` (= 1), há semp
 - Y = -0.015 (acima do ground plane em -0.03, abaixo dos prédios em 0)
 - Cache: se `r`, `blockSpacing` e `streetWidth` não mudaram, `rebuildRoads` retorna imediatamente
 - As faixas são recriadas toda vez que `rebuildInstances` muda o anel `r` ou os parâmetros de layout
+- A quantidade de vias aumenta apenas os quads dentro dos dois buffers; não cria um `Mesh`/material por linha
 
-**Faixa central (tracejado):** cada via tem um plano de `ShaderMaterial` (`dashFS`) que desenha a linha pontilhada amarela no centro. O shader **apaga a faixa nos cruzamentos** (`distInter < interHalf`, `interHalf = roadWidth/2 + 0.15`): via centrada na origem, cruzamentos em `(k+0.5)×blockSpacing` — sem isso a faixa longitudinal e a transversal se cruzariam em X no meio do cruzamento. Uniforms novos: `roadLen`, `blockSpacing`, `interHalf`.
+**Faixa central (tracejado):** um único `ShaderMaterial` (`dashFS`) desenha todas as linhas. A geometria já tem a largura final da faixa (`roadWidth × 0.02`), evitando rasterizar a pista inteira para descartar 98% dos fragmentos. O atributo `aDashCoord` unifica vias X/Z; o shader ainda apaga vãos (85%) e cruzamentos (`distInter < interHalf`, `interHalf = roadWidth/2 + 0.15`).
 
 **Calçadas (`rebuildSidewalks`):** moldura de concreto elevada **estreita** em volta de **cada quadra**, no vão entre o lote e o asfalto.
 
@@ -166,12 +169,12 @@ setEnvMapRotation(yDeg: number): void   // material.envMapRotation (só eixo Y) 
 setEnvHorizon(amount: number): void     // uniform uEnvHorizon (clamp 0–0.95): achata reflectVec.y no getIBLRadiance
 setReflectionRoughnessFloor(roughness: number): void // uniform compartilhado; impõe piso de roughness sem percorrer materiais
 setReflectionDistanceRange(start: number, end: number): void // fade horizontal do envMap por proximidade da câmera
-beginEnvCapture(includeCityFloor: boolean): void // zera envMapIntensity; esconde piso (asfalto, calçada, lotes) salvo includeCityFloor
-endEnvCapture(): void     // restaura envMapIntensity e o piso após captura
+beginEnvCapture(includeCityFloor: boolean): void // zera envMapIntensity; recompõe toda a cidade independente do culling principal; esconde piso salvo includeCityFloor
+endEnvCapture(): void     // restaura envMapIntensity, piso e o buffer compacto da câmera principal
 
 // LOD / cull de distância
 setRenderDistance(distance: number, backDistance: number): void  // alcance de renderização frente/trás (sliders da aba Horizonte)
-updateDistanceCulling(cameraPos: THREE.Vector3, cameraForward: THREE.Vector3): void  // esconde acessórios além de 80u; prédios além do limite direcional (dot com forward XZ < 0 → backDistance; instância vira matriz zero-scale — camera.far sozinho não poupa vértice de InstancedMesh). Loop das instâncias lê arrays paralelos (instPosX/Z), não Map — 100k Map.get por tick causava hitch
+updateDistanceCulling(cameraPos: THREE.Vector3, cameraForward: THREE.Vector3): void  // esconde acessórios além de 80u; compacta as instâncias visíveis e reduz mesh.count conforme o limite direcional. Arrays lógicos permanecem estáveis para picking/metadados
 tickAnimations(elapsedSeconds: number, deltaMs: number): void  // anima hologramas visíveis (pula os culled)
 
 // Interação
@@ -213,10 +216,10 @@ Raycast do three em `InstancedMesh` é O(n) interno — itera as 100k instância
 
 1. `rebuildInstances` preenche arrays paralelos por índice de instância (`instPosX/Y/Z` + `instHalf*`) e 1 AABB por quadra (`pickBlocks`: min/max XZ + altura máx. + faixa contígua `start..end` de instâncias — instâncias são alocadas quadra a quadra, então a faixa é contígua de graça).
 2. Picking: `ray.intersectsBox` nos ~1,6k AABBs de quadra (µs) → `Ray.intersectBox` só nas instâncias das quadras atingidas (~dezenas). Prédio default é caixa — AABB é hit **exato**.
-3. Instância culled (`instanceHidden[i]`) é pulada — zero-scale não deve ser clicável.
+3. Instância culled (`instanceHidden[i]`) é pulada — o índice lógico permanece estável mesmo fora do buffer renderizado.
 4. Custom shapes (poucos) seguem `raycaster.intersectObjects` normal; vence o hit mais próximo entre os dois caminhos.
 
-Os mesmos arrays alimentam o loop de instâncias do `updateDistanceCulling` (culling sem `Map.get` por instância; matriz de restauração recomposta dos arrays). Acessórios e custom shapes continuam via `donationTransforms` — são poucos.
+Os mesmos arrays alimentam o loop de `updateDistanceCulling`. Quando a visibilidade muda, `compactVisibleInstances()` recompõe matrizes/cores contíguas e define `mesh.count` para a quantidade visível — o GPU deixa de executar vertex shader para prédios eliminados. Na captura do probe, o mesmo helper inclui temporariamente todas as instâncias e depois restaura o compacto. Acessórios e custom shapes continuam via `donationTransforms` — são poucos.
 
 #### Foco em Edifício (Destaque Visual)
 
@@ -299,7 +302,7 @@ Cada edifício pode ter um acessório 3D no topo, como holofotes ou heliponto, g
 - **Posicionamento:** após cada `rebuildInstances`, `syncRooftops()` reposiciona todos os grupos no topo dos edifícios correspondentes.
 - **Criação/remoção:** `setRooftop(donationId, type)` remove o grupo anterior e cria um novo se `type !== "none"`.
 - **Performance:** o lookup do edifício usa `donationIdToInstanceIndex` em vez de `indexOf`, e os transforms temporários são reutilizados nos syncs.
-- **LOD:** `updateDistanceCulling(cameraPos)` (chamado pelo runtime a cada 0.25s) esconde o grupo além de `ACCESSORY_DETAIL_DISTANCE` (80u) — vale pra rooftop, sign, LED e holograma. Mesmo passe faz cull dos prédios além da distância de renderização (`setRenderDistance`): custom shapes via `visible`, instâncias via matriz zero-scale.
+- **LOD:** `updateDistanceCulling(cameraPos)` (chamado pelo runtime a cada 0.25s) esconde o grupo além de `ACCESSORY_DETAIL_DISTANCE` (80u) — vale pra rooftop, sign, LED e holograma. Mesmo passe faz cull dos prédios além da distância de renderização (`setRenderDistance`): custom shapes via `visible`, instâncias via compactação do buffer/`mesh.count`.
 - **Cleanup:** no `dispose()`, todos os grupos são removidos e `disposeRooftopSharedResources()` limpa geometrias e materiais compartilhados.
 
 #### Letreiros (Signs)

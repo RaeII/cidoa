@@ -296,7 +296,8 @@ Registro único formato → builder. Ponto de entrada de **todo** consumidor de 
 **Responsabilidades:**
 - `SHAPE_BUILDERS`: `Record<Exclude<BuildingShape, "default">, builder>` — `Record` exaustivo, formato novo em [[scene-types#BuildingShape]] sem builder **não compila**
 - `createBuildingShapeMesh(shape, facadeMaterial, topMaterial, defaultGeometry)` — devolve o Mesh do formato; `default` usa a geometria caixa que o caller já tem em mãos
-- `createUnitBuildingGeometry()` — caixa 1×1×1 com grupos remapeados (topo = material 1, resto = 0) + atributos `aProjPosition`/`aProjNormal` do shader triplanar. Instância nova por chamada, quem cria descarta
+- `groupBoxGeometryByTop()` — reordena o índice do `BoxGeometry` e consolida as seis faces em dois grupos reais (laterais/base + topo), reduzindo seis draw calls para dois quando há dois materiais
+- `createUnitBuildingGeometry()` — caixa 1×1×1 já consolidada por `groupBoxGeometryByTop` (topo = material 1, resto = 0) + atributos `aProjPosition`/`aProjNormal` do shader triplanar. Instância nova por chamada, quem cria descarta
 - `BUILDING_SHAPES` / `isBuildingShape(key)` — lista e guard pra key vinda do catálogo do banco ([[customization-api]]), que pode ter opção sem builder no front
 - `disposeBuildingShapeSharedResources()` — descarta a geometria compartilhada dos 9 formatos de uma vez
 

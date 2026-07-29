@@ -298,7 +298,7 @@ export function CitySceneEditor() {
         horizonSettings={horizonSettings}
         blockLayoutSettings={blockLayoutSettings}
         onStatsChange={setSceneStats}
-        onCameraDebugChange={setCameraDebugInfo}
+        onCameraDebugChange={uiVisibility.cameraLog ? setCameraDebugInfo : undefined}
         onHoverChange={handleHoverChange}
         onBuildingClick={handleBuildingClick}
       />

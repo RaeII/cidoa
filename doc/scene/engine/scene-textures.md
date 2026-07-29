@@ -109,6 +109,7 @@ O transcoder mora em `public/basis/` (`basis_transcoder.js` + `.wasm`, cópia de
 - [[scene-types#TextureSettings|TextureSettings.textureKey]] = `value` do catálogo da textura ativa. Default = `"texture/Facade006_1K-mirrored-PNG"` (= seed).
 - [[scene-managers|createDonationManager]]: `peek` no construtor (cache quente = nasce texturizado), senão pede assíncrono. Em `updateTextureSettings`, pasta diferente → `requestGlobalFacadeSet` recarrega, reatribui `facadeSet` e reaplica em todos os materiais de fachada. Um **token** descarta a resolução de uma seleção já superada (clique rápido no seletor).
 - Topo (concreto `Concrete024`) **não** entra no catálogo, mas passa pelo mesmo loader — ganha KTX2, lazy e cache compartilhado de graça. Antes eram 4 imports estáticos (~4 MB baixados sempre).
+- Mapas sem contribuição não entram no programa do material: normal/roughness/emissive/displacement são `null` quando sua intensidade/escala é zero. `material.needsUpdate` só é acionado quando a presença de um mapa muda; arrastar intensidade/tiling atualiza uniforms sem recompilar o shader.
 - **Nada é descartado no `dispose`**: fachada e topo vêm do cache compartilhado, reusado entre recriações do manager.
 - Seletor global: [[html-components#TextureControls.tsx|TextureControls]] lista `catalog.textures` ativas; clicar seta `textureKey`.
 
@@ -124,7 +125,7 @@ O transcoder mora em `public/basis/` (`basis_transcoder.js` + `.wasm`, cópia de
 - UI: [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]], seção **Textura** (opção "Padrão" = `null`).
 
 > [!note] ponytail
-> Prédio com textura própria = 1 draw call. Serve pro catálogo curado atual. Se a maioria dos prédios passar a ter textura própria, agrupar em um `InstancedMesh` por textura (draw calls = nº de texturas, não de prédios).
+> Prédio com textura própria = um mesh dedicado (com draws conforme os grupos de material da geometria). Serve pro catálogo curado atual. Se a maioria dos prédios passar a ter textura própria, agrupar em um `InstancedMesh` por textura (draw calls = nº de texturas/grupos, não de prédios).
 
 ## Admin: cadastradas × não-cadastradas
 

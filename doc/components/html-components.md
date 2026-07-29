@@ -192,6 +192,8 @@ Tipo da aba ativa: `"geral" | "texturas" | "reflexo" | "luz" | "horizonte" | "te
 
 Props extras da aba **Tela**: `uiVisibility: UIVisibilitySettings` + `onUIVisibilityChange`. Ver [[scene-types#UIVisibilitySettings]].
 
+`CitySceneEditor` só encaminha `onCameraDebugChange` ao canvas quando `cameraLog` está visível. Com o log desligado, as amostras de câmera a cada 200ms não atualizam estado React. Estatísticas iguais também são ignoradas pelo runtime.
+
 Props extras da aba **Geral** (`blockLayoutSettings: BlockLayoutSettings` + `onBlockLayoutSettingsChange`):
 - seção **Quadras**: `ColorField` edita `lotColor` (cor dos lotes vazios).
 - seção **Calçada**: `ColorField` edita `sidewalkColor` (topo) + `ColorField` edita `sidewalkSideColor` (laterais, sombra) + `RangeField` edita `sidewalkHeight` (0.02–0.4) — altura do meio-fio.
@@ -388,7 +390,7 @@ Controles da aba **Horizonte**. Dividido em duas seções:
 - prop `culledCount` (de `sceneStats.culled`) — mostra readout embaixo do slider
 
 > [!note] `backDistance` só corta geometria invisível
-> Câmera olha pra frente → prédio atrás dela nunca aparece na tela. Reduzir `backDistance` corta esses prédios (ganho de perf + menos reflexo no envMap), mas **não muda o render principal**. O efeito é observável no número `culledCount`, não na imagem. Contraste: `distance` (frontal) mexe no `camera.far`, então tem efeito visível.
+> Câmera olha pra frente → prédio atrás dela nunca aparece na tela. Reduzir `backDistance` compacta o buffer e reduz `mesh.count`, poupando vertex shaders sem alterar a imagem principal. O probe fixo recompõe a cidade completa durante sua captura, portanto o culling da câmera não muda mais o conteúdo compartilhado do reflexo. Contraste: `distance` (frontal) também mexe no `camera.far`, então tem efeito visível.
 
 **Névoa:**
 - `fogDensity` — densidade da névoa exponencial (`FogExp2`). Controla quão rápido os objetos distantes somem (0–0.05, padrão 0.01)

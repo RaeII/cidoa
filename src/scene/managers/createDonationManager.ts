@@ -41,6 +41,7 @@ import {
   createBuildingShapeMesh,
   createUnitBuildingGeometry,
   disposeBuildingShapeSharedResources,
+  groupBoxGeometryByTop,
 } from "../builders/createBuildingShapeMesh";
 import { seeded } from "../utils/random";
 
@@ -344,19 +345,43 @@ export function createDonationManager({
         `${IBL_ANCHOR}
         reflectVec = normalize(vec3(reflectVec.x, reflectVec.y * (1.0 - uEnvHorizon), reflectVec.z));`,
       );
+      const IBL_IRRADIANCE_ANCHOR =
+        "vec4 envMapColor = textureCubeUV( envMap, envMapRotation * worldNormal, 1.0 );";
+      shader.fragmentShader = shader.fragmentShader.replace(
+        IBL_IRRADIANCE_ANCHOR,
+        `if (envMapIntensity <= 0.0) return vec3(0.0);
+        ${IBL_IRRADIANCE_ANCHOR}`,
+      );
+      const IBL_SAMPLE_ANCHOR =
+        "vec4 envMapColor = textureCubeUV( envMap, envMapRotation * reflectVec, roughness );";
+      if (import.meta.env.DEV && !shader.fragmentShader.includes(IBL_SAMPLE_ANCHOR)) {
+        console.warn("[donationManager] amostragem do getIBLRadiance sumiu — alcance inativo");
+      }
+      shader.fragmentShader = shader.fragmentShader.replace(
+        IBL_SAMPLE_ANCHOR,
+        `if (envMapIntensity <= 0.0) return vec3(0.0);
+        vec2 reflectionDelta = vTriplanarWorldPos.xz - cameraPosition.xz;
+        float reflectionDistanceSq = dot(reflectionDelta, reflectionDelta);
+        float reflectionEndSq = uReflectionDistanceEnd * uReflectionDistanceEnd;
+        if (reflectionDistanceSq >= reflectionEndSq) return vec3(0.0);
+        float reflectionProximity = 1.0;
+        float reflectionStartSq = uReflectionDistanceStart * uReflectionDistanceStart;
+        if (reflectionDistanceSq > reflectionStartSq) {
+          reflectionProximity = 1.0 - smoothstep(
+            uReflectionDistanceStart,
+            uReflectionDistanceEnd,
+            sqrt(reflectionDistanceSq)
+          );
+        }
+        ${IBL_SAMPLE_ANCHOR}`,
+      );
       const IBL_RETURN_ANCHOR = "return envMapColor.rgb * envMapIntensity;";
       if (import.meta.env.DEV && !shader.fragmentShader.includes(IBL_RETURN_ANCHOR)) {
         console.warn("[donationManager] retorno do getIBLRadiance sumiu — alcance inativo");
       }
       shader.fragmentShader = shader.fragmentShader.replace(
         IBL_RETURN_ANCHOR,
-        `float reflectionDistance = distance(vTriplanarWorldPos.xz, cameraPosition.xz);
-        float reflectionProximity = 1.0 - smoothstep(
-          uReflectionDistanceStart,
-          uReflectionDistanceEnd,
-          reflectionDistance
-        );
-        return envMapColor.rgb * envMapIntensity * reflectionProximity;`,
+        "return envMapColor.rgb * envMapIntensity * reflectionProximity;",
       );
     };
   };
@@ -412,11 +437,9 @@ export function createDonationManager({
   const SIDEWALK_GAP = 0.25;          // respiro de chão livre entre a quadra e a calçada
   const SIDEWALK_BOTTOM = -0.08;      // fundo do box, abaixo do terreno (-0.04) p/ não flutuar; topo vem de sidewalkHeight
   const sidewalkGeometry = new THREE.BoxGeometry(1, 1, 1);
-  // Remapeia os grupos de face: topo (+y, índice 2) → material 0; laterais + base → material 1.
-  // Assim a lateral pode ter cor mais escura (efeito de sombra) e a altura fica visível.
-  for (const group of sidewalkGeometry.groups) {
-    group.materialIndex = group.materialIndex === 2 ? 0 : 1;
-  }
+  // Dois grupos reais: laterais/base e topo. Remapear só materialIndex manteria
+  // os 6 draw calls originais do BoxGeometry.
+  groupBoxGeometryByTop(sidewalkGeometry, 1, 0);
   const sidewalkTopMaterial = new THREE.MeshStandardMaterial({
     color: new THREE.Color(blockLayoutSettings.sidewalkColor),
     roughness: 0.95,
@@ -504,37 +527,31 @@ export function createDonationManager({
 
   // Shader de linhas pontilhadas centrais (divisória de pistas)
   const dashVS = /* glsl */`
-    varying vec2 vUv;
+    attribute float aDashCoord;
+    varying float vDashCoord;
     void main() {
-      vUv = uv;
+      vDashCoord = aDashCoord;
       gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
     }
   `;
   const dashFS = /* glsl */`
-    varying vec2 vUv;
+    varying float vDashCoord;
     uniform float dashRepeat;   // ciclos de tracejado ao longo da via
-    uniform float dashAlong;    // 1.0 = traceja em UV.y (longitudinal), 0.0 = UV.x (transversal)
     uniform float roadLen;      // comprimento físico da via (unidades de mundo)
     uniform float blockSpacing; // distância entre cruzamentos
     uniform float interHalf;    // meia-largura do cruzamento (zona sem faixa)
 
     void main() {
-      float dashCoord  = mix(vUv.x, vUv.y, dashAlong);
-      float stripCoord = mix(vUv.y, vUv.x, dashAlong);
-
-      // Faixa central estreita (10% da largura da pista)
-      if (abs(stripCoord - 0.5) > 0.01) discard;
-
       // Apaga a faixa nos cruzamentos pra ela não conflitar com a faixa da via
       // perpendicular. Via centrada na origem; cruzamentos em (k+0.5)*blockSpacing.
       // distInter = distância física ao cruzamento mais próximo.
-      float along = (dashCoord - 0.5) * roadLen;
+      float along = (vDashCoord - 0.5) * roadLen;
       float u = along / blockSpacing - 0.5;
       float distInter = abs(fract(u + 0.5) - 0.5) * blockSpacing;
       if (distInter < interHalf) discard;
 
       // Padrão de tracejado: 15% cheio, 85% vazio
-      if (fract(dashCoord * dashRepeat) > 0.15) discard;
+      if (fract(vDashCoord * dashRepeat) > 0.15) discard;
 
       gl_FragColor = vec4(0.92, 0.88, 0.55, 0.7); // amarelo-creme
     }
@@ -583,48 +600,116 @@ export function createDonationManager({
     const roadY = -0.015;
     const dashY = roadY + 0.005;
     const dashSpacing = 1.0; // espaçamento físico (unidades) de cada ciclo traço+vão
+    // O shader antigo rasterizava a pista inteira e descartava 98% da largura.
+    // Agora a própria geometria já tem a largura final da faixa.
+    const dashWidth = roadWidth * 0.02;
+    const asphaltPositions: number[] = [];
+    const asphaltIndices: number[] = [];
+    const dashPositions: number[] = [];
+    const dashIndices: number[] = [];
+    const dashCoords: number[] = [];
 
-    const addRoad = (w: number, h: number, x: number, z: number, dashAlong: number) => {
-      // Plano de asfalto
-      const geo = new THREE.PlaneGeometry(w, h);
-      const m = new THREE.Mesh(geo, asphaltMaterial);
-      m.rotation.x = -Math.PI / 2;
-      m.position.set(x, roadY, z);
-      scene.add(m);
-      roadMeshes.push(m);
-
-      // Plano de tracejado central
-      const roadLen = dashAlong === 1.0 ? h : w;
-      const dashGeo = new THREE.PlaneGeometry(w, h);
-      const dashMat = new THREE.ShaderMaterial({
-        vertexShader: dashVS,
-        fragmentShader: dashFS,
-        uniforms: {
-          dashRepeat:   { value: roadLen / dashSpacing },
-          dashAlong:    { value: dashAlong },
-          roadLen:      { value: roadLen },
-          blockSpacing: { value: blockSpacing },
-          interHalf:    { value: interHalf },
-        },
-        transparent: true,
-        depthWrite: false,
-      });
-      const dashMesh = new THREE.Mesh(dashGeo, dashMat);
-      dashMesh.rotation.x = -Math.PI / 2;
-      dashMesh.position.set(x, dashY, z);
-      scene.add(dashMesh);
-      roadMeshes.push(dashMesh);
+    const pushQuad = (
+      positions: number[],
+      indices: number[],
+      xMin: number,
+      xMax: number,
+      zMin: number,
+      zMax: number,
+      y: number,
+      coords?: readonly [number, number, number, number],
+    ) => {
+      const base = positions.length / 3;
+      positions.push(
+        xMin, y, zMin,
+        xMax, y, zMin,
+        xMin, y, zMax,
+        xMax, y, zMax,
+      );
+      indices.push(base, base + 2, base + 1, base + 2, base + 3, base + 1);
+      if (coords) dashCoords.push(...coords);
     };
 
     // Faixas longitudinais (direção Z), entre colunas de blocos (separação em X)
     for (let bx = -r; bx < r; bx++) {
-      addRoad(roadWidth, totalLen, (bx + 0.5) * blockSpacing, 0, 1.0);
+      const x = (bx + 0.5) * blockSpacing;
+      pushQuad(
+        asphaltPositions,
+        asphaltIndices,
+        x - roadWidth / 2,
+        x + roadWidth / 2,
+        -totalLen / 2,
+        totalLen / 2,
+        roadY,
+      );
+      pushQuad(
+        dashPositions,
+        dashIndices,
+        x - dashWidth / 2,
+        x + dashWidth / 2,
+        -totalLen / 2,
+        totalLen / 2,
+        dashY,
+        [1, 1, 0, 0],
+      );
     }
 
     // Faixas transversais (direção X), entre linhas de blocos (separação em Z)
     for (let bz = -r; bz < r; bz++) {
-      addRoad(totalLen, roadWidth, 0, (bz + 0.5) * blockSpacing, 0.0);
+      const z = (bz + 0.5) * blockSpacing;
+      pushQuad(
+        asphaltPositions,
+        asphaltIndices,
+        -totalLen / 2,
+        totalLen / 2,
+        z - roadWidth / 2,
+        z + roadWidth / 2,
+        roadY,
+      );
+      pushQuad(
+        dashPositions,
+        dashIndices,
+        -totalLen / 2,
+        totalLen / 2,
+        z - dashWidth / 2,
+        z + dashWidth / 2,
+        dashY,
+        [0, 1, 0, 1],
+      );
     }
+
+    const asphaltGeometry = new THREE.BufferGeometry();
+    asphaltGeometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(asphaltPositions, 3),
+    );
+    asphaltGeometry.setIndex(asphaltIndices);
+    asphaltGeometry.computeVertexNormals();
+    asphaltGeometry.computeBoundingSphere();
+    const asphaltMesh = new THREE.Mesh(asphaltGeometry, asphaltMaterial);
+    scene.add(asphaltMesh);
+    roadMeshes.push(asphaltMesh);
+
+    const dashGeometry = new THREE.BufferGeometry();
+    dashGeometry.setAttribute("position", new THREE.Float32BufferAttribute(dashPositions, 3));
+    dashGeometry.setAttribute("aDashCoord", new THREE.Float32BufferAttribute(dashCoords, 1));
+    dashGeometry.setIndex(dashIndices);
+    dashGeometry.computeBoundingSphere();
+    const dashMaterial = new THREE.ShaderMaterial({
+      vertexShader: dashVS,
+      fragmentShader: dashFS,
+      uniforms: {
+        dashRepeat: { value: totalLen / dashSpacing },
+        roadLen: { value: totalLen },
+        blockSpacing: { value: blockSpacing },
+        interHalf: { value: interHalf },
+      },
+      transparent: true,
+      depthWrite: false,
+    });
+    const dashMesh = new THREE.Mesh(dashGeometry, dashMaterial);
+    scene.add(dashMesh);
+    roadMeshes.push(dashMesh);
 
     // Calçadas elevadas em volta de cada quadra, preenchendo o resto da rua
     rebuildSidewalks(r, blockSpacing, streetWidth, roadWidth);
@@ -710,12 +795,15 @@ export function createDonationManager({
   let currentTextureSettings = { ...textureSettings };
   let currentBlockLayout = { ...blockLayoutSettings };
   const dummy = new THREE.Object3D();
-  // Cull de distância dos prédios: instância além da distância vira matriz zero-scale
-  // (camera.far sozinho não poupa GPU — InstancedMesh processa todos vértices sempre).
+  // Cull de distância dos prédios: o buffer renderizado é compactado para que
+  // `mesh.count` contenha só instâncias visíveis (zero-scale ainda gastaria vértices).
   let renderDistanceSq = Infinity;
   let backDistanceSq = Infinity;
+  let logicalInstanceCount = 0;
   let instanceHidden = new Uint8Array(0);
-  const hiddenMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
+  let useInstanceColors = false;
+  let logicalInstanceColorArray = new Float32Array(0);
+  let renderInstanceColorArray = new Float32Array(0);
   const raycaster = new THREE.Raycaster();
   const mouseVec = new THREE.Vector2();
   const instanceToValue: number[] = [];
@@ -748,6 +836,7 @@ export function createDonationManager({
     shape: BuildingShape;
   };
   const customShapeMeshes = new Map<number, CustomShapeEntry>();
+  const customShapesHiddenBeforeCapture: number[] = [];
   const currentBuildingColor = new THREE.Color(buildingSettings.color);
   // No shader, instanceColor é MULTIPLICADO pela cor do material
   // (`diffuseColor *= vColor`). Logo, enquanto o InstancedMesh tiver instanceColor,
@@ -762,6 +851,57 @@ export function createDonationManager({
   const tmpTransformPosition = new THREE.Vector3();
   const tmpTransformQuaternion = new THREE.Quaternion();
   const tmpTransformScale = new THREE.Vector3();
+
+  const compactVisibleInstances = (includeCulled = false) => {
+    let renderIndex = 0;
+    for (let logicalIndex = 0; logicalIndex < logicalInstanceCount; logicalIndex++) {
+      if (!includeCulled && instanceHidden[logicalIndex]) continue;
+
+      tmpTransformPosition.set(
+        instPosX[logicalIndex],
+        instPosY[logicalIndex],
+        instPosZ[logicalIndex],
+      );
+      tmpTransformScale.set(
+        instHalfX[logicalIndex] * 2,
+        instHalfY[logicalIndex] * 2,
+        instHalfZ[logicalIndex] * 2,
+      );
+      tmpTransformQuaternion.identity();
+      tmpTransformMatrix.compose(
+        tmpTransformPosition,
+        tmpTransformQuaternion,
+        tmpTransformScale,
+      );
+      mesh.setMatrixAt(renderIndex, tmpTransformMatrix);
+
+      if (useInstanceColors) {
+        const source = logicalIndex * 3;
+        const target = renderIndex * 3;
+        renderInstanceColorArray[target] = logicalInstanceColorArray[source];
+        renderInstanceColorArray[target + 1] = logicalInstanceColorArray[source + 1];
+        renderInstanceColorArray[target + 2] = logicalInstanceColorArray[source + 2];
+      }
+      renderIndex++;
+    }
+
+    mesh.count = renderIndex;
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.boundingSphere = null;
+    if (useInstanceColors) {
+      if (
+        !mesh.instanceColor ||
+        mesh.instanceColor.array !== renderInstanceColorArray
+      ) {
+        mesh.instanceColor = new THREE.InstancedBufferAttribute(
+          renderInstanceColorArray,
+          3,
+        );
+        mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+      }
+      mesh.instanceColor.needsUpdate = true;
+    }
+  };
 
   const setInstanceMetadata = (
     instanceIndex: number,
@@ -866,6 +1006,15 @@ export function createDonationManager({
     return list;
   };
 
+  const textureDefineMask = (mat: THREE.MeshPhysicalMaterial) =>
+    Number(Boolean(mat.map)) |
+    (Number(Boolean(mat.normalMap)) << 1) |
+    (Number(Boolean(mat.roughnessMap)) << 2) |
+    (Number(Boolean(mat.metalnessMap)) << 3) |
+    (Number(Boolean(mat.bumpMap)) << 4) |
+    (Number(Boolean(mat.displacementMap)) << 5) |
+    (Number(Boolean(mat.emissiveMap)) << 6);
+
   // Um material só. Chamado em lote (applyTextureToFacade) e isolado quando o set
   // de um prédio específico chega do loader.
   const applyFacadeMaterial = (
@@ -874,25 +1023,26 @@ export function createDonationManager({
   ) => {
     const set = facadeSetFor(mat);
     const textureless = isTexturelessMaterial(mat);
+    const previousMask = textureDefineMask(mat);
     if (settings.enabled && !textureless && set) {
       mat.map = set.color;
-      mat.normalMap = set.normal;
+      mat.normalMap = settings.normalScale !== 0 ? set.normal : null;
       mat.normalScale.set(settings.normalScale, settings.normalScale);
-      mat.roughnessMap = set.roughness;
-      mat.metalnessMap = set.metalness;
+      mat.roughnessMap = settings.roughnessIntensity > 0 ? set.roughness : null;
+      mat.metalnessMap = settings.metalnessIntensity !== 0 ? set.metalness : null;
       mat.roughness = settings.roughnessIntensity;
       mat.metalness = settings.metalnessIntensity;
-      mat.bumpMap = set.displacement;
+      mat.bumpMap = null;
       // Com scale 0 o displacement é um fetch de vértice inútil — só liga quando ativo.
       mat.displacementMap = settings.displacementScale > 0 ? set.displacement : null;
       mat.displacementScale = settings.displacementScale;
-      mat.emissiveMap = set.color;
+      mat.emissiveMap = settings.emissiveIntensity > 0 ? set.color : null;
     } else {
       mat.map = null;
       mat.normalMap = null;
       mat.roughnessMap = null;
       mat.metalnessMap = null;
-      mat.bumpMap = textureless ? null : (set?.displacement ?? null);
+      mat.bumpMap = null;
       mat.displacementMap = null;
       mat.displacementScale = 0;
       mat.emissiveMap = null;
@@ -901,7 +1051,7 @@ export function createDonationManager({
     if (!textureless) {
       mat.envMapIntensity = settings.envMapIntensity;
     }
-    mat.needsUpdate = true;
+    if (previousMask !== textureDefineMask(mat)) mat.needsUpdate = true;
   };
 
   const applyTextureToFacade = (settings: TextureSettings) => {
@@ -913,28 +1063,29 @@ export function createDonationManager({
     const targets = getAllTopMaterials();
     for (const mat of targets) {
       const textureless = isTexturelessMaterial(mat);
+      const previousMask = textureDefineMask(mat);
       if (settings.enabled && !textureless && topSet) {
         mat.map = topSet.color;
-        mat.normalMap = topSet.normal;
+        mat.normalMap = top.normalScale !== 0 ? topSet.normal : null;
         mat.normalScale.set(top.normalScale, top.normalScale);
-        mat.roughnessMap = topSet.roughness;
+        mat.roughnessMap = top.roughnessIntensity > 0 ? topSet.roughness : null;
         mat.roughness = top.roughnessIntensity;
         mat.metalness = top.metalnessIntensity;
-        mat.bumpMap = topSet.displacement;
+        mat.bumpMap = null;
         mat.displacementMap = top.displacementScale > 0 ? topSet.displacement : null;
         mat.displacementScale = top.displacementScale;
       } else {
         mat.map = null;
         mat.normalMap = null;
         mat.roughnessMap = null;
-        mat.bumpMap = textureless ? null : (topSet?.displacement ?? null);
+        mat.bumpMap = null;
         mat.displacementMap = null;
         mat.displacementScale = 0;
       }
       if (!textureless) {
         mat.envMapIntensity = top.envMapIntensity;
       }
-      mat.needsUpdate = true;
+      if (previousMask !== textureDefineMask(mat)) mat.needsUpdate = true;
     }
   };
 
@@ -1008,9 +1159,9 @@ export function createDonationManager({
 
   // Textura por edifício só custa um mesh dedicado quando difere da global — quem
   // escolheu justamente a textura da cena continua dentro do InstancedMesh.
-  // ponytail: prédio com textura própria = 1 draw call. Serve pro catálogo curado
-  // atual; se a maioria dos prédios passar a ter textura própria, agrupar em um
-  // InstancedMesh por textura (draw calls = nº de texturas, não de prédios).
+  // ponytail: prédio com textura própria = 1 mesh dedicado. Serve pro catálogo
+  // curado atual; se a maioria passar a ter textura própria, agrupar em um
+  // InstancedMesh por textura (draws = nº de texturas/grupos, não de prédios).
   const hasOwnFacadeTexture = (c?: BuildingCustomization): boolean => {
     if (!c?.textureKey) return false;
     return (
@@ -1115,6 +1266,10 @@ export function createDonationManager({
       instHalfX = new Float32Array(capacity);
       instHalfY = new Float32Array(capacity);
       instHalfZ = new Float32Array(capacity);
+    }
+    if (logicalInstanceColorArray.length < capacity * 3) {
+      logicalInstanceColorArray = new Float32Array(capacity * 3);
+      renderInstanceColorArray = new Float32Array(capacity * 3);
     }
 
     const { blockSize, streetWidth, towerRatio, towersPerBlock, baseHeightCap } = currentBlockLayout;
@@ -1329,7 +1484,8 @@ export function createDonationManager({
       }
     }
 
-    mesh.count = instanceIdx;
+    logicalInstanceCount = instanceIdx;
+    mesh.count = logicalInstanceCount;
     mesh.instanceMatrix.needsUpdate = true;
     mesh.boundingSphere = null; // força recomputação na próxima chamada de raycast
 
@@ -1399,6 +1555,7 @@ export function createDonationManager({
     setMatOpacity(facadeMaterial, 0.15);
     setMatOpacity(topMaterial, 0.15);
     setInstancedBaseColor(currentBuildingColor);
+    useInstanceColors = false;
     mesh.instanceColor = null;
 
     for (const [donId, entry] of customShapeMeshes) {
@@ -1418,19 +1575,14 @@ export function createDonationManager({
       focusFacadeMaterial.color.copy(currentBuildingColor);
       focusTopMaterial.color.copy(currentBuildingColor);
     }
-    focusFacadeMaterial.needsUpdate = true;
-    focusTopMaterial.needsUpdate = true;
 
     focusHighlightMesh = new THREE.Mesh(buildingGeometry, [focusFacadeMaterial, focusTopMaterial]);
     focusHighlightMesh.applyMatrix4(tmpTransformMatrix);
     scene.add(focusHighlightMesh);
   };
 
-  // Buffer de cores reutilizado entre chamadas — realoca só quando a capacidade cresce.
-  let instanceColorArray = new Float32Array(0);
-
   const applyInstanceColors = () => {
-    if (mesh.count === 0) return;
+    if (logicalInstanceCount === 0) return;
 
     // Em foco, as instâncias ficam sem cor própria (só o mesh destacado tem).
     // Verificar se alguma doação tem customização
@@ -1438,21 +1590,18 @@ export function createDonationManager({
     if (!hasAnyCustom) {
       // Sem customizações: remover instanceColor para usar cor do material
       setInstancedBaseColor(currentBuildingColor);
+      useInstanceColors = false;
       mesh.instanceColor = null;
       return;
     }
 
     // Cor real vai toda no instanceColor → base branca (ver INSTANCE_COLOR_BASE).
     setInstancedBaseColor(INSTANCE_COLOR_BASE);
-
-    if (instanceColorArray.length < capacity * 3) {
-      instanceColorArray = new Float32Array(capacity * 3);
-    }
-    const colors = instanceColorArray;
+    useInstanceColors = true;
     const donationById = new Map<number, DonationEntry>();
     for (const d of donations) donationById.set(d.id, d);
 
-    for (let i = 0; i < mesh.count; i++) {
+    for (let i = 0; i < logicalInstanceCount; i++) {
       const donId = instanceToDonationId[i];
       const donation = donationById.get(donId);
       if (donation?.customization) {
@@ -1460,13 +1609,12 @@ export function createDonationManager({
       } else {
         tmpColor.copy(currentBuildingColor);
       }
-      colors[i * 3] = tmpColor.r;
-      colors[i * 3 + 1] = tmpColor.g;
-      colors[i * 3 + 2] = tmpColor.b;
+      logicalInstanceColorArray[i * 3] = tmpColor.r;
+      logicalInstanceColorArray[i * 3 + 1] = tmpColor.g;
+      logicalInstanceColorArray[i * 3 + 2] = tmpColor.b;
     }
 
-    mesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
-    mesh.instanceColor.needsUpdate = true;
+    compactVisibleInstances();
   };
 
   // --- Acessórios de topo ---
@@ -1907,16 +2055,11 @@ export function createDonationManager({
         for (const mat of getAllFacadeMaterials()) {
           mat.roughness = settings.roughness;
           mat.metalness = settings.metalness;
-          mat.needsUpdate = true;
         }
         for (const mat of getAllTopMaterials()) {
           mat.roughness = settings.roughness;
           mat.metalness = settings.metalness;
-          mat.needsUpdate = true;
         }
-      } else {
-        for (const mat of getAllFacadeMaterials()) mat.needsUpdate = true;
-        for (const mat of getAllTopMaterials()) mat.needsUpdate = true;
       }
       applyInstanceColors();
     },
@@ -1985,6 +2128,15 @@ export function createDonationManager({
     beginEnvCapture(includeCityFloor) {
       for (const mat of getAllFacadeMaterials()) mat.envMapIntensity = 0;
       for (const mat of getAllTopMaterials()) mat.envMapIntensity = 0;
+      // O probe é fixo na cidade: captura o dataset completo, independente do
+      // culling da câmera principal, e restaura o buffer compacto ao terminar.
+      compactVisibleInstances(true);
+      customShapesHiddenBeforeCapture.length = 0;
+      for (const [donationId, entry] of customShapeMeshes) {
+        if (entry.mesh.visible) continue;
+        customShapesHiddenBeforeCapture.push(donationId);
+        entry.mesh.visible = true;
+      }
       // O controle pode retirar o piso da cidade (asfalto, calçada, lotes) para liberar o
       // hemisfério de baixo do cube ao céu e destacar o skyline na fachada.
       if (includeCityFloor) return;
@@ -1999,6 +2151,12 @@ export function createDonationManager({
       for (const mat of getAllTopMaterials()) {
         mat.envMapIntensity = currentTextureSettings.top.envMapIntensity;
       }
+      compactVisibleInstances();
+      for (const donationId of customShapesHiddenBeforeCapture) {
+        const entry = customShapeMeshes.get(donationId);
+        if (entry) entry.mesh.visible = false;
+      }
+      customShapesHiddenBeforeCapture.length = 0;
       for (const m of roadMeshes) m.visible = true;
       if (sidewalkMesh) sidewalkMesh.visible = true;
       if (lotMesh) lotMesh.visible = true;
@@ -2192,12 +2350,11 @@ export function createDonationManager({
         if (!entry.mesh.visible) culled++;
       }
 
-      // Prédios instanciados: sem frustum cull por instância — zero-scale esconde de
-      // verdade (some do render principal e da captura do envMap). Upload do buffer
-      // só quando algum estado muda. Lê dos arrays paralelos (100k Map.get por tick
-      // causava hitches); a matriz de restauração é recomposta dos mesmos arrays.
+      // Prédios instanciados: o buffer é compactado e `mesh.count` passa a conter
+      // somente os visíveis. Assim o cull reduz fragmentos E vertex shaders.
+      // Arrays lógicos continuam estáveis para picking/metadados.
       let changed = false;
-      for (let i = 0; i < mesh.count; i++) {
+      for (let i = 0; i < logicalInstanceCount; i++) {
         const dx = instPosX[i] - cameraPos.x;
         const dz = instPosZ[i] - cameraPos.z;
         const d = dx * dx + dz * dz;
@@ -2208,18 +2365,9 @@ export function createDonationManager({
         if (hidden) culled++;
         if (instanceHidden[i] === hidden) continue;
         instanceHidden[i] = hidden;
-        if (hidden) {
-          mesh.setMatrixAt(i, hiddenMatrix);
-        } else {
-          tmpTransformPosition.set(instPosX[i], instPosY[i], instPosZ[i]);
-          tmpTransformScale.set(instHalfX[i] * 2, instHalfY[i] * 2, instHalfZ[i] * 2);
-          tmpTransformQuaternion.identity();
-          tmpTransformMatrix.compose(tmpTransformPosition, tmpTransformQuaternion, tmpTransformScale);
-          mesh.setMatrixAt(i, tmpTransformMatrix);
-        }
         changed = true;
       }
-      if (changed) mesh.instanceMatrix.needsUpdate = true;
+      if (changed) compactVisibleInstances();
       return culled;
     },
     dispose() {

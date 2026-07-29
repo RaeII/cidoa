@@ -79,7 +79,14 @@ export function createCitySceneRuntime({
 
   let currentStats: SceneStats = { ...DEFAULT_SCENE_STATS };
   const emitStatsPatch = (patch: Partial<SceneStats>) => {
-    currentStats = { ...currentStats, ...patch };
+    const nextStats = { ...currentStats, ...patch };
+    if (
+      nextStats.buildings === currentStats.buildings &&
+      nextStats.culled === currentStats.culled &&
+      nextStats.fpsMode === currentStats.fpsMode &&
+      nextStats.chunks === currentStats.chunks
+    ) return;
+    currentStats = nextStats;
     onStatsChange(currentStats);
   };
 
@@ -142,8 +149,11 @@ export function createCitySceneRuntime({
   // estático (ver envProbePosition), então girar a câmera daria captura idêntica — o reflexo
   // varia sozinho pelo reflect() no shader.
   let cubeDirty = true;
+  const cubeCaptureDebounceMs = 180;
+  let cubeDirtyAt = performance.now() - cubeCaptureDebounceMs;
   const markCubeDirty = () => {
     cubeDirty = true;
+    cubeDirtyAt = performance.now();
   };
 
   // Asset assíncrono que chega DEPOIS da primeira captura tem que sujar o cube. Sem isso o
@@ -190,8 +200,10 @@ export function createCitySceneRuntime({
   const createCubeProbe = (resolution: number) => {
     const target = new THREE.WebGLCubeRenderTarget(resolution, {
       type: THREE.HalfFloatType,
-      generateMipmaps: true,
-      minFilter: THREE.LinearMipmapLinearFilter,
+      // MeshPhysicalMaterial converte este cube para PMREM; mipmap nativo seria
+      // outra filtragem da mesma captura e não é amostrado diretamente.
+      generateMipmaps: false,
+      minFilter: THREE.LinearFilter,
     });
     const cubeCamera = new THREE.CubeCamera(0.1, CITY_SCENE_CONFIG.far, target);
     scene.add(cubeCamera);
@@ -303,16 +315,20 @@ export function createCitySceneRuntime({
   let cubeFrameCounter = 0;
   let cameraDebugAccumulator = 0;
   let accessoryCullAccumulator = 0;
+  let skipNextFpsSample = false;
+  let lastResolutionChangeAt = -Infinity;
   const cullForward = new THREE.Vector3();
 
-  const updateDynamicResolution = (fps: number) => {
+  const updateDynamicResolution = (fps: number, time: number) => {
+    if (time - lastResolutionChangeAt < 1500) return;
     const previousScale = renderScale;
     if (fps < CITY_SCENE_CONFIG.targetFps - 8) {
       renderScale = Math.max(CITY_SCENE_CONFIG.minRenderScale, renderScale - 0.05);
-    } else if (fps > CITY_SCENE_CONFIG.targetFps + 5) {
+    } else if (fps > CITY_SCENE_CONFIG.targetFps + 1) {
       renderScale = Math.min(CITY_SCENE_CONFIG.maxRenderScale, renderScale + 0.025);
     }
     if (previousScale !== renderScale) {
+      lastResolutionChangeAt = time;
       renderer.setPixelRatio(getPixelRatio());
       renderer.setSize(mount.clientWidth, mount.clientHeight, false);
     }
@@ -370,13 +386,16 @@ export function createCitySceneRuntime({
       }
     }
 
-    fpsAccumulator += delta;
-    frames += 1;
-    if (fpsAccumulator >= 0.5) {
+    if (skipNextFpsSample) {
+      skipNextFpsSample = false;
+    } else {
+      fpsAccumulator += delta;
+      frames += 1;
+    }
+    if (fpsAccumulator >= 0.5 && frames > 0) {
       const currentFps = frames / fpsAccumulator;
       smoothedFps = smoothedFps * 0.72 + currentFps * 0.28;
-      updateDynamicResolution(smoothedFps);
-      emitStatsPatch({ buildings: donationManager.getDonationCount() });
+      updateDynamicResolution(smoothedFps, time);
       fpsAccumulator = 0;
       frames = 0;
     }
@@ -387,7 +406,11 @@ export function createCitySceneRuntime({
     if (
       currentReflection.enabled &&
       cubeFrameCounter === 0 &&
-      (cubeDirty || currentReflection.continuous || currentReflection.followCamera)
+      (
+        currentReflection.continuous ||
+        currentReflection.followCamera ||
+        (cubeDirty && time - cubeDirtyAt >= cubeCaptureDebounceMs)
+      )
     ) {
       cubeDirty = false;
       if (currentReflection.followCamera) {
@@ -421,6 +444,9 @@ export function createCitySceneRuntime({
         groundPlane.mesh.visible = false;
       }
       buildingCubeCamera.update(renderer, scene);
+      // O custo da captura/PMREM aparece no delta do próximo rAF; não deixar um
+      // evento esporádico reduzir permanentemente a resolução principal.
+      skipNextFpsSample = true;
       terrainRig.mesh.visible = terrainWasVisible;
       groundPlane.mesh.visible = groundWasVisible;
       donationManager.endEnvCapture();
@@ -438,10 +464,9 @@ export function createCitySceneRuntime({
         camera.position,
         camera.getWorldDirection(cullForward),
       );
-      // Prédio sumiu/voltou pelo cull → conteúdo do reflexo mudou.
+      // O probe fixo recompõe a cidade completa; cull só atualiza UI/render principal.
       if (culled !== currentStats.culled) {
         emitStatsPatch({ culled });
-        markCubeDirty();
       }
     }
 

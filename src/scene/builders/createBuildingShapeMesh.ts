@@ -68,15 +68,40 @@ export function isBuildingShape(key: string): key is BuildingShape {
 }
 
 /**
+ * BoxGeometry nasce com 6 grupos (um por face). Reordena os índices para
+ * fachada/base e topo virarem só 2 grupos, mesmo usando 2 materiais.
+ */
+export function groupBoxGeometryByTop(
+  geometry: THREE.BoxGeometry,
+  sideMaterialIndex: number,
+  topMaterialIndex: number,
+): void {
+  const index = geometry.index;
+  if (!index) return;
+
+  const sideIndices: number[] = [];
+  const topIndices: number[] = [];
+  for (const group of geometry.groups) {
+    const target = group.materialIndex === 2 ? topIndices : sideIndices;
+    for (let i = group.start; i < group.start + group.count; i++) {
+      target.push(index.getX(i));
+    }
+  }
+
+  geometry.setIndex([...sideIndices, ...topIndices]);
+  geometry.clearGroups();
+  geometry.addGroup(0, sideIndices.length, sideMaterialIndex);
+  geometry.addGroup(sideIndices.length, topIndices.length, topMaterialIndex);
+}
+
+/**
  * Caixa 1×1×1 do formato `default`: grupos remapeados (topo = material 1, resto
  * = 0) + atributos de projeção que o shader triplanar consome. Devolve instância
  * nova — quem cria descarta.
  */
 export function createUnitBuildingGeometry(): THREE.BoxGeometry {
   const geometry = new THREE.BoxGeometry(1, 1, 1, 1, 1, 1);
-  for (const group of geometry.groups) {
-    group.materialIndex = group.materialIndex === 2 ? 1 : 0;
-  }
+  groupBoxGeometryByTop(geometry, 0, 1);
   // Cópia da posição/normal axis-aligned. Geometria torcida sobrescreve esses
   // atributos com os valores PRÉ-twist (ver createTwistedBuildingMesh).
   geometry.setAttribute(
