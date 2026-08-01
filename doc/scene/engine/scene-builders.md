@@ -112,6 +112,7 @@ Carrega e configura o ambiente HDRI/skybox.
 - Cachear imagem (2.9MB) no Cache API do browser via `resolveEnvUrl` → 2ª visita lê do cache local, sem rede
 - Criar esfera invertida como background (permite offset UV uniforme em todas as direções)
 - Gerar `PMREMGenerator` para `scene.environment` (iluminação PBR dos prédios)
+- Modo noite: tingir o céu (`material.color = NIGHT_PRESET.skyTint`) e mostrar o campo de estrelas
 - Expor `updateSettings` para rotacionar/deslocar o skybox
 - Expor `updatePosition` para seguir a câmera
 - Limpar meshes, geometria e material no `dispose`
@@ -127,10 +128,17 @@ Carrega e configura o ambiente HDRI/skybox.
 > [!note] Sem `texture.needsUpdate` no updateSettings
 > `offset`/rotação são uniforms — `needsUpdate = true` re-enviava a textura 4K inteira à GPU a cada movimento de slider. Removido.
 
+> [!tip] Noite sem segundo HDRI
+> `settings.night` só troca `skyMaterial.color`: branco = HDRI intacto, `NIGHT_PRESET.skyTint` = mesmo mapa multiplicado por azul-noite (nuvem e estrutura continuam lá). Zero download extra. Resto da cena (luz, IBL, névoa) em [[scene-runtime#Modo noite]].
+
+> [!note] Estrelas (`createStars`)
+> `THREE.Points` com `NIGHT_PRESET.starCount` pontos no **hemisfério de cima**, raio 180 (dentro da esfera do céu, raio 200 → não é cortado pelo far plane antes dela). Posições vêm de `seeded` → mesmo céu toda sessão. Filho do `skyMesh`: herda rotação e o reposicionamento por frame de graça. `sizeAttenuation: false` = tamanho fixo em pixels, estrela não incha ao dar zoom. `visible` segue `night`; geometria e material morrem no `dispose`.
+
 **Quando mexer aqui:**
 - Trocar o arquivo HDRI (bump `ENV_CACHE_NAME` pra invalidar cache antigo)
 - Alterar como o skybox responde ao offset de ambiente
 - Mudar a geração do `scene.environment`
+- Mexer nas estrelas (quantidade, tamanho, distribuição) → `NIGHT_PRESET` + `createStars`
 
 ---
 

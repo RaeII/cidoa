@@ -304,7 +304,10 @@ export function CitySceneEditor() {
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to from-black/35 to-transparent" />
       <div className="absolute right-4 top-4 z-20">
-        <AuthMenu />
+        <AuthMenu
+          night={environmentSettings.night}
+          onNightChange={(night) => setEnvironmentSettings((prev) => ({ ...prev, night }))}
+        />
       </div>
       {loadState.status === "ready" && (
         <DonationFilterBar

@@ -171,6 +171,19 @@ Valores padrão do ambiente HDRI:
 - `offsetX` — rotação horizontal do skybox
 - `offsetY` — deslocamento vertical do horizonte
 - `offsetZ` — roll diagonal
+- `night` — modo noite (padrão `false`)
+
+Exporta também `NIGHT_PRESET` — tudo que a noite muda. Sem HDRI noturno: noite = HDRI diurno multiplicado por azul escuro.
+
+| Campo | Padrão | Onde bate |
+|---|---|---|
+| `skyTint` | `#1b2440` | `MeshBasicMaterial.color` da esfera do céu — multiplica o mapa, mantém nuvem |
+| `ambientColor` | `#8ea6d6` | Cor da `AmbientLight` (luar frio) |
+| `ambientScale` | `0.09` | Fator sobre `ambientTotal` — prédio escurece, LED/holograma dominam |
+| `environmentIntensity` | `0.1` | `scene.environmentIntensity`: IBL do HDRI diurno perde peso |
+| `fogColor` | `#070b16` | Cor da `FogExp2` (densidade continua do horizonte) |
+| `horizonColor` | `#0d1220` | Cor da silhueta do horizonte |
+| `starCount` · `starRadius` · `starSize` | `1400` · `180` · `1.6` | Campo de estrelas ([[scene-builders#loadEnvironment.ts]]) |
 
 ---
 

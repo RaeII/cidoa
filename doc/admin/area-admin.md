@@ -114,11 +114,24 @@ Layout: `SidebarProvider` (`h-svh`) + `AppSidebar` + conteúdo rolável + `Mobil
 
 ---
 
+## Modo noite (menu do usuário)
+
+Cidade de dia ou de noite. Estado é `environmentSettings.night` no `CitySceneEditor` — mesma trilha dos outros settings da cena (`CitySceneCanvas` → [[scene-hooks]] → `runtime.updateEnvironmentSettings`).
+
+- **Onde clica** — dropdown do `AuthMenu` ("Modo noite" / "Modo dia"). Deslogado não tem dropdown: o mesmo toggle vira botão de ícone (lua/sol) ao lado do "Entrar".
+- **Props** — `AuthMenu` recebe `night` + `onNightChange`; não guarda estado próprio.
+- **O que muda na cena** — céu tingido + estrelas ([[scene-builders#loadEnvironment.ts]]), luz/IBL/névoa/silhueta ([[scene-runtime#Modo noite]]), valores em `NIGHT_PRESET` ([[scene-config#environmentConfig.ts]]).
+- **Não persiste** — recarregar volta pro dia. Persistir = mesmo padrão de [[scene-config#uiVisibilityConfig.ts]].
+
+Nada a ver com o `ThemeToggle`/`useTheme` do admin, que é o tema claro/escuro do HTML.
+
+---
+
 ## Login público na cena (passwordless)
 
 Usuário comum entra/cadastra **na própria cena 3D** (`/`), sem sair para outra página. Fluxo **passwordless**: e-mail → código de 6 dígitos.
 
-- **`src/components/AuthMenu.tsx`** — botão no canto superior direito da cena. Deslogado: "Entrar" abre o modal. Logado: botão somente com ícone de compartilhar indicação ao lado do usuário, `username` limitado a 18 caracteres + reticências e dropdown com "Perfil" + "Sair". Também coordena código vindo de `?ref=`, preview, resumo e confirmação. Ver [[referral]].
+- **`src/components/AuthMenu.tsx`** — botão no canto superior direito da cena. Deslogado: toggle de noite (lua/sol) + "Entrar" abre o modal. Logado: botão somente com ícone de compartilhar indicação ao lado do usuário, `username` limitado a 18 caracteres + reticências e dropdown com "Modo noite/dia" + "Perfil" + "Sair". Também coordena código vindo de `?ref=`, preview, resumo e confirmação. Ver [[referral]].
 - **`src/components/ProfileDialog.tsx`** — perfil em modal com imagem ou iniciais, nome, username e e-mail confirmado. Mostra código/link próprio; indicador recebido só quando existe; total indicado só quando maior que zero. Um lápis sobre o avatar abre ações de adicionar/trocar e remover imagem. Aceita JPEG, PNG ou WebP de até 10 MB; `src/lib/image.ts` reduz proporcionalmente para no máximo 400×400.
 - **`src/components/AuthDialog.tsx`** — modal único (shadcn `Dialog`): campo opcional de indicação sempre visível + botão **Continuar com Google** + divisor "ou" + e-mail → código. Código de indicação válido mostra nome/imagem; inválido bloqueia login/cadastro até correção ou remoção. Conta nova envia código no cadastro; conta existente confirma depois do login.
   - **Botão Google (GIS)**: o script `accounts.google.com/gsi/client` (carregado no `index.html`) renderiza o botão via `google.accounts.id`. O popup devolve o `credential` (ID token); o callback chama `loginWithGoogle(credential)` → `POST /auth/google` → mesma sessão do fluxo por código. Entrar e cadastrar são a **mesma ação** (o backend resolve). `GOOGLE_CLIENT_ID` vem de `VITE_GOOGLE_CLIENT_ID` (com default público embutido). Registre a **origem** do front em *Authorized JavaScript origins* no Google Console.
@@ -185,6 +198,7 @@ Cria/promove usuário com `is_admin=true` + senha bcrypt. Depois é só logar em
 | Regras de acesso / redirect da área admin | `src/components/RequireAuth.tsx` |
 | Sessão, login, logout | `src/components/AuthProvider.tsx` + `src/hooks/useAuth.ts` |
 | Botão de login na cena (público) | `src/components/AuthMenu.tsx` |
+| Modo noite (toggle no menu do usuário) | [[area-admin#Modo noite (menu do usuário)]] |
 | Modal de login/cadastro passwordless | `src/components/AuthDialog.tsx` |
 | Visualização e edição do perfil | `src/components/ProfileDialog.tsx` + `src/api/user/user.routes.ts` |
 | Link, preview, confirmação e compartilhamento de indicação | `src/components/AuthMenu.tsx` + `src/components/referral/` + `src/api/referral/` |

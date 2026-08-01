@@ -228,8 +228,12 @@ type EnvironmentSettings = {
   offsetX: number;  // rotação horizontal do skybox
   offsetY: number;  // deslocamento vertical (UV offset do horizonte)
   offsetZ: number;  // roll diagonal
+  night: boolean;   // modo noite: céu escuro + estrelas + luz/névoa noturnas
 }
 ```
+
+> [!note] `night`
+> Liga/desliga pelo menu do usuário ([[area-admin#Modo noite (menu do usuário)]]). Valores da noite ficam em `NIGHT_PRESET` ([[scene-config#environmentConfig.ts]]); céu + estrelas em [[scene-builders#loadEnvironment.ts]], cena em [[scene-runtime#Modo noite]].
 
 ### `ReflectionSettings`
 

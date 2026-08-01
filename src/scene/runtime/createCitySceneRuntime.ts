@@ -6,6 +6,7 @@ import { createLightingRig } from "../builders/createLightingRig";
 import { createTerrain } from "../builders/createTerrain";
 import { loadEnvironment } from "../builders/loadEnvironment";
 import { CITY_SCENE_CONFIG, DEFAULT_SCENE_STATS } from "../config/citySceneConfig";
+import { NIGHT_PRESET } from "../config/environmentConfig";
 import { createDonationManager } from "../managers/createDonationManager";
 import type {
   BlockLayoutSettings,
@@ -196,6 +197,29 @@ export function createCitySceneRuntime({
   let currentReflection = reflectionSettings;
   let currentEnvironment = environmentSettings;
   const envProbePosition = new THREE.Vector3();
+
+  // Modo noite. Céu escuro + estrelas ficam no environmentUpdater; aqui a parte de CENA:
+  // ambiente vira luar, IBL do HDRI diurno perde peso, névoa e silhueta escurecem.
+  // Reaplicar sempre que luz, horizonte ou ambiente mudarem — senão o valor "de dia"
+  // volta por cima (lightingRig.update parte sempre dos settings do painel).
+  let currentLight = lightSettings;
+  let currentHorizon = horizonSettings;
+  const applyNightMode = () => {
+    const night = currentEnvironment.night;
+    const metrics = lightingRig.update(currentLight);
+    if (night) {
+      lightingRig.ambient.color.set(NIGHT_PRESET.ambientColor);
+      lightingRig.ambient.intensity = metrics.ambientTotal * NIGHT_PRESET.ambientScale;
+    }
+    scene.environmentIntensity = night ? NIGHT_PRESET.environmentIntensity : 1;
+    if (scene.fog instanceof THREE.FogExp2) {
+      scene.fog.color.set(night ? NIGHT_PRESET.fogColor : currentHorizon.fogColor);
+    }
+    horizonSilhouette.updateSettings(
+      night ? { ...currentHorizon, color: NIGHT_PRESET.horizonColor } : currentHorizon,
+    );
+  };
+  applyNightMode();
 
   const createCubeProbe = (resolution: number) => {
     const target = new THREE.WebGLCubeRenderTarget(resolution, {
@@ -508,11 +532,12 @@ export function createCitySceneRuntime({
       markCubeDirty();
     },
     updateLightSettings(settings) {
-      lightingRig.update(settings);
+      currentLight = settings;
+      applyNightMode();
       markCubeDirty();
     },
     updateHorizonSettings(settings) {
-      horizonSilhouette.updateSettings(settings);
+      currentHorizon = settings;
       // Distância controla o alcance de renderização: far plane acompanha a silhueta
       // (+2 cobre a profundidade dos prédios da fileira, que ficam centrados na distância)
       // e o manager faz cull real das instâncias além dela.
@@ -520,9 +545,10 @@ export function createCitySceneRuntime({
       camera.updateProjectionMatrix();
       donationManager.setRenderDistance(settings.distance, settings.backDistance);
       if (scene.fog instanceof THREE.FogExp2) {
-        scene.fog.color.set(settings.fogColor);
         scene.fog.density = settings.fogDensity;
       }
+      // Silhueta e cor da névoa saem daqui: no modo noite ganham override.
+      applyNightMode();
       markCubeDirty();
     },
     updateBlockLayout(settings) {
@@ -533,6 +559,7 @@ export function createCitySceneRuntime({
     updateEnvironmentSettings(settings) {
       currentEnvironment = settings;
       environmentUpdater.updateSettings(settings);
+      applyNightMode();
       markCubeDirty();
     },
     updateReflectionSettings(settings) {

@@ -123,6 +123,37 @@ type CitySceneRuntime = {
 >
 > **Chão infinito:** o `groundPlane` fica **sempre visível** (`y=−0.05`, abaixo do piso do relevo em `−0.04`) e **segue a câmera** (`setPosition` no loop). Onde há relevo, o terreno cobre; além da borda do relevo (mesh fixo, 700u na origem), o plano preenche o vazio → cidade grande **não tem limite** ao mover a câmera. Fica sempre abaixo do terreno → **sem z-fighting** (antes o plano era escondido com o relevo ligado, pra não piscar por ficar acima). Na **captura do cube envMap**, relevo e plano cinza permanecem visíveis por padrão e aparecem nos reflexos. Desmarcar `includeGround` os oculta apenas durante a captura; a visibilidade do render principal não muda.
 
+### Modo noite
+
+`EnvironmentSettings.night` ([[scene-types#EnvironmentSettings]]) liga a noite. Divisão:
+
+| Parte | Onde |
+|---|---|
+| Céu tingido + estrelas | [[scene-builders#loadEnvironment.ts]] (`environmentUpdater.updateSettings`) |
+| Luz, IBL, névoa, silhueta | `applyNightMode()` no runtime |
+
+`applyNightMode()` sempre parte do estado "de dia" e aplica o override por cima:
+
+```typescript
+const metrics = lightingRig.update(currentLight)      // volta ao valor do painel
+if (night) {
+  lightingRig.ambient.color.set(NIGHT_PRESET.ambientColor)
+  lightingRig.ambient.intensity = metrics.ambientTotal * NIGHT_PRESET.ambientScale
+}
+scene.environmentIntensity = night ? NIGHT_PRESET.environmentIntensity : 1
+scene.fog.color.set(night ? NIGHT_PRESET.fogColor : currentHorizon.fogColor)
+horizonSilhouette.updateSettings(night ? { ...currentHorizon, color: NIGHT_PRESET.horizonColor } : currentHorizon)
+```
+
+> [!warning] Chamar em toda mudança que a noite pisa por cima
+> `updateLightSettings`, `updateHorizonSettings` e `updateEnvironmentSettings` guardam o valor em `currentLight`/`currentHorizon`/`currentEnvironment` e chamam `applyNightMode()` — não escrevem luz/névoa/silhueta direto. Sem isso, mexer num slider de luz com a noite ligada devolve o valor diurno na cena.
+
+> [!note] Reflexo acompanha
+> O probe captura a cena real → céu escuro e prédios apagados já entram no cube. `updateEnvironmentSettings` faz `markCubeDirty()`, então alternar dia/noite recaptura. Durante a captura o `night` sobrevive: o override de `skyDrop` é um spread de `currentEnvironment`.
+
+> [!note] Sem HDRI noturno
+> `scene.environment` continua sendo o PMREM do HDRI **diurno** — quem apaga é `scene.environmentIntensity`. Trocar por um HDRI de noite de verdade = outro asset de vários MB; o tint + `environmentIntensity` entrega o mesmo efeito com zero download.
+
 ### Probe de reflexo (envMap dos prédios)
 
 Fachada usa o cube do `buildingCubeTarget` como `envMap` (ver [[scene-managers|setEnvMap]]). Probe é **ancorado na cidade** por padrão, não na câmera. Todo knob vem de `ReflectionSettings` — aba **reflexo** do painel ([[html-components#ReflectionControls.tsx]]), defaults em [[scene-config#reflectionConfig.ts]], tipo em [[scene-types#ReflectionSettings]]:

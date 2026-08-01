@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { LogOut, Share2, UserRoundPen } from "lucide-react";
+import { LogOut, Moon, Share2, Sun, UserRoundPen } from "lucide-react";
 import { ApiError } from "@/api/http";
 import {
   applyMyReferral,
@@ -36,8 +36,14 @@ function messageFrom(error: unknown, fallback: string) {
   return error instanceof ApiError ? error.message : fallback;
 }
 
-/** Autenticação, perfil e entrada única dos fluxos de indicação da cena. */
-export function AuthMenu() {
+type AuthMenuProps = {
+  /** Modo noite da cena (`EnvironmentSettings.night`), controlado por aqui. */
+  night: boolean;
+  onNightChange: (night: boolean) => void;
+};
+
+/** Autenticação, perfil, modo noite e entrada única dos fluxos de indicação da cena. */
+export function AuthMenu({ night, onNightChange }: AuthMenuProps) {
   const { isAuthenticated, user, logout } = useAuth();
   const [initialCode] = useState(initialReferralCode);
   const [authOpen, setAuthOpen] = useState(false);
@@ -208,6 +214,8 @@ export function AuthMenu() {
     shareTimer.current = setTimeout(() => setShareStatus("idle"), 2500);
   }
 
+  const nightLabel = night ? "Modo dia" : "Modo noite";
+
   const referralDialogError =
     referralError ??
     applyError ??
@@ -256,6 +264,10 @@ export function AuthMenu() {
                 </span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onNightChange(!night)}>
+                {night ? <Sun /> : <Moon />}
+                {nightLabel}
+              </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
                   setProfileOpen(true);
@@ -300,9 +312,21 @@ export function AuthMenu() {
 
   return (
     <>
-      <button type="button" className={overlayButton} onClick={() => setAuthOpen(true)}>
-        Entrar
-      </button>
+      <div className="flex items-center gap-2">
+        {/* Deslogado não tem menu — o mesmo toggle vira botão ao lado do "Entrar". */}
+        <button
+          type="button"
+          className={overlayButton}
+          onClick={() => onNightChange(!night)}
+          title={nightLabel}
+          aria-label={nightLabel}
+        >
+          {night ? <Sun /> : <Moon />}
+        </button>
+        <button type="button" className={overlayButton} onClick={() => setAuthOpen(true)}>
+          Entrar
+        </button>
+      </div>
       <AuthDialog
         open={effectiveAuthOpen}
         onOpenChange={setAuthOpen}

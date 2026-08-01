@@ -76,6 +76,7 @@ src/
     ui/
       switch.tsx                    ← Switch shadcn usado nas ativações do admin
       select.tsx                    ← Select shadcn; filtro de personalização no admin
+    AuthMenu.tsx                  ← menu do usuário na cena: modo noite, perfil, indicação, sair
     AuthDialog.tsx                ← login por e-mail; cadastro com nome + username único
     AuthProvider.tsx              ← sessão local espelhada do cookie httpOnly
     ProfileDialog.tsx             ← edição de nome, username e imagem de perfil
@@ -310,6 +311,9 @@ flowchart LR
 | ------------------------------------------------ | ------------------------------------------------- |
 | Alterar valor padrão dos prédios                 | [[scene-config]]                                  |
 | Alterar a UI do painel de configuração           | [[html-components#CityControlPanel.tsx]]          |
+| Modo noite: toggle no menu do usuário            | [[area-admin#Modo noite (menu do usuário)]]       |
+| Modo noite: céu escuro e estrelas                | [[scene-builders#loadEnvironment.ts]]             |
+| Modo noite: luz, IBL, névoa e silhueta           | [[scene-runtime#Modo noite]] · `NIGHT_PRESET` em [[scene-config#environmentConfig.ts]] |
 | Adicionar/alterar atalho de teclado              | [[html-components#Atalhos de teclado]]            |
 | Mostrar/esconder componentes HTML da tela        | aba **Tela** → [[scene-config#uiVisibilityConfig.ts]] |
 | Alterar a UI de personalização de edifício       | [[html-components#BuildingCustomizePanel.tsx]]    |

@@ -179,6 +179,8 @@ export type EnvironmentSettings = {
   offsetX: number;
   offsetY: number;
   offsetZ: number;
+  /** Modo noite: escurece céu/luz/névoa e liga as estrelas. Ver `NIGHT_PRESET`. */
+  night: boolean;
 };
 
 // Probe de reflexo dos prédios (CubeCamera + WebGLCubeRenderTarget do runtime).

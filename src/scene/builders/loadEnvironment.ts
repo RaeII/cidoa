@@ -1,7 +1,9 @@
 import * as THREE from "three";
 
 import envUrl from "../../assets/environment/DaySkyHDRI040B_4K_TONEMAPPED.jpg";
+import { NIGHT_PRESET } from "../config/environmentConfig";
 import type { EnvironmentSettings } from "../types";
+import { seeded } from "../utils/random";
 
 export type EnvironmentUpdater = {
   updateSettings: (settings: EnvironmentSettings) => void;
@@ -33,18 +35,47 @@ async function resolveEnvUrl(url: string): Promise<string> {
   }
 }
 
+// Estrelas: Points no hemisfério de cima, filho da esfera do céu — herda rotação e o
+// reposicionamento por frame. sizeAttenuation off = tamanho fixo em pixels.
+function createStars(): THREE.Points {
+  const positions = new Float32Array(NIGHT_PRESET.starCount * 3);
+  for (let i = 0; i < NIGHT_PRESET.starCount; i++) {
+    const y = seeded(i, 91, 1);
+    const ring = Math.sqrt(1 - y * y);
+    const theta = seeded(i, 91, 2) * Math.PI * 2;
+    positions[i * 3] = Math.cos(theta) * ring * NIGHT_PRESET.starRadius;
+    positions[i * 3 + 1] = y * NIGHT_PRESET.starRadius;
+    positions[i * 3 + 2] = Math.sin(theta) * ring * NIGHT_PRESET.starRadius;
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  const material = new THREE.PointsMaterial({
+    size: NIGHT_PRESET.starSize,
+    sizeAttenuation: false,
+    transparent: true,
+    opacity: 0.9,
+    depthWrite: false,
+    fog: false,
+  });
+  return new THREE.Points(geometry, material);
+}
+
 function applySettings(
   skyMesh: THREE.Mesh,
-  texture: THREE.Texture,
+  skyMaterial: THREE.MeshBasicMaterial,
+  stars: THREE.Points,
   settings: EnvironmentSettings,
 ) {
   // Rotação horizontal via mesh: uniforme em todas as direções
   skyMesh.rotation.y = settings.offsetX;
   // Deslocamento vertical via UV offset: move o horizonte uniformemente em todos os lados.
   // offset é uniform — não precisa de needsUpdate (que re-enviaria a textura 4K à GPU).
-  texture.offset.y = settings.offsetY;
+  if (skyMaterial.map) skyMaterial.map.offset.y = settings.offsetY;
   // Roll (inclinação diagonal)
   skyMesh.rotation.z = settings.offsetZ;
+  // Noite = céu diurno multiplicado por azul escuro; branco = passa o HDRI intacto.
+  skyMaterial.color.set(settings.night ? NIGHT_PRESET.skyTint : "#ffffff");
+  stars.visible = settings.night;
 }
 
 export function loadEnvironment(
@@ -57,6 +88,9 @@ export function loadEnvironment(
   let skyMesh: THREE.Mesh | null = null;
   let skyGeometry: THREE.SphereGeometry | null = null;
   let skyMaterial: THREE.MeshBasicMaterial | null = null;
+  let stars: THREE.Points | null = null;
+  // HDRI 4K demora; noite pode ser ligada antes do load terminar.
+  let currentSettings = settings;
 
   const loader = new THREE.TextureLoader();
 
@@ -77,7 +111,9 @@ export function loadEnvironment(
     });
     skyMesh = new THREE.Mesh(skyGeometry, skyMaterial);
     skyMesh.renderOrder = -1000;
-    applySettings(skyMesh, texture, settings);
+    stars = createStars();
+    skyMesh.add(stars);
+    applySettings(skyMesh, skyMaterial, stars, currentSettings);
     scene.add(skyMesh);
 
     // scene.environment para iluminação PBR dos edifícios
@@ -99,8 +135,9 @@ export function loadEnvironment(
 
   return {
     updateSettings(newSettings: EnvironmentSettings) {
-      if (skyMesh && skyMaterial?.map) {
-        applySettings(skyMesh, skyMaterial.map, newSettings);
+      currentSettings = newSettings;
+      if (skyMesh && skyMaterial && stars) {
+        applySettings(skyMesh, skyMaterial, stars, newSettings);
       }
     },
     updatePosition(x: number, y: number, z: number) {
@@ -110,6 +147,8 @@ export function loadEnvironment(
       if (skyMesh) scene.remove(skyMesh);
       skyGeometry?.dispose();
       skyMaterial?.dispose();
+      stars?.geometry.dispose();
+      (stars?.material as THREE.Material | undefined)?.dispose();
     },
   };
 }
