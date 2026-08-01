@@ -328,6 +328,7 @@ flowchart LR
 | Alterar acessórios de topo                       | [[scene-builders#createRooftopMesh.ts]]           |
 | Alterar letreiros de fachada (signs)             | [[scene-builders#createSignMesh.ts]]              |
 | Alterar LED de arestas                           | [[scene-builders#createEdgeLightMesh.ts]]         |
+| Ajustar luz do LED nos vizinhos (intensidade, alcance, nº de luzes) | [[scene-managers#Fora do reflexo, dentro da luz]] |
 | Alterar holograma cyberpunk                      | [[scene-builders#createHologramMesh.ts]]          |
 | Adicionar formato de edifício novo               | [[scene-builders#createBuildingShapeMesh.ts]] + [[scene-types#BuildingShape]] |
 | Ver formato/topo/LED em 3D no admin              | [[personalizacoes#Preview 3D: Formato, Topo e LED]] · [[three-components#CustomizationPreview.tsx]] |

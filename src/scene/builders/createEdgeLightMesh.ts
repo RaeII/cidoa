@@ -33,6 +33,13 @@ export const DEFAULT_EDGE_LIGHT_INTENSITY = 10;
 export const DEFAULT_EDGE_LIGHT_DISTANCE = 0.04;
 export const DEFAULT_EDGE_LIGHT_THICKNESS = 0.05;
 
+// Derrame de luz do LED nos edifícios VIZINHOS (PointLight real, ver
+// createDonationManager). Separado da emissão da fita: a fita sai do reflexo,
+// a luz continua. Knobs de calibração — ajustar olhando a cena, não no papel.
+export const EDGE_LIGHT_SPILL_INTENSITY = 70;
+export const EDGE_LIGHT_SPILL_RANGE = 26;
+export const EDGE_LIGHT_SPILL_POOL_SIZE = 8;
+
 type EdgeLightFactory = (
   footprint: EdgeLightFootprint,
   shape: BuildingShape,
@@ -236,7 +243,7 @@ function buildInstancedGroup(segments: SegmentSpec[]): THREE.Group {
   haloOuter.computeBoundingSphere();
 
   group.add(core, halo, haloOuter);
-  return buildInstancedGroup(segments);
+  return group;
 }
 
 function createLed(

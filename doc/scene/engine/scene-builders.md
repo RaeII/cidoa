@@ -275,7 +275,15 @@ O lift de `0.05` no topo evita z-fighting com `helipad` e holofotes existentes.
 **Posicionamento no DonationManager:** o grupo é colocado em `(donationX, donationY − scale.y/2, donationZ)` — ou seja, na **base** do edifício, não no topo. Quando uma nova doação rebalanceia alturas, o `syncEdgeLights` reconstrói os grupos existentes (preservando type) com as novas dimensões.
 
 > [!warning] Sem PointLight por aresta
-> O efeito é puramente material/emissivo. Adicionar luzes reais por aresta seria O(N × 12) e estouraria limites de uniforms da GPU rapidamente.
+> Fita = só material emissivo. Luz real por aresta seria O(N × 12), estoura uniform da GPU. Luz que atinge vizinho vem de **pool fixo** de `PointLight` no manager — 1 por edifício, não 1 por aresta. Ver [[scene-managers#LED de Arestas]].
+
+**Constantes de derrame de luz** (consumidas pelo [[scene-managers|DonationManager]]):
+
+| Constante | Default | O que controla |
+|---|---|---|
+| `EDGE_LIGHT_SPILL_INTENSITY` | `70` | Intensidade da `PointLight` (candela, `decay: 2`) |
+| `EDGE_LIGHT_SPILL_RANGE` | `26` | Alcance da luz em unidades de cena |
+| `EDGE_LIGHT_SPILL_POOL_SIZE` | `8` | Quantas luzes existem — LEDs além disso não acendem vizinho |
 
 **API:**
 ```typescript
@@ -283,6 +291,9 @@ createEdgeLightMesh(type: EdgeLightType, footprint: { width: number; depth: numb
 disposeEdgeLightMesh(group: THREE.Group): void                      // libera materiais clonados + buffers de instância
 disposeEdgeLightSharedResources(): void                             // libera geometrias compartilhadas
 ```
+
+> [!tip] Checagem headless
+> `node scripts/check-building-shapes.mjs` valida que **todo** formato devolve grupo com 3 `InstancedMesh` e ≥1 segmento — regressão do bug em que `buildInstancedGroup` chamava a si mesma no `return` e estourava a pilha em todo LED.
 
 > [!note] Acompanhamento de torção (`shape: "twisted"`)
 > Quando o edifício é torcido, o LED não pode ser uma única caixa axis-aligned — ela ficaria reta enquanto a fachada espirala. Para `shape === "twisted"`, cada aresta vertical é segmentada em `LED_TWIST_SEGMENTS = 12` pedaços curtos; cada segmento é orientado via quaternion (`setFromUnitVectors(Y, dir)`) para alinhar à tangente da curva torcida. O retângulo do topo também é rotacionado pelo `TWIST_TOTAL_ANGLE` total (importado de [[scene-builders#createTwistedBuildingMesh.ts|createTwistedBuildingMesh]]). Com instancing, mais segmentos custam só matrizes extras — draw calls continuam 3.

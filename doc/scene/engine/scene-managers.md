@@ -324,6 +324,18 @@ Cada edifício pode ter um efeito de **LED nas arestas** (4 arestas verticais no
 - **Instancing:** o grupo contém só **3 `InstancedMesh`** (core + halo + haloOuter) — todos os segmentos de aresta são instâncias, então torre twisted custa 3 draw calls, não 156 meshes. Ver [[scene-builders#createEdgeLightMesh.ts]].
 - **Cleanup:** no `dispose()`, todos os edge light meshes são removidos com `disposeEdgeLightMesh()` (libera materiais clonados + buffers de instância) e `disposeEdgeLightSharedResources()` libera as geometrias compartilhadas do módulo.
 
+##### Fora do reflexo, dentro da luz
+
+LED some **por completo** da captura do envMap — nem a fita espelhada, nem o clarão que ela joga nos vizinhos. Prédio ao redor fica iluminado só no render principal.
+
+- **Saída do reflexo (fita):** `beginEnvCapture()` esconde todo group de LED visível (guarda em `edgeLightsHiddenForCapture`), `endEnvCapture()` restaura. Mesmo padrão do piso da cidade — ver [[scene-runtime#Probe de reflexo (envMap dos prédios)]].
+- **Saída do reflexo (luz):** as `PointLight` vão a `intensity = 0` na captura (valores guardados em `spillIntensitiesBeforeCapture`) e voltam no fim. Zerar intensidade em vez de `visible = false` — apagar a luz mudaria a contagem de luzes e recompilaria todos os materiais **a cada captura**.
+- **Luz nos vizinhos:** pool fixo de `EDGE_LIGHT_SPILL_POOL_SIZE` (8) `PointLight`, criado na **primeira** ativação de LED (`ensureSpillPool`). Sem LED na cena, nenhum material paga o custo das luzes.
+- **Por que pool fixo:** contagem de luzes visíveis entra na chave de cache do programa. Criar/remover — ou alternar `visible` — recompilaria **todos** os materiais a cada passe de cull. Luzes ficam sempre na cena; só posição e `intensity` mudam.
+- **Atribuição:** no mesmo passe de `updateDistanceCulling` (0.25s), os LEDs visíveis mais próximos da câmera assumem as luzes por ordem de distância; sobra fica com `intensity = 0`. LED nº 9+ não acende vizinho — subir `EDGE_LIGHT_SPILL_POOL_SIZE` se a cidade ficar densa de LED.
+- **Posição:** centro do edifício. Sem sistema de sombras a luz vaza pros vizinhos, e a própria fachada não acende porque a normal aponta pro lado oposto ao vetor da luz.
+- **Cleanup:** `dispose()` remove e descarta as luzes do pool.
+
 ---
 
 ### `createChunkManager.ts` _(referência arquitetural)_

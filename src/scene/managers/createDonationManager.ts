@@ -24,6 +24,10 @@ import {
   createEdgeLightMesh,
   disposeEdgeLightMesh,
   disposeEdgeLightSharedResources,
+  DEFAULT_EDGE_LIGHT_COLOR,
+  EDGE_LIGHT_SPILL_INTENSITY,
+  EDGE_LIGHT_SPILL_POOL_SIZE,
+  EDGE_LIGHT_SPILL_RANGE,
 } from "../builders/createEdgeLightMesh";
 import {
   createHologramMesh,
@@ -1735,6 +1739,40 @@ export function createDonationManager({
     { group: THREE.Group; type: EdgeLightType }
   >();
 
+  // Groups de LED escondidos durante a captura do cube (restaurados em endEnvCapture).
+  const edgeLightsHiddenForCapture: THREE.Group[] = [];
+
+  // Luz real que o LED joga nos edifícios VIZINHOS. O group do LED sai da captura
+  // do envMap (ver beginEnvCapture), então o vizinho não espelha a fita — recebe
+  // só iluminação difusa destas PointLight.
+  //
+  // Pool FIXO: a contagem de luzes visíveis entra na chave de cache do programa,
+  // então criar/remover (ou alternar `visible`) por prédio recompilaria todos os
+  // materiais a cada passe de cull. As luzes ficam sempre na cena e sempre
+  // visíveis; sobra apenas mexer em posição e intensidade — zero recompilação.
+  //
+  // ponytail: pool de 8 — só os 8 LEDs visíveis mais próximos da câmera acendem.
+  // Se a cidade ficar densa de LED, subir EDGE_LIGHT_SPILL_POOL_SIZE.
+  const spillLights: THREE.PointLight[] = [];
+  const spillCandidates: Array<{ distSq: number; position: THREE.Vector3 }> = [];
+  const spillIntensitiesBeforeCapture: number[] = [];
+
+  // Criado só na primeira ativação de LED: sem LED na cena, nenhum material paga
+  // o custo das 8 luzes. Uma recompilação única quando o primeiro LED acende.
+  const ensureSpillPool = () => {
+    if (spillLights.length > 0) return;
+    for (let i = 0; i < EDGE_LIGHT_SPILL_POOL_SIZE; i++) {
+      const light = new THREE.PointLight(
+        DEFAULT_EDGE_LIGHT_COLOR,
+        0,
+        EDGE_LIGHT_SPILL_RANGE,
+        2,
+      );
+      scene.add(light);
+      spillLights.push(light);
+    }
+  };
+
   // Reconstrói todos os LEDs existentes com as dimensões atuais do edifício.
   // É chamado em rebuildInstances porque novas doações podem alterar a altura
   // de edifícios já com LED — o group precisa ser recriado para refletir scale.y.
@@ -1777,6 +1815,7 @@ export function createDonationManager({
 
     edgeLightMeshes.set(donationId, { group, type });
     scene.add(group);
+    ensureSpillPool();
 
     if (readDonationTransform(donationId)) {
       group.position.set(
@@ -2137,6 +2176,22 @@ export function createDonationManager({
         customShapesHiddenBeforeCapture.push(donationId);
         entry.mesh.visible = true;
       }
+      // LED fora do reflexo, por completo: nem a fita espelhada, nem o clarão que
+      // ela joga nos vizinhos entram no envMap. O que o LED ilumina só aparece no
+      // render principal.
+      edgeLightsHiddenForCapture.length = 0;
+      for (const entry of edgeLightMeshes.values()) {
+        if (!entry.group.visible) continue;
+        edgeLightsHiddenForCapture.push(entry.group);
+        entry.group.visible = false;
+      }
+      // Intensidade a 0 em vez de `visible = false`: apagar a luz mudaria a contagem
+      // de luzes da cena e recompilaria todos os materiais a cada captura.
+      spillIntensitiesBeforeCapture.length = 0;
+      for (const light of spillLights) {
+        spillIntensitiesBeforeCapture.push(light.intensity);
+        light.intensity = 0;
+      }
       // O controle pode retirar o piso da cidade (asfalto, calçada, lotes) para liberar o
       // hemisfério de baixo do cube ao céu e destacar o skyline na fachada.
       if (includeCityFloor) return;
@@ -2157,6 +2212,12 @@ export function createDonationManager({
         if (entry) entry.mesh.visible = false;
       }
       customShapesHiddenBeforeCapture.length = 0;
+      for (const group of edgeLightsHiddenForCapture) group.visible = true;
+      edgeLightsHiddenForCapture.length = 0;
+      for (let i = 0; i < spillLights.length; i++) {
+        spillLights[i].intensity = spillIntensitiesBeforeCapture[i] ?? 0;
+      }
+      spillIntensitiesBeforeCapture.length = 0;
       for (const m of roadMeshes) m.visible = true;
       if (sidewalkMesh) sidewalkMesh.visible = true;
       if (lotMesh) lotMesh.visible = true;
@@ -2340,6 +2401,26 @@ export function createDonationManager({
       for (const [donId, entry] of edgeLightMeshes) applyCull(donId, entry.group);
       for (const [donId, entry] of hologramMeshes) applyCull(donId, entry.group);
 
+      // Pool de luz do LED: os mais próximos da câmera assumem as luzes; o resto
+      // fica com intensidade 0 (mesma contagem de luzes → sem recompilar shader).
+      // A luz vai no CENTRO do edifício: sem sombras, ela vaza pros vizinhos, e a
+      // própria fachada não acende porque a normal aponta pro lado oposto.
+      if (spillLights.length > 0) {
+        spillCandidates.length = 0;
+        for (const [donId, entry] of edgeLightMeshes) {
+          if (!entry.group.visible) continue;
+          const t = donationTransforms.get(donId);
+          if (!t) continue;
+          spillCandidates.push({ distSq: distSqTo(t.position), position: t.position });
+        }
+        spillCandidates.sort((a, b) => a.distSq - b.distSq);
+        for (let i = 0; i < spillLights.length; i++) {
+          const candidate = spillCandidates[i];
+          spillLights[i].intensity = candidate ? EDGE_LIGHT_SPILL_INTENSITY : 0;
+          if (candidate) spillLights[i].position.copy(candidate.position);
+        }
+      }
+
       let culled = 0;
 
       // Prédios customizados: Mesh próprio, basta visible.
@@ -2391,6 +2472,12 @@ export function createDonationManager({
         disposeEdgeLightMesh(entry.group);
       }
       edgeLightMeshes.clear();
+      edgeLightsHiddenForCapture.length = 0;
+      for (const light of spillLights) {
+        scene.remove(light);
+        light.dispose();
+      }
+      spillLights.length = 0;
       disposeEdgeLightSharedResources();
       // Limpar hologramas
       for (const [, entry] of hologramMeshes) {

@@ -29,6 +29,26 @@ for (const shape of BUILDING_SHAPES) {
   console.log(`ok ${shape} — ${size.toArray().map((n) => n.toFixed(2)).join(" × ")}`);
 }
 
+// --- LED de arestas ---
+// Regressão: buildInstancedGroup chamava a si mesma no lugar de `return group`,
+// estourando a pilha em TODO LED. Cada formato tem que devolver os 3 InstancedMesh
+// (core + halo + haloOuter) com pelo menos 1 segmento.
+const { createEdgeLightMesh } = await server.ssrLoadModule(
+  "/src/scene/builders/createEdgeLightMesh.ts",
+);
+const LED_FOOTPRINT = { width: 1, depth: 1.4, height: 3 };
+for (const shape of BUILDING_SHAPES) {
+  const led = createEdgeLightMesh("led", LED_FOOTPRINT, shape);
+  const instanced = led.children.filter((child) => child.isInstancedMesh);
+  assert.equal(instanced.length, 3, `${shape}: LED devia ter 3 InstancedMesh`);
+  assert.ok(
+    instanced.every((mesh) => mesh.count > 0),
+    `${shape}: LED sem segmentos`,
+  );
+}
+assert.equal(createEdgeLightMesh("none", LED_FOOTPRINT), null, "`none` devia dar null");
+console.log(`ok LED — ${BUILDING_SHAPES.length} formatos`);
+
 // --- Preview do admin ---
 const { resolveSubject, frameBox } = await server.ssrLoadModule(
   "/src/scene/builders/createPreviewScene.ts",
