@@ -132,6 +132,7 @@ type CitySceneRuntime = {
 | Céu tingido + estrelas | [[scene-builders#loadEnvironment.ts]] (`environmentUpdater.updateSettings`) |
 | Luz, IBL, névoa, silhueta | `applyNightMode()` no runtime |
 | Janelas acesas + reflexo da fachada | [[scene-managers#Janelas acesas de noite]] (`donationManager.setNight`) |
+| Postes de rua acesos | [[scene-managers#Postes de Luz (rebuildStreetLamps)]] (mesmo `setNight`) |
 
 `applyNightMode()` sempre parte do estado "de dia" e aplica o override por cima:
 

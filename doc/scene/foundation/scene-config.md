@@ -187,6 +187,7 @@ Exporta também `NIGHT_PRESET` — tudo que a noite muda. Sem HDRI noturno: noit
 | `windowColor` · `windowLitFraction` | `#ffcb82` · `0.26` | Cor e fração das janelas acesas ([[scene-managers#Janelas acesas de noite]]) |
 | `windowIntensity` | `1.7` | Só **padrão** do slider `EnvironmentSettings.windowIntensity` — quem manda em runtime é o painel |
 | `facadeEnvMapIntensity` | `0.6` | `envMapIntensity` da fachada de noite — override do slider "Intensidade na fachada" (só de dia) |
+| `lampEmissive` · `lampPool` | `2.6` · `0.55` | Luminária acesa e mancha de luz dos postes de rua ([[scene-managers#Postes de Luz (rebuildStreetLamps)]]) |
 | `starCount` · `starRadius` · `starSize` | `1400` · `180` · `1.6` | Campo de estrelas ([[scene-builders#loadEnvironment.ts]]) |
 
 ---

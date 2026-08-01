@@ -316,6 +316,7 @@ flowchart LR
 | Modo noite: luz, IBL, névoa e silhueta           | [[scene-runtime#Modo noite]] · `NIGHT_PRESET` em [[scene-config#environmentConfig.ts]] |
 | Modo noite: janelas acesas na fachada            | [[scene-managers#Janelas acesas de noite]]        |
 | Modo noite: brilho das janelas (slider)          | seção **Ambiente** → [[html-components#EnvironmentControls.tsx]] |
+| Postes de luz nas ruas (quantidade, altura, luz) | [[scene-managers#Postes de Luz (rebuildStreetLamps)]] |
 | Adicionar/alterar atalho de teclado              | [[html-components#Atalhos de teclado]]            |
 | Mostrar/esconder componentes HTML da tela        | aba **Tela** → [[scene-config#uiVisibilityConfig.ts]] |
 | Alterar a UI de personalização de edifício       | [[html-components#BuildingCustomizePanel.tsx]]    |
@@ -355,6 +356,7 @@ flowchart LR
 | Alterar geração dos prédios de doação | [[scene-managers]] |
 | Alterar loteamento / lotes vazios / asfalto | [[scene-managers#Loteamento e Lotes Vazios]] |
 | Alterar calçada / faixa central / cruzamentos | [[scene-managers#Rede de Estradas (Asfalto)]] |
+| Alterar postes de luz das ruas | [[scene-managers#Postes de Luz (rebuildStreetLamps)]] |
 | Trocar a cor das quadras (UI) | aba **geral** → seção Quadras → [[html-components#CityControlPanel.tsx]] |
 | Trocar cor/altura da calçada (UI) | aba **geral** → seção Calçada → [[html-components#CityControlPanel.tsx]] |
 | Alterar o ciclo completo da cena | [[scene-runtime]] |

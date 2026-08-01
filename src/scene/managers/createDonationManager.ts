@@ -527,6 +527,19 @@ export function createDonationManager({
   let sidewalkCapacity = 0;
   let sidewalkMesh: THREE.InstancedMesh | null = null;
 
+  // Faixa da calçada, medida do centro da quadra: começa depois da borda externa dos
+  // lotes (+ respiro) e termina na borda do asfalto. Calçada preenche a faixa; poste
+  // assenta no meio dela.
+  const curbBand = (blockSpacing: number, streetWidth: number, roadWidth: number) => {
+    const blockFootprint = blockSpacing - streetWidth;
+    const lotEdge = blockFootprint / 2 + (DONATION_LAYOUT.slotSize - 0.5) / 2;
+    return {
+      blockFootprint,
+      innerHalf: lotEdge + SIDEWALK_GAP,
+      outerHalf: blockSpacing / 2 - roadWidth / 2,
+    };
+  };
+
   // Desenha uma moldura de calçada (4 tiras) em volta de cada quadra. As molduras
   // quebram naturalmente nos cruzamentos (cantos das quadras), deixando o asfalto
   // perpendicular passar livre. Tira N/S cobre os cantos; L/O fica entre eles.
@@ -536,13 +549,10 @@ export function createDonationManager({
     streetWidth: number,
     roadWidth: number,
   ) => {
-    const blockFootprint = blockSpacing - streetWidth;
     // Calçada estreita: ocupa o vão entre a borda externa dos lotes e a borda do
     // asfalto, com SIDEWALK_GAP de chão livre antes da quadra (respiro). Não sobe na
-    // quadra nem invade o asfalto. innerHalf = lote + respiro, outerHalf = asfalto.
-    const lotEdge = blockFootprint / 2 + (DONATION_LAYOUT.slotSize - 0.5) / 2;    // borda externa dos lotes
-    const innerHalf = lotEdge + SIDEWALK_GAP;                                     // após o respiro
-    const outerHalf = blockSpacing / 2 - roadWidth / 2;                          // borda do asfalto
+    // quadra nem invade o asfalto.
+    const { blockFootprint, innerHalf, outerHalf } = curbBand(blockSpacing, streetWidth, roadWidth);
     const sidewalkWidth = outerHalf - innerHalf;
     if (sidewalkWidth <= 0.01 || blockFootprint <= 0) {
       if (sidewalkMesh) sidewalkMesh.count = 0;
@@ -596,6 +606,187 @@ export function createDonationManager({
     m.count = idx;
     m.instanceMatrix.needsUpdate = true;
     m.computeBoundingSphere();
+  };
+
+  // --- Postes de luz (meio-fio das quadras) ---
+  // 8 por quadra (2 por lado que TEM rua), sempre em pé; de noite a luminária acende e
+  // uma mancha de luz cai no asfalto.
+  //
+  // A luz é decal aditivo no chão, não PointLight: 200+ postes = 200+ luzes reais, o
+  // que estoura o shader (e a contagem de luzes entra na chave de cache do programa,
+  // então acender/apagar recompilaria tudo). O decal é 1 draw call e escala à vontade.
+  // ponytail: sem PointLight, então poste não clareia fachada nem prédio — só a rua.
+  // Escala da cena: prédio tem 2.0 de largura e até 16 de altura → 1 unidade ≈ 10 m.
+  // Poste de 1.0 = ~10 m, altura real de poste de rua; 2+ ficaria torre de estádio.
+  const LAMP_HEIGHT = 1.0;
+  const LAMP_POLE_RADIUS = 0.035;
+  const LAMP_POOL_SIZE = 4.0;         // lado da mancha de luz no chão (~20 m de raio)
+  const LAMP_POOL_Y = -0.008;         // acima do asfalto (-0.015) e do tracejado (-0.010)
+  const LAMP_COLOR = 0xffc06a;
+
+  const lampPoleGeometry = new THREE.CylinderGeometry(
+    LAMP_POLE_RADIUS * 0.7,
+    LAMP_POLE_RADIUS,
+    LAMP_HEIGHT,
+    6,
+  );
+  lampPoleGeometry.translate(0, LAMP_HEIGHT / 2, 0); // pivô na base = assenta no meio-fio
+  const lampHeadGeometry = new THREE.BoxGeometry(0.2, 0.055, 0.11);
+  const lampPoleMaterial = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(0x2b2d31),
+    roughness: 0.7,
+    metalness: 0.35,
+  });
+  // emissiveIntensity 0 = de dia a luminária é só um vidro apagado. Trocar intensity
+  // é uniform: acender/apagar não recompila.
+  const lampHeadMaterial = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(0x8a8a86),
+    roughness: 0.4,
+    emissive: new THREE.Color(LAMP_COLOR),
+    emissiveIntensity: 0,
+  });
+  const lampPoolMaterial = new THREE.ShaderMaterial({
+    vertexShader: /* glsl */`
+      varying vec2 vPoolUv;
+      varying float vPoolFogDepth;
+      void main() {
+        vPoolUv = uv;
+        vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+        vPoolFogDepth = -mvPosition.z;
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `,
+    fragmentShader: /* glsl */`
+      uniform float uIntensity;
+      uniform vec3 uColor;
+      uniform float fogDensity;
+      varying vec2 vPoolUv;
+      varying float vPoolFogDepth;
+      void main() {
+        // Queda radial ao quadrado: centro quente, borda derretendo no asfalto.
+        float d = min(1.0, length(vPoolUv - 0.5) * 2.0);
+        float falloff = 1.0 - d;
+        // Aditivo soma luz: a névoa tem que apagar em direção ao PRETO (não à cor da
+        // névoa), senão as manchas dos postes distantes ficam brilhando dentro do fog.
+        float fogFactor = 1.0 - exp(-fogDensity * fogDensity * vPoolFogDepth * vPoolFogDepth);
+        gl_FragColor = vec4(uColor * uIntensity * falloff * falloff * (1.0 - fogFactor), 1.0);
+      }
+    `,
+    // Spread de UniformsLib.fog: `fog: true` faz o three preencher `fogDensity` por frame
+    // com a densidade da FogExp2 da cena (ver refreshFogUniforms).
+    uniforms: {
+      ...THREE.UniformsLib.fog,
+      uIntensity: { value: 0 },
+      uColor: { value: new THREE.Color(LAMP_COLOR) },
+    },
+    fog: true,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const lampPoolGeometry = new THREE.PlaneGeometry(LAMP_POOL_SIZE, LAMP_POOL_SIZE);
+  lampPoolGeometry.rotateX(-Math.PI / 2);
+  const lampDummy = new THREE.Object3D();
+  let lampCapacity = 0;
+  let lampPoleMesh: THREE.InstancedMesh | null = null;
+  let lampHeadMesh: THREE.InstancedMesh | null = null;
+  let lampPoolMesh: THREE.InstancedMesh | null = null;
+
+  const rebuildStreetLamps = (
+    r: number,
+    blockSpacing: number,
+    streetWidth: number,
+    roadWidth: number,
+  ) => {
+    const { blockFootprint, innerHalf, outerHalf } = curbBand(blockSpacing, streetWidth, roadWidth);
+    const curbHalf = (innerHalf + outerHalf) / 2;                 // poste no meio da calçada
+    // Mancha empurrada da calçada pro meio da rua (centro da via = blockSpacing/2).
+    // 0.55, não 1.0: com a mancha no eixo da via as duas calçadas jogam luz no MESMO
+    // ponto e o aditivo dobra num risco quente no meio da rua.
+    const poolCenter = curbHalf + (blockSpacing / 2 - curbHalf) * 0.55;
+    if (
+      import.meta.env.DEV &&
+      (poolCenter < outerHalf || poolCenter > blockSpacing / 2 + roadWidth / 2)
+    ) {
+      console.warn("[donationManager] mancha de luz do poste caiu fora do asfalto");
+    }
+    const poolOffset = poolCenter - curbHalf;
+    // 2 postes por lado (a 1/4 e 3/4 do lado) = 8 por quadra. 1 por lado deixava a rua
+    // quase toda escura; 4+ por lado vira alameda de poste.
+    const alongOffset = blockFootprint / 4;
+    const blocksPerSide = 2 * r + 1;
+    const needed = blocksPerSide * blocksPerSide * 8;
+
+    if (r === 0 || blockFootprint <= 0) {
+      if (lampPoleMesh) lampPoleMesh.count = 0;
+      if (lampHeadMesh) lampHeadMesh.count = 0;
+      if (lampPoolMesh) lampPoolMesh.count = 0;
+      return;
+    }
+
+    if (!lampPoleMesh || needed > lampCapacity) {
+      for (const m of [lampPoleMesh, lampHeadMesh, lampPoolMesh]) {
+        if (!m) continue;
+        scene.remove(m);
+        m.dispose();
+      }
+      lampCapacity = Math.max(64, Math.ceil(needed * 1.5));
+      lampPoleMesh = new THREE.InstancedMesh(lampPoleGeometry, lampPoleMaterial, lampCapacity);
+      lampHeadMesh = new THREE.InstancedMesh(lampHeadGeometry, lampHeadMaterial, lampCapacity);
+      lampPoolMesh = new THREE.InstancedMesh(lampPoolGeometry, lampPoolMaterial, lampCapacity);
+      for (const m of [lampPoleMesh, lampHeadMesh, lampPoolMesh]) {
+        m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        scene.add(m);
+      }
+    }
+
+    const baseY = currentBlockLayout.sidewalkHeight; // assenta no topo do meio-fio
+    let idx = 0;
+    // dirX/dirZ apontam da quadra pra rua: define de que lado do meio-fio o poste fica
+    // e pra onde a mancha de luz é empurrada. `along` desliza o poste ao longo do lado.
+    const addLamp = (cx: number, cz: number, dirX: number, dirZ: number, along: number) => {
+      // Ao longo do lado = eixo perpendicular a dir (lado N/S corre em X, L/O corre em Z).
+      const x = cx + dirX * curbHalf + (dirX === 0 ? along : 0);
+      const z = cz + dirZ * curbHalf + (dirZ === 0 ? along : 0);
+      lampDummy.position.set(x, baseY, z);
+      lampDummy.scale.set(1, 1, 1);
+      lampDummy.rotation.set(0, 0, 0);
+      lampDummy.updateMatrix();
+      lampPoleMesh!.setMatrixAt(idx, lampDummy.matrix);
+      // Luminária deslocada pro lado da rua (braço implícito), na ponta do poste.
+      lampDummy.position.set(x + dirX * 0.12, baseY + LAMP_HEIGHT, z + dirZ * 0.12);
+      // Luminária é comprida no X: no lado N/S (rua correndo em X) ela tem que girar
+      // 90° pro corpo apontar pra rua, não deitar ao longo dela.
+      lampDummy.rotation.set(0, dirZ !== 0 ? Math.PI / 2 : 0, 0);
+      lampDummy.updateMatrix();
+      lampHeadMesh!.setMatrixAt(idx, lampDummy.matrix);
+      lampDummy.position.set(x + dirX * poolOffset, LAMP_POOL_Y, z + dirZ * poolOffset);
+      lampDummy.rotation.set(0, 0, 0);
+      lampDummy.updateMatrix();
+      lampPoolMesh!.setMatrixAt(idx, lampDummy.matrix);
+      idx++;
+    };
+
+    for (let bx = -r; bx <= r; bx++) {
+      for (let bz = -r; bz <= r; bz++) {
+        const cx = bx * blockSpacing;
+        const cz = bz * blockSpacing;
+        // Só nos lados que dão pra uma rua — quadra da borda não ganha poste virado
+        // pro vazio fora do loteamento.
+        for (const along of [-alongOffset, alongOffset]) {
+          if (bz < r) addLamp(cx, cz, 0, 1, along);
+          if (bz > -r) addLamp(cx, cz, 0, -1, along);
+          if (bx < r) addLamp(cx, cz, 1, 0, along);
+          if (bx > -r) addLamp(cx, cz, -1, 0, along);
+        }
+      }
+    }
+
+    for (const m of [lampPoleMesh, lampHeadMesh, lampPoolMesh]) {
+      m!.count = idx;
+      m!.instanceMatrix.needsUpdate = true;
+      m!.computeBoundingSphere();
+    }
   };
 
   // Shader de linhas pontilhadas centrais (divisória de pistas)
@@ -654,6 +845,7 @@ export function createDonationManager({
 
     if (r === 0) {
       if (sidewalkMesh) sidewalkMesh.count = 0;
+      for (const m of [lampPoleMesh, lampHeadMesh, lampPoolMesh]) if (m) m.count = 0;
       return; // bloco único, sem estradas entre blocos
     }
 
@@ -786,6 +978,7 @@ export function createDonationManager({
 
     // Calçadas elevadas em volta de cada quadra, preenchendo o resto da rua
     rebuildSidewalks(r, blockSpacing, streetWidth, roadWidth);
+    rebuildStreetLamps(r, blockSpacing, streetWidth, roadWidth);
   };
 
   // --- Lotes vazios (loteamento esperando edifícios) ---
@@ -2205,6 +2398,8 @@ export function createDonationManager({
       } else if (sidewalkHeightChanged && lastRoadR >= 1) {
         const roadWidth = Math.max(1.0, lastRoadStreetWidth - SIDEWALK_RESERVE);
         rebuildSidewalks(lastRoadR, lastRoadBlockSpacing, lastRoadStreetWidth, roadWidth);
+        // Poste assenta no topo do meio-fio — subiu a calçada, sobe o poste.
+        rebuildStreetLamps(lastRoadR, lastRoadBlockSpacing, lastRoadStreetWidth, roadWidth);
       }
     },
     setEnvMap(envMap) {
@@ -2225,6 +2420,8 @@ export function createDonationManager({
     setNight(night, windowIntensity) {
       nightMode = night;
       nightWindowUniform.value = night ? Math.max(0, windowIntensity) : 0;
+      lampHeadMaterial.emissiveIntensity = night ? NIGHT_PRESET.lampEmissive : 0;
+      lampPoolMaterial.uniforms.uIntensity.value = night ? NIGHT_PRESET.lampPool : 0;
       // Reaplica pra fachada pegar o envMapIntensity da noite (e devolver o do painel).
       applyTextureToFacade(currentTextureSettings);
     },
@@ -2273,6 +2470,7 @@ export function createDonationManager({
       for (const m of roadMeshes) m.visible = false;
       if (sidewalkMesh) sidewalkMesh.visible = false;
       if (lotMesh) lotMesh.visible = false;
+      for (const m of [lampPoleMesh, lampHeadMesh, lampPoolMesh]) if (m) m.visible = false;
     },
     endEnvCapture() {
       for (const mat of getAllFacadeMaterials()) {
@@ -2296,6 +2494,7 @@ export function createDonationManager({
       for (const m of roadMeshes) m.visible = true;
       if (sidewalkMesh) sidewalkMesh.visible = true;
       if (lotMesh) lotMesh.visible = true;
+      for (const m of [lampPoleMesh, lampHeadMesh, lampPoolMesh]) if (m) m.visible = true;
     },
     getDonationCount() {
       return donations.length;
@@ -2599,6 +2798,21 @@ export function createDonationManager({
       }
       lotGeometry.dispose();
       lotMaterial.dispose();
+      // Limpar postes de luz
+      for (const m of [lampPoleMesh, lampHeadMesh, lampPoolMesh]) {
+        if (!m) continue;
+        scene.remove(m);
+        m.dispose();
+      }
+      lampPoleMesh = null;
+      lampHeadMesh = null;
+      lampPoolMesh = null;
+      lampPoleGeometry.dispose();
+      lampHeadGeometry.dispose();
+      lampPoolGeometry.dispose();
+      lampPoleMaterial.dispose();
+      lampHeadMaterial.dispose();
+      lampPoolMaterial.dispose();
     },
   };
 }

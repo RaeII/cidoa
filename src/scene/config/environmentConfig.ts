@@ -32,6 +32,10 @@ export const NIGHT_PRESET = {
   windowLitFraction: 0.26,
   /** `envMapIntensity` da fachada de noite — cidade escura não devolve reflexo de dia. */
   facadeEnvMapIntensity: 0.6,
+  /** `emissiveIntensity` da luminária dos postes de rua acesa. */
+  lampEmissive: 2.6,
+  /** Ganho da mancha de luz que o poste joga no asfalto. */
+  lampPool: 0.55,
   /** Pontos do campo de estrelas (hemisfério de cima, raio 180). */
   starCount: 1400,
   starRadius: 180,

@@ -138,6 +138,21 @@ Como o loteamento tem piso mínimo `r ≥ MIN_LOTEAMENTO_RADIUS` (= 1), há semp
 - Capacidade cresce sob demanda (mesmo padrão dos lotes); `count = 0` quando não cabe calçada (`sidewalkWidth ≤ 0`)
 - `dispose()` libera `sidewalkGeometry`/`sidewalkTopMaterial`/`sidewalkSideMaterial`
 
+#### Postes de Luz (`rebuildStreetLamps`)
+
+**8 por quadra** — 2 por lado (a 1/4 e 3/4 do lado), e só nos lados que **dão pra uma rua** (quadra da borda não ganha poste virado pro vazio). 1 por lado deixava a rua quase toda escura; 4+ virava alameda de poste. Chamado por `rebuildRoads` depois de `rebuildSidewalks`, e no rebuild localizado de `sidewalkHeight` (poste assenta no topo do meio-fio).
+
+- **Escala** — cena tem prédio de 2.0 de largura e até 16 de altura → 1 unidade ≈ 10 m. Poste `LAMP_HEIGHT = 1.0` (~10 m, altura real de poste de rua); 2+ ficaria torre de estádio.
+- **Posição** — meio da faixa de calçada, de `curbBand(blockSpacing, streetWidth, roadWidth)` (helper compartilhado com `rebuildSidewalks`: `innerHalf` = borda dos lotes + respiro, `outerHalf` = borda do asfalto). Base em `sidewalkHeight`, luminária na ponta, deslocada 0.12 pro lado da rua e girada 90° no lado N/S.
+- **3 InstancedMesh** — poste (cilindro 6 lados), luminária (box) e mancha de luz (plano deitado). 3 draw calls pra cidade inteira; capacidade cresce sob demanda, `count = 0` quando `r = 0` (quadra única, sem rua).
+- **Luz = decal aditivo, não `PointLight`** — 200+ postes = 200+ luzes reais, e a contagem de luzes entra na chave de cache do programa (acender/apagar recompilaria tudo). Plano de 4.0 de lado com queda radial ao quadrado, `AdditiveBlending`, `depthWrite: false`, empurrado 55% do caminho até o eixo da via (100% faria as duas calçadas somarem no mesmo ponto = risco quente no meio da rua).
+- **Névoa entra no shader da mancha** (`fog: true` + spread de `THREE.UniformsLib.fog` → o three preenche `fogDensity` por frame). Aditivo tem que apagar em direção ao **preto**, não à cor da névoa, senão poste distante fica bolinha brilhando dentro do fog.
+- **Só de noite** — `setNight` liga `lampHeadMaterial.emissiveIntensity` (`NIGHT_PRESET.lampEmissive`) e `uIntensity` da mancha (`NIGHT_PRESET.lampPool`). De dia os postes continuam em pé, apagados. Ambos são uniform: zero recompilação.
+- Somem junto com o piso urbano na captura do cube quando `includeCityFloor` está desmarcado.
+
+> [!warning] ponytail: poste não ilumina prédio
+> Sem `PointLight`, a luz do poste existe só no chão. Fachada e calçada não recebem clareado do poste. Precisar disso = pool fixo de `PointLight` nos postes mais próximos da câmera, igual ao das spillLights do LED.
+
 #### Loteamento e Lotes Vazios
 
 Cena nunca fica vazia: o manager sempre desenha um **loteamento** (grade de quadras + asfalto + lotes demarcados), mesmo com 0 doações. Doações preenchem do centro pra fora; lote ocupado some sozinho (slot ocupado nunca vira lote). Os lotes vazios ficam **só no piso mínimo 3×3** — não crescem junto com a cidade; fora dele o anel externo fica só chão/asfalto entre os prédios.
