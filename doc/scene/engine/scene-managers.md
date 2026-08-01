@@ -71,16 +71,54 @@ A cada nova doação ou mudança de layout, a lista é reordenada e **todas as i
 #### Fórmula de Altura
 
 ```
-height = minBuildingHeight + (valor / maxValor) × (maxSceneHeight - minBuildingHeight)
+height = boostDaQuadra × (minBuildingHeight + (valor / maxValor) × (maxSceneHeight - minBuildingHeight))
 ```
 
 | Constante | Valor | Descrição |
 |---|---|---|
 | `minBuildingHeight` | `0.5` | Mínimo visual para qualquer doação |
-| `maxSceneHeight` | `16` | Cap visual; maior doação sempre alcança esse valor |
+| `maxSceneHeight` | `16` | Cap visual da cidade normal (`boostDaQuadra = 1`) |
+
+`boostDaQuadra` = 1 na cidade toda, exceto nas torres do centro (ver abaixo). Base urbana nunca leva boost.
 
 > [!tip] Para ajustar os limites
 > Edite `DONATION_LAYOUT` em `createDonationManager.ts`.
+
+#### Destaque da Quadra Central
+
+Quadra do índice 0 da espiral (`bx = bz = 0`) é a vitrine da cena. Só **torres** mudam — base urbana igual em toda cidade.
+
+**Grade ímpar na mesma pegada.** `getBlockSlotOffsets(size, slotSize?)` aceita espaçamento próprio. Quadra central usa `blockSize - 1` quando `blockSize` é par (8 → 7), com `slotSize = blockFootprint / (centralSize - 1)` (3.2 → 3.733). Resultado:
+
+- existe **slot exato no centro** (`[0, 0]`, índice 0 da lista ordenada por distância) → maior doação da cena cai nele, não em slot embaralhado
+- espaçamento maior → torre cabe mais larga sem colidir (`CENTRAL_BLOCK_TOWER_WIDTH_BOOST = 1.15`; largura máx. `2.6 × 1.15 = 2.99` < `3.733`)
+- pegada e `blockSpacing` **não mudam** → asfalto, calçada e quadras vizinhas ficam intactos
+- capacidade cai (64 → 49). `capacityOf(b)` devolve a capacidade certa por quadra; o déficit entra no cálculo de `baseBlocksNeeded`, então a base excedente vai pras outras quadras em vez de estourar slot
+
+```
+[ ▪ ][ ▪ ][ ▪ ][ ▪ ][ ▪ ][ ▪ ][ ▪ ]
+[ ▪ ][ ▪ ][ ▪ ][ ▪ ][ ▪ ][ ▪ ][ ▪ ]
+[ ▪ ][ ▪ ][ █ ][ ▪ ][ █ ][ ▪ ][ ▪ ]   █ = torre (boost 1.3→1.9, +15% largura)
+[ ▪ ][ ▪ ][ ▪ ][ ▓ ][ ▪ ][ ▪ ][ ▪ ]   ▓ = maior doação da cena, slot exato do centro
+[ ▪ ][ █ ][ ▪ ][ ▪ ][ ▪ ][ █ ][ ▪ ]   ▪ = base urbana (sem boost)
+[ ▪ ][ ▪ ][ ▪ ][ ▪ ][ ▪ ][ ▪ ][ ▪ ]
+[ ▪ ][ ▪ ][ ▪ ][ ▪ ][ ▪ ][ ▪ ][ ▪ ]
+```
+
+**Boost de altura por anel de quadra** (`blockRing = max(|bx|, |bz|)`):
+
+| Anel | Torres | Boost de altura |
+|---|---|---|
+| 0 (quadra central) | top `towersPerBlock` doações da cena | `1.3 → 1.9`, interpolado pelo valor dentro da quadra |
+| 1 (quadras ao redor) | próximas torres | `1.15` fixo |
+| 2+ (resto) | resto das torres | `1` (inalterado) |
+
+Boost da central é **range**, não valor fixo: `MIN + (valor - menorTorreDaQuadra) / spanDaQuadra × (MAX - MIN)`. Isso **estica** a diferença de altura entre as maiores doações — sem isso as 8 maiores ficam quase da mesma altura quando os valores são próximos. Span 0 (todas iguais) → todas em `MAX`.
+
+Ordem nunca inverte: piso da central (`1.3`) > anel 1 (`1.15`) > resto (`1`), e torres chegam por valor decrescente, então quadra mais central sempre tem valor ≥ quadra de fora.
+
+> [!tip] Para ajustar o destaque
+> Constantes `CENTRAL_BLOCK_TOWER_WIDTH_BOOST`, `CENTRAL_BLOCK_TOWER_HEIGHT_BOOST_MIN/MAX` e `INNER_RING_TOWER_HEIGHT_BOOST` no topo de `createDonationManager.ts`. Manter `MIN > INNER_RING > 1`.
 
 #### Materiais
 
