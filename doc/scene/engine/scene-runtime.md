@@ -131,6 +131,7 @@ type CitySceneRuntime = {
 |---|---|
 | Céu tingido + estrelas | [[scene-builders#loadEnvironment.ts]] (`environmentUpdater.updateSettings`) |
 | Luz, IBL, névoa, silhueta | `applyNightMode()` no runtime |
+| Janelas acesas + reflexo da fachada | [[scene-managers#Janelas acesas de noite]] (`donationManager.setNight`) |
 
 `applyNightMode()` sempre parte do estado "de dia" e aplica o override por cima:
 
@@ -143,7 +144,11 @@ if (night) {
 scene.environmentIntensity = night ? NIGHT_PRESET.environmentIntensity : 1
 scene.fog.color.set(night ? NIGHT_PRESET.fogColor : currentHorizon.fogColor)
 horizonSilhouette.updateSettings(night ? { ...currentHorizon, color: NIGHT_PRESET.horizonColor } : currentHorizon)
+donationManager.setNight(night)
 ```
+
+> [!warning] Primeira chamada vem depois do `donationManager`
+> `applyNightMode()` toca o manager, então a chamada inicial fica **abaixo** do `createDonationManager` (não junto da definição). Subir de volta = `ReferenceError` na const.
 
 > [!warning] Chamar em toda mudança que a noite pisa por cima
 > `updateLightSettings`, `updateHorizonSettings` e `updateEnvironmentSettings` guardam o valor em `currentLight`/`currentHorizon`/`currentEnvironment` e chamam `applyNightMode()` — não escrevem luz/névoa/silhueta direto. Sem isso, mexer num slider de luz com a noite ligada devolve o valor diurno na cena.
@@ -207,6 +212,7 @@ Consequências:
 - **Órbita e culling não sujam o cube.** Girar a câmera daria captura idêntica — o reflexo varia sozinho pelo `reflect()`. Antes da CubeCamera, `beginEnvCapture` recompõe temporariamente todas as instâncias e custom shapes; `endEnvCapture` restaura o buffer compacto da câmera principal. Assim o probe fixo representa a cidade, não a lista visível da câmera. Exceções pagas por escolha do usuário: `followCamera` e `continuous` capturam todo `updateInterval`.
 - **Asset assíncrono suja o cube.** `THREE.DefaultLoadingManager.onLoad = markCubeDirty` (+ `markCubeDirty()` no `onLoaded` do [[scene-builders#loadEnvironment.ts|loadEnvironment]]). O debounce deixa HDRI/texturas que chegam próximos compartilharem uma captura. `dispose` limpa o `onLoad`.
 - **Céu segue o probe durante a captura.** No render normal a esfera de céu segue a câmera; na captura recebe a posição do probe (`environmentUpdater.updatePosition`) e volta pra câmera antes do `renderer.render` do mesmo frame. Sem isso a esfera (raio 200) ficaria deslocada ou atrás do probe. Chão e piso urbano ficam visíveis por padrão.
+- **Estrelas ficam fora do reflexo.** `environmentUpdater.setStarsVisible(false)` antes do `cubeCamera.update`. As estrelas são `Points` com `sizeAttenuation: false` — tamanho fixo em px numa face de 256px = manchas grandes na fachada, não pontinhos. O `updateSettings(currentEnvironment)` que restaura o céu depois da captura já devolve `visible = night`. Céu tingido de noite continua refletindo.
 - **256px, não 128.** Fachada com `roughnessIntensity = 0` é espelho e amostra o nível mais nítido do PMREM — em 128px céu e skyline viravam mancha lisa. Custo cabe porque a captura é event-driven e debounced. `resolution` vai de 64 a 1024 pelo painel; dobrar o lado quadruplica o número de pixels das seis faces e do PMREM.
 
 > [!tip] Reflexo lavado

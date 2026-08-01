@@ -218,8 +218,8 @@ export function createCitySceneRuntime({
     horizonSilhouette.updateSettings(
       night ? { ...currentHorizon, color: NIGHT_PRESET.horizonColor } : currentHorizon,
     );
+    donationManager.setNight(night, currentEnvironment.windowIntensity);
   };
-  applyNightMode();
 
   const createCubeProbe = (resolution: number) => {
     const target = new THREE.WebGLCubeRenderTarget(resolution, {
@@ -253,6 +253,8 @@ export function createCitySceneRuntime({
     reflectionSettings.reflectionDistanceEnd,
   );
   donationManager.setRenderDistance(horizonSettings.distance, horizonSettings.backDistance);
+  // Depois do manager: applyNightMode acende as janelas e ajusta o reflexo da fachada.
+  applyNightMode();
   terrainRig.setCityRadius(donationManager.getCityRadius());
 
   // Reabre a zona plana do relevo quando a cidade cresce. Cheap: setCityRadius
@@ -467,6 +469,9 @@ export function createCitySceneRuntime({
         terrainRig.mesh.visible = false;
         groundPlane.mesh.visible = false;
       }
+      // Estrelas fora do reflexo: sizeAttenuation off → o mesmo tamanho em px de um cube
+      // pequeno vira mancha gigante na fachada. O updateSettings abaixo as devolve.
+      environmentUpdater.setStarsVisible(false);
       buildingCubeCamera.update(renderer, scene);
       // O custo da captura/PMREM aparece no delta do próximo rAF; não deixar um
       // evento esporádico reduzir permanentemente a resolução principal.

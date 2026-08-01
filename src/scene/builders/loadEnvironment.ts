@@ -8,6 +8,8 @@ import { seeded } from "../utils/random";
 export type EnvironmentUpdater = {
   updateSettings: (settings: EnvironmentSettings) => void;
   updatePosition: (x: number, y: number, z: number) => void;
+  /** Esconde as estrelas (pontos de tamanho fixo em pixels viram borrões no cube do reflexo). */
+  setStarsVisible: (visible: boolean) => void;
   dispose: () => void;
 };
 
@@ -142,6 +144,9 @@ export function loadEnvironment(
     },
     updatePosition(x: number, y: number, z: number) {
       skyMesh?.position.set(x, y, z);
+    },
+    setStarsVisible(visible: boolean) {
+      if (stars) stars.visible = visible && currentSettings.night;
     },
     dispose() {
       if (skyMesh) scene.remove(skyMesh);

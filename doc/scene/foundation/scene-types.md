@@ -229,11 +229,15 @@ type EnvironmentSettings = {
   offsetY: number;  // deslocamento vertical (UV offset do horizonte)
   offsetZ: number;  // roll diagonal
   night: boolean;   // modo noite: céu escuro + estrelas + luz/névoa noturnas
+  windowIntensity: number;  // brilho das janelas acesas (só de noite)
 }
 ```
 
 > [!note] `night`
 > Liga/desliga pelo menu do usuário ([[area-admin#Modo noite (menu do usuário)]]). Valores da noite ficam em `NIGHT_PRESET` ([[scene-config#environmentConfig.ts]]); céu + estrelas em [[scene-builders#loadEnvironment.ts]], cena em [[scene-runtime#Modo noite]].
+
+> [!note] `windowIntensity`
+> Único knob da noite que virou setting (o resto é `NIGHT_PRESET` fixo): slider "Brilho das janelas (noite)" na seção **Ambiente** ([[html-components#EnvironmentControls.tsx]]). De dia o valor é ignorado — janela apagada. Ver [[scene-managers#Janelas acesas de noite]].
 
 ### `ReflectionSettings`
 

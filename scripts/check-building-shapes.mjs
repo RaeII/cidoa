@@ -49,6 +49,21 @@ for (const shape of BUILDING_SHAPES) {
 assert.equal(createEdgeLightMesh("none", LED_FOOTPRINT), null, "`none` devia dar null");
 console.log(`ok LED — ${BUILDING_SHAPES.length} formatos`);
 
+// --- Âncoras do shader que tiram o especular da luz do LED ---
+// Sem elas o patch de createDonationManager vira no-op SILENCIOSO em produção e a
+// PointLight do LED volta a desenhar um ponto brilhante na fachada do vizinho.
+assert.ok(
+  THREE.ShaderLib.physical.fragmentShader.includes("#include <lights_physical_pars_fragment>"),
+  "meshphysical não inclui mais lights_physical_pars_fragment",
+);
+assert.ok(
+  THREE.ShaderChunk.lights_physical_pars_fragment.includes(
+    "reflectedLight.directSpecular += irradiance * BRDF_GGX_Multiscatter( directLight.direction, geometryViewDir, geometryNormal, material );",
+  ),
+  "âncora do directSpecular mudou — atualizar DIRECT_SPECULAR_ANCHOR em createDonationManager",
+);
+console.log("ok âncoras do shader — especular direto removível");
+
 // --- Preview do admin ---
 const { resolveSubject, frameBox } = await server.ssrLoadModule(
   "/src/scene/builders/createPreviewScene.ts",

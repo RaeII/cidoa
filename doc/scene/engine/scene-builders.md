@@ -115,9 +115,10 @@ Carrega e configura o ambiente HDRI/skybox.
 - Modo noite: tingir o céu (`material.color = NIGHT_PRESET.skyTint`) e mostrar o campo de estrelas
 - Expor `updateSettings` para rotacionar/deslocar o skybox
 - Expor `updatePosition` para seguir a câmera
+- Expor `setStarsVisible` para tirar as estrelas da captura do cube de reflexo
 - Limpar meshes, geometria e material no `dispose`
 
-**Retorna:** objeto `EnvironmentUpdater` com métodos `updateSettings`, `updatePosition` e `dispose`.
+**Retorna:** objeto `EnvironmentUpdater` com métodos `updateSettings`, `updatePosition`, `setStarsVisible` e `dispose`.
 
 > [!note] Técnica da esfera invertida
 > Usar `THREE.BackSide` em uma `SphereGeometry` grande permite deslocar o horizonte via `texture.offset.y` de forma uniforme em todas as direções — ao contrário de `scene.background` com equirectangular direta.
@@ -133,6 +134,8 @@ Carrega e configura o ambiente HDRI/skybox.
 
 > [!note] Estrelas (`createStars`)
 > `THREE.Points` com `NIGHT_PRESET.starCount` pontos no **hemisfério de cima**, raio 180 (dentro da esfera do céu, raio 200 → não é cortado pelo far plane antes dela). Posições vêm de `seeded` → mesmo céu toda sessão. Filho do `skyMesh`: herda rotação e o reposicionamento por frame de graça. `sizeAttenuation: false` = tamanho fixo em pixels, estrela não incha ao dar zoom. `visible` segue `night`; geometria e material morrem no `dispose`.
+>
+> Mesmo `sizeAttenuation: false` é o motivo de `setStarsVisible(false)` na captura do cube: tamanho fixo em px de uma face de 256px vira mancha na fachada refletida. Estrelas só aparecem no render principal — ver [[scene-runtime#Probe de reflexo (envMap dos prédios)]].
 
 **Quando mexer aqui:**
 - Trocar o arquivo HDRI (bump `ENV_CACHE_NAME` pra invalidar cache antigo)
@@ -301,7 +304,7 @@ disposeEdgeLightSharedResources(): void                             // libera ge
 ```
 
 > [!tip] Checagem headless
-> `node scripts/check-building-shapes.mjs` valida que **todo** formato devolve grupo com 3 `InstancedMesh` e ≥1 segmento — regressão do bug em que `buildInstancedGroup` chamava a si mesma no `return` e estourava a pilha em todo LED.
+> `node scripts/check-building-shapes.mjs` valida que **todo** formato devolve grupo com 3 `InstancedMesh` e ≥1 segmento — regressão do bug em que `buildInstancedGroup` chamava a si mesma no `return` e estourava a pilha em todo LED. Checa também as **âncoras de shader** que o [[scene-managers|DonationManager]] usa pra tirar o especular direto: se o three renomear a linha do GGX, o patch viraria no-op silencioso e a luz do LED voltaria a virar ponto brilhante na fachada.
 
 > [!note] Acompanhamento de torção (`shape: "twisted"`)
 > Quando o edifício é torcido, o LED não pode ser uma única caixa axis-aligned — ela ficaria reta enquanto a fachada espirala. Para `shape === "twisted"`, cada aresta vertical é segmentada em `LED_TWIST_SEGMENTS = 12` pedaços curtos; cada segmento é orientado via quaternion (`setFromUnitVectors(Y, dir)`) para alinhar à tangente da curva torcida. O retângulo do topo também é rotacionado pelo `TWIST_TOTAL_ANGLE` total (importado de [[scene-builders#createTwistedBuildingMesh.ts|createTwistedBuildingMesh]]). Com instancing, mais segmentos custam só matrizes extras — draw calls continuam 3.

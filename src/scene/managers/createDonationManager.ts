@@ -48,6 +48,7 @@ import {
   groupBoxGeometryByTop,
 } from "../builders/createBuildingShapeMesh";
 import { seeded } from "../utils/random";
+import { NIGHT_PRESET } from "../config/environmentConfig";
 
 import {
   initFacadeTextureLoader,
@@ -159,6 +160,11 @@ export type DonationManager = {
   setEnvMap: (envMap: THREE.Texture | null) => void;
   /** Giro horizontal do envMap na fachada/topo (graus). Muda a direção amostrada, não a captura. */
   setEnvMapRotation: (yDeg: number) => void;
+  /**
+   * Noite na fachada: acende parte das janelas (`windowIntensity` = brilho, do painel) e
+   * derruba o reflexo pro valor noturno. De dia as janelas ficam apagadas.
+   */
+  setNight: (night: boolean, windowIntensity: number) => void;
   /** 0–0.95: achata o vetor de reflexão em direção ao horizonte, igual em toda fachada. */
   setEnvHorizon: (amount: number) => void;
   /** Piso de rugosidade aplicado ao reflexo distante. */
@@ -222,6 +228,16 @@ export function createDonationManager({
   const reflectionRoughnessFloorUniform = { value: 0 };
   const reflectionDistanceStartUniform = { value: 0 };
   const reflectionDistanceEndUniform = { value: 1 };
+  // Janelas acesas de noite. 0 = dia (apagadas). Máscara reusa o metalnessMap da fachada:
+  // ele já é branco no vidro e preto no caixilho, então nenhuma textura nova sobe pra GPU.
+  const nightWindowUniform = { value: 0 };
+  const nightWindowColorUniform = { value: new THREE.Color(NIGHT_PRESET.windowColor) };
+  // Noite também derruba o reflexo na fachada: o slider "Intensidade na fachada" (aba
+  // reflexo) vale só de dia. Override, não escrita no settings — o valor do painel volta
+  // intacto ao amanhecer.
+  let nightMode = false;
+  const facadeEnvMapIntensity = (settings: TextureSettings) =>
+    nightMode ? NIGHT_PRESET.facadeEnvMapIntensity : settings.envMapIntensity;
 
   // Geometria 1×1×1 — escala via instanceMatrix
   const buildingGeometry = createUnitBuildingGeometry();
@@ -235,6 +251,9 @@ export function createDonationManager({
     cacheKey: string,
     tiling: { value: number },
   ) => {
+    // Fachada tem janela; topo não. Derivado do cacheKey pra não repetir o flag em
+    // todos os call sites (inclui os clones de shape custom).
+    const windows = cacheKey.includes("facade");
     const tilingMultiplier = { value: 1.0 };
     const textureTransform = {
       value: new THREE.Vector4(
@@ -327,6 +346,24 @@ export function createDonationManager({
         varying vec3 vTriplanarWorldPos;
         varying vec3 vTriplanarObjNormal;`,
       );
+      // Luz do LED tem que CLAREAR o vizinho, não virar um ponto brilhante nele.
+      // `directSpecular` é o lobo GGX da luz direta: numa fachada de roughness
+      // baixa ele desenha o "bulbo" da PointLight espelhado na parede. Removido
+      // aqui — sobra `directDiffuse`, que é justamente o clareado.
+      // O reflexo do ambiente NÃO é afetado: ele vem de `indirectSpecular`
+      // (getIBLRadiance / envMap), outro caminho do mesmo shader.
+      // Só é seguro porque as únicas luzes DIRETAS da cena são as spillLights do
+      // LED — o resto é AmbientLight + IBL do HDRI (ver createLightingRig).
+      const DIRECT_SPECULAR_ANCHOR =
+        "reflectedLight.directSpecular += irradiance * BRDF_GGX_Multiscatter( directLight.direction, geometryViewDir, geometryNormal, material );";
+      const physicalChunk = THREE.ShaderChunk.lights_physical_pars_fragment;
+      if (import.meta.env.DEV && !physicalChunk.includes(DIRECT_SPECULAR_ANCHOR)) {
+        console.warn("[donationManager] âncora do directSpecular sumiu — LED vira ponto de luz na fachada");
+      }
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "#include <lights_physical_pars_fragment>",
+        physicalChunk.replace(DIRECT_SPECULAR_ANCHOR, ""),
+      );
       const ROUGHNESS_ANCHOR = "#include <roughnessmap_fragment>";
       if (import.meta.env.DEV && !shader.fragmentShader.includes(ROUGHNESS_ANCHOR)) {
         console.warn("[donationManager] âncora de roughness sumiu — suavização por altura inativa");
@@ -379,6 +416,38 @@ export function createDonationManager({
         }
         ${IBL_SAMPLE_ANCHOR}`,
       );
+      // Janelas acesas (só fachada — o topo não tem grade de janela).
+      // Grade 14×8 = janelas por tile da textura de fachada padrão (Facade006). Cada
+      // célula acende ou não por hash da própria célula, e o triUV é de MUNDO: o padrão
+      // sai diferente por prédio de graça, e fica estável entre frames.
+      if (windows) {
+        shader.uniforms.uNightWindow = nightWindowUniform;
+        shader.uniforms.uNightWindowColor = nightWindowColorUniform;
+        shader.fragmentShader = shader.fragmentShader.replace(
+          "#include <common>",
+          `#include <common>
+          uniform float uNightWindow;
+          uniform vec3 uNightWindowColor;`,
+        );
+        const EMISSIVE_ANCHOR = "#include <emissivemap_fragment>";
+        if (import.meta.env.DEV && !shader.fragmentShader.includes(EMISSIVE_ANCHOR)) {
+          console.warn("[donationManager] âncora do emissive sumiu — janelas não acendem de noite");
+        }
+        shader.fragmentShader = shader.fragmentShader.replace(
+          EMISSIVE_ANCHOR,
+          `${EMISSIVE_ANCHOR}
+          // Sem metalnessMap não existe máscara de vidro; fachada fica sem janela acesa.
+          #ifdef USE_METALNESSMAP
+            if (uNightWindow > 0.0) {
+              vec2 windowCell = floor(vMetalnessMapUv * vec2(14.0, 8.0));
+              float windowHash = fract(sin(dot(windowCell, vec2(12.9898, 78.233))) * 43758.5453);
+              float windowGlass = texture2D(metalnessMap, vMetalnessMapUv).b;
+              totalEmissiveRadiance += uNightWindowColor * uNightWindow * windowGlass
+                * step(windowHash, ${NIGHT_PRESET.windowLitFraction.toFixed(3)});
+            }
+          #endif`,
+        );
+      }
       const IBL_RETURN_ANCHOR = "return envMapColor.rgb * envMapIntensity;";
       if (import.meta.env.DEV && !shader.fragmentShader.includes(IBL_RETURN_ANCHOR)) {
         console.warn("[donationManager] retorno do getIBLRadiance sumiu — alcance inativo");
@@ -1053,7 +1122,7 @@ export function createDonationManager({
     }
     mat.emissiveIntensity = textureless ? 0 : settings.emissiveIntensity;
     if (!textureless) {
-      mat.envMapIntensity = settings.envMapIntensity;
+      mat.envMapIntensity = facadeEnvMapIntensity(settings);
     }
     if (previousMask !== textureDefineMask(mat)) mat.needsUpdate = true;
   };
@@ -2153,6 +2222,12 @@ export function createDonationManager({
       for (const mat of getAllFacadeMaterials()) mat.envMapRotation.set(0, y, 0);
       for (const mat of getAllTopMaterials()) mat.envMapRotation.set(0, y, 0);
     },
+    setNight(night, windowIntensity) {
+      nightMode = night;
+      nightWindowUniform.value = night ? Math.max(0, windowIntensity) : 0;
+      // Reaplica pra fachada pegar o envMapIntensity da noite (e devolver o do painel).
+      applyTextureToFacade(currentTextureSettings);
+    },
     setEnvHorizon(amount) {
       // Clamp em 0.95: com 1.0 um reflexo apontando reto pra cima vira vec3(0) → NaN.
       envHorizonUniform.value = THREE.MathUtils.clamp(amount, 0, 0.95);
@@ -2201,7 +2276,7 @@ export function createDonationManager({
     },
     endEnvCapture() {
       for (const mat of getAllFacadeMaterials()) {
-        mat.envMapIntensity = currentTextureSettings.envMapIntensity;
+        mat.envMapIntensity = facadeEnvMapIntensity(currentTextureSettings);
       }
       for (const mat of getAllTopMaterials()) {
         mat.envMapIntensity = currentTextureSettings.top.envMapIntensity;

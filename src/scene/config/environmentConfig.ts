@@ -7,6 +7,7 @@ export function createDefaultEnvironmentSettings(): EnvironmentSettings {
     offsetZ: -0.10
     ,
     night: false,
+    windowIntensity: NIGHT_PRESET.windowIntensity,
   };
 }
 
@@ -23,6 +24,14 @@ export const NIGHT_PRESET = {
   environmentIntensity: 0.1,
   fogColor: "#070b16",
   horizonColor: "#0d1220",
+  /** Cor da luz interna vista pela janela acesa. */
+  windowColor: "#ffcb82",
+  /** Padrão do slider "Brilho das janelas" (`EnvironmentSettings.windowIntensity`). */
+  windowIntensity: 1.7,
+  /** Fração das janelas que acendem (hash por célula da grade da fachada). */
+  windowLitFraction: 0.26,
+  /** `envMapIntensity` da fachada de noite — cidade escura não devolve reflexo de dia. */
+  facadeEnvMapIntensity: 0.6,
   /** Pontos do campo de estrelas (hemisfério de cima, raio 180). */
   starCount: 1400,
   starRadius: 180,

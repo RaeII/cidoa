@@ -172,6 +172,7 @@ Valores padrão do ambiente HDRI:
 - `offsetY` — deslocamento vertical do horizonte
 - `offsetZ` — roll diagonal
 - `night` — modo noite (padrão `false`)
+- `windowIntensity` — brilho das janelas acesas, padrão `NIGHT_PRESET.windowIntensity` (slider na seção **Ambiente**)
 
 Exporta também `NIGHT_PRESET` — tudo que a noite muda. Sem HDRI noturno: noite = HDRI diurno multiplicado por azul escuro.
 
@@ -183,6 +184,9 @@ Exporta também `NIGHT_PRESET` — tudo que a noite muda. Sem HDRI noturno: noit
 | `environmentIntensity` | `0.1` | `scene.environmentIntensity`: IBL do HDRI diurno perde peso |
 | `fogColor` | `#070b16` | Cor da `FogExp2` (densidade continua do horizonte) |
 | `horizonColor` | `#0d1220` | Cor da silhueta do horizonte |
+| `windowColor` · `windowLitFraction` | `#ffcb82` · `0.26` | Cor e fração das janelas acesas ([[scene-managers#Janelas acesas de noite]]) |
+| `windowIntensity` | `1.7` | Só **padrão** do slider `EnvironmentSettings.windowIntensity` — quem manda em runtime é o painel |
+| `facadeEnvMapIntensity` | `0.6` | `envMapIntensity` da fachada de noite — override do slider "Intensidade na fachada" (só de dia) |
 | `starCount` · `starRadius` · `starSize` | `1400` · `180` · `1.6` | Campo de estrelas ([[scene-builders#loadEnvironment.ts]]) |
 
 ---

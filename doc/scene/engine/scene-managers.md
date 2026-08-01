@@ -99,6 +99,20 @@ O manager usa um único par de materiais para prédios e um material de asfalto 
 
 `applyFacadeMaterial` e `applyTextureToTop` só mantêm mapas cujo efeito está ativo. `normalScale = 0`, `roughnessIntensity = 0`, `emissiveIntensity = 0` e `displacementScale = 0` retiram os respectivos mapas/defines do shader; mudanças apenas de uniform não forçam `material.needsUpdate`. A caixa padrão e a calçada reordenam os índices do `BoxGeometry` em dois grupos reais (laterais/base + topo), em vez de conservar os seis draws originais.
 
+#### Janelas acesas de noite
+
+`setNight(night, windowIntensity)` faz duas coisas: acende parte das janelas (brilho = slider "Brilho das janelas (noite)", [[html-components#EnvironmentControls.tsx]]; `uNightWindow = 0` de dia) e derruba o reflexo da fachada para `NIGHT_PRESET.facadeEnvMapIntensity` (0.6). O slider "Intensidade na fachada" (aba **reflexo**, padrão 4.8) vale **só de dia** — é override em `facadeEnvMapIntensity(settings)`, não escrita no settings, então o valor do painel volta intacto ao amanhecer. Usado em `applyFacadeMaterial` **e** em `endEnvCapture` (que restaura o intensity depois da captura do cube); mexer num sem o outro devolve o valor diurno no primeiro reflexo recapturado.
+
+Acende **parte** das janelas da fachada. Só fachada — `applyTriplanarShader` liga o trecho quando `cacheKey.includes("facade")`, então clones de shape custom herdam sem tocar call site; topo fica fora.
+
+- **Máscara de vidro = `metalnessMap` da própria fachada** (`Facade006_1K-PNG_Metalness.png`: branco no vidro, preto no caixilho). Zero textura nova na GPU. Sem `metalnessMap` (`metalnessIntensity = 0`) não tem janela acesa.
+- **Grade `vec2(14.0, 8.0)`** = janelas por tile da textura padrão (medido no PNG: 14 colunas de 73px, 8 linhas de 128px, alinhadas com a borda do tile). `floor(vMetalnessMapUv * grade)` = ID da célula.
+- **Hash da célula** decide acesa/apagada (`step(hash, NIGHT_PRESET.windowLitFraction)`). `vMetalnessMapUv` é triplanar de **mundo** → padrão diferente por prédio de graça e estável entre frames (sem cintilar).
+- Soma em `totalEmissiveRadiance` depois de `#include <emissivemap_fragment>`, independente do `emissiveIntensity` do painel. Uniform `uNightWindow` = `environmentSettings.windowIntensity` de noite, `0` de dia → arrastar o slider e trocar dia/noite são só uniform, sem recompilar shader.
+
+> [!note] Outra textura de fachada
+> Grade é fixa em 14×8. Fachada com outra contagem de janela por tile ainda acende só no vidro (máscara é da própria textura), mas a célula agrupa/parte janelas — acende em blocos.
+
 #### Rede de Estradas (Asfalto)
 
 Como o loteamento tem piso mínimo `r ≥ MIN_LOTEAMENTO_RADIUS` (= 1), há sempre mais de um bloco. `rebuildRoads(r, blockSpacing, streetWidth)` agrega todas as vias em **dois meshes** — um `BufferGeometry` para o asfalto e outro para o tracejado:
@@ -334,6 +348,7 @@ LED some **por completo** da captura do envMap — nem a fita espelhada, nem o c
 - **Por que pool fixo:** contagem de luzes visíveis entra na chave de cache do programa. Criar/remover — ou alternar `visible` — recompilaria **todos** os materiais a cada passe de cull. Luzes ficam sempre na cena; só posição e `intensity` mudam.
 - **Atribuição:** no mesmo passe de `updateDistanceCulling` (0.25s), os LEDs visíveis mais próximos da câmera assumem as luzes por ordem de distância; sobra fica com `intensity = 0`. LED nº 9+ não acende vizinho — subir `EDGE_LIGHT_SPILL_POOL_SIZE` se a cidade ficar densa de LED.
 - **Posição:** centro do edifício. Sem sistema de sombras a luz vaza pros vizinhos, e a própria fachada não acende porque a normal aponta pro lado oposto ao vetor da luz.
+- **Clareia, não reflete:** `applyTriplanarShader` remove a linha do `reflectedLight.directSpecular` (lobo GGX da luz direta) do chunk `lights_physical_pars_fragment`. Sem isso a `PointLight` desenha o próprio "bulbo" espelhado na fachada do vizinho — ponto brilhante, não iluminação. Sobra `directDiffuse` = o clareado. **Reflexo do ambiente intacto:** ele vem de `indirectSpecular` (`getIBLRadiance`/envMap), outro caminho do shader. Só é seguro porque as únicas luzes **diretas** da cena são estas — o resto é `AmbientLight` + IBL (ver [[scene-builders#createLightingRig.ts]]).
 - **Cleanup:** `dispose()` remove e descarta as luzes do pool.
 
 ---

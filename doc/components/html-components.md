@@ -376,6 +376,7 @@ Configurações do ambiente HDRI:
 - `offsetX` — rotação horizontal do skybox
 - `offsetY` — deslocamento vertical do horizonte (UV offset)
 - `offsetZ` — roll (inclinação diagonal)
+- `windowIntensity` — "Brilho das janelas (noite)", 0–6 · padrão `NIGHT_PRESET.windowIntensity` (1.7). 0 apaga todas. Só surte efeito com `night` ligado — o toggle dia/noite fica no [[area-admin#Modo noite (menu do usuário)|menu do usuário]], não aqui. Ver [[scene-managers#Janelas acesas de noite]]
 
 ---
 
