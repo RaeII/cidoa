@@ -218,9 +218,38 @@ Controla visibilidade dos componentes HTML sobrepostos na tela. Persiste prefer�
 - `createDefaultUIVisibilitySettings()` — tudo visível
 - `loadUIVisibilitySettings()` — lê `localStorage`, mescla com defaults (campo ausente/inválido cai no default); seguro contra JSON corrompido e `localStorage` bloqueado
 - `saveUIVisibilitySettings(settings)` — grava no `localStorage`, falha silenciosa se bloqueado
+- `clearUIVisibilitySettings()` — remove a chave (usado pelo botão "Limpar dados salvos")
 
 > [!note]
 > Editável em tempo real pela aba **tela** do painel. Ver [[html-components#CityControlPanel.tsx]]. Tipo em [[scene-types#UIVisibilitySettings]].
+
+---
+
+### `scenePersistence.ts`
+
+Persiste a cena inteira em `localStorage` (chave `cidoa:scene`): edifícios criados, personalizações por edifício e todos os settings do painel. Escrita disparada por efeito em [[html-components#CitySceneEditor.tsx]] a cada mudança de estado.
+
+**Formato salvo (`PersistedScene`):**
+
+| Campo | Conteúdo |
+|---|---|
+| `donations` | `number[]` — valores na ordem de criação |
+| `customizations` | `Array<BuildingCustomization \| null>` — **alinhado por índice** com `donations`; `null` = sem personalização |
+| `settings` | `PersistedSceneSettings` — building, texture, ground, terrain, light, shadow, renderDirection, environment, horizon, blockLayout |
+
+> [!important]
+> `customizations` casa por **índice**, não por id de runtime. O donation manager renumera ids do zero a cada carga, e edifícios da simulação de pagamento (seta direita) consomem ids sem serem salvos — índice é a única chave estável entre sessões.
+
+**O que NÃO é salvo:** edifícios gerados pela seta direita (simulação de pagamento). Existem só na sessão. `handleDonation(value, persist=false)` em [[html-components#CitySceneEditor.tsx]] marca esse caso.
+
+**Funções exportadas:**
+- `createDefaultPersistedSettings()` — junta todos os `createDefault*Settings()`
+- `loadPersistedScene()` — `null` se nada salvo ou JSON corrompido; senão mescla settings recursivamente sobre os defaults (campo novo entra com default, campo removido é descartado) e filtra doações inválidas
+- `savePersistedScene(scene)` — grava; se estourar cota, tenta de novo sem `hologramImage` (data URLs de imagem sozinhas passam do limite) antes de desistir
+- `clearPersistedScene()` — remove a chave
+
+> [!note]
+> Botão "Limpar dados salvos" na aba **tela** do painel apaga esta chave + `cidoa:ui-visibility` e recarrega a página. Ver [[html-components#CityControlPanel.tsx]].
 
 ---
 

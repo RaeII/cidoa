@@ -59,6 +59,7 @@ export type CityControlPanelProps = {
   onEnvironmentSettingsChange: (settings: EnvironmentSettings) => void;
   onHorizonSettingsChange: (settings: HorizonSettings) => void;
   onUIVisibilityChange: (settings: UIVisibilitySettings) => void;
+  onClearStorage: () => void;
   onClose: () => void;
 };
 
@@ -87,6 +88,7 @@ export function CityControlPanel({
   onEnvironmentSettingsChange,
   onHorizonSettingsChange,
   onUIVisibilityChange,
+  onClearStorage,
   onClose,
 }: CityControlPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>("geral");
@@ -244,6 +246,17 @@ export function CityControlPanel({
                   }
                 />
               </div>
+            </PanelSection>
+            <PanelSection
+              title="Dados salvos"
+              description="Edifícios, personalizações e ajustes ficam no localStorage do navegador. Limpar volta a cena ao estado inicial e recarrega a página."
+            >
+              <button
+                onClick={onClearStorage}
+                className="w-full rounded-md border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-200 transition-colors hover:bg-red-500/20 active:bg-red-500/30"
+              >
+                Limpar dados salvos
+              </button>
             </PanelSection>
           </div>
         )}

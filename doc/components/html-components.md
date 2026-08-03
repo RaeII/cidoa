@@ -108,7 +108,7 @@ Cada fase é um bloco com `AnimatePresence` animando `height` (auto↔0), então
 | Prop | Tipo | Descrição |
 |---|---|---|
 | `payment` | `Payment \| null` | Pagamento ativo (`{ id, amount }`); `null` = sem cartão |
-| `onConfirmed` | `(amount: number) => void` | Chamado na confirmação → adiciona o edifício |
+| `onConfirmed` | `(amount: number) => void` | Chamado na confirmação → adiciona o edifício (ligado a `handleDonation(amount, false)`: **não** persiste) |
 | `onDone` | `() => void` | Pede o fechamento (pai limpa `payment` → inicia saída) |
 | `onExited` | `() => void` | Após o cartão sair de tela → libera próxima seta |
 
@@ -234,11 +234,13 @@ Componente que monta o painel completo de configuração da cena. **Escondido po
 | **Luz** | Ambient, hemisphere, directional |
 | **Horizonte** | Configurações de HDRI e skybox |
 | **Terreno** | Relevo procedural ao redor da cidade — ver [[#TerrainControls.tsx]] |
-| **Tela** | Checkbox por componente HTML sobreposto (log de câmera + 3 inputs de geração/posição). Liga/desliga visibilidade; preferência persistida em `localStorage` via [[scene-config#uiVisibilityConfig.ts]] |
+| **Tela** | Checkbox por componente HTML sobreposto (log de câmera + 3 inputs de geração/posição). Liga/desliga visibilidade; preferência persistida em `localStorage` via [[scene-config#uiVisibilityConfig.ts]]. Seção **Dados salvos**: botão "Limpar dados salvos" |
 
 Tipo da aba ativa: `"geral" | "texturas" | "luz" | "horizonte" | "terreno" | "tela"`.
 
-Props extras da aba **Tela**: `uiVisibility: UIVisibilitySettings` + `onUIVisibilityChange`. Ver [[scene-types#UIVisibilitySettings]].
+Props extras da aba **Tela**: `uiVisibility: UIVisibilitySettings` + `onUIVisibilityChange` (ver [[scene-types#UIVisibilitySettings]]) e `onClearStorage: () => void`.
+
+Seção **Dados salvos** — botão vermelho que dispara `onClearStorage`. O editor confirma via `window.confirm`, apaga as chaves `cidoa:scene` + `cidoa:ui-visibility` e recarrega a página (reconstruir o runtime em memória custaria bem mais que um reload). Ver [[scene-config#scenePersistence.ts]].
 
 Props extras da aba **Geral** (`blockLayoutSettings: BlockLayoutSettings` + `onBlockLayoutSettingsChange`):
 - seção **Quadras**: `ColorField` edita `lotColor` (cor dos lotes vazios).
@@ -484,6 +486,23 @@ flowchart LR
 3. `CitySceneEditor` atualiza estado React
 4. `CitySceneCanvas` recebe novo estado
 5. [[scene-hooks|useCityScene]] sincroniza com o runtime Three.js
+6. Efeito de persistência grava tudo em `localStorage` — ver abaixo
+
+## Persistência (`localStorage`)
+
+`CitySceneEditor` lê o estado salvo **uma vez no módulo** (`STORED_SCENE = loadPersistedScene()`) — precisa de referência estável, senão o efeito de semeadura do canvas reexecuta a cada render. Daí saem `INITIAL_DONATIONS`, `INITIAL_BUILDING_CUSTOMIZATIONS` e `INITIAL_SETTINGS`, que viram estado inicial dos `useState` e props `initialDonations`/`initialBuildingCustomizations` do [[three-components|CitySceneCanvas]].
+
+Um `useEffect` grava a cena inteira a cada mudança de doação persistida, personalização ou settings. Ver [[scene-config#scenePersistence.ts]] para o formato.
+
+**Estado que sustenta isso:**
+
+| Estado | Papel |
+|---|---|
+| `persistedDonations: Array<{ id, value }>` | Só os edifícios que vão para o storage. Guarda o id de runtime para casar com `buildingCustomizations` na hora de salvar |
+| `nextDonationIdRef` | Espelha o contador de ids do donation manager. Todo edifício nasce no editor e o manager numera na ordem de chegada, então os contadores não divergem |
+
+> [!important] Seta direita não persiste
+> `handleDonation(value, persist = true)`. A simulação de pagamento chama `handleDonation(amount, false)`: o edifício entra na cena e conta em `donationTotal`/`donationCount`, mas fica fora do storage. Ainda assim **consome um id** — por isso `customizations` casa por índice, não por id.
 
 ## Regra Prática
 

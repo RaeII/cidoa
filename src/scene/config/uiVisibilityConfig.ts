@@ -42,3 +42,12 @@ export function saveUIVisibilitySettings(settings: UIVisibilitySettings): void {
     // localStorage cheio/bloqueado — ignora, preferência não persiste
   }
 }
+
+export function clearUIVisibilitySettings(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // localStorage bloqueado — nada a fazer.
+  }
+}

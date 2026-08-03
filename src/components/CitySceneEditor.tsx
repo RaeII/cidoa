@@ -12,17 +12,14 @@ import {
   type KeyboardShortcut,
 } from "./hooks/useKeyboardShortcuts";
 import { DEFAULT_SCENE_STATS } from "../scene/config/citySceneConfig";
-import { createDefaultBlockLayoutSettings } from "../scene/config/blockLayoutConfig";
-import { createDefaultBuildingSettings } from "../scene/config/buildingConfig";
-import { createDefaultEnvironmentSettings } from "../scene/config/environmentConfig";
-import { createDefaultGroundSettings } from "../scene/config/groundConfig";
-import { createDefaultTerrainSettings } from "../scene/config/terrainConfig";
-import { createDefaultLightSettings } from "../scene/config/lightConfig";
-import { createDefaultRenderDirectionSettings } from "../scene/config/renderDirectionConfig";
-import { createDefaultShadowSettings } from "../scene/config/shadowConfig";
-import { createDefaultTextureSettings } from "../scene/config/textureConfig";
-import { createDefaultHorizonSettings } from "../scene/config/horizonConfig";
 import {
+  clearPersistedScene,
+  createDefaultPersistedSettings,
+  loadPersistedScene,
+  savePersistedScene,
+} from "../scene/config/scenePersistence";
+import {
+  clearUIVisibilitySettings,
   loadUIVisibilitySettings,
   saveUIVisibilitySettings,
 } from "../scene/config/uiVisibilityConfig";
@@ -46,7 +43,14 @@ import { getLightMetrics } from "../scene/utils/lighting";
 // Novos edifícios entram via seta direita, sempre superando o mais alto atual.
 const INITIAL_TEST_DONATIONS = [30] as const;
 
-const INITIAL_DONATION_TOTAL = INITIAL_TEST_DONATIONS.reduce((sum, v) => sum + v, 0);
+// Estado salvo em localStorage (edifícios + personalizações + settings). Lido uma
+// única vez no módulo: `initialDonations` precisa de referência estável, senão o
+// efeito de semeadura do canvas reexecuta a cada render.
+const STORED_SCENE = loadPersistedScene();
+
+const INITIAL_DONATIONS: readonly number[] = STORED_SCENE?.donations ?? INITIAL_TEST_DONATIONS;
+
+const INITIAL_DONATION_TOTAL = INITIAL_DONATIONS.reduce((sum, v) => sum + v, 0);
 
 // Cada seta direita gera um edifício que supera o maior valor atual da cidade
 // (vira o mais alto e assume o centro da espiral), até o teto de DONATION_MAX_VALUE.
@@ -61,13 +65,22 @@ const randomDonationIncrement = () =>
     DONATION_INCREMENT_MIN + Math.random() * (DONATION_INCREMENT_MAX - DONATION_INCREMENT_MIN),
   );
 
-const INITIAL_MAX_DONATION = Math.max(0, ...INITIAL_TEST_DONATIONS);
+const INITIAL_MAX_DONATION = Math.max(0, ...INITIAL_DONATIONS);
 
-// Sem customizações iniciais — todos os edifícios usam o formato padrão.
-const createInitialBuildingCustomizations = () =>
-  new Map<number, BuildingCustomization>();
+// Personalizações salvas vêm alinhadas por índice com `donations`. O donation
+// manager numera os edifícios do lote inicial na mesma ordem (id = índice), então
+// o índice vira o id de runtime.
+const createInitialBuildingCustomizations = () => {
+  const map = new Map<number, BuildingCustomization>();
+  STORED_SCENE?.customizations.forEach((customization, index) => {
+    if (customization) map.set(index, customization);
+  });
+  return map;
+};
 
-const INITIAL_TEST_BUILDING_CUSTOMIZATIONS = createInitialBuildingCustomizations();
+const INITIAL_BUILDING_CUSTOMIZATIONS = createInitialBuildingCustomizations();
+
+const INITIAL_SETTINGS = STORED_SCENE?.settings ?? createDefaultPersistedSettings();
 
 const formatCameraValue = (value: number) => value.toFixed(2);
 
@@ -77,22 +90,22 @@ export function CitySceneEditor() {
 
   // Total arrecadado e número de doações — alimentam a seção de informações abaixo da cena.
   const [donationTotal, setDonationTotal] = useState(INITIAL_DONATION_TOTAL);
-  const [donationCount, setDonationCount] = useState<number>(INITIAL_TEST_DONATIONS.length);
+  const [donationCount, setDonationCount] = useState<number>(INITIAL_DONATIONS.length);
   // `inInfo` = usuário rolou para a seção de informações (esconde CTA da cena, mostra "voltar").
   const [inInfo, setInInfo] = useState(false);
 
-  const [buildingSettings, setBuildingSettings] = useState(createDefaultBuildingSettings);
-  const [textureSettings, setTextureSettings] = useState(createDefaultTextureSettings);
-  const [groundSettings, setGroundSettings] = useState(createDefaultGroundSettings);
-  const [terrainSettings, setTerrainSettings] = useState(createDefaultTerrainSettings);
-  const [lightSettings, setLightSettings] = useState(createDefaultLightSettings);
-  const [shadowSettings, setShadowSettings] = useState(createDefaultShadowSettings);
+  const [buildingSettings, setBuildingSettings] = useState(INITIAL_SETTINGS.building);
+  const [textureSettings, setTextureSettings] = useState(INITIAL_SETTINGS.texture);
+  const [groundSettings, setGroundSettings] = useState(INITIAL_SETTINGS.ground);
+  const [terrainSettings, setTerrainSettings] = useState(INITIAL_SETTINGS.terrain);
+  const [lightSettings, setLightSettings] = useState(INITIAL_SETTINGS.light);
+  const [shadowSettings, setShadowSettings] = useState(INITIAL_SETTINGS.shadow);
   const [renderDirectionSettings, setRenderDirectionSettings] = useState(
-    createDefaultRenderDirectionSettings,
+    INITIAL_SETTINGS.renderDirection,
   );
-  const [environmentSettings, setEnvironmentSettings] = useState(createDefaultEnvironmentSettings);
-  const [horizonSettings, setHorizonSettings] = useState(createDefaultHorizonSettings);
-  const [blockLayoutSettings, setBlockLayoutSettings] = useState(createDefaultBlockLayoutSettings);
+  const [environmentSettings, setEnvironmentSettings] = useState(INITIAL_SETTINGS.environment);
+  const [horizonSettings, setHorizonSettings] = useState(INITIAL_SETTINGS.horizon);
+  const [blockLayoutSettings, setBlockLayoutSettings] = useState(INITIAL_SETTINGS.blockLayout);
   const [sceneStats, setSceneStats] = useState<SceneStats>({ ...DEFAULT_SCENE_STATS });
   const [cameraDebugInfo, setCameraDebugInfo] = useState<CameraDebugInfo | null>(null);
   const [hoverInfo, setHoverInfo] = useState<{ value: number; x: number; y: number } | null>(null);
@@ -105,6 +118,18 @@ export function CitySceneEditor() {
   const [buildingCustomizations, setBuildingCustomizations] = useState<Map<number, BuildingCustomization>>(
     createInitialBuildingCustomizations,
   );
+
+  // Edifícios que vão para o localStorage. Guarda o id de runtime junto do valor
+  // para casar com `buildingCustomizations` na hora de salvar. Doações da
+  // simulação de pagamento (seta direita) ficam de fora — só existem na sessão.
+  const [persistedDonations, setPersistedDonations] = useState<
+    Array<{ id: number; value: number }>
+  >(() => INITIAL_DONATIONS.map((value, id) => ({ id, value })));
+
+  // Espelha o contador de ids do donation manager. Todo edifício nasce aqui
+  // (lote inicial → handleDonation/handleBulkDonation), e o manager numera
+  // sequencialmente na ordem de chegada, então os contadores não divergem.
+  const nextDonationIdRef = useRef(INITIAL_DONATIONS.length);
 
   // Simulação de pagamento: um cartão por vez. `payment` guarda o ativo;
   // `paymentBusyRef` bloqueia novas setas até o cartão sair de tela.
@@ -119,6 +144,49 @@ export function CitySceneEditor() {
   useEffect(() => {
     saveUIVisibilitySettings(uiVisibility);
   }, [uiVisibility]);
+
+  useEffect(() => {
+    savePersistedScene({
+      donations: persistedDonations.map((d) => d.value),
+      customizations: persistedDonations.map((d) => buildingCustomizations.get(d.id) ?? null),
+      settings: {
+        building: buildingSettings,
+        texture: textureSettings,
+        ground: groundSettings,
+        terrain: terrainSettings,
+        light: lightSettings,
+        shadow: shadowSettings,
+        renderDirection: renderDirectionSettings,
+        environment: environmentSettings,
+        horizon: horizonSettings,
+        blockLayout: blockLayoutSettings,
+      },
+    });
+  }, [
+    persistedDonations,
+    buildingCustomizations,
+    buildingSettings,
+    textureSettings,
+    groundSettings,
+    terrainSettings,
+    lightSettings,
+    shadowSettings,
+    renderDirectionSettings,
+    environmentSettings,
+    horizonSettings,
+    blockLayoutSettings,
+  ]);
+
+  // Limpa tudo que a cena guarda em localStorage e recarrega: reconstruir o
+  // runtime a partir do zero em memória seria bem mais código que um reload.
+  const handleClearStorage = useCallback(() => {
+    if (!window.confirm("Apagar edifícios e personalizações salvos? A página vai recarregar.")) {
+      return;
+    }
+    clearPersistedScene();
+    clearUIVisibilitySettings();
+    window.location.reload();
+  }, []);
 
   const scrollToInfo = useCallback(() => {
     const el = scrollRef.current;
@@ -174,18 +242,28 @@ export function CitySceneEditor() {
     };
   }, []);
 
-  const handleDonation = (value: number) => {
+  // `persist = false` para a simulação de pagamento: o edifício aparece na cena
+  // mas não entra no localStorage.
+  const handleDonation = (value: number, persist = true) => {
+    const id = nextDonationIdRef.current++;
     canvasRef.current?.addDonation(value);
     maxDonationRef.current = Math.max(maxDonationRef.current, value);
     setDonationTotal((t) => t + value);
     setDonationCount((c) => c + 1);
+    if (persist) setPersistedDonations((prev) => [...prev, { id, value }]);
   };
 
   const handleBulkDonation = (values: number[]) => {
+    const firstId = nextDonationIdRef.current;
+    nextDonationIdRef.current += values.length;
     canvasRef.current?.addDonations(values);
     maxDonationRef.current = Math.max(maxDonationRef.current, ...values);
     setDonationTotal((t) => t + values.reduce((sum, v) => sum + v, 0));
     setDonationCount((c) => c + values.length);
+    setPersistedDonations((prev) => [
+      ...prev,
+      ...values.map((value, i) => ({ id: firstId + i, value })),
+    ]);
   };
 
   // Seta direita → inicia a simulação de pagamento. Valor = maior doação atual +
@@ -405,8 +483,8 @@ export function CitySceneEditor() {
       <section className="relative h-screen w-full overflow-hidden bg-[#05070a]">
       <CitySceneCanvas
         ref={canvasRef}
-        initialDonations={INITIAL_TEST_DONATIONS}
-        initialBuildingCustomizations={INITIAL_TEST_BUILDING_CUSTOMIZATIONS}
+        initialDonations={INITIAL_DONATIONS}
+        initialBuildingCustomizations={INITIAL_BUILDING_CUSTOMIZATIONS}
         buildingSettings={buildingSettings}
         textureSettings={textureSettings}
         groundSettings={groundSettings}
@@ -458,7 +536,7 @@ export function CitySceneEditor() {
       />
       <PaymentSimulation
         payment={payment}
-        onConfirmed={handleDonation}
+        onConfirmed={(amount) => handleDonation(amount, false)}
         onDone={() => setPayment(null)}
         onExited={() => {
           paymentBusyRef.current = false;
@@ -527,6 +605,7 @@ export function CitySceneEditor() {
           onEnvironmentSettingsChange={setEnvironmentSettings}
           onHorizonSettingsChange={setHorizonSettings}
           onUIVisibilityChange={setUIVisibility}
+          onClearStorage={handleClearStorage}
           onClose={() => setShowControlPanel(false)}
         />
       )}

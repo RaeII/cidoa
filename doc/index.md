@@ -96,6 +96,7 @@ src/
       environmentConfig.ts
       blockLayoutConfig.ts
       uiVisibilityConfig.ts
+      scenePersistence.ts
     builders/
       createLightingRig.ts
       createGroundPlane.ts
@@ -273,6 +274,7 @@ flowchart LR
 | Alterar a animação de pagamento (seta direita)   | [[html-components#`PaymentSimulation.tsx`]]       |
 | Alterar seção de info/ONGs abaixo da cena         | [[html-components#DonationInfoSection.tsx]]       |
 | Mostrar/esconder componentes HTML da tela        | aba **Tela** → [[scene-config#uiVisibilityConfig.ts]] |
+| Alterar o que persiste em localStorage           | [[scene-config#scenePersistence.ts]]              |
 | Alterar a UI de personalização de edifício       | [[html-components#BuildingCustomizePanel.tsx]]    |
 | Alterar o modal de info do edifício (dono/valor) | [[html-components#BuildingInfoModal.tsx]]         |
 | Alterar o canvas ou a ligação com o hook         | [[three-components]]                              |
