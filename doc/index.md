@@ -275,6 +275,8 @@ flowchart LR
 | Alterar seção de info/ONGs abaixo da cena         | [[html-components#DonationInfoSection.tsx]]       |
 | Mostrar/esconder componentes HTML da tela        | aba **Tela** → [[scene-config#uiVisibilityConfig.ts]] |
 | Alterar o que persiste em localStorage           | [[scene-config#scenePersistence.ts]]              |
+| Salvar/abrir/excluir estado nomeado da cidade    | aba **Tela** → seção Estados da cidade → [[html-components#CityControlPanel.tsx]] |
+| Alterar o select de troca rápida de estado       | [[html-components#Select de estados (canto superior direito)]] |
 | Alterar a UI de personalização de edifício       | [[html-components#BuildingCustomizePanel.tsx]]    |
 | Alterar o modal de info do edifício (dono/valor) | [[html-components#BuildingInfoModal.tsx]]         |
 | Alterar o canvas ou a ligação com o hook         | [[three-components]]                              |

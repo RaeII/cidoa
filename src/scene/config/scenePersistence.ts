@@ -23,6 +23,12 @@ import { createDefaultTerrainSettings } from "./terrainConfig";
 import { createDefaultTextureSettings } from "./textureConfig";
 
 const STORAGE_KEY = "cidoa:scene";
+// Estados nomeados ("saves") da cidade. Chave separada da cena ativa: abrir um
+// estado só copia ele para STORAGE_KEY e recarrega a página.
+const SLOTS_KEY = "cidoa:scene-slots";
+// Nome do estado que a cena ativa veio de (ou foi salva como). Só rótulo para a
+// UI saber qual opção mostrar como selecionada.
+const ACTIVE_SLOT_KEY = "cidoa:scene-active";
 
 export type PersistedSceneSettings = {
   building: BuildingSettings;
@@ -107,34 +113,98 @@ export function loadPersistedScene(): PersistedScene | null {
   };
 }
 
+// Hologramas são data URLs e sozinhos estouram a cota do localStorage. Sem eles
+// o resto da cena ainda cabe — melhor que perder a persistência inteira.
+const withoutHolograms = (scene: PersistedScene): PersistedScene => ({
+  ...scene,
+  customizations: scene.customizations.map((c) => (c ? { ...c, hologramImage: null } : null)),
+});
+
+function writeKey(key: string, value: unknown): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function savePersistedScene(scene: PersistedScene): void {
+  if (!writeKey(STORAGE_KEY, scene)) writeKey(STORAGE_KEY, withoutHolograms(scene));
+}
+
+function removeKey(key: string): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(scene));
+    window.localStorage.removeItem(key);
   } catch {
-    // Provável estouro de cota: hologramas são data URLs e sozinhos passam do
-    // limite. Salva de novo sem eles em vez de perder toda a persistência.
-    try {
-      window.localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          ...scene,
-          customizations: scene.customizations.map((c) =>
-            c ? { ...c, hologramImage: null } : null,
-          ),
-        }),
-      );
-    } catch {
-      // Storage cheio/bloqueado — desiste, cena não persiste.
-    }
+    // Storage bloqueado — nada a fazer.
   }
 }
 
 export function clearPersistedScene(): void {
-  if (typeof window === "undefined") return;
+  removeKey(STORAGE_KEY);
+  removeKey(ACTIVE_SLOT_KEY);
+}
+
+/** `null` = cena atual não veio de nenhum estado salvo. */
+export function getActiveSceneSlot(): string | null {
+  if (typeof window === "undefined") return null;
   try {
-    window.localStorage.removeItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(ACTIVE_SLOT_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return typeof parsed === "string" ? parsed : null;
   } catch {
-    // Storage bloqueado — nada a fazer.
+    return null;
   }
+}
+
+function readSlots(): Record<string, PersistedScene> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(SLOTS_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Nomes dos estados salvos, em ordem alfabética. */
+export function listSceneSlots(): string[] {
+  return Object.keys(readSlots()).sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+/** `false` = storage cheio/bloqueado, estado não salvou. */
+export function saveSceneSlot(name: string, scene: PersistedScene): boolean {
+  const slots = readSlots();
+  slots[name] = scene;
+  let ok = writeKey(SLOTS_KEY, slots);
+  if (!ok) {
+    slots[name] = withoutHolograms(scene);
+    ok = writeKey(SLOTS_KEY, slots);
+  }
+  if (ok) writeKey(ACTIVE_SLOT_KEY, name);
+  return ok;
+}
+
+export function deleteSceneSlot(name: string): void {
+  const slots = readSlots();
+  delete slots[name];
+  writeKey(SLOTS_KEY, slots);
+  if (getActiveSceneSlot() === name) removeKey(ACTIVE_SLOT_KEY);
+}
+
+/**
+ * Copia o estado nomeado para a cena ativa. Chamador recarrega a página — o
+ * runtime é reconstruído a partir do localStorage no mount.
+ * `false` = estado inexistente.
+ */
+export function applySceneSlot(name: string): boolean {
+  const scene = readSlots()[name];
+  if (!scene) return false;
+  savePersistedScene(scene);
+  writeKey(ACTIVE_SLOT_KEY, name);
+  return true;
 }

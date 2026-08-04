@@ -89,7 +89,7 @@ O manager usa um único par de materiais para prédios e um material de asfalto 
 | Material | Tipo | Descrição |
 |---|---|---|
 | `facadeMaterial` | `MeshPhysicalMaterial` | Textura de fachada com shader triplanar + cube envMap dinâmico |
-| `topMaterial` | `MeshPhysicalMaterial` | Textura de concreto para o topo dos prédios |
+| `topMaterial` | `MeshPhysicalMaterial` | Textura de concreto para o topo dos prédios. Cor fixa `TOP_CEMENT_COLOR` (#b9b6b1) — laje de cimento, **nunca** segue `buildingSettings.color` nem `customization.color` |
 | `focusFacadeMaterial` | `MeshPhysicalMaterial` | Clone do facadeMaterial para o edifício em destaque (opacidade total quando o instanced mesh fica semitransparente) |
 | `focusTopMaterial` | `MeshPhysicalMaterial` | Clone do topMaterial para o edifício em destaque |
 | `asphaltMaterial` | `MeshStandardMaterial` | Cor escura (#18191c), roughness 0.92 — usado nas faixas de asfalto entre quadras |
@@ -206,6 +206,8 @@ Quando um edifício recebe uma customização via `updateDonationCustomization`,
 
 Para edifícios com `buildingShape !== "default"`, a cor é aplicada diretamente nos materiais clonados (sem instanceColor) via `updateCustomShapeColor`.
 
+**Topo fora da cor:** cor de edifício pinta só a fachada. `instanceColor` do `InstancedMesh` vale para todos os grupos de material, então `applyTriplanarShader(..., ignoreInstanceColor = true)` remove `#include <color_fragment>` do fragment shader dos materiais de topo (`topMaterial`, `focusTopMaterial`, clones custom) — a laje fica no `TOP_CEMENT_COLOR` × textura de concreto. Exceção: Empire tem paleta própria (telhado escuro autoral).
+
 #### Customizações que exigem Mesh próprio (`needsCustomMesh`)
 
 Algumas personalizações precisam de **estado de material próprio** por edifício e não cabem no `InstancedMesh` (que compartilha um único material). O helper `needsCustomMesh(customization)` define quando uma doação sai do InstancedMesh e passa a ser desenhada como `Mesh` dedicado em `customShapeMeshes`:
@@ -221,7 +223,7 @@ Para cada doação custom, `syncCustomShapes()`:
 
 1. Clona `facadeMaterial`/`topMaterial`.
 2. **Re-aplica `applyTriplanarShader` no clone** para que ele tenha seu próprio `uTilingMultiplier` (default 1.0). Sem isso, o clone herdaria o `onBeforeCompile` do original, apontando para o uniform compartilhado.
-3. Define cor (`customization.color`), tiling (`customization.tilingScale`) e ajuste manual de textura (`customization.textureTransform`) no clone. Grava `facadeMat.userData.facadeStyle` e chama `applyFacadeTextures(facadeMat, currentTextureSettings)` para trocar os mapas da fachada.
+3. Define cor (`customization.color`, só no `facadeMat` — `topMat` fica cimento), tiling (`customization.tilingScale`) e ajuste manual de textura (`customization.textureTransform`) no clone. Grava `facadeMat.userData.facadeStyle` e chama `applyFacadeTextures(facadeMat, currentTextureSettings)` para trocar os mapas da fachada.
 4. Cria o mesh:
    - `shape === "twisted"` → [[scene-builders#createTwistedBuildingMesh.ts|createTwistedBuildingMesh]] (geometria espiralada compartilhada).
    - `shape === "octagonal"` → [[scene-builders#createOctagonalBuildingMesh.ts|createOctagonalBuildingMesh]] (geometria octogonal compartilhada).
@@ -245,19 +247,25 @@ Pontos de integração:
 
 #### Estilos de fachada por edifício (`facadeStyle`)
 
-Cada estilo é um conjunto PBR (color, normal GL, roughness, metalness, displacement, emission opcional) vindo de `src/assets/texture/`:
+Cada estilo é um conjunto PBR (color, normal GL, roughness, displacement + metalness/emission opcionais) vindo de `src/assets/texture/`:
 
 | `facadeStyle` | Pasta | Observação |
 |---|---|---|
 | `"default"` | `Facade006_1K-mirrored-PNG` | Textura global da cena, já carregada na criação do manager |
 | `"facade001"` | `Facade001_1K-PNG` | Cortina de vidro azul |
 | `"facade002"` | `Facade002_1K-PNG` | Vidro noturno — usa `_Emission.png` como `emissiveMap` (janelas acesas) |
+| `"facade005"` | `Facade005_1K-JPG` | Vidro espelhado escuro |
+| `"facade007"` | `Facade007_1K-JPG` | Escritório aceso — emissão própria |
+| `"facade014"` | `Facade014_1K-JPG` | Torre noturna — emissão própria, **sem** mapa de metalness |
+| `"facade016"` | `Facade016_1K-JPG` | Janelas âmbar — emissão própria, **sem** mapa de metalness |
 | `"facade018a"` | `Facade018A_1K-PNG` | Tijolo com janelas |
+| `"facade019a"` | `Facade019A_1K-JPG` | Concreto cinza com janelas — emissão própria |
+| `"facade020a"` | `Facade020A_1K-JPG` | Tijolo e vidro — emissão própria |
 
 Mecânica:
 
 - `FACADE_STYLE_SOURCES` (nível de módulo) guarda só as **URLs** dos assets. Nada baixa no boot.
-- `getFacadeTextures(style)` carrega e cacheia o conjunto na primeira vez que um edifício pede o estilo, aplicando `maxAnisotropy`. `"default"` já entra pré-populado no cache.
+- `getFacadeTextures(style)` carrega e cacheia o conjunto na primeira vez que um edifício pede o estilo, aplicando `maxAnisotropy`. `"default"` já entra pré-populado no cache. Conjunto sem `metalness` vira `metalness: null` → `mat.metalnessMap = null`, e o patch triplanar já protege o UV com `#ifdef USE_METALNESSMAP`.
 - `applyFacadeTextures(mat, settings)` aplica os mapas num material. A escolha do conjunto vem de `mat.userData.facadeStyle` — string simples, sobrevive ao `JSON` clone que o `Material.copy` faz do `userData`. `applyTextureToFacade` é só o loop disso sobre `getAllFacadeMaterials()`, então ajustes globais de textura respeitam o estilo de cada clone.
 - Troca entre dois estilos custom (ex: `facade001` → `facade002`) não faz rebuild: o prédio já tem mesh próprio, então `updateDonationCustomization` só regrava `userData.facadeStyle` e reaplica os mapas. Entrar/sair de `"default"` atravessa `needsCustomMesh` e cai no `rebuildInstances()`.
 - `dispose()` libera os conjuntos carregados sob demanda (o `"default"` já sai em `allTextures`; `emissive` só é descartado quando não é o mesmo objeto do color map).

@@ -42,7 +42,13 @@ export type FacadeStyle =
   | "default"
   | "facade001"
   | "facade002"
-  | "facade018a";
+  | "facade005"
+  | "facade007"
+  | "facade014"
+  | "facade016"
+  | "facade018a"
+  | "facade019a"
+  | "facade020a";
 
 export type BuildingCustomization = {
   color: string;

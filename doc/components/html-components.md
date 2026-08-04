@@ -135,10 +135,9 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 |---|---|---|
 | `donationId` | `number` | ID da doação selecionada |
 | `initialColor` | `string` | Cor atual do edifício (customizada ou global) |
-| `initialFacadeStyle` | `FacadeStyle` | Fachada atual (`"default"`, `"facade001"`, `"facade002"` ou `"facade018a"`) |
+| `initialFacadeStyle` | `FacadeStyle` | Fachada atual — 10 conjuntos PBR (`"default"`, `"facade001"`, `"facade002"`, `"facade005"`, `"facade007"`, `"facade014"`, `"facade016"`, `"facade018a"`, `"facade019a"`, `"facade020a"`); ver [[scene-types#FacadeStyle]] |
 | `initialBuildingShape` | `BuildingShape` | Formato atual (`"default"`, `"twisted"`, `"octagonal"`, `"setback"`, `"tapered"`, `"chrysler"`, `"hearst"`, `"empire"`, `"taipei"` ou `"one-trade"`) |
 | `initialTilingScale` | `number` | Multiplicador de tiling da textura (1.0 = sem alteração) |
-| `initialTextureTransform` | `BuildingTextureTransform` | Ajuste manual de escala/offset da textura |
 | `initialRooftopType` | `RooftopType` | Estado atual do acessório de topo |
 | `initialSignText` | `string` | Texto atual do letreiro na fachada |
 | `initialSignSides` | `number` | Quantidade de lados com letreiro (1–4) |
@@ -147,7 +146,6 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 | `onFacadeStyleChange` | `(id: number, facadeStyle: FacadeStyle) => void` | Callback de troca de fachada |
 | `onBuildingShapeChange` | `(id: number, shape: BuildingShape) => void` | Callback de troca de formato |
 | `onTilingScaleChange` | `(id: number, tilingScale: number) => void` | Callback de troca de tiling |
-| `onTextureTransformChange` | `(id: number, textureTransform: BuildingTextureTransform) => void` | Callback de ajuste manual da textura |
 | `onRooftopChange` | `(id: number, type: RooftopType) => void` | Callback de troca do acessório de topo |
 | `onSignTextChange` | `(id: number, text: string) => void` | Callback de troca de texto do letreiro |
 | `onSignSidesChange` | `(id: number, sides: number) => void` | Callback de troca de lados do letreiro |
@@ -159,9 +157,9 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 | Seção | Controles | Descrição |
 |---|---|---|
 | **Aparência** | `ColorField` | Cor individual do edifício (hex) |
-| **Fachada** | Botões | Opções: padrão (Facade006), vidro azul (Facade001), vidro noturno (Facade002, janelas acesas) e tijolo (Facade018A). Estilo ≠ padrão tira o prédio do `InstancedMesh` |
+| **Fachada** | Botões | 10 opções: padrão (Facade006), vidro azul (001), vidro noturno (002), vidro espelhado (005), escritório aceso (007), torre noturna (014), janelas âmbar (016), tijolo (018A), concreto cinza (019A), tijolo e vidro (020A). Estilo ≠ padrão tira o prédio do `InstancedMesh` |
 | **Formato** | Botões | Opções: padrão (caixa), torre torcida, torre octogonal, torre setback, torre afunilada, Chrysler, Hearst Tower, Empire State, Taipei 101 ou One Trade |
-| **Texturas** | `RangeField` | Tiling Scale, escala X/Y e offset X/Y — ajusta a repetição/alinhamento da textura **só nesse edifício**. Valores diferentes do padrão fazem o prédio sair do `InstancedMesh` |
+| **Texturas** | `RangeField` | Tiling Scale por edifício (0.2–4, passo 0.05) — multiplicador do tiling global, cada textura de fachada tem escala própria adequada. ≠ 1.0 tira o prédio do `InstancedMesh`; volta pra 1.00 devolve pro instanced. `textureTransform` (escala/offset X/Y) existe no tipo e no runtime, mas **ainda não tem UI** |
 | **Letreiro** | Input de texto + seletor de lados | Marca/empresa na fachada (máx 30 chars). Seletor de lados (1–4) aparece quando há texto |
 | **Topo** | Botões | Opções: nenhum, holofotes, heliponto, jardim suspenso ou helicóptero |
 | **LED de arestas** | Botões | Liga/desliga o LED nas arestas verticais e topo |
@@ -234,13 +232,23 @@ Componente que monta o painel completo de configuração da cena. **Escondido po
 | **Luz** | Ambient, hemisphere, directional |
 | **Horizonte** | Configurações de HDRI e skybox |
 | **Terreno** | Relevo procedural ao redor da cidade — ver [[#TerrainControls.tsx]] |
-| **Tela** | Checkbox por componente HTML sobreposto (log de câmera + 3 inputs de geração/posição). Liga/desliga visibilidade; preferência persistida em `localStorage` via [[scene-config#uiVisibilityConfig.ts]]. Seção **Dados salvos**: botão "Limpar dados salvos" |
+| **Tela** | Checkbox por componente HTML sobreposto (log de câmera + 3 inputs de geração/posição). Liga/desliga visibilidade; preferência persistida em `localStorage` via [[scene-config#uiVisibilityConfig.ts]]. Seção **Estados da cidade**: salvar/abrir/excluir estado nomeado. Seção **Dados salvos**: botão "Limpar dados salvos" |
 
 Tipo da aba ativa: `"geral" | "texturas" | "luz" | "horizonte" | "terreno" | "tela"`.
 
-Props extras da aba **Tela**: `uiVisibility: UIVisibilitySettings` + `onUIVisibilityChange` (ver [[scene-types#UIVisibilitySettings]]) e `onClearStorage: () => void`.
+Props extras da aba **Tela**: `uiVisibility: UIVisibilitySettings` + `onUIVisibilityChange` (ver [[scene-types#UIVisibilitySettings]]), `sceneSlots: string[]` + `onSaveSceneSlot`/`onLoadSceneSlot`/`onDeleteSceneSlot` e `onClearStorage: () => void`.
 
-Seção **Dados salvos** — botão vermelho que dispara `onClearStorage`. O editor confirma via `window.confirm`, apaga as chaves `cidoa:scene` + `cidoa:ui-visibility` e recarrega a página (reconstruir o runtime em memória custaria bem mais que um reload). Ver [[scene-config#scenePersistence.ts]].
+Seção **Estados da cidade** — save nomeado da cena inteira (edifícios, personalizações, texturas e settings):
+
+| Controle | Ação |
+|---|---|
+| Input de nome + botão "Salvar" (ou `Enter`) | `onSaveSceneSlot(name)`. Nome vazio desabilita o botão; nome já existente pede confirmação de sobrescrita |
+| Nome na lista | `onLoadSceneSlot(name)` — editor grava o progresso no estado ativo, copia o escolhido para `cidoa:scene` e recarrega a página |
+| "X" vermelho | `onDeleteSceneSlot(name)` — editor confirma e remove do storage |
+
+Painel é presentacional: só valida nome e confirma sobrescrita. Storage fica em [[scene-config#scenePersistence.ts]]; lista de nomes vem do estado `sceneSlots` do editor.
+
+Seção **Dados salvos** — botão vermelho que dispara `onClearStorage`. O editor confirma via `window.confirm`, apaga as chaves `cidoa:scene` + `cidoa:ui-visibility` e recarrega a página (reconstruir o runtime em memória custaria bem mais que um reload). Estados nomeados (`cidoa:scene-slots`) **sobrevivem** a esse botão. Ver [[scene-config#scenePersistence.ts]].
 
 Props extras da aba **Geral** (`blockLayoutSettings: BlockLayoutSettings` + `onBlockLayoutSettingsChange`):
 - seção **Quadras**: `ColorField` edita `lotColor` (cor dos lotes vazios).
@@ -492,7 +500,23 @@ flowchart LR
 
 `CitySceneEditor` lê o estado salvo **uma vez no módulo** (`STORED_SCENE = loadPersistedScene()`) — precisa de referência estável, senão o efeito de semeadura do canvas reexecuta a cada render. Daí saem `INITIAL_DONATIONS`, `INITIAL_BUILDING_CUSTOMIZATIONS` e `INITIAL_SETTINGS`, que viram estado inicial dos `useState` e props `initialDonations`/`initialBuildingCustomizations` do [[three-components|CitySceneCanvas]].
 
-Um `useEffect` grava a cena inteira a cada mudança de doação persistida, personalização ou settings. Ver [[scene-config#scenePersistence.ts]] para o formato.
+`currentScene` (`useMemo<PersistedScene>`) monta a cena serializável a partir de `persistedDonations`, `buildingCustomizations` e todos os settings. Um `useEffect` grava ela em `cidoa:scene` a cada mudança; os handlers de estado nomeado salvam a mesma referência. Ver [[scene-config#scenePersistence.ts]] para o formato.
+
+**Estados nomeados** — `sceneSlots: string[]` (de `listSceneSlots()`) + `activeSceneSlot: string | null` (de `getActiveSceneSlot()`):
+
+| Handler | O que faz |
+|---|---|
+| `handleSaveSceneSlot(name)` | `saveSceneSlot(name, currentScene)`; `false` → `alert` de cota; senão atualiza `sceneSlots` e `activeSceneSlot` |
+| `handleDeleteSceneSlot(name)` | `window.confirm` → `deleteSceneSlot` → atualiza `sceneSlots` e `activeSceneSlot` |
+| `handleLoadSceneSlot(name)` | Ignora se `name === activeSceneSlot`. Existe estado ativo → grava `currentScene` nele primeiro (trocar não perde progresso); não existe → `window.confirm`. Depois `applySceneSlot` → `window.location.reload()` |
+
+### Select de estados (canto superior direito)
+
+`<select>` nativo em `CitySceneEditor`, `absolute right-4 top-4 z-30`. Troca de estado em um clique: `onChange` → `handleLoadSceneSlot(value)`.
+
+- Só aparece com `sceneSlots.length > 0`
+- Some quando [[#CityControlPanel.tsx]] ou [[#BuildingCustomizePanel.tsx]] estão abertos — os dois ocupam o mesmo canto
+- `value = activeSceneSlot ?? ""`; opção extra "Cena atual (não salva)" só existe enquanto `activeSceneSlot` é `null`
 
 **Estado que sustenta isso:**
 

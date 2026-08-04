@@ -42,6 +42,8 @@ export type CityControlPanelProps = {
   environmentSettings: EnvironmentSettings;
   horizonSettings: HorizonSettings;
   uiVisibility: UIVisibilitySettings;
+  /** Nomes dos estados da cidade salvos no localStorage. */
+  sceneSlots: string[];
   sceneStats: SceneStats;
   lightMetrics: {
     ambientDynamic: number;
@@ -59,6 +61,9 @@ export type CityControlPanelProps = {
   onEnvironmentSettingsChange: (settings: EnvironmentSettings) => void;
   onHorizonSettingsChange: (settings: HorizonSettings) => void;
   onUIVisibilityChange: (settings: UIVisibilitySettings) => void;
+  onSaveSceneSlot: (name: string) => void;
+  onLoadSceneSlot: (name: string) => void;
+  onDeleteSceneSlot: (name: string) => void;
   onClearStorage: () => void;
   onClose: () => void;
 };
@@ -75,6 +80,7 @@ export function CityControlPanel({
   environmentSettings,
   horizonSettings,
   uiVisibility,
+  sceneSlots,
   sceneStats,
   lightMetrics,
   onBuildingSettingsChange,
@@ -88,10 +94,22 @@ export function CityControlPanel({
   onEnvironmentSettingsChange,
   onHorizonSettingsChange,
   onUIVisibilityChange,
+  onSaveSceneSlot,
+  onLoadSceneSlot,
+  onDeleteSceneSlot,
   onClearStorage,
   onClose,
 }: CityControlPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>("geral");
+  const [slotName, setSlotName] = useState("");
+
+  const saveSlot = () => {
+    const name = slotName.trim();
+    if (!name) return;
+    if (sceneSlots.includes(name) && !window.confirm(`Sobrescrever o estado "${name}"?`)) return;
+    onSaveSceneSlot(name);
+    setSlotName("");
+  };
 
   return (
     <div className="absolute right-0 top-0 z-20 flex h-screen w-full max-w-[360px] flex-col border-l border-white/10 bg-black/55 text-white shadow-2xl backdrop-blur-md">
@@ -245,6 +263,65 @@ export function CityControlPanel({
                     onUIVisibilityChange({ ...uiVisibility, blockLayoutInput })
                   }
                 />
+              </div>
+            </PanelSection>
+            <PanelSection
+              title="Estados da cidade"
+              description="Salva a cena atual (edifícios, modelos, texturas e ajustes) com um nome. Abrir um estado substitui a cena e recarrega a página."
+            >
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={slotName}
+                    onChange={(event) => setSlotName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") saveSlot();
+                    }}
+                    placeholder="Nome do estado"
+                    className="h-11 min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-white/20"
+                  />
+                  <button
+                    onClick={saveSlot}
+                    disabled={!slotName.trim()}
+                    className="shrink-0 rounded-xl border border-white/15 bg-white/10 px-3 text-sm font-medium text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Salvar
+                  </button>
+                </div>
+
+                {sceneSlots.length === 0 ? (
+                  <p className="text-xs text-white/40">Nenhum estado salvo ainda.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {sceneSlots.map((name) => (
+                      <li key={name} className="flex gap-2">
+                        <button
+                          onClick={() => onLoadSceneSlot(name)}
+                          className="min-w-0 flex-1 truncate rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-left text-sm text-white/85 transition-colors hover:border-white/25 hover:bg-white/10"
+                          title={`Abrir estado "${name}"`}
+                        >
+                          {name}
+                        </button>
+                        <button
+                          onClick={() => onDeleteSceneSlot(name)}
+                          className="flex w-10 shrink-0 items-center justify-center rounded-xl border border-red-400/30 bg-red-500/10 text-red-200 transition-colors hover:bg-red-500/20"
+                          title={`Excluir estado "${name}"`}
+                          aria-label={`Excluir estado ${name}`}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path
+                              d="M6 6l12 12M18 6L6 18"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </PanelSection>
             <PanelSection

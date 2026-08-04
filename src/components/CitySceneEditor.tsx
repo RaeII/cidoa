@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CitySceneCanvas, type CitySceneCanvasHandle } from "./three/CitySceneCanvas";
 import { BuildingHeightInput } from "./html/BuildingHeightInput";
 import { PaymentSimulation, type Payment } from "./html/PaymentSimulation";
@@ -13,10 +13,16 @@ import {
 } from "./hooks/useKeyboardShortcuts";
 import { DEFAULT_SCENE_STATS } from "../scene/config/citySceneConfig";
 import {
+  applySceneSlot,
   clearPersistedScene,
   createDefaultPersistedSettings,
+  deleteSceneSlot,
+  getActiveSceneSlot,
+  listSceneSlots,
   loadPersistedScene,
   savePersistedScene,
+  saveSceneSlot,
+  type PersistedScene,
 } from "../scene/config/scenePersistence";
 import {
   clearUIVisibilitySettings,
@@ -112,6 +118,8 @@ export function CitySceneEditor() {
   const [showControlPanel, setShowControlPanel] = useState(false);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [uiVisibility, setUIVisibility] = useState(loadUIVisibilitySettings);
+  const [sceneSlots, setSceneSlots] = useState(listSceneSlots);
+  const [activeSceneSlot, setActiveSceneSlot] = useState(getActiveSceneSlot);
   const [selectedBuildingId, setSelectedBuildingId] = useState<number | null>(null);
   // Edifício clicado: mostra modal de info (dono + valor). `null` = fechado.
   const [infoBuilding, setInfoBuilding] = useState<{ id: number; value: number } | null>(null);
@@ -145,8 +153,9 @@ export function CitySceneEditor() {
     saveUIVisibilitySettings(uiVisibility);
   }, [uiVisibility]);
 
-  useEffect(() => {
-    savePersistedScene({
+  // Cena serializável do momento — alimenta o autosave e os estados nomeados.
+  const currentScene = useMemo<PersistedScene>(
+    () => ({
       donations: persistedDonations.map((d) => d.value),
       customizations: persistedDonations.map((d) => buildingCustomizations.get(d.id) ?? null),
       settings: {
@@ -161,21 +170,67 @@ export function CitySceneEditor() {
         horizon: horizonSettings,
         blockLayout: blockLayoutSettings,
       },
-    });
-  }, [
-    persistedDonations,
-    buildingCustomizations,
-    buildingSettings,
-    textureSettings,
-    groundSettings,
-    terrainSettings,
-    lightSettings,
-    shadowSettings,
-    renderDirectionSettings,
-    environmentSettings,
-    horizonSettings,
-    blockLayoutSettings,
-  ]);
+    }),
+    [
+      persistedDonations,
+      buildingCustomizations,
+      buildingSettings,
+      textureSettings,
+      groundSettings,
+      terrainSettings,
+      lightSettings,
+      shadowSettings,
+      renderDirectionSettings,
+      environmentSettings,
+      horizonSettings,
+      blockLayoutSettings,
+    ],
+  );
+
+  useEffect(() => {
+    savePersistedScene(currentScene);
+  }, [currentScene]);
+
+  const handleSaveSceneSlot = useCallback(
+    (name: string) => {
+      if (!saveSceneSlot(name, currentScene)) {
+        window.alert("Não foi possível salvar: armazenamento do navegador cheio ou bloqueado.");
+        return;
+      }
+      setSceneSlots(listSceneSlots());
+      setActiveSceneSlot(name);
+    },
+    [currentScene],
+  );
+
+  const handleDeleteSceneSlot = useCallback((name: string) => {
+    if (!window.confirm(`Excluir o estado "${name}"?`)) return;
+    deleteSceneSlot(name);
+    setSceneSlots(listSceneSlots());
+    setActiveSceneSlot(getActiveSceneSlot());
+  }, []);
+
+  // Abrir estado = copiar para a cena ativa e recarregar. Reconstruir o runtime
+  // em memória seria bem mais código que um reload (mesmo caminho do "limpar").
+  // Antes de trocar, grava o progresso no estado atual — trocar pelo select não
+  // pode perder o que mudou desde o último save. Cena que não veio de nenhum
+  // estado não tem onde ser gravada: aí sim confirma.
+  const handleLoadSceneSlot = useCallback(
+    (name: string) => {
+      if (name === activeSceneSlot) return;
+      if (activeSceneSlot) {
+        saveSceneSlot(activeSceneSlot, currentScene);
+      } else if (
+        !window.confirm(
+          "A cena atual não está salva em nenhum estado e será substituída. Continuar?",
+        )
+      ) {
+        return;
+      }
+      if (applySceneSlot(name)) window.location.reload();
+    },
+    [activeSceneSlot, currentScene],
+  );
 
   // Limpa tudo que a cena guarda em localStorage e recarrega: reconstruir o
   // runtime a partir do zero em memória seria bem mais código que um reload.
@@ -327,6 +382,7 @@ export function CitySceneEditor() {
       return {
         color: existing?.color ?? buildingSettings.color,
         facadeStyle: existing?.facadeStyle ?? "default" as const,
+        tilingScale: existing?.tilingScale ?? 1,
         buildingShape: existing?.buildingShape ?? "default" as const,
         rooftopType: existing?.rooftopType ?? "none" as const,
         signText: existing?.signText ?? "",
@@ -376,6 +432,12 @@ export function CitySceneEditor() {
   const handleFacadeStyleChange = useCallback(
     (donationId: number, facadeStyle: FacadeStyle) =>
       updateCustomization(donationId, { facadeStyle }),
+    [updateCustomization],
+  );
+
+  const handleTilingScaleChange = useCallback(
+    (donationId: number, tilingScale: number) =>
+      updateCustomization(donationId, { tilingScale }),
     [updateCustomization],
   );
 
@@ -501,6 +563,30 @@ export function CitySceneEditor() {
         onBuildingClick={handleBuildingClick}
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to from-black/35 to-transparent" />
+      {/* Troca rápida de estado. Esconde quando painel de controle ou de
+          personalização ocupa o canto direito. */}
+      {sceneSlots.length > 0 && !showControlPanel && selectedBuildingId === null && (
+        <select
+          value={activeSceneSlot ?? ""}
+          onChange={(event) => {
+            if (event.target.value) handleLoadSceneSlot(event.target.value);
+          }}
+          className="absolute right-4 top-4 z-30 h-10 max-w-[14rem] cursor-pointer rounded-xl border border-white/10 bg-black/60 px-3 text-sm text-white/80 shadow-lg outline-none backdrop-blur-md transition-colors hover:bg-white/10 hover:text-white focus:border-white/25"
+          title="Trocar estado da cidade"
+          aria-label="Trocar estado da cidade"
+        >
+          {!activeSceneSlot && (
+            <option value="" className="bg-[#05070a] text-white">
+              Cena atual (não salva)
+            </option>
+          )}
+          {sceneSlots.map((name) => (
+            <option key={name} value={name} className="bg-[#05070a] text-white">
+              {name}
+            </option>
+          ))}
+        </select>
+      )}
       {uiVisibility.cameraLog && cameraDebugInfo && (
         <div className="absolute bottom-4 left-4 z-30 w-[min(21rem,calc(100vw-2rem))] select-text rounded-lg border border-white/10 bg-black/70 px-3 py-2 font-mono text-[11px] leading-5 text-white/80 shadow-lg backdrop-blur-md">
           <div className="mb-1 font-sans text-xs font-semibold text-white">Camera default</div>
@@ -557,6 +643,7 @@ export function CitySceneEditor() {
             donationId={selectedBuildingId}
             initialColor={c.color}
             initialFacadeStyle={c.facadeStyle}
+            initialTilingScale={c.tilingScale}
             initialBuildingShape={c.buildingShape}
             initialRooftopType={c.rooftopType}
             initialSignText={c.signText}
@@ -567,6 +654,7 @@ export function CitySceneEditor() {
             initialHologramOpacity={c.hologramOpacity}
             onColorChange={handleBuildingColorChange}
             onFacadeStyleChange={handleFacadeStyleChange}
+            onTilingScaleChange={handleTilingScaleChange}
             onBuildingShapeChange={handleBuildingShapeChange}
             onRooftopChange={handleRooftopChange}
             onSignTextChange={handleSignTextChange}
@@ -602,9 +690,13 @@ export function CitySceneEditor() {
           environmentSettings={environmentSettings}
           horizonSettings={horizonSettings}
           uiVisibility={uiVisibility}
+          sceneSlots={sceneSlots}
           onEnvironmentSettingsChange={setEnvironmentSettings}
           onHorizonSettingsChange={setHorizonSettings}
           onUIVisibilityChange={setUIVisibility}
+          onSaveSceneSlot={handleSaveSceneSlot}
+          onLoadSceneSlot={handleLoadSceneSlot}
+          onDeleteSceneSlot={handleDeleteSceneSlot}
           onClearStorage={handleClearStorage}
           onClose={() => setShowControlPanel(false)}
         />

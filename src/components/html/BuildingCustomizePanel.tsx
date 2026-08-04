@@ -37,7 +37,13 @@ const FACADE_STYLE_OPTIONS: { value: FacadeStyle; label: string }[] = [
   { value: "default", label: "Padrão" },
   { value: "facade001", label: "Vidro azul" },
   { value: "facade002", label: "Vidro noturno" },
+  { value: "facade005", label: "Vidro espelhado" },
+  { value: "facade007", label: "Escritório aceso" },
+  { value: "facade014", label: "Torre noturna" },
+  { value: "facade016", label: "Janelas âmbar" },
   { value: "facade018a", label: "Tijolo" },
+  { value: "facade019a", label: "Concreto cinza" },
+  { value: "facade020a", label: "Tijolo e vidro" },
 ];
 
 const ROOFTOP_OPTIONS: { value: RooftopType; label: string }[] = [
@@ -64,6 +70,7 @@ type BuildingCustomizePanelProps = {
   donationId: number;
   initialColor: string;
   initialFacadeStyle: FacadeStyle;
+  initialTilingScale: number;
   initialBuildingShape: BuildingShape;
   initialRooftopType: RooftopType;
   initialSignText: string;
@@ -74,6 +81,7 @@ type BuildingCustomizePanelProps = {
   initialHologramOpacity: number;
   onColorChange: (donationId: number, color: string) => void;
   onFacadeStyleChange: (donationId: number, facadeStyle: FacadeStyle) => void;
+  onTilingScaleChange: (donationId: number, tilingScale: number) => void;
   onBuildingShapeChange: (donationId: number, shape: BuildingShape) => void;
   onRooftopChange: (donationId: number, rooftopType: RooftopType) => void;
   onSignTextChange: (donationId: number, signText: string) => void;
@@ -89,6 +97,7 @@ export function BuildingCustomizePanel({
   donationId,
   initialColor,
   initialFacadeStyle,
+  initialTilingScale,
   initialBuildingShape,
   initialRooftopType,
   initialSignText,
@@ -99,6 +108,7 @@ export function BuildingCustomizePanel({
   initialHologramOpacity,
   onColorChange,
   onFacadeStyleChange,
+  onTilingScaleChange,
   onBuildingShapeChange,
   onRooftopChange,
   onSignTextChange,
@@ -111,6 +121,7 @@ export function BuildingCustomizePanel({
 }: BuildingCustomizePanelProps) {
   const [color, setColor] = useState(initialColor);
   const [facadeStyle, setFacadeStyle] = useState<FacadeStyle>(initialFacadeStyle);
+  const [tilingScale, setTilingScale] = useState(initialTilingScale);
   const [buildingShape, setBuildingShape] = useState<BuildingShape>(initialBuildingShape);
   const [rooftopType, setRooftopType] = useState<RooftopType>(initialRooftopType);
   const [signText, setSignText] = useState(initialSignText);
@@ -130,6 +141,11 @@ export function BuildingCustomizePanel({
   const handleFacadeStyleChange = (newStyle: FacadeStyle) => {
     setFacadeStyle(newStyle);
     onFacadeStyleChange(donationId, newStyle);
+  };
+
+  const handleTilingScaleChange = (newScale: number) => {
+    setTilingScale(newScale);
+    onTilingScaleChange(donationId, newScale);
   };
 
   const handleBuildingShapeChange = (newShape: BuildingShape) => {
@@ -252,6 +268,20 @@ export function BuildingCustomizePanel({
               </button>
             ))}
           </div>
+        </PanelSection>
+        <PanelSection title="Texturas">
+          <p className="mb-1 text-xs text-white/50">
+            Cada textura de fachada tem sua escala ideal. Vale só neste edifício.
+          </p>
+          <RangeField
+            label="Tiling Scale"
+            value={tilingScale}
+            min={0.2}
+            max={4}
+            step={0.05}
+            onChange={handleTilingScaleChange}
+            valueLabel={`×${tilingScale.toFixed(2)}`}
+          />
         </PanelSection>
         <PanelSection title="Letreiro">
           <label className="block">

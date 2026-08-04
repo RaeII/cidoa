@@ -333,7 +333,13 @@ type FacadeStyle =
   | "default"        // Facade006 — textura global da cena
   | "facade001"      // Facade001 — cortina de vidro azul
   | "facade002"      // Facade002 — vidro noturno (traz mapa de emissão próprio)
+  | "facade005"      // Facade005 — vidro espelhado escuro
+  | "facade007"      // Facade007 — escritório aceso (emissão própria)
+  | "facade014"      // Facade014 — torre noturna, sem mapa de metalness
+  | "facade016"      // Facade016 — janelas âmbar, sem mapa de metalness
   | "facade018a"     // Facade018A — tijolo com janelas
+  | "facade019a"     // Facade019A — concreto cinza com janelas
+  | "facade020a"     // Facade020A — tijolo e vidro
 ```
 
 Quando `facadeStyle !== "default"`, a doação sai do `InstancedMesh` e vira `Mesh` próprio com clone de material. Os mapas do estilo só baixam na primeira vez que algum edifício pede o estilo (ver [[scene-managers#Estilos de fachada por edifício (`facadeStyle`)|facadeStyle]]).

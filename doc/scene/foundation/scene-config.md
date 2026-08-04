@@ -242,14 +242,31 @@ Persiste a cena inteira em `localStorage` (chave `cidoa:scene`): edifícios cria
 
 **O que NÃO é salvo:** edifícios gerados pela seta direita (simulação de pagamento). Existem só na sessão. `handleDonation(value, persist=false)` em [[html-components#CitySceneEditor.tsx]] marca esse caso.
 
-**Funções exportadas:**
+**Funções exportadas (cena ativa):**
 - `createDefaultPersistedSettings()` — junta todos os `createDefault*Settings()`
 - `loadPersistedScene()` — `null` se nada salvo ou JSON corrompido; senão mescla settings recursivamente sobre os defaults (campo novo entra com default, campo removido é descartado) e filtra doações inválidas
 - `savePersistedScene(scene)` — grava; se estourar cota, tenta de novo sem `hologramImage` (data URLs de imagem sozinhas passam do limite) antes de desistir
 - `clearPersistedScene()` — remove a chave
 
 > [!note]
-> Botão "Limpar dados salvos" na aba **tela** do painel apaga esta chave + `cidoa:ui-visibility` e recarrega a página. Ver [[html-components#CityControlPanel.tsx]].
+> Botão "Limpar dados salvos" na aba **tela** do painel apaga esta chave + `cidoa:ui-visibility` e recarrega a página. Estados nomeados ficam. Ver [[html-components#CityControlPanel.tsx]].
+
+#### Estados nomeados (chave `cidoa:scene-slots`)
+
+Saves da cidade escolhidos pelo usuário. Chave separada da cena ativa, formato `Record<nome, PersistedScene>` — mesmo formato acima, então salvar é só copiar `currentScene`.
+
+| Função | O que faz |
+|---|---|
+| `listSceneSlots()` | Nomes ordenados (`localeCompare` pt-BR) |
+| `saveSceneSlot(name, scene)` | Grava/sobrescreve + marca `name` como ativo. `false` = cota estourada mesmo sem hologramas |
+| `deleteSceneSlot(name)` | Remove o nome do record; limpa o ativo se era ele |
+| `applySceneSlot(name)` | Copia o estado para `cidoa:scene` + marca ativo. `false` = nome inexistente |
+| `getActiveSceneSlot()` | Nome do estado que a cena ativa veio de; `null` = cena não salva em nenhum |
+
+Chave `cidoa:scene-active` guarda só esse rótulo (nome do estado ativo) — alimenta o select de troca rápida e o auto-save antes de trocar. `clearPersistedScene()` apaga junto.
+
+> [!important] Abrir estado = reload
+> `applySceneSlot` só troca o conteúdo do storage; quem chama recarrega a página, e o runtime nasce do estado novo no mount. Mesmo caminho do "Limpar dados salvos" — reconstruir o runtime em memória custaria bem mais código. UI em [[html-components#CityControlPanel.tsx]].
 
 ---
 

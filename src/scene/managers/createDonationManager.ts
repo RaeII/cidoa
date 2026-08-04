@@ -96,11 +96,44 @@ import facade002RoughnessSrc from "../../assets/texture/Facade002_1K-PNG/Facade0
 import facade002MetalnessSrc from "../../assets/texture/Facade002_1K-PNG/Facade002_1K-PNG_Metalness.png";
 import facade002DisplacementSrc from "../../assets/texture/Facade002_1K-PNG/Facade002_1K-PNG_Displacement.png";
 import facade002EmissionSrc from "../../assets/texture/Facade002_1K-PNG/Facade002_1K-PNG_Emission.png";
+import facade005ColorSrc from "../../assets/texture/Facade005_1K-JPG/Facade005_1K-JPG_Color.jpg";
+import facade005NormalSrc from "../../assets/texture/Facade005_1K-JPG/Facade005_1K-JPG_NormalGL.jpg";
+import facade005RoughnessSrc from "../../assets/texture/Facade005_1K-JPG/Facade005_1K-JPG_Roughness.jpg";
+import facade005MetalnessSrc from "../../assets/texture/Facade005_1K-JPG/Facade005_1K-JPG_Metalness.jpg";
+import facade005DisplacementSrc from "../../assets/texture/Facade005_1K-JPG/Facade005_1K-JPG_Displacement.jpg";
+import facade007ColorSrc from "../../assets/texture/Facade007_1K-JPG/Facade007_1K-JPG_Color.jpg";
+import facade007NormalSrc from "../../assets/texture/Facade007_1K-JPG/Facade007_1K-JPG_NormalGL.jpg";
+import facade007RoughnessSrc from "../../assets/texture/Facade007_1K-JPG/Facade007_1K-JPG_Roughness.jpg";
+import facade007MetalnessSrc from "../../assets/texture/Facade007_1K-JPG/Facade007_1K-JPG_Metalness.jpg";
+import facade007DisplacementSrc from "../../assets/texture/Facade007_1K-JPG/Facade007_1K-JPG_Displacement.jpg";
+import facade007EmissionSrc from "../../assets/texture/Facade007_1K-JPG/Facade007_1K-JPG_Emission.jpg";
+import facade014ColorSrc from "../../assets/texture/Facade014_1K-JPG/Facade014_1K-JPG_Color.jpg";
+import facade014NormalSrc from "../../assets/texture/Facade014_1K-JPG/Facade014_1K-JPG_NormalGL.jpg";
+import facade014RoughnessSrc from "../../assets/texture/Facade014_1K-JPG/Facade014_1K-JPG_Roughness.jpg";
+import facade014DisplacementSrc from "../../assets/texture/Facade014_1K-JPG/Facade014_1K-JPG_Displacement.jpg";
+import facade014EmissionSrc from "../../assets/texture/Facade014_1K-JPG/Facade014_1K-JPG_Emission.jpg";
+import facade016ColorSrc from "../../assets/texture/Facade016_1K-JPG/Facade016_1K-JPG_Color.jpg";
+import facade016NormalSrc from "../../assets/texture/Facade016_1K-JPG/Facade016_1K-JPG_NormalGL.jpg";
+import facade016RoughnessSrc from "../../assets/texture/Facade016_1K-JPG/Facade016_1K-JPG_Roughness.jpg";
+import facade016DisplacementSrc from "../../assets/texture/Facade016_1K-JPG/Facade016_1K-JPG_Displacement.jpg";
+import facade016EmissionSrc from "../../assets/texture/Facade016_1K-JPG/Facade016_1K-JPG_Emission.jpg";
 import facade018aColorSrc from "../../assets/texture/Facade018A_1K-PNG/Facade018A_1K-PNG_Color.png";
 import facade018aNormalSrc from "../../assets/texture/Facade018A_1K-PNG/Facade018A_1K-PNG_NormalGL.png";
 import facade018aRoughnessSrc from "../../assets/texture/Facade018A_1K-PNG/Facade018A_1K-PNG_Roughness.png";
 import facade018aMetalnessSrc from "../../assets/texture/Facade018A_1K-PNG/Facade018A_1K-PNG_Metalness.png";
 import facade018aDisplacementSrc from "../../assets/texture/Facade018A_1K-PNG/Facade018A_1K-PNG_Displacement.png";
+import facade019aColorSrc from "../../assets/texture/Facade019A_1K-JPG/Facade019A_1K-JPG_Color.jpg";
+import facade019aNormalSrc from "../../assets/texture/Facade019A_1K-JPG/Facade019A_1K-JPG_NormalGL.jpg";
+import facade019aRoughnessSrc from "../../assets/texture/Facade019A_1K-JPG/Facade019A_1K-JPG_Roughness.jpg";
+import facade019aMetalnessSrc from "../../assets/texture/Facade019A_1K-JPG/Facade019A_1K-JPG_Metalness.jpg";
+import facade019aDisplacementSrc from "../../assets/texture/Facade019A_1K-JPG/Facade019A_1K-JPG_Displacement.jpg";
+import facade019aEmissionSrc from "../../assets/texture/Facade019A_1K-JPG/Facade019A_1K-JPG_Emission.jpg";
+import facade020aColorSrc from "../../assets/texture/Facade020A_1K-JPG/Facade020A_1K-JPG_Color.jpg";
+import facade020aNormalSrc from "../../assets/texture/Facade020A_1K-JPG/Facade020A_1K-JPG_NormalGL.jpg";
+import facade020aRoughnessSrc from "../../assets/texture/Facade020A_1K-JPG/Facade020A_1K-JPG_Roughness.jpg";
+import facade020aMetalnessSrc from "../../assets/texture/Facade020A_1K-JPG/Facade020A_1K-JPG_Metalness.jpg";
+import facade020aDisplacementSrc from "../../assets/texture/Facade020A_1K-JPG/Facade020A_1K-JPG_Displacement.jpg";
+import facade020aEmissionSrc from "../../assets/texture/Facade020A_1K-JPG/Facade020A_1K-JPG_Emission.jpg";
 import concreteColorSrc from "../../assets/texture/Concrete024_1K-JPG/Concrete024_1K-JPG_Color.jpg";
 import concreteNormalSrc from "../../assets/texture/Concrete024_1K-JPG/Concrete024_1K-JPG_NormalGL.jpg";
 import concreteRoughnessSrc from "../../assets/texture/Concrete024_1K-JPG/Concrete024_1K-JPG_Roughness.jpg";
@@ -229,11 +262,14 @@ function isTexturelessMaterial(material: THREE.Material): boolean {
   return material.userData.textureless === true;
 }
 
+// Topo é laje de cimento — cor fixa, nunca acompanha a cor do edifício.
+const TOP_CEMENT_COLOR = "#b9b6b1";
+
 type FacadeTextureSet = {
   color: THREE.Texture;
   normal: THREE.Texture;
   roughness: THREE.Texture;
-  metalness: THREE.Texture;
+  metalness: THREE.Texture | null; // alguns conjuntos não trazem mapa de metalness
   displacement: THREE.Texture;
   emissive: THREE.Texture;
 };
@@ -246,7 +282,7 @@ const FACADE_STYLE_SOURCES: Record<
     color: string;
     normal: string;
     roughness: string;
-    metalness: string;
+    metalness?: string; // ausente em alguns conjuntos (dielétricos puros)
     displacement: string;
     emission?: string; // só alguns conjuntos trazem janelas acesas próprias
   }
@@ -266,12 +302,57 @@ const FACADE_STYLE_SOURCES: Record<
     displacement: facade002DisplacementSrc,
     emission: facade002EmissionSrc,
   },
+  facade005: {
+    color: facade005ColorSrc,
+    normal: facade005NormalSrc,
+    roughness: facade005RoughnessSrc,
+    metalness: facade005MetalnessSrc,
+    displacement: facade005DisplacementSrc,
+  },
+  facade007: {
+    color: facade007ColorSrc,
+    normal: facade007NormalSrc,
+    roughness: facade007RoughnessSrc,
+    metalness: facade007MetalnessSrc,
+    displacement: facade007DisplacementSrc,
+    emission: facade007EmissionSrc,
+  },
+  facade014: {
+    color: facade014ColorSrc,
+    normal: facade014NormalSrc,
+    roughness: facade014RoughnessSrc,
+    displacement: facade014DisplacementSrc,
+    emission: facade014EmissionSrc,
+  },
+  facade016: {
+    color: facade016ColorSrc,
+    normal: facade016NormalSrc,
+    roughness: facade016RoughnessSrc,
+    displacement: facade016DisplacementSrc,
+    emission: facade016EmissionSrc,
+  },
   facade018a: {
     color: facade018aColorSrc,
     normal: facade018aNormalSrc,
     roughness: facade018aRoughnessSrc,
     metalness: facade018aMetalnessSrc,
     displacement: facade018aDisplacementSrc,
+  },
+  facade019a: {
+    color: facade019aColorSrc,
+    normal: facade019aNormalSrc,
+    roughness: facade019aRoughnessSrc,
+    metalness: facade019aMetalnessSrc,
+    displacement: facade019aDisplacementSrc,
+    emission: facade019aEmissionSrc,
+  },
+  facade020a: {
+    color: facade020aColorSrc,
+    normal: facade020aNormalSrc,
+    roughness: facade020aRoughnessSrc,
+    metalness: facade020aMetalnessSrc,
+    displacement: facade020aDisplacementSrc,
+    emission: facade020aEmissionSrc,
   },
 };
 
@@ -328,11 +409,11 @@ export function createDonationManager({
       color,
       normal: loadDataTexture(src.normal),
       roughness: loadDataTexture(src.roughness),
-      metalness: loadDataTexture(src.metalness),
+      metalness: src.metalness ? loadDataTexture(src.metalness) : null,
       displacement: loadDataTexture(src.displacement),
       emissive: src.emission ? loadTexture(src.emission) : color,
     };
-    for (const tex of Object.values(set)) tex.anisotropy = maxAniso;
+    for (const tex of Object.values(set)) if (tex) tex.anisotropy = maxAniso;
     facadeTextureCache.set(style, set);
     return set;
   };
@@ -365,6 +446,9 @@ export function createDonationManager({
     material: THREE.MeshPhysicalMaterial,
     cacheKey: string,
     tiling: { value: number },
+    // Topo de cimento: descarta vColor/instanceColor para o InstancedMesh não
+    // pintar a laje com a cor do edifício (instanceColor vale p/ todos os grupos).
+    ignoreInstanceColor = false,
   ) => {
     const tilingMultiplier = { value: 1.0 };
     const textureTransform = {
@@ -446,6 +530,12 @@ export function createDonationManager({
         varying vec3 vTriplanarWorldPos;
         varying vec3 vTriplanarObjNormal;`,
       );
+      if (ignoreInstanceColor) {
+        shader.fragmentShader = shader.fragmentShader.replace(
+          "#include <color_fragment>",
+          "",
+        );
+      }
     };
   };
 
@@ -465,7 +555,7 @@ export function createDonationManager({
   applyTriplanarShader(facadeMaterial, "donation-facade-triplanar", tilingUniform);
 
   const topMaterial = new THREE.MeshPhysicalMaterial({
-    color: buildingSettings.color,
+    color: TOP_CEMENT_COLOR,
     roughness: buildingSettings.roughness,
     metalness: buildingSettings.metalness,
     bumpMap: concreteDisplacementMap,
@@ -475,13 +565,13 @@ export function createDonationManager({
     clearcoatRoughness: 0.02,
     envMapIntensity: 1.8,
   });
-  applyTriplanarShader(topMaterial, "donation-top-triplanar", topTilingUniform);
+  applyTriplanarShader(topMaterial, "donation-top-triplanar", topTilingUniform, true);
 
   // Materiais clonados para o edifício em destaque (opacidade total, independente do instanced)
   const focusFacadeMaterial = facadeMaterial.clone();
   const focusTopMaterial = topMaterial.clone();
   applyTriplanarShader(focusFacadeMaterial, "focus-facade-triplanar", tilingUniform);
-  applyTriplanarShader(focusTopMaterial, "focus-top-triplanar", topTilingUniform);
+  applyTriplanarShader(focusTopMaterial, "focus-top-triplanar", topTilingUniform, true);
 
   let capacity = 512;
   let mesh = new THREE.InstancedMesh(
@@ -1310,13 +1400,10 @@ export function createDonationManager({
     const donation = donations.find((d) => d.id === donationId);
     if (donation?.customization) {
       focusFacadeMaterial.color.set(donation.customization.color);
-      focusTopMaterial.color.set(donation.customization.color);
     } else {
       focusFacadeMaterial.color.copy(currentBuildingColor);
-      focusTopMaterial.color.copy(currentBuildingColor);
     }
     focusFacadeMaterial.needsUpdate = true;
-    focusTopMaterial.needsUpdate = true;
 
     focusHighlightMesh = new THREE.Mesh(buildingGeometry, [focusFacadeMaterial, focusTopMaterial]);
     focusHighlightMesh.applyMatrix4(tmpTransformMatrix);
@@ -1616,9 +1703,7 @@ export function createDonationManager({
       return;
     }
     entry.facadeMat.color.set(color);
-    entry.topMat.color.set(color);
     entry.facadeMat.needsUpdate = true;
-    entry.topMat.needsUpdate = true;
   };
 
   const disposeCustomShapeEntry = (entry: CustomShapeEntry) => {
@@ -1660,9 +1745,8 @@ export function createDonationManager({
         // Re-aplica triplanar shader para que o clone tenha seu próprio
         // uTilingMultiplier (independente do main material).
         applyTriplanarShader(facadeMat, "donation-facade-triplanar", tilingUniform);
-        applyTriplanarShader(topMat, "donation-top-triplanar", topTilingUniform);
+        applyTriplanarShader(topMat, "donation-top-triplanar", topTilingUniform, true);
         facadeMat.color.set(customization.color);
-        topMat.color.set(customization.color);
         facadeMat.userData.tilingMultiplier.value = customization.tilingScale;
         topMat.userData.tilingMultiplier.value = customization.tilingScale;
         setMaterialTextureTransform(facadeMat, customization.textureTransform);
@@ -1906,7 +1990,7 @@ export function createDonationManager({
     updateBuildingSettings(settings) {
       currentBuildingColor.set(settings.color); // manter em sync para instanceColor fallback
       facadeMaterial.color.set(settings.color);
-      topMaterial.color.set(settings.color);
+      // topMaterial mantém TOP_CEMENT_COLOR — laje de cimento não muda de cor.
       // Roughness/metalness afetam todos os materiais (inclui clones twisted).
       // Cor é específica por edifício para clones — não sobrescrever aqui.
       if (!currentTextureSettings.enabled) {
@@ -2118,9 +2202,7 @@ export function createDonationManager({
         updateCustomShapeColor(donationId, customization.color);
       } else if (focusedDonationId === donationId && focusHighlightMesh) {
         focusFacadeMaterial.color.set(customization.color);
-        focusTopMaterial.color.set(customization.color);
         focusFacadeMaterial.needsUpdate = true;
-        focusTopMaterial.needsUpdate = true;
       } else if (focusedDonationId === null) {
         applyInstanceColors();
       }
@@ -2230,7 +2312,7 @@ export function createDonationManager({
         set.color.dispose();
         set.normal.dispose();
         set.roughness.dispose();
-        set.metalness.dispose();
+        set.metalness?.dispose();
         set.displacement.dispose();
         if (set.emissive !== set.color) set.emissive.dispose();
       }
