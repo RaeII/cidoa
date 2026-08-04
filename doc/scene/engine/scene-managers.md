@@ -28,7 +28,7 @@ Manager principal da cena atual. Gerencia os prédios como representações visu
 
 **Responsabilidades:**
 - Manter a lista de doações (`DonationEntry[]`) ordenada por valor decrescente
-- Criar e atualizar um único `InstancedMesh` com capacidade para até 500 prédios
+- Criar e atualizar um `InstancedMesh` **por estilo de fachada** em uso (buckets), com capacidade crescendo sob demanda
 - Posicionar prédios em **espiral quadrada** a partir do centro
 - Calcular altura proporcional ao valor máximo
 - Carregar e aplicar texturas PBR (cor, normal, roughness, metalness, displacement, emissive)
@@ -88,7 +88,8 @@ O manager usa um único par de materiais para prédios e um material de asfalto 
 
 | Material | Tipo | Descrição |
 |---|---|---|
-| `facadeMaterial` | `MeshPhysicalMaterial` | Textura de fachada com shader triplanar + cube envMap dinâmico |
+| `facadeMaterial` | `MeshPhysicalMaterial` | Textura de fachada com shader triplanar + cube envMap dinâmico. Material do bucket `"default"` |
+| `bucket.facadeMat` | `MeshPhysicalMaterial` | Um clone de `facadeMaterial` por estilo de fachada em uso (`createBucketMaterial`), com `userData.facadeStyle` próprio. Segue cor/opacidade globais junto do original (`getSharedFacadeMaterials`) |
 | `topMaterial` | `MeshPhysicalMaterial` | Textura de concreto para o topo dos prédios. Cor fixa `TOP_CEMENT_COLOR` (#b9b6b1) — laje de cimento, **nunca** segue `buildingSettings.color` nem `customization.color` |
 | `focusFacadeMaterial` | `MeshPhysicalMaterial` | Clone do facadeMaterial para o edifício em destaque (opacidade total quando o instanced mesh fica semitransparente) |
 | `focusTopMaterial` | `MeshPhysicalMaterial` | Clone do topMaterial para o edifício em destaque |
@@ -181,10 +182,10 @@ dispose(): void
 
 Quando o usuário clica em um edifício, `setFocusedDonation(donationId)` cria um destaque visual:
 
-1. **Instanced mesh** fica semitransparente (`opacity: 0.15`) — toda a cidade some sutilmente
+1. **Materiais de fachada compartilhados** (`getSharedFacadeMaterials`: default + um por bucket) e `topMaterial` ficam semitransparentes (`opacity: 0.15`) — toda a cidade some sutilmente
 2. **Mesh isolado** (`focusHighlightMesh`) é criado com os materiais de foco (`focusFacadeMaterial` / `focusTopMaterial`) na posição exata do edifício, com opacidade total
-3. Se o edifício tem **cor customizada**, os materiais de foco recebem essa cor
-4. O `instanceColor` do instanced mesh é limpo durante o foco para usar a opacidade uniforme
+3. Se o edifício tem **cor customizada**, os materiais de foco recebem essa cor. `focusFacadeMaterial` também recebe o **estilo efetivo** do prédio (`userData.facadeStyle` + `applyFacadeTextures`) — destaque mostra a mesma fachada, não a default
+4. O `instanceColor` de **todos os buckets** é limpo durante o foco para usar a opacidade uniforme
 
 Ao chamar `setFocusedDonation(null)`, a opacidade é restaurada a 1.0, o mesh isolado é removido e o `instanceColor` é reaplicado.
 
@@ -192,7 +193,7 @@ Ao chamar `setFocusedDonation(null)`, a opacidade é restaurada a 1.0, o mesh is
 
 #### Animação de Entrada (Novo Edifício)
 
-`addDonation` (fluxo de pagamento, tecla `ArrowRight`) dispara `startEntrance(id)` após o `rebuildInstances`. Sem isso o prédio surgia instantâneo — impossível saber qual entrou. O prédio já surge pronto (escala cheia), animando só a posição vertical via `instanceMatrix` (doação nova não tem customização → sempre instanced).
+`addDonation` (fluxo de pagamento, tecla `ArrowRight`) dispara `startEntrance(id)` após o `rebuildInstances`. Sem isso o prédio surgia instantâneo — impossível saber qual entrou. O prédio já surge pronto (escala cheia), animando só a posição vertical via `instanceMatrix` do **bucket dele** (`donationIdToInstance` → `{bucket, index}`; doação nova não tem customização → sempre instanced).
 
 - **Queda com slam** (`tickEntrance`, `ENTRANCE_DURATION = 2.2s`): surge flutuando `ENTRANCE_LIFT = 5` acima da posição final; **levita** com bob leve até 30% do tempo (`HOVER_END`), **cai devagar** até 80% (`SLOW_END`, desce 60% da altura), depois **despenca** acelerando (`k²`, gravidade) até encostar no chão.
 - **Poeira de impacto** (`spawnDust` / `tickDust`): ao encostar (`offset ≤ 0.02`, uma vez via flag `landed`), solta um burst de `THREE.Points` (30 partículas, textura radial gerada por canvas — sem asset externo) com velocidade radial + jato pra cima; integra gravidade + arrasto e some em `DUST_DURATION = 0.9s`. `Points` único reusado (1 impacto por vez).
@@ -202,7 +203,7 @@ Ao chamar `setFocusedDonation(null)`, a opacidade é restaurada a 1.0, o mesh is
 
 #### Cores Individuais por Edifício
 
-Quando um edifício recebe uma customização via `updateDonationCustomization`, a cor é armazenada em `DonationEntry.customization` e aplicada via `InstancedBufferAttribute` (instanceColor). Edifícios sem customização usam a cor global do material. O sistema é reativado a cada `rebuildInstances` ou mudança de `BuildingSettings`.
+Quando um edifício recebe uma customização via `updateDonationCustomization`, a cor é armazenada em `DonationEntry.customization` e aplicada via `InstancedBufferAttribute` (instanceColor) **no bucket dele** — `applyInstanceColors` percorre os buckets e monta um buffer por bucket, indexado por `bucket.donationIds`. Sem nenhuma customização na cena, todo `instanceColor` vira `null` (cor do material). O sistema é reativado a cada `rebuildInstances` ou mudança de `BuildingSettings`.
 
 Para edifícios com `buildingShape !== "default"`, a cor é aplicada diretamente nos materiais clonados (sem instanceColor) via `updateCustomShapeColor`.
 
@@ -213,9 +214,10 @@ Para edifícios com `buildingShape !== "default"`, a cor é aplicada diretamente
 Algumas personalizações precisam de **estado de material próprio** por edifício e não cabem no `InstancedMesh` (que compartilha um único material). O helper `needsCustomMesh(customization)` define quando uma doação sai do InstancedMesh e passa a ser desenhada como `Mesh` dedicado em `customShapeMeshes`:
 
 - `buildingShape !== "default"` (ex: torre torcida, octogonal, setback, tapered, Chrysler, Hearst, Empire, Taipei ou One Trade)
-- `facadeStyle !== "default"` (conjunto PBR de fachada próprio por edifício)
 - `Math.abs(tilingScale - 1) > 0.001` (tiling de textura customizado por edifício)
 - `textureTransform` diferente do padrão `{ scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0 }` (ajuste manual de textura por edifício)
+
+`facadeStyle` **não** está nessa lista: estilo de fachada é resolvido por bucket (ver [[#Buckets de fachada (1 InstancedMesh por estilo)]]), então prédio com fachada sorteada/customizada continua instanciado.
 
 Quando a flag transiciona (entra ou sai do `customShapeMeshes`), `updateDonationCustomization` chama `rebuildInstances()` e re-aplica `applyFocus(focusedDonationId)`. Mudanças que não atravessam essa fronteira (ex: ajustar tiling de 2.0 → 2.5 num prédio que já é custom) atualizam direto o uniform `uTilingMultiplier` do material — sem rebuild.
 
@@ -241,9 +243,41 @@ Pontos de integração:
 
 - Os clones são incluídos em `getAllFacadeMaterials()` / `getAllTopMaterials()` para que `applyTextureToFacade`, `applyTextureToTop`, `updateBuildingSettings`, `setEnvMap`, `beginEnvCapture`/`endEnvCapture` e `setShadowEnabled` propaguem mudanças globais para eles.
 - `setFocusedDonation` dim os clones para `0.15` quando outro prédio está focado, mantém em `1.0` se o custom é o focado, e dispensa o `focusHighlightMesh` (o próprio Mesh já é separado).
-- `getHoveredValue` / `getClickedDonationId` estendem o raycast para `[mesh, ...customShapeMeshes]` e leem `donationId`/`donationValue` de `userData`.
+- `getHoveredValue` / `getClickedDonationId` estendem o raycast para `[...buckets com count > 0, ...customShapeMeshes]` e leem `donationId`/`donationValue` de `userData`.
 - O map `donationTransforms: Map<id, {position, scale}>` é a **fonte única** dos transforms lógicos: acessórios (rooftop/sign/edge) usam `readDonationTransform` que lê desse map, então funcionam igual para edifícios custom sem precisar saber se viraram Mesh separado.
 - `dispose()` limpa cada clone (`facadeMat.dispose()` + `topMat.dispose()`) e chama `disposeTwistedBuildingSharedResources()` / `disposeOctagonalBuildingSharedResources()` / `disposeSetbackBuildingSharedResources()`.
+
+#### Buckets de fachada (1 InstancedMesh por estilo)
+
+Geração em lote sorteia a fachada de cada prédio, então a cidade não fica toda igual. Um `Mesh` por prédio custaria N draw calls + N materiais; a saída é **agrupar por estilo**: um `InstancedMesh` por estilo de fachada em uso.
+
+```
+estilo efetivo = customization?.facadeStyle ?? randomFacadeStyle(donationId)
+```
+
+`randomFacadeStyle` ([[scene-utils#`facadeStyle.ts`]]) é determinístico pelo id — nada de estado novo, nada a persistir.
+
+| Peça | Papel |
+|---|---|
+| `FacadeBucket` | `{ mesh, facadeMat, capacity, count, values[], donationIds[] }` — um por estilo em uso |
+| `ensureBucket(style, needed)` | Cria/expande o bucket (fator 1.5, mínimo 64). Materiais sobrevivem à expansão; só o `InstancedMesh` é recriado |
+| `createBucketMaterial(style)` | `"default"` devolve o próprio `facadeMaterial`; outros estilos clonam, re-aplicam `applyTriplanarShader` (uniforms próprios) e gravam `userData.facadeStyle` |
+| `placeInstance(donation)` | Escreve `dummy.matrix` no bucket do estilo e registra `donationIdToInstance: Map<id, {bucket, index}>` |
+| `bucketByMesh(object)` | Raycast → bucket (loop sobre ≤10 buckets) |
+
+Fluxo em `rebuildInstances`:
+
+1. **Pré-contagem** por estilo (só doações sem mesh próprio) → `ensureBucket(style, count)` para cada. Capacidade **antes** de escrever: recriar o `InstancedMesh` no meio do preenchimento descartaria as matrizes já gravadas.
+2. Zera `bucket.count`; loops de torre/base chamam `placeInstance` em vez de `mesh.setMatrixAt(instanceIdx++)`.
+3. Fecha cada bucket (`mesh.count = bucket.count`, `instanceMatrix.needsUpdate`, `boundingSphere = null`).
+4. Em DEV, `console.assert` confere a invariante: soma dos `count` = doações sem mesh próprio (falha = prédio invisível por capacidade/pré-contagem fora de sincronia).
+
+Custo: **N estilos em uso = N draw calls** (× 2 grupos de material, fachada + laje), não 1 por prédio. Todos os buckets compartilham `buildingGeometry` e `topMaterial`.
+
+O que passou a ser por bucket: `instanceColor` (cores individuais), opacidade de foco, `castShadow`, alvos de raycast, matriz da animação de entrada e o `dispose()`.
+
+> [!warning] Trocar fachada de prédio instanciado exige rebuild
+> Prédio muda de bucket → `updateDonationCustomization` chama `rebuildInstances()` (só quando o prédio **não** tem mesh próprio). Comparação usa o estilo **efetivo**, não o campo cru — senão prédio sem customização (estilo sorteado) acusaria troca contra `"default"` a cada edição.
 
 #### Estilos de fachada por edifício (`facadeStyle`)
 
@@ -267,7 +301,8 @@ Mecânica:
 - `FACADE_STYLE_SOURCES` (nível de módulo) guarda só as **URLs** dos assets. Nada baixa no boot.
 - `getFacadeTextures(style)` carrega e cacheia o conjunto na primeira vez que um edifício pede o estilo, aplicando `maxAnisotropy`. `"default"` já entra pré-populado no cache. Conjunto sem `metalness` vira `metalness: null` → `mat.metalnessMap = null`, e o patch triplanar já protege o UV com `#ifdef USE_METALNESSMAP`.
 - `applyFacadeTextures(mat, settings)` aplica os mapas num material. A escolha do conjunto vem de `mat.userData.facadeStyle` — string simples, sobrevive ao `JSON` clone que o `Material.copy` faz do `userData`. `applyTextureToFacade` é só o loop disso sobre `getAllFacadeMaterials()`, então ajustes globais de textura respeitam o estilo de cada clone.
-- Troca entre dois estilos custom (ex: `facade001` → `facade002`) não faz rebuild: o prédio já tem mesh próprio, então `updateDonationCustomization` só regrava `userData.facadeStyle` e reaplica os mapas. Entrar/sair de `"default"` atravessa `needsCustomMesh` e cai no `rebuildInstances()`.
+- Troca de estilo em prédio com **mesh próprio** (shape custom) não faz rebuild: `updateDonationCustomization` só regrava `userData.facadeStyle` e reaplica os mapas. Em prédio **instanciado**, a troca muda o bucket → `rebuildInstances()`.
+- Estilo sem customização vem do sorteio (`randomFacadeStyle`), então na prática **todos** os estilos do pool carregam na primeira geração em lote grande (~10 conjuntos, ver [[scene-utils#`facadeStyle.ts`]]). Carregamento segue assíncrono: prédio aparece com a textura anterior e troca quando o mapa chega.
 - `dispose()` libera os conjuntos carregados sob demanda (o `"default"` já sai em `allTextures`; `emissive` só é descartado quando não é o mesmo objeto do color map).
 
 > [!tip] Adicionando novas customizações de material
@@ -282,7 +317,7 @@ Cada edifício pode ter um acessório 3D no topo, como holofotes ou heliponto, g
 
 - **Posicionamento:** após cada `rebuildInstances`, `syncRooftops()` reposiciona todos os grupos no topo dos edifícios correspondentes.
 - **Criação/remoção:** `setRooftop(donationId, type)` remove o grupo anterior e cria um novo se `type !== "none"`.
-- **Performance:** o lookup do edifício usa `donationIdToInstanceIndex` em vez de `indexOf`, e os transforms temporários são reutilizados nos syncs.
+- **Performance:** o lookup do edifício usa `donationTransforms` / `donationIdToInstance` em vez de `indexOf`, e os transforms temporários são reutilizados nos syncs.
 - **Sombras:** `setRooftopMeshShadowEnabled()` respeita apenas meshes sólidos; lentes emissivas e feixes transparentes não entram no shadow map.
 - **Cleanup:** no `dispose()`, todos os grupos são removidos e `disposeRooftopSharedResources()` limpa geometrias e materiais compartilhados.
 

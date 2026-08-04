@@ -342,7 +342,7 @@ type FacadeStyle =
   | "facade020a"     // Facade020A — tijolo e vidro
 ```
 
-Quando `facadeStyle !== "default"`, a doação sai do `InstancedMesh` e vira `Mesh` próprio com clone de material. Os mapas do estilo só baixam na primeira vez que algum edifício pede o estilo (ver [[scene-managers#Estilos de fachada por edifício (`facadeStyle`)|facadeStyle]]).
+Estilo **não** tira o prédio do instancing: cada estilo em uso tem seu próprio `InstancedMesh` (bucket) com clone de material. Doação **sem customização** usa estilo sorteado pelo id (`randomFacadeStyle`, ver [[scene-utils#`facadeStyle.ts`]]) — é o que dá variedade na geração em lote. Os mapas do estilo só baixam na primeira vez que algum edifício pede o estilo (ver [[scene-managers#Buckets de fachada (1 InstancedMesh por estilo)|buckets de fachada]]).
 
 ### `BuildingCustomization`
 
@@ -372,7 +372,7 @@ Armazenada opcionalmente em cada `DonationEntry`. Cada campo controla um aspecto
 | Campo | Efeito | Implementação |
 |---|---|---|
 | `color` | Cor individual do edifício | `InstancedBufferAttribute` (instanceColor) quando o prédio fica no `InstancedMesh`; cor direta no clone do material quando vira mesh próprio |
-| `facadeStyle` | Conjunto de texturas PBR da fachada **só nesse edifício** | Faz o prédio sair do `InstancedMesh` (quando ≠ `"default"`) e virar `Mesh` próprio com clone de material; mapas carregados sob demanda (ver [[scene-managers#Estilos de fachada por edifício (`facadeStyle`)\|facadeStyle]]) |
+| `facadeStyle` | Conjunto de texturas PBR da fachada **só nesse edifício** | Move o prédio para o bucket (`InstancedMesh`) daquele estilo — continua instanciado; mapas carregados sob demanda. Sem customização, vale o sorteio por id (ver [[scene-managers#Buckets de fachada (1 InstancedMesh por estilo)\|buckets de fachada]]) |
 | `buildingShape` | Formato volumétrico do edifício | `default`: caixa padrão; demais valores usam builders dedicados em [[scene-builders]] |
 | `tilingScale` | Multiplicador de tiling da textura aplicado **só nesse edifício** | Faz o prédio sair do `InstancedMesh` (quando ≠ 1.0) e virar `Mesh` próprio com clone de material e uniform `uTilingMultiplier` dedicado |
 | `textureTransform` | Ajuste manual da textura aplicado **só nesse edifício** | Faz o prédio sair do `InstancedMesh` quando diferente do padrão e ajusta `scaleX`, `scaleY`, `offsetX`, `offsetY` via uniform dedicado |

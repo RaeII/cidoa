@@ -78,6 +78,7 @@ import {
   disposeOneTradeBuildingSharedResources,
 } from "../builders/createOneTradeBuildingMesh";
 import { seeded } from "../utils/random";
+import { randomFacadeStyle } from "../utils/facadeStyle";
 
 import colorTextureSrc from "../../assets/texture/Facade006_1K-mirrored-PNG/Facade006_1K-PNG_Color.png";
 import normalTextureSrc from "../../assets/texture/Facade006_1K-mirrored-PNG/Facade006_1K-PNG_NormalGL.png";
@@ -573,19 +574,86 @@ export function createDonationManager({
   applyTriplanarShader(focusFacadeMaterial, "focus-facade-triplanar", tilingUniform);
   applyTriplanarShader(focusTopMaterial, "focus-top-triplanar", topTilingUniform, true);
 
-  let capacity = 512;
-  let mesh = new THREE.InstancedMesh(
-    buildingGeometry,
-    [facadeMaterial, topMaterial],
-    capacity,
-  );
-  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  mesh.count = 0;
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  scene.add(mesh);
-
   let shadowEnabled = true;
+
+  // --- Buckets de fachada ---
+  // Um InstancedMesh por estilo PBR em uso. O estilo de cada edifício vem da
+  // customização ou de um sorteio determinístico pelo id (randomFacadeStyle), então
+  // a cidade fica variada sem sair do instancing: N estilos em uso = N draw calls,
+  // não 1 mesh por edifício. O topo (laje de cimento) é o mesmo material em todos.
+  type FacadeBucket = {
+    mesh: THREE.InstancedMesh;
+    facadeMat: THREE.MeshPhysicalMaterial;
+    capacity: number;
+    count: number;
+    values: number[];      // índice de instância → valor da doação
+    donationIds: number[]; // índice de instância → id da doação
+  };
+  const buckets = new Map<FacadeStyle, FacadeBucket>();
+
+  const createBucketMaterial = (style: FacadeStyle): THREE.MeshPhysicalMaterial => {
+    if (style === "default") return facadeMaterial;
+    const mat = facadeMaterial.clone();
+    // Clone precisa dos próprios uniforms de tiling/transform (closures não são
+    // clonadas) e do estilo marcado pra applyFacadeTextures escolher os mapas.
+    applyTriplanarShader(mat, "donation-facade-triplanar", tilingUniform);
+    mat.userData.facadeStyle = style;
+    applyFacadeTextures(mat, currentTextureSettings);
+    return mat;
+  };
+
+  const ensureBucket = (style: FacadeStyle, needed: number): FacadeBucket => {
+    const existing = buckets.get(style);
+    if (existing && existing.capacity >= needed) return existing;
+
+    let bucketCapacity = Math.max(64, existing?.capacity ?? 0);
+    while (bucketCapacity < needed) bucketCapacity = Math.ceil(bucketCapacity * 1.5);
+
+    const facadeMat = existing?.facadeMat ?? createBucketMaterial(style);
+    if (existing) {
+      scene.remove(existing.mesh);
+      existing.mesh.dispose();
+    }
+    const bucketMesh = new THREE.InstancedMesh(
+      buildingGeometry,
+      [facadeMat, topMaterial],
+      bucketCapacity,
+    );
+    bucketMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    bucketMesh.count = 0;
+    bucketMesh.castShadow = shadowEnabled;
+    bucketMesh.receiveShadow = true;
+    scene.add(bucketMesh);
+
+    if (existing) {
+      existing.mesh = bucketMesh;
+      existing.capacity = bucketCapacity;
+      return existing;
+    }
+    const bucket: FacadeBucket = {
+      mesh: bucketMesh,
+      facadeMat,
+      capacity: bucketCapacity,
+      count: 0,
+      values: [],
+      donationIds: [],
+    };
+    buckets.set(style, bucket);
+    return bucket;
+  };
+
+  const bucketByMesh = (object: THREE.Object3D): FacadeBucket | undefined => {
+    for (const bucket of buckets.values()) {
+      if (bucket.mesh === object) return bucket;
+    }
+    return undefined;
+  };
+
+  // Estilo efetivo do edifício: customização manual vence; sem ela, o sorteio por id.
+  const effectiveFacadeStyle = (
+    donationId: number,
+    customization?: BuildingCustomization,
+  ): FacadeStyle => customization?.facadeStyle ?? randomFacadeStyle(donationId);
 
   // --- Rede de estradas (asfalto entre blocos) ---
   const asphaltMaterial = new THREE.MeshStandardMaterial({
@@ -906,9 +974,7 @@ export function createDonationManager({
   const dummy = new THREE.Object3D();
   const raycaster = new THREE.Raycaster();
   const mouseVec = new THREE.Vector2();
-  const instanceToValue: number[] = [];
-  const instanceToDonationId: number[] = [];
-  const donationIdToInstanceIndex = new Map<number, number>();
+  const donationIdToInstance = new Map<number, { bucket: FacadeBucket; index: number }>();
   const donationTransforms = new Map<number, { position: THREE.Vector3; scale: THREE.Vector3 }>();
   // Prédios com formato customizado (ex: twisted) renderizam como Mesh próprio
   // — pulam alocação no InstancedMesh e mantêm clones de material por edifício.
@@ -925,14 +991,17 @@ export function createDonationManager({
   const tmpTransformQuaternion = new THREE.Quaternion();
   const tmpTransformScale = new THREE.Vector3();
 
-  const setInstanceMetadata = (
-    instanceIndex: number,
-    donationId: number,
-    value: number,
-  ) => {
-    instanceToValue[instanceIndex] = value;
-    instanceToDonationId[instanceIndex] = donationId;
-    donationIdToInstanceIndex.set(donationId, instanceIndex);
+  // Escreve a matriz corrente (dummy) no bucket do estilo de fachada da doação.
+  const placeInstance = (donation: DonationEntry) => {
+    const bucket = buckets.get(
+      effectiveFacadeStyle(donation.id, donation.customization),
+    );
+    if (!bucket) return;
+    const index = bucket.count++;
+    bucket.mesh.setMatrixAt(index, dummy.matrix);
+    bucket.values[index] = donation.value;
+    bucket.donationIds[index] = donation.id;
+    donationIdToInstance.set(donation.id, { bucket, index });
   };
 
   // Lê position/scale lógicos da doação a partir de um map, independentemente
@@ -952,8 +1021,21 @@ export function createDonationManager({
     return true;
   };
 
+  // Fachadas que seguem cor/opacidade globais: material default + clones por estilo
+  // (buckets). Clones de shape custom têm cor própria por edifício e ficam de fora.
+  const getSharedFacadeMaterials = (): THREE.MeshPhysicalMaterial[] => {
+    const list: THREE.MeshPhysicalMaterial[] = [facadeMaterial];
+    for (const bucket of buckets.values()) {
+      if (bucket.facadeMat !== facadeMaterial) list.push(bucket.facadeMat);
+    }
+    return list;
+  };
+
   const getAllFacadeMaterials = (): THREE.MeshPhysicalMaterial[] => {
-    const list: THREE.MeshPhysicalMaterial[] = [facadeMaterial, focusFacadeMaterial];
+    const list: THREE.MeshPhysicalMaterial[] = [
+      ...getSharedFacadeMaterials(),
+      focusFacadeMaterial,
+    ];
     for (const entry of customShapeMeshes.values()) list.push(entry.facadeMat);
     return list;
   };
@@ -1040,22 +1122,6 @@ export function createDonationManager({
   applyTextureToFacade(textureSettings);
   applyTextureToTop(textureSettings);
 
-  // Expande o InstancedMesh e as posições de espiral quando o total excede a capacidade atual.
-  const growIfNeeded = (needed: number) => {
-    if (needed <= capacity) return;
-    while (capacity < needed) capacity = Math.ceil(capacity * 1.5);
-    if (spiralPositions.length < capacity) {
-      spiralPositions = generateSpiralPositions(capacity);
-    }
-    scene.remove(mesh);
-    mesh.dispose();
-    mesh = new THREE.InstancedMesh(buildingGeometry, [facadeMaterial, topMaterial], capacity);
-    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    mesh.castShadow = shadowEnabled;
-    mesh.receiveShadow = true;
-    scene.add(mesh);
-  };
-
   // Sistema de 2 camadas: torres + base urbana.
   //
   // Torres (top towerRatio%) usam o range completo de altura e ocupam os N slots
@@ -1069,7 +1135,7 @@ export function createDonationManager({
   const needsCustomMesh = (c?: BuildingCustomization): boolean => {
     if (!c) return false;
     if (c.buildingShape !== "default") return true;
-    if (c.facadeStyle && c.facadeStyle !== "default") return true;
+    // Estilo de fachada NÃO exige mesh próprio — vai pro bucket daquele estilo.
     if (Math.abs(c.tilingScale - 1) > 0.001) return true;
     if (!isDefaultTextureTransform(c.textureTransform)) return true;
     return false;
@@ -1127,9 +1193,7 @@ export function createDonationManager({
 
   const rebuildInstances = () => {
     donationTransforms.clear();
-    instanceToValue.length = 0;
-    instanceToDonationId.length = 0;
-    donationIdToInstanceIndex.clear();
+    donationIdToInstance.clear();
 
     const { blockSize, streetWidth, towerRatio, towersPerBlock, baseHeightCap } = currentBlockLayout;
     const tpb = Math.max(1, Math.min(towersPerBlock, blockSize * blockSize));
@@ -1231,7 +1295,18 @@ export function createDonationManager({
     }
 
     // --- Posicionar instâncias ---
-    let instanceIdx = 0;
+    // Pré-contagem por estilo de fachada: cada bucket precisa da capacidade final
+    // ANTES de receber matrizes — recriar o InstancedMesh no meio do preenchimento
+    // descartaria as instâncias já escritas.
+    const styleCounts = new Map<FacadeStyle, number>();
+    for (const donation of donations) {
+      if (needsCustomMesh(donation.customization)) continue;
+      const style = effectiveFacadeStyle(donation.id, donation.customization);
+      styleCounts.set(style, (styleCounts.get(style) ?? 0) + 1);
+    }
+    for (const [style, count] of styleCounts) ensureBucket(style, count);
+    for (const bucket of buckets.values()) bucket.count = 0;
+
     const maxBaseValue = donations[towerCount]?.value ?? maxValue;
     // Slots de quadra sem edifício → coletados como lotes demarcados (loteamento esperando).
     const emptyLots: Array<[number, number]> = [];
@@ -1286,9 +1361,7 @@ export function createDonationManager({
         // (formato torcido, tilingScale ≠ 1.0, etc) pulam alocação no InstancedMesh —
         // são desenhados como Mesh próprio em syncCustomShapes.
         if (!needsCustomMesh(donations[donIdx].customization)) {
-          mesh.setMatrixAt(instanceIdx, dummy.matrix);
-          setInstanceMetadata(instanceIdx, id, donations[donIdx].value);
-          instanceIdx++;
+          placeInstance(donations[donIdx]);
         }
       }
 
@@ -1306,9 +1379,7 @@ export function createDonationManager({
         dummy.updateMatrix();
         recordTransform(id);
         if (!needsCustomMesh(donations[donIdx].customization)) {
-          mesh.setMatrixAt(instanceIdx, dummy.matrix);
-          setInstanceMetadata(instanceIdx, id, donations[donIdx].value);
-          instanceIdx++;
+          placeInstance(donations[donIdx]);
         }
       }
 
@@ -1321,9 +1392,26 @@ export function createDonationManager({
       }
     }
 
-    mesh.count = instanceIdx;
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.boundingSphere = null; // força recomputação na próxima chamada de raycast
+    let placedInstances = 0;
+    for (const bucket of buckets.values()) {
+      bucket.mesh.count = bucket.count;
+      bucket.mesh.instanceMatrix.needsUpdate = true;
+      bucket.mesh.boundingSphere = null; // força recomputação na próxima chamada de raycast
+      placedInstances += bucket.count;
+    }
+
+    // Invariante do bucketing: todo prédio sem mesh próprio entrou em algum bucket.
+    // Falha aqui = pré-contagem/capacidade fora de sincronia (prédios invisíveis).
+    if (import.meta.env.DEV) {
+      let expected = 0;
+      for (const donation of donations) {
+        if (!needsCustomMesh(donation.customization)) expected++;
+      }
+      console.assert(
+        placedInstances === expected,
+        `bucket de fachada perdeu instâncias: ${placedInstances} de ${expected}`,
+      );
+    }
 
     // Aplicar cores individuais (customização) por instância
     applyInstanceColors();
@@ -1375,7 +1463,7 @@ export function createDonationManager({
     removeFocusHighlight();
 
     if (donationId === null) {
-      setMatOpacity(facadeMaterial, 1);
+      for (const mat of getSharedFacadeMaterials()) setMatOpacity(mat, 1);
       setMatOpacity(topMaterial, 1);
       for (const entry of customShapeMeshes.values()) {
         setCustomShapeOpacity(entry, 1);
@@ -1384,9 +1472,9 @@ export function createDonationManager({
       return;
     }
 
-    setMatOpacity(facadeMaterial, 0.15);
+    for (const mat of getSharedFacadeMaterials()) setMatOpacity(mat, 0.15);
     setMatOpacity(topMaterial, 0.15);
-    mesh.instanceColor = null;
+    for (const bucket of buckets.values()) bucket.mesh.instanceColor = null;
 
     for (const [donId, entry] of customShapeMeshes) {
       const opacity = donId === donationId ? 1 : 0.15;
@@ -1403,6 +1491,12 @@ export function createDonationManager({
     } else {
       focusFacadeMaterial.color.copy(currentBuildingColor);
     }
+    // O destaque replica a fachada do edifício focado (sorteada ou customizada).
+    focusFacadeMaterial.userData.facadeStyle = effectiveFacadeStyle(
+      donationId,
+      donation?.customization,
+    );
+    applyFacadeTextures(focusFacadeMaterial, currentTextureSettings);
     focusFacadeMaterial.needsUpdate = true;
 
     focusHighlightMesh = new THREE.Mesh(buildingGeometry, [focusFacadeMaterial, focusTopMaterial]);
@@ -1413,36 +1507,33 @@ export function createDonationManager({
   };
 
   const applyInstanceColors = () => {
-    if (mesh.count === 0) return;
-
-    // Verificar se alguma doação tem customização
+    // Sem customizações: remover instanceColor para usar cor do material
     const hasAnyCustom = donations.some((d) => d.customization);
-    if (!hasAnyCustom) {
-      // Sem customizações: remover instanceColor para usar cor do material
-      mesh.instanceColor = null;
-      return;
-    }
-
-    // Criar ou redimensionar o buffer de cores
-    const colors = new Float32Array(capacity * 3);
     const donationById = new Map<number, DonationEntry>();
-    for (const d of donations) donationById.set(d.id, d);
-
-    for (let i = 0; i < mesh.count; i++) {
-      const donId = instanceToDonationId[i];
-      const donation = donationById.get(donId);
-      if (donation?.customization) {
-        tmpColor.set(donation.customization.color);
-      } else {
-        tmpColor.copy(currentBuildingColor);
-      }
-      colors[i * 3] = tmpColor.r;
-      colors[i * 3 + 1] = tmpColor.g;
-      colors[i * 3 + 2] = tmpColor.b;
+    if (hasAnyCustom) {
+      for (const d of donations) donationById.set(d.id, d);
     }
 
-    mesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
-    mesh.instanceColor.needsUpdate = true;
+    for (const bucket of buckets.values()) {
+      if (!hasAnyCustom || bucket.count === 0) {
+        bucket.mesh.instanceColor = null;
+        continue;
+      }
+      const colors = new Float32Array(bucket.capacity * 3);
+      for (let i = 0; i < bucket.count; i++) {
+        const donation = donationById.get(bucket.donationIds[i]);
+        if (donation?.customization) {
+          tmpColor.set(donation.customization.color);
+        } else {
+          tmpColor.copy(currentBuildingColor);
+        }
+        colors[i * 3] = tmpColor.r;
+        colors[i * 3 + 1] = tmpColor.g;
+        colors[i * 3 + 2] = tmpColor.b;
+      }
+      bucket.mesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
+      bucket.mesh.instanceColor.needsUpdate = true;
+    }
   };
 
   // --- Acessórios de topo ---
@@ -1751,7 +1842,7 @@ export function createDonationManager({
         topMat.userData.tilingMultiplier.value = customization.tilingScale;
         setMaterialTextureTransform(facadeMat, customization.textureTransform);
         setMaterialTextureTransform(topMat, customization.textureTransform);
-        facadeMat.userData.facadeStyle = customization.facadeStyle ?? "default";
+        facadeMat.userData.facadeStyle = effectiveFacadeStyle(donation.id, customization);
         applyFacadeTextures(facadeMat, currentTextureSettings);
 
         let sceneMesh: THREE.Mesh;
@@ -1904,14 +1995,14 @@ export function createDonationManager({
     const { donationId } = entranceAnim;
     entranceAnim = null;
     // Restaura o transform final exato (caso a animação tenha sido cortada no meio).
-    const idx = donationIdToInstanceIndex.get(donationId);
+    const target = donationIdToInstance.get(donationId);
     const transform = donationTransforms.get(donationId);
-    if (idx !== undefined && transform) {
+    if (target && transform) {
       dummy.position.copy(transform.position);
       dummy.scale.copy(transform.scale);
       dummy.updateMatrix();
-      mesh.setMatrixAt(idx, dummy.matrix);
-      mesh.instanceMatrix.needsUpdate = true;
+      target.bucket.mesh.setMatrixAt(target.index, dummy.matrix);
+      target.bucket.mesh.instanceMatrix.needsUpdate = true;
     }
   };
 
@@ -1926,9 +2017,9 @@ export function createDonationManager({
     entranceAnim.elapsed += dt;
     const t = Math.min(1, entranceAnim.elapsed / ENTRANCE_DURATION);
 
-    const idx = donationIdToInstanceIndex.get(entranceAnim.donationId);
+    const target = donationIdToInstance.get(entranceAnim.donationId);
     const transform = donationTransforms.get(entranceAnim.donationId);
-    if (idx === undefined || !transform) {
+    if (!target || !transform) {
       finishEntrance();
       return;
     }
@@ -1952,8 +2043,8 @@ export function createDonationManager({
     );
     dummy.scale.copy(transform.scale);
     dummy.updateMatrix();
-    mesh.setMatrixAt(idx, dummy.matrix);
-    mesh.instanceMatrix.needsUpdate = true;
+    target.bucket.mesh.setMatrixAt(target.index, dummy.matrix);
+    target.bucket.mesh.instanceMatrix.needsUpdate = true;
 
     // Impacto: solta poeira uma única vez quando encosta no chão.
     if (!entranceAnim.landed && offset <= 0.02) {
@@ -1974,7 +2065,6 @@ export function createDonationManager({
       const id = nextId++;
       donations.push({ id, value });
       donations.sort((a, b) => b.value - a.value);
-      growIfNeeded(donations.length);
       rebuildInstances();
       startEntrance(id);
     },
@@ -1982,14 +2072,14 @@ export function createDonationManager({
       for (const value of values) {
         donations.push({ id: nextId++, value });
       }
-      // Ordena uma vez e reconstrói uma vez para todo o lote
+      // Ordena uma vez e reconstrói uma vez para todo o lote. A capacidade de cada
+      // bucket de fachada é dimensionada dentro do rebuild (ensureBucket).
       donations.sort((a, b) => b.value - a.value);
-      growIfNeeded(donations.length);
       rebuildInstances();
     },
     updateBuildingSettings(settings) {
       currentBuildingColor.set(settings.color); // manter em sync para instanceColor fallback
-      facadeMaterial.color.set(settings.color);
+      for (const mat of getSharedFacadeMaterials()) mat.color.set(settings.color);
       // topMaterial mantém TOP_CEMENT_COLOR — laje de cimento não muda de cor.
       // Roughness/metalness afetam todos os materiais (inclui clones twisted).
       // Cor é específica por edifício para clones — não sobrescrever aqui.
@@ -2041,7 +2131,7 @@ export function createDonationManager({
     },
     setShadowEnabled(enabled) {
       shadowEnabled = enabled;
-      mesh.castShadow = enabled;
+      for (const bucket of buckets.values()) bucket.mesh.castShadow = enabled;
       for (const m of roadMeshes) {
         m.receiveShadow = enabled;
       }
@@ -2097,13 +2187,17 @@ export function createDonationManager({
       mouseVec.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouseVec.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(mouseVec, camera);
-      const targets: THREE.Object3D[] = [mesh];
+      const targets: THREE.Object3D[] = [];
+      for (const bucket of buckets.values()) {
+        if (bucket.count > 0) targets.push(bucket.mesh);
+      }
       for (const entry of customShapeMeshes.values()) targets.push(entry.mesh);
       const hits = raycaster.intersectObjects(targets, false);
       if (hits.length === 0) return null;
       const hit = hits[0];
-      if (hit.object === mesh && hit.instanceId !== undefined) {
-        return instanceToValue[hit.instanceId] ?? null;
+      const bucket = hit.instanceId !== undefined ? bucketByMesh(hit.object) : undefined;
+      if (bucket && hit.instanceId !== undefined) {
+        return bucket.values[hit.instanceId] ?? null;
       }
       const value = hit.object.userData.donationValue;
       return typeof value === "number" ? value : null;
@@ -2113,13 +2207,17 @@ export function createDonationManager({
       mouseVec.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouseVec.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(mouseVec, camera);
-      const targets: THREE.Object3D[] = [mesh];
+      const targets: THREE.Object3D[] = [];
+      for (const bucket of buckets.values()) {
+        if (bucket.count > 0) targets.push(bucket.mesh);
+      }
       for (const entry of customShapeMeshes.values()) targets.push(entry.mesh);
       const hits = raycaster.intersectObjects(targets, false);
       if (hits.length === 0) return null;
       const hit = hits[0];
-      if (hit.object === mesh && hit.instanceId !== undefined) {
-        return instanceToDonationId[hit.instanceId] ?? null;
+      const bucket = hit.instanceId !== undefined ? bucketByMesh(hit.object) : undefined;
+      if (bucket && hit.instanceId !== undefined) {
+        return bucket.donationIds[hit.instanceId] ?? null;
       }
       const id = hit.object.userData.donationId;
       return typeof id === "number" ? id : null;
@@ -2147,7 +2245,9 @@ export function createDonationManager({
       const prevSignSides = prevCustomization?.signSides ?? 1;
       const prevEdgeLightType = prevCustomization?.edgeLightType ?? "none";
       const prevShape = prevCustomization?.buildingShape ?? "default";
-      const prevFacadeStyle = prevCustomization?.facadeStyle ?? "default";
+      // Estilo efetivo (não o campo cru): sem customização o prédio já usa o estilo
+      // sorteado, então comparar com "default" acusaria troca onde não houve.
+      const prevFacadeStyle = effectiveFacadeStyle(donationId, prevCustomization);
       const prevTilingScale = prevCustomization?.tilingScale ?? 1;
       const prevTextureTransform = prevCustomization?.textureTransform ??
         DEFAULT_BUILDING_TEXTURE_TRANSFORM;
@@ -2169,13 +2269,17 @@ export function createDonationManager({
         return;
       }
 
-      // Troca de estilo de fachada entre dois estilos custom: o prédio já tem
-      // mesh próprio, então só troca os mapas do material clonado.
-      if ((customization.facadeStyle ?? "default") !== prevFacadeStyle) {
+      // Troca de estilo de fachada. Com mesh próprio (shape custom) só troca os mapas
+      // do material clonado; no caminho instanciado o prédio muda de bucket, o que
+      // exige realocar as instâncias.
+      if (effectiveFacadeStyle(donationId, customization) !== prevFacadeStyle) {
         const entry = customShapeMeshes.get(donationId);
         if (entry) {
-          entry.facadeMat.userData.facadeStyle = customization.facadeStyle ?? "default";
+          entry.facadeMat.userData.facadeStyle = customization.facadeStyle;
           applyFacadeTextures(entry.facadeMat, currentTextureSettings);
+        } else {
+          rebuildInstances();
+          if (focusedDonationId !== null) applyFocus(focusedDonationId);
         }
       }
 
@@ -2299,8 +2403,12 @@ export function createDonationManager({
       disposeOneTradeBuildingSharedResources();
       focusFacadeMaterial.dispose();
       focusTopMaterial.dispose();
-      scene.remove(mesh);
-      mesh.dispose();
+      for (const bucket of buckets.values()) {
+        scene.remove(bucket.mesh);
+        bucket.mesh.dispose();
+        if (bucket.facadeMat !== facadeMaterial) bucket.facadeMat.dispose();
+      }
+      buckets.clear();
       buildingGeometry.dispose();
       facadeMaterial.dispose();
       topMaterial.dispose();

@@ -98,6 +98,26 @@ O [[scene-managers|ChunkManager]] usa essas funções para definir, de forma **d
 
 ---
 
+### `facadeStyle.ts`
+
+Sorteio de fachada por edifício:
+
+| Export | Descrição |
+|---|---|
+| `FACADE_STYLE_POOL` | Estilos sorteáveis (todos os conjuntos PBR, incluindo `"default"`) |
+| `randomFacadeStyle(donationId)` | Estilo do prédio — `seeded(id, 3)` indexando o pool |
+
+Determinístico por id: mesmo id → mesmo estilo, sempre. Sem estado, sem persistência — recarregar a cena reproduz a cidade e nada extra vai pro localStorage. Mesma rota do jitter de escala (`seeded(id, 1)` / `seeded(id, 2)`).
+
+Consumido por:
+- [[scene-managers#Buckets de fachada (1 InstancedMesh por estilo)|createDonationManager]] — estilo efetivo = `customization?.facadeStyle ?? randomFacadeStyle(id)`
+- `CitySceneEditor` — fallback do painel de personalização, pra abrir na fachada que o prédio já mostra ([[html-components#BuildingCustomizePanel]])
+
+> [!note] Pool = custo de download
+> Cada estilo em uso baixa ~5 mapas 1K sob demanda. Pool grande = cidade variada, mais bytes na primeira geração em lote. Cortar conjuntos = menos download.
+
+---
+
 ### `devAssertions.ts`
 
 Verificações de desenvolvimento com `console.assert`:
@@ -105,6 +125,8 @@ Verificações de desenvolvimento com `console.assert`:
 | Função | Descrição |
 |---|---|
 | `runDevAssertionsOnce()` | Roda uma única vez na criação do runtime |
+
+Cobre `math`, `materials`, `lighting` e o sorteio de fachada (`randomFacadeStyle`: determinismo por id, estilo sempre dentro do pool, pool inteiro coberto em 400 ids — sorteio viciado deixaria a cidade uniforme).
 
 Ajuda a detectar regressões em utilitários básicos durante o desenvolvimento.
 Chamado pelo [[scene-runtime|createCitySceneRuntime]] na inicialização.

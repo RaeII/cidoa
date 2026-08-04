@@ -127,6 +127,7 @@ src/
       materials.ts
       lighting.ts
       random.ts
+      facadeStyle.ts
       devAssertions.ts
 doc/
   index.md                       ← você está aqui (mapa da documentação)
@@ -290,6 +291,7 @@ flowchart LR
 | Alterar LED de arestas                           | [[scene-builders#createEdgeLightMesh.ts]]         |
 | Alterar holograma cyberpunk                      | [[scene-builders#createHologramMesh.ts]]          |
 | Adicionar/trocar estilo de fachada por edifício  | [[scene-managers#Estilos de fachada por edifício (`facadeStyle`)]] |
+| Mexer no sorteio de fachada da geração em lote   | [[scene-utils#`facadeStyle.ts`]] + [[scene-managers#Buckets de fachada (1 InstancedMesh por estilo)]] |
 | Alterar torre torcida (twisted)                  | [[scene-builders#createTwistedBuildingMesh.ts]]   |
 | Alterar torre octogonal (octagonal)              | [[scene-builders#createOctagonalBuildingMesh.ts]] |
 | Alterar torre setback (setback)                  | [[scene-builders#createSetbackBuildingMesh.ts]]   |

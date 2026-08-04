@@ -1,6 +1,7 @@
 import { getSearchRadius } from "./math";
 import { getGroundMaterialValues } from "./materials";
 import { getDynamicAmbientIntensity, getSolarIntensityFromElevation } from "./lighting";
+import { FACADE_STYLE_POOL, randomFacadeStyle } from "./facadeStyle";
 
 let hasRun = false;
 
@@ -37,4 +38,20 @@ export function runDevAssertionsOnce() {
   const ambientMax = getDynamicAmbientIntensity(20, 20, 4, 8);
   console.assert(ambientMin === 4, "dynamic ambient should be 4 with no solar");
   console.assert(ambientMax === 8, "dynamic ambient should clamp to 8 at max solar");
+
+  // Fachada sorteada: determinística por id, sempre dentro do pool e espalhada por
+  // ele (um sorteio que caísse sempre no mesmo estilo deixaria a cidade uniforme).
+  const styles = Array.from({ length: 400 }, (_, id) => randomFacadeStyle(id));
+  console.assert(
+    randomFacadeStyle(7) === randomFacadeStyle(7),
+    "randomFacadeStyle should be deterministic per id",
+  );
+  console.assert(
+    styles.every((style) => FACADE_STYLE_POOL.includes(style)),
+    "randomFacadeStyle should only return styles from the pool",
+  );
+  console.assert(
+    new Set(styles).size === FACADE_STYLE_POOL.length,
+    "randomFacadeStyle should cover the whole pool over 400 ids",
+  );
 }

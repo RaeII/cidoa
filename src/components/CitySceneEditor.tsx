@@ -44,6 +44,7 @@ import {
   DEFAULT_HOLOGRAM_OPACITY,
 } from "../scene/types";
 import { getLightMetrics } from "../scene/utils/lighting";
+import { randomFacadeStyle } from "../scene/utils/facadeStyle";
 
 // Cena começa com um único edifício (modelo padrão/quadrado).
 // Novos edifícios entram via seta direita, sempre superando o mais alto atual.
@@ -381,7 +382,9 @@ export function CitySceneEditor() {
       const existing = buildingCustomizations.get(donationId);
       return {
         color: existing?.color ?? buildingSettings.color,
-        facadeStyle: existing?.facadeStyle ?? "default" as const,
+        // Sem customização o prédio já mostra a fachada sorteada — o painel abre nela,
+        // então mexer só na cor não troca a textura do edifício.
+        facadeStyle: existing?.facadeStyle ?? randomFacadeStyle(donationId),
         tilingScale: existing?.tilingScale ?? 1,
         buildingShape: existing?.buildingShape ?? "default" as const,
         rooftopType: existing?.rooftopType ?? "none" as const,
@@ -403,7 +406,7 @@ export function CitySceneEditor() {
         const existing = next.get(donationId);
         const updated: BuildingCustomization = {
           color: existing?.color ?? buildingSettings.color,
-          facadeStyle: existing?.facadeStyle ?? "default",
+          facadeStyle: existing?.facadeStyle ?? randomFacadeStyle(donationId),
           buildingShape: existing?.buildingShape ?? "default",
           tilingScale: existing?.tilingScale ?? 1,
           textureTransform: existing?.textureTransform ?? { ...DEFAULT_BUILDING_TEXTURE_TRANSFORM },
