@@ -55,8 +55,10 @@ Componente pequeno por design. Faz três coisas:
 O componente expõe uma ref com método imperativo:
 
 ```typescript
-canvasRef.current?.addDonation(value)
+canvasRef.current?.addDonation(value, forceDefaultFacade?)
 ```
+
+`forceDefaultFacade = true` → prédio entra com fachada `"default"`, sem sorteio (usado pela simulação de pagamento; ver [[scene-managers#Buckets de fachada (1 InstancedMesh por estilo)]]).
 
 Isso permite que `CitySceneEditor` dispare ações na cena sem criar ciclos de estado React.
 

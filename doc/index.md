@@ -178,7 +178,7 @@ E entrega para:
 
 Também gerencia:
 
-- Doações via `canvasRef.addDonation(value)` e `canvasRef.addDonations(values)`
+- Doações via `canvasRef.addDonation(value, forceDefaultFacade?)` e `canvasRef.addDonations(values)` — pagamento passa `forceDefaultFacade`, prédio entra com textura `default`
 - Total arrecadado (`donationTotal`) e contagem (`donationCount`) — alimentam a [[html-components#DonationInfoSection.tsx|DonationInfoSection]]
 - Navegação cena ↔ info: container `overflow-y-auto` + `scrollToInfo`/`scrollToScene`. Container usa classe `.scrollbar-hidden` (em `index.css`) — scrollbar some da tela, scroll (roda/touch/teclado) continua funcionando. Descida só pelo botão "Para onde vai o seu investimento" (`scrollToInfo`). Roda do mouse bloqueada na cena (`preventDefault`); painéis flutuantes roláveis usam `overscroll-contain` pra não arrastar a página pra baixo ao chegar no fim. Snap-up automático na info.
 - Foco em edifício via `canvasRef.focusOnDonation(id)` e `canvasRef.clearFocus()`
@@ -277,7 +277,7 @@ flowchart LR
 | Mostrar/esconder componentes HTML da tela        | aba **Tela** → [[scene-config#uiVisibilityConfig.ts]] |
 | Alterar o que persiste em localStorage           | [[scene-config#scenePersistence.ts]]              |
 | Salvar/abrir/excluir estado nomeado da cidade    | aba **Tela** → seção Estados da cidade → [[html-components#CityControlPanel.tsx]] |
-| Alterar o select de troca rápida de estado       | [[html-components#Select de estados (canto superior direito)]] |
+| Alterar o select de troca rápida de estado       | aba **Tela** → seção Estados da cidade → [[html-components#CityControlPanel.tsx]] |
 | Alterar a UI de personalização de edifício       | [[html-components#BuildingCustomizePanel.tsx]]    |
 | Alterar o modal de info do edifício (dono/valor) | [[html-components#BuildingInfoModal.tsx]]         |
 | Alterar o canvas ou a ligação com o hook         | [[three-components]]                              |

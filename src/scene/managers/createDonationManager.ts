@@ -221,7 +221,8 @@ type DonationManagerOptions = {
 };
 
 export type DonationManager = {
-  addDonation: (value: number) => void;
+  /** `forceDefaultFacade` = ignora o sorteio de fachada e usa o estilo `default`. */
+  addDonation: (value: number, forceDefaultFacade?: boolean) => void;
   addDonations: (values: number[]) => void;
   updateBuildingSettings: (settings: BuildingSettings) => void;
   updateTextureSettings: (settings: TextureSettings) => void;
@@ -649,11 +650,17 @@ export function createDonationManager({
     return undefined;
   };
 
-  // Estilo efetivo do edifício: customização manual vence; sem ela, o sorteio por id.
+  // Ids marcados para fachada `default` (fluxo de pagamento) — pulam o sorteio.
+  const defaultFacadeIds = new Set<number>();
+
+  // Estilo efetivo do edifício: customização manual vence; depois a marca de
+  // fachada default; sem nenhuma das duas, o sorteio por id.
   const effectiveFacadeStyle = (
     donationId: number,
     customization?: BuildingCustomization,
-  ): FacadeStyle => customization?.facadeStyle ?? randomFacadeStyle(donationId);
+  ): FacadeStyle =>
+    customization?.facadeStyle ??
+    (defaultFacadeIds.has(donationId) ? "default" : randomFacadeStyle(donationId));
 
   // --- Rede de estradas (asfalto entre blocos) ---
   const asphaltMaterial = new THREE.MeshStandardMaterial({
@@ -2061,8 +2068,9 @@ export function createDonationManager({
   rebuildInstances();
 
   return {
-    addDonation(value) {
+    addDonation(value, forceDefaultFacade = false) {
       const id = nextId++;
+      if (forceDefaultFacade) defaultFacadeIds.add(id);
       donations.push({ id, value });
       donations.sort((a, b) => b.value - a.value);
       rebuildInstances();

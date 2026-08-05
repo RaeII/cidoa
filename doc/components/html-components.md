@@ -111,9 +111,12 @@ Cada fase é um bloco com `AnimatePresence` animando `height` (auto↔0), então
 | Prop | Tipo | Descrição |
 |---|---|---|
 | `payment` | `Payment \| null` | Pagamento ativo (`{ id, amount }`); `null` = sem cartão |
-| `onConfirmed` | `(amount: number) => void` | Chamado na confirmação → adiciona o edifício (ligado a `handleDonation(amount, false)`: **não** persiste) |
+| `onConfirmed` | `(amount: number) => void` | Chamado na confirmação → adiciona o edifício (ligado a `handleDonation(amount, false)`: **não** persiste e entra com fachada `"default"`) |
 | `onDone` | `() => void` | Pede o fechamento (pai limpa `payment` → inicia saída) |
 | `onExited` | `() => void` | Após o cartão sair de tela → libera próxima seta |
+
+> [!note] Fachada do prédio do pagamento
+> `handleDonation(value, persist)` chama `canvasRef.addDonation(value, !persist)` — o `persist = false` do pagamento também vira `forceDefaultFacade`, então o prédio da animação **sempre** usa a textura `default`, sem sorteio ([[scene-managers#Buckets de fachada (1 InstancedMesh por estilo)]]). Doação digitada no input (`persist = true`) continua sorteando.
 
 > [!note] Trava de um-por-vez
 > `CitySceneEditor` guarda `paymentBusyRef`: a seta `→` ignora novas chamadas enquanto um cartão está na tela (inclusive durante a saída). Valor = `min(DONATION_MAX_VALUE, maxDonationRef + incremento)`, com incremento sorteado entre `DONATION_INCREMENT_MIN`/`DONATION_INCREMENT_MAX` — então o edifício novo é **o mais alto da cidade** e assume o centro da espiral, até bater o teto `DONATION_MAX_VALUE` (150). `maxDonationRef` parte de `INITIAL_MAX_DONATION` e sobe em `handleDonation`/`handleBulkDonation`, então doações digitadas no input também contam (input não tem teto).
@@ -235,16 +238,17 @@ Componente que monta o painel completo de configuração da cena. **Escondido po
 | **Luz** | Ambient, hemisphere, directional |
 | **Horizonte** | Configurações de HDRI e skybox |
 | **Terreno** | Relevo procedural ao redor da cidade — ver [[#TerrainControls.tsx]] |
-| **Tela** | Checkbox por componente HTML sobreposto (log de câmera + 3 inputs de geração/posição). Liga/desliga visibilidade; preferência persistida em `localStorage` via [[scene-config#uiVisibilityConfig.ts]]. Seção **Estados da cidade**: salvar/abrir/excluir estado nomeado. Seção **Dados salvos**: botão "Limpar dados salvos" |
+| **Tela** | Checkbox por componente HTML sobreposto (log de câmera + 3 inputs de geração/posição). Liga/desliga visibilidade; preferência persistida em `localStorage` via [[scene-config#uiVisibilityConfig.ts]]. Seção **Estados da cidade**: select de troca rápida + salvar/abrir/excluir estado nomeado. Seção **Dados salvos**: botão "Limpar dados salvos" |
 
 Tipo da aba ativa: `"geral" | "texturas" | "luz" | "horizonte" | "terreno" | "tela"`.
 
-Props extras da aba **Tela**: `uiVisibility: UIVisibilitySettings` + `onUIVisibilityChange` (ver [[scene-types#UIVisibilitySettings]]), `sceneSlots: string[]` + `onSaveSceneSlot`/`onLoadSceneSlot`/`onDeleteSceneSlot` e `onClearStorage: () => void`.
+Props extras da aba **Tela**: `uiVisibility: UIVisibilitySettings` + `onUIVisibilityChange` (ver [[scene-types#UIVisibilitySettings]]), `sceneSlots: string[]` + `activeSceneSlot: string | null` + `onSaveSceneSlot`/`onLoadSceneSlot`/`onDeleteSceneSlot` e `onClearStorage: () => void`.
 
 Seção **Estados da cidade** — save nomeado da cena inteira (edifícios, personalizações, texturas e settings):
 
 | Controle | Ação |
 |---|---|
+| `<select>` de troca rápida | `onLoadSceneSlot(value)`. Só aparece com `sceneSlots.length > 0`; `value = activeSceneSlot ?? ""` e a opção extra "Cena atual (não salva)" existe só enquanto `activeSceneSlot` é `null` |
 | Input de nome + botão "Salvar" (ou `Enter`) | `onSaveSceneSlot(name)`. Nome vazio desabilita o botão; nome já existente pede confirmação de sobrescrita |
 | Nome na lista | `onLoadSceneSlot(name)` — editor grava o progresso no estado ativo, copia o escolhido para `cidoa:scene` e recarrega a página |
 | "X" vermelho | `onDeleteSceneSlot(name)` — editor confirma e remove do storage |
@@ -513,13 +517,7 @@ flowchart LR
 | `handleDeleteSceneSlot(name)` | `window.confirm` → `deleteSceneSlot` → atualiza `sceneSlots` e `activeSceneSlot` |
 | `handleLoadSceneSlot(name)` | Ignora se `name === activeSceneSlot`. Existe estado ativo → grava `currentScene` nele primeiro (trocar não perde progresso); não existe → `window.confirm`. Depois `applySceneSlot` → `window.location.reload()` |
 
-### Select de estados (canto superior direito)
-
-`<select>` nativo em `CitySceneEditor`, `absolute right-4 top-4 z-30`. Troca de estado em um clique: `onChange` → `handleLoadSceneSlot(value)`.
-
-- Só aparece com `sceneSlots.length > 0`
-- Some quando [[#CityControlPanel.tsx]] ou [[#BuildingCustomizePanel.tsx]] estão abertos — os dois ocupam o mesmo canto
-- `value = activeSceneSlot ?? ""`; opção extra "Cena atual (não salva)" só existe enquanto `activeSceneSlot` é `null`
+Select de troca rápida mora dentro do painel (aba **Tela** → seção Estados da cidade) — ver [[#CityControlPanel.tsx]]. Editor só passa `sceneSlots` + `activeSceneSlot` e recebe `onLoadSceneSlot`.
 
 **Estado que sustenta isso:**
 

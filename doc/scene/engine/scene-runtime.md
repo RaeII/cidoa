@@ -85,7 +85,7 @@ type CitySceneRuntime = {
   updateTerrainSettings(settings: TerrainSettings): void
 
   // Doações
-  addDonation(value: number): void
+  addDonation(value: number, forceDefaultFacade?: boolean): void
   addDonations(values: number[]): void
 
   // Personalização individual

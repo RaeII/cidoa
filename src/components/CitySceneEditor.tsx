@@ -66,6 +66,8 @@ const DONATION_INCREMENT_MIN = 10;
 const DONATION_INCREMENT_MAX = 40;
 // Teto do valor gerado pelo botão/seta — nenhuma doação simulada passa disso.
 const DONATION_MAX_VALUE = 150;
+// Valor fixo do primeiro pagamento simulado da sessão.
+const FIRST_PAYMENT_VALUE = 47;
 
 const randomDonationIncrement = () =>
   Math.round(
@@ -299,10 +301,11 @@ export function CitySceneEditor() {
   }, []);
 
   // `persist = false` para a simulação de pagamento: o edifício aparece na cena
-  // mas não entra no localStorage.
+  // mas não entra no localStorage — e entra sempre com a fachada `default`, sem
+  // sorteio de estilo.
   const handleDonation = (value: number, persist = true) => {
     const id = nextDonationIdRef.current++;
-    canvasRef.current?.addDonation(value);
+    canvasRef.current?.addDonation(value, !persist);
     maxDonationRef.current = Math.max(maxDonationRef.current, value);
     setDonationTotal((t) => t + value);
     setDonationCount((c) => c + 1);
@@ -330,10 +333,10 @@ export function CitySceneEditor() {
     if (paymentBusyRef.current) return;
     paymentBusyRef.current = true;
     paymentIdRef.current += 1;
-    const amount = Math.min(
-      DONATION_MAX_VALUE,
-      maxDonationRef.current + randomDonationIncrement(),
-    );
+    const amount =
+      paymentIdRef.current === 1
+        ? FIRST_PAYMENT_VALUE
+        : Math.min(DONATION_MAX_VALUE, maxDonationRef.current + randomDonationIncrement());
     setPayment({ id: paymentIdRef.current, amount });
   }, []);
 
@@ -566,30 +569,6 @@ export function CitySceneEditor() {
         onBuildingClick={handleBuildingClick}
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to from-black/35 to-transparent" />
-      {/* Troca rápida de estado. Esconde quando painel de controle ou de
-          personalização ocupa o canto direito. */}
-      {sceneSlots.length > 0 && !showControlPanel && selectedBuildingId === null && (
-        <select
-          value={activeSceneSlot ?? ""}
-          onChange={(event) => {
-            if (event.target.value) handleLoadSceneSlot(event.target.value);
-          }}
-          className="absolute right-4 top-4 z-30 h-10 max-w-[14rem] cursor-pointer rounded-xl border border-white/10 bg-black/60 px-3 text-sm text-white/80 shadow-lg outline-none backdrop-blur-md transition-colors hover:bg-white/10 hover:text-white focus:border-white/25"
-          title="Trocar estado da cidade"
-          aria-label="Trocar estado da cidade"
-        >
-          {!activeSceneSlot && (
-            <option value="" className="bg-[#05070a] text-white">
-              Cena atual (não salva)
-            </option>
-          )}
-          {sceneSlots.map((name) => (
-            <option key={name} value={name} className="bg-[#05070a] text-white">
-              {name}
-            </option>
-          ))}
-        </select>
-      )}
       {uiVisibility.cameraLog && cameraDebugInfo && (
         <div className="absolute bottom-4 left-4 z-30 w-[min(21rem,calc(100vw-2rem))] select-text rounded-lg border border-white/10 bg-black/70 px-3 py-2 font-mono text-[11px] leading-5 text-white/80 shadow-lg backdrop-blur-md">
           <div className="mb-1 font-sans text-xs font-semibold text-white">Camera default</div>
@@ -694,6 +673,7 @@ export function CitySceneEditor() {
           horizonSettings={horizonSettings}
           uiVisibility={uiVisibility}
           sceneSlots={sceneSlots}
+          activeSceneSlot={activeSceneSlot}
           onEnvironmentSettingsChange={setEnvironmentSettings}
           onHorizonSettingsChange={setHorizonSettings}
           onUIVisibilityChange={setUIVisibility}
@@ -736,7 +716,7 @@ export function CitySceneEditor() {
           title="Para onde vai o seu investimento"
           aria-label="Ver para onde vai o seu investimento"
         >
-          <span className="hidden sm:inline">Para onde vai o seu investimento</span>
+          <span className="hidden sm:inline"></span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path
               d="M12 5v14M5 12l7 7 7-7"

@@ -146,7 +146,7 @@ Cena nunca fica vazia: o manager sempre desenha um **loteamento** (grade de quad
 
 ```typescript
 // Doações
-addDonation(value: number): void
+addDonation(value: number, forceDefaultFacade?: boolean): void
 addDonations(values: number[]): void
 getDonationCount(): number
 getCityRadius(): number   // meia-extensão world do loteamento (piso r=1, nunca 0); consumido pelo relevo
@@ -252,10 +252,13 @@ Pontos de integração:
 Geração em lote sorteia a fachada de cada prédio, então a cidade não fica toda igual. Um `Mesh` por prédio custaria N draw calls + N materiais; a saída é **agrupar por estilo**: um `InstancedMesh` por estilo de fachada em uso.
 
 ```
-estilo efetivo = customization?.facadeStyle ?? randomFacadeStyle(donationId)
+estilo efetivo = customization?.facadeStyle
+              ?? (defaultFacadeIds.has(donationId) ? "default" : randomFacadeStyle(donationId))
 ```
 
 `randomFacadeStyle` ([[scene-utils#`facadeStyle.ts`]]) é determinístico pelo id — nada de estado novo, nada a persistir.
+
+`defaultFacadeIds` = `Set<id>` preenchido por `addDonation(value, forceDefaultFacade)`. Prédio do fluxo de pagamento entra sempre com fachada `"default"`, sem sorteio — a doação vinda do input do painel segue sorteando.
 
 | Peça | Papel |
 |---|---|

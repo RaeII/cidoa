@@ -53,7 +53,7 @@ export type CitySceneRuntime = {
   updateHorizonSettings: (settings: HorizonSettings) => void;
   updateEnvironmentSettings: (settings: EnvironmentSettings) => void;
   updateBlockLayout: (settings: BlockLayoutSettings) => void;
-  addDonation: (value: number) => void;
+  addDonation: (value: number, forceDefaultFacade?: boolean) => void;
   addDonations: (values: number[]) => void;
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
   focusOnDonation: (donationId: number) => void;
@@ -399,8 +399,8 @@ export function createCitySceneRuntime({
       environmentUpdater.updateSettings(settings);
     },
 
-    addDonation(value) {
-      donationManager.addDonation(value);
+    addDonation(value, forceDefaultFacade) {
+      donationManager.addDonation(value, forceDefaultFacade);
       syncTerrainToCity();
       emitStatsPatch({ buildings: donationManager.getDonationCount() });
     },

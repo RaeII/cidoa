@@ -44,6 +44,8 @@ export type CityControlPanelProps = {
   uiVisibility: UIVisibilitySettings;
   /** Nomes dos estados da cidade salvos no localStorage. */
   sceneSlots: string[];
+  /** Estado atualmente carregado, ou `null` quando a cena não veio de nenhum. */
+  activeSceneSlot: string | null;
   sceneStats: SceneStats;
   lightMetrics: {
     ambientDynamic: number;
@@ -81,6 +83,7 @@ export function CityControlPanel({
   horizonSettings,
   uiVisibility,
   sceneSlots,
+  activeSceneSlot,
   sceneStats,
   lightMetrics,
   onBuildingSettingsChange,
@@ -270,6 +273,28 @@ export function CityControlPanel({
               description="Salva a cena atual (edifícios, modelos, texturas e ajustes) com um nome. Abrir um estado substitui a cena e recarrega a página."
             >
               <div className="space-y-3">
+                {sceneSlots.length > 0 && (
+                  <select
+                    value={activeSceneSlot ?? ""}
+                    onChange={(event) => {
+                      if (event.target.value) onLoadSceneSlot(event.target.value);
+                    }}
+                    className="h-11 w-full cursor-pointer rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white/85 outline-none transition-colors hover:bg-white/10 focus:border-white/20"
+                    title="Trocar estado da cidade"
+                    aria-label="Trocar estado da cidade"
+                  >
+                    {!activeSceneSlot && (
+                      <option value="" className="bg-[#05070a] text-white">
+                        Cena atual (não salva)
+                      </option>
+                    )}
+                    {sceneSlots.map((name) => (
+                      <option key={name} value={name} className="bg-[#05070a] text-white">
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <div className="flex gap-2">
                   <input
                     type="text"

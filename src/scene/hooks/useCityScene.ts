@@ -148,8 +148,8 @@ export function useCityScene({
   }, [blockLayoutSettings]);
 
   // Referência estável: delega ao runtime atual sem recriar a função
-  const addDonation = useCallback((value: number) => {
-    runtimeRef.current?.addDonation(value);
+  const addDonation = useCallback((value: number, forceDefaultFacade?: boolean) => {
+    runtimeRef.current?.addDonation(value, forceDefaultFacade);
   }, []);
 
   const addDonations = useCallback((values: number[]) => {

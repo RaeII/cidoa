@@ -89,7 +89,7 @@ O hook retorna um objeto com referências estáveis (via `useCallback`) que dele
 
 ```typescript
 {
-  addDonation: (value: number) => void
+  addDonation: (value: number, forceDefaultFacade?: boolean) => void
   addDonations: (values: number[]) => void
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void
   focusOnDonation: (donationId: number) => void

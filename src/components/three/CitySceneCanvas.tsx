@@ -17,7 +17,8 @@ import type {
 } from "../../scene/types";
 
 export type CitySceneCanvasHandle = {
-  addDonation: (value: number) => void;
+  /** `forceDefaultFacade` = edifício entra com a textura `default`, sem sorteio. */
+  addDonation: (value: number, forceDefaultFacade?: boolean) => void;
   addDonations: (values: number[]) => void;
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
   focusOnDonation: (donationId: number) => void;
