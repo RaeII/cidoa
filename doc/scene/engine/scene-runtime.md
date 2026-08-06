@@ -98,7 +98,12 @@ type CitySceneRuntime = {
 ```
 
 > [!note] Evento de clique em edifícios
-> O runtime escuta `pointerdown`/`pointerup` no canvas. Se o cursor não se moveu mais de 5px (não é drag), faz raycast para identificar o edifício clicado e chama `onBuildingClick(donationId)` para o React abrir o painel de personalização.
+> O runtime escuta `pointerdown`/`pointerup` no canvas. Se o cursor não se moveu mais de 5px (não é drag), decide pelo botão:
+> - **Esquerdo** (`button === 0`) — raycast identifica o edifício clicado → `onBuildingClick(donationId)` (React abre o [[html-components#`BuildingInfoModal.tsx`|modal de info]]).
+> - **Direito** (`button === 2`) — `onSceneRightClick()` → React abre o [[html-components#`DonationFormModal.tsx`|formulário de doação]]. Sem raycast: clique direito em qualquer ponto (prédio, chão, céu) abre o formulário.
+> - Outros botões: ignorados.
+>
+> Menu de contexto do navegador já é bloqueado pelo `OrbitControls` (`preventDefault` no `contextmenu`) — runtime não precisa mexer nisso. Arrastar com o direito = pan da câmera, e o guard de 5px impede que o pan abra o formulário.
 
 > [!note] Hover do valor (tooltip)
 > `mousemove` no canvas → raycast throttled por RAF → `onHoverChange(value, x, y)`. Tooltip some via `clearHover()` (cancela RAF pendente + `onHoverChange(null, 0, 0)`) em `pointerleave`, `pointercancel`, `blur` da janela e `pointerdown`. Sem isso o valor ficava grudado ao sair do canvas, ao abrir modal no clique, ou quando um raycast agendado antes da saída repunha o valor logo depois. Valor só reaparece no próximo `mousemove`.

@@ -32,6 +32,7 @@ type UseCitySceneOptions = {
   onCameraDebugChange?: (cameraInfo: CameraDebugInfo) => void;
   onHoverChange?: (value: number | null, x: number, y: number) => void;
   onBuildingClick?: (donationId: number | null) => void;
+  onSceneRightClick?: () => void;
 };
 
 export function useCityScene({
@@ -50,6 +51,7 @@ export function useCityScene({
   onCameraDebugChange,
   onHoverChange,
   onBuildingClick,
+  onSceneRightClick,
 }: UseCitySceneOptions) {
   const runtimeRef = useRef<CitySceneRuntime | null>(null);
   const initialSettingsRef = useRef<Omit<UseCitySceneOptions, "mountRef" | "onStatsChange">>({
@@ -85,6 +87,10 @@ export function useCityScene({
     },
   );
 
+  const handleSceneRightClick = useEffectEvent(() => {
+    onSceneRightClick?.();
+  });
+
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) {
@@ -98,6 +104,7 @@ export function useCityScene({
       onCameraDebugChange: (cameraInfo) => handleCameraDebugChange(cameraInfo),
       onHoverChange: (value, x, y) => handleHoverChange(value, x, y),
       onBuildingClick: (donationId) => handleBuildingClick(donationId),
+      onSceneRightClick: () => handleSceneRightClick(),
     });
     runtimeRef.current = runtime;
 

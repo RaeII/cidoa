@@ -40,6 +40,8 @@ type CitySceneRuntimeOptions = {
   onCameraDebugChange?: (cameraInfo: CameraDebugInfo) => void;
   onHoverChange?: (value: number | null, x: number, y: number) => void;
   onBuildingClick?: (donationId: number | null) => void;
+  /** Botão direito na cena (sem arrastar) — abre o formulário de doação. */
+  onSceneRightClick?: () => void;
 };
 
 export type CitySceneRuntime = {
@@ -77,6 +79,7 @@ export function createCitySceneRuntime({
   onCameraDebugChange,
   onHoverChange,
   onBuildingClick,
+  onSceneRightClick,
 }: CitySceneRuntimeOptions): CitySceneRuntime {
   runDevAssertionsOnce();
 
@@ -234,25 +237,27 @@ export function createCitySceneRuntime({
     // Clique/drag escondem o valor: ele só volta no próximo mousemove.
     clearHover();
   };
-  const handlePointerUp = onBuildingClick
-    ? (event: PointerEvent) => {
-        if (!pointerDownPos) return;
-        const dx = event.clientX - pointerDownPos.x;
-        const dy = event.clientY - pointerDownPos.y;
-        // Ignorar se moveu mais de 5px (drag da câmera)
-        if (dx * dx + dy * dy > 25) return;
-        const donationId = donationManager.getClickedDonationId(
-          event as unknown as MouseEvent,
-          camera,
-          renderer.domElement,
-        );
-        onBuildingClick(donationId);
-      }
-    : null;
-  if (onBuildingClick || handleMouseMove) {
-    renderer.domElement.addEventListener("pointerdown", handlePointerDown);
-  }
-  if (handlePointerUp) renderer.domElement.addEventListener("pointerup", handlePointerUp);
+  const handlePointerUp = (event: PointerEvent) => {
+    if (!pointerDownPos) return;
+    const dx = event.clientX - pointerDownPos.x;
+    const dy = event.clientY - pointerDownPos.y;
+    // Ignorar se moveu mais de 5px (drag da câmera — orbit no esquerdo, pan no direito)
+    if (dx * dx + dy * dy > 25) return;
+    // Botão direito = simulação de doação (o menu do navegador já é bloqueado pelo OrbitControls).
+    if (event.button === 2) {
+      onSceneRightClick?.();
+      return;
+    }
+    if (event.button !== 0) return;
+    const donationId = donationManager.getClickedDonationId(
+      event as unknown as MouseEvent,
+      camera,
+      renderer.domElement,
+    );
+    onBuildingClick?.(donationId);
+  };
+  renderer.domElement.addEventListener("pointerdown", handlePointerDown);
+  renderer.domElement.addEventListener("pointerup", handlePointerUp);
 
   // --- Animação de foco na câmera ---
   let cameraAnim: {
@@ -469,10 +474,8 @@ export function createCitySceneRuntime({
         renderer.domElement.removeEventListener("pointercancel", handleHoverEnd);
         window.removeEventListener("blur", handleHoverEnd);
       }
-      if (onBuildingClick || handleMouseMove) {
-        renderer.domElement.removeEventListener("pointerdown", handlePointerDown);
-      }
-      if (handlePointerUp) renderer.domElement.removeEventListener("pointerup", handlePointerUp);
+      renderer.domElement.removeEventListener("pointerdown", handlePointerDown);
+      renderer.domElement.removeEventListener("pointerup", handlePointerUp);
       if (hoverRafId !== null) cancelAnimationFrame(hoverRafId);
       cancelAnimationFrame(animationId);
       window.removeEventListener("resize", handleResize);

@@ -68,6 +68,18 @@ export type BuildingCustomization = {
 export const DEFAULT_HOLOGRAM_COLOR = "#73f2ff";
 export const DEFAULT_HOLOGRAM_OPACITY = 0.78;
 
+/**
+ * Dados que o doador preenche no formulário de doação e que reaparecem ao clicar
+ * no edifício. Só UI — não chega no Three.js; persiste junto da cena.
+ */
+export type DonationInfo = {
+  title: string;
+  description: string;
+  link: string;
+  image: string | null; // data URL reduzida (JPEG). null = sem foto
+  ngo: string;
+};
+
 export type DonationEntry = {
   id: number;
   value: number;

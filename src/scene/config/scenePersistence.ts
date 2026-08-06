@@ -2,6 +2,7 @@ import type {
   BlockLayoutSettings,
   BuildingCustomization,
   BuildingSettings,
+  DonationInfo,
   EnvironmentSettings,
   GroundSettings,
   HorizonSettings,
@@ -46,14 +47,15 @@ export type PersistedSceneSettings = {
 /**
  * Estado da cena persistido em localStorage.
  *
- * `customizations` é alinhado por índice com `donations` (não por id de runtime):
- * o donation manager reatribui ids sequenciais a cada carga, e edifícios não
- * persistidos (simulação de pagamento) consomem ids no meio do caminho. Índice é
- * a única chave estável entre sessões. `null` = edifício sem personalização.
+ * `customizations` e `infos` são alinhados por índice com `donations` (não por id
+ * de runtime): o donation manager reatribui ids sequenciais a cada carga, então
+ * índice é a única chave estável entre sessões. `null` = edifício sem
+ * personalização / sem dados de doação.
  */
 export type PersistedScene = {
   donations: number[];
   customizations: Array<BuildingCustomization | null>;
+  infos: Array<DonationInfo | null>;
   settings: PersistedSceneSettings;
 };
 
@@ -105,10 +107,12 @@ export function loadPersistedScene(): PersistedScene | null {
     ? parsed.donations.filter((v): v is number => typeof v === "number" && isFinite(v) && v > 0)
     : [];
   const savedCustomizations = Array.isArray(parsed.customizations) ? parsed.customizations : [];
+  const savedInfos = Array.isArray(parsed.infos) ? parsed.infos : [];
 
   return {
     donations,
     customizations: donations.map((_, index) => savedCustomizations[index] ?? null),
+    infos: donations.map((_, index) => savedInfos[index] ?? null),
     settings: mergeDefaults(createDefaultPersistedSettings(), parsed.settings),
   };
 }
@@ -118,6 +122,14 @@ export function loadPersistedScene(): PersistedScene | null {
 const withoutHolograms = (scene: PersistedScene): PersistedScene => ({
   ...scene,
   customizations: scene.customizations.map((c) => (c ? { ...c, hologramImage: null } : null)),
+});
+
+// Último recurso: fotos das doações também são data URLs. Perder a foto ainda
+// salva valores, personalizações e textos.
+const withoutImages = (scene: PersistedScene): PersistedScene => ({
+  ...withoutHolograms(scene),
+  // `?? []`: estado nomeado salvo antes de `infos` existir chega aqui sem o campo.
+  infos: (scene.infos ?? []).map((i) => (i ? { ...i, image: null } : null)),
 });
 
 function writeKey(key: string, value: unknown): boolean {
@@ -131,7 +143,9 @@ function writeKey(key: string, value: unknown): boolean {
 }
 
 export function savePersistedScene(scene: PersistedScene): void {
-  if (!writeKey(STORAGE_KEY, scene)) writeKey(STORAGE_KEY, withoutHolograms(scene));
+  if (writeKey(STORAGE_KEY, scene)) return;
+  if (writeKey(STORAGE_KEY, withoutHolograms(scene))) return;
+  writeKey(STORAGE_KEY, withoutImages(scene));
 }
 
 function removeKey(key: string): void {
@@ -183,6 +197,10 @@ export function saveSceneSlot(name: string, scene: PersistedScene): boolean {
   let ok = writeKey(SLOTS_KEY, slots);
   if (!ok) {
     slots[name] = withoutHolograms(scene);
+    ok = writeKey(SLOTS_KEY, slots);
+  }
+  if (!ok) {
+    slots[name] = withoutImages(scene);
     ok = writeKey(SLOTS_KEY, slots);
   }
   if (ok) writeKey(ACTIVE_SLOT_KEY, name);

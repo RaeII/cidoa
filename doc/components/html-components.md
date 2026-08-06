@@ -91,7 +91,7 @@ Tema **branco** (combina com doação). Paleta 3 cores — fundo `#ffffff`, text
 
 ### `PaymentSimulation.tsx`
 
-Overlay no lado direito, parte superior (perto do topo). Simula um pagamento ao adicionar um edifício pela seta direita (`→`). Usa a lib **`motion`** (`motion/react`) para animações sequenciadas com spring + saída.
+Overlay no lado direito, parte superior (perto do topo). Roda depois da confirmação do [[#`DonationFormModal.tsx`|formulário de doação]], com o valor escolhido lá. Usa a lib **`motion`** (`motion/react`) para animações sequenciadas com spring + saída.
 
 Fluxo de fases (um cartão por vez), na ordem da simulação de pagamento:
 1. **typing** (`TYPING_MS`) — valor surge com **efeito de digitação** caractere por caractere (`useMotionValue` conta letras + `useTransform` fatia a string) com cursor piscante.
@@ -111,18 +111,65 @@ Cada fase é um bloco com `AnimatePresence` animando `height` (auto↔0), então
 | Prop | Tipo | Descrição |
 |---|---|---|
 | `payment` | `Payment \| null` | Pagamento ativo (`{ id, amount }`); `null` = sem cartão |
-| `onConfirmed` | `(amount: number) => void` | Chamado na confirmação → adiciona o edifício (ligado a `handleDonation(amount, false)`: **não** persiste e entra com fachada `"default"`) |
+| `onConfirmed` | `(amount: number) => void` | Chamado na confirmação → adiciona o edifício (ligado a `handleDonation(amount, pendingInfoRef.current)`: persiste no storage e entra com fachada `"default"`) |
 | `onDone` | `() => void` | Pede o fechamento (pai limpa `payment` → inicia saída) |
 | `onExited` | `() => void` | Após o cartão sair de tela → libera próxima seta |
 
 > [!note] Fachada do prédio do pagamento
-> `handleDonation(value, persist)` chama `canvasRef.addDonation(value, !persist)` — o `persist = false` do pagamento também vira `forceDefaultFacade`, então o prédio da animação **sempre** usa a textura `default`, sem sorteio ([[scene-managers#Buckets de fachada (1 InstancedMesh por estilo)]]). Doação digitada no input (`persist = true`) continua sorteando.
+> `handleDonation(value, info?)` chama `canvasRef.addDonation(value, Boolean(info))` — prédio nascido do formulário usa a textura `default`, sem sorteio ([[scene-managers#Buckets de fachada (1 InstancedMesh por estilo)]]), e o editor grava `facadeStyle: "default"` na personalização dele para o reload não sortear outra. Doação digitada no input (sem `info`) continua sorteando.
 
 > [!note] Trava de um-por-vez
-> `CitySceneEditor` guarda `paymentBusyRef`: a seta `→` ignora novas chamadas enquanto um cartão está na tela (inclusive durante a saída). Valor = `min(DONATION_MAX_VALUE, maxDonationRef + incremento)`, com incremento sorteado entre `DONATION_INCREMENT_MIN`/`DONATION_INCREMENT_MAX` — então o edifício novo é **o mais alto da cidade** e assume o centro da espiral, até bater o teto `DONATION_MAX_VALUE` (150). `maxDonationRef` parte de `INITIAL_MAX_DONATION` e sobe em `handleDonation`/`handleBulkDonation`, então doações digitadas no input também contam (input não tem teto).
+> `CitySceneEditor` guarda `paymentBusyRef`: `startPayment(amount)` ignora novas chamadas enquanto um cartão está na tela (inclusive durante a saída), e `openDonationForm` nem abre o formulário nesse intervalo. Valor **sempre** vem do formulário — não há mais sorteio nem teto (`DONATION_MAX_VALUE`/`maxDonationRef` foram removidos). Altura é normalizada por `targetMaxHeight` ([[scene-config#buildingConfig.ts]]), então quem doa mais vira o mais alto e assume o centro da espiral.
 
 > [!info] Dependência `motion`
 > Único componente que importa `motion`. Demais animações de UI continuam em CSS/Tailwind.
+
+---
+
+### `DonationFormModal.tsx`
+
+Modal **centralizado** de simulação de doação. Duas entradas, mesma função `openDonationForm`:
+- **Clique direito na cena** — `onSceneRightClick` do [[three-components|CitySceneCanvas]] → [[scene-runtime#3. Atualizações do React|runtime]].
+- **Seta direita (`→`)** — atalho de teclado (ver [[#Atalhos de teclado]]).
+
+Doador monta a doação; ao confirmar, a [[#`PaymentSimulation.tsx`|simulação de pagamento]] roda e o edifício nasce na confirmação. Usa `motion` (overlay fade + card com spring).
+
+**Campos:**
+
+| Campo | Controle | Obrigatório |
+|---|---|---|
+| Valor | Chips `AMOUNT_PRESETS` (50/100/250/500) + input numérico livre | sim (> 0) |
+| ONG | `<select>` nativo com `PARTNER_NGOS` importado de [[#`DonationInfoSection.tsx`]] (mostra `focus` da ONG escolhida abaixo) | sim (default = primeira) |
+| Imagem | Upload → `createImageBitmap` + `<canvas>` reduz para `MAX_IMAGE_SIDE` (512 px no maior lado) e vira data URL JPEG (q 0.82). Preview + remover. Arquivo acima de `IMAGE_MAX_BYTES` (8 MB) é recusado antes de decodificar | não |
+| Título | Input de texto | **sim** — botão confirmar fica desabilitado sem ele |
+| Descrição | Textarea (3 linhas) | não |
+| Link | Input de texto (protocolo opcional) | não |
+
+**Props:**
+
+| Prop | Tipo | Descrição |
+|---|---|---|
+| `open` | `boolean` | Controla `AnimatePresence` (entrada/saída animada) |
+| `onConfirm` | `(amount: number, info: DonationInfo) => void` | Confirmação → pai fecha o modal, guarda `info` e dispara o pagamento |
+| `onClose` | `() => void` | X, botão Cancelar, clique no fundo escuro ou `Esc` |
+
+**`DonationInfo`** (mora em [[scene-types#DonationInfo]] — dado só de UI, não chega no Three.js, mas persiste junto da cena):
+
+```typescript
+type DonationInfo = {
+  title: string;
+  description: string;
+  link: string;
+  image: string | null; // data URL
+  ngo: string;
+};
+```
+
+> [!note] Ligação no `CitySceneEditor`
+> `openDonationForm` ignora a chamada enquanto `paymentBusyRef` está travado (cartão de pagamento na tela) ou o formulário já está aberto, e incrementa `donationFormKey` — `key` novo remonta o modal **em branco** a cada abertura. `handleDonationFormConfirm` fecha o modal, guarda `info` em `pendingInfoRef` e chama `startPayment(amount)`. Quando o cartão confirma, `handleDonation(amount, pendingInfoRef.current)` cria o edifício e grava `info` em `donationInfos: Map<donationId, DonationInfo>`.
+
+> [!note] Persistência
+> Prédio do formulário entra no `localStorage` como qualquer outro: valor em `PersistedScene.donations`, `info` em `PersistedScene.infos` (alinhado por índice) — vale tanto para o autosave (`cidoa:scene`) quanto para **salvar um estado nomeado da cidade**. A foto é reduzida a 512 px antes de virar data URL; se ainda assim estourar a cota, o storage cai para o fallback sem imagens ([[scene-config#scenePersistence.ts]]).
 
 ---
 
@@ -189,9 +236,12 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 
 ### `BuildingInfoModal.tsx`
 
-Modal central que abre ao clicar num edifício. Mostra dono + valor doado. Dado do dono = **estático** (mock); só o valor é dinâmico (vem do edifício clicado via `canvasRef.getDonationValue(id)`).
+Modal central que abre ao clicar num edifício. Mostra as informações do prédio + valor doado. Duas fontes:
 
-**Dado estático (`BUILDING_OWNER`):**
+- **Com `info`** — prédio criado pelo [[#`DonationFormModal.tsx`|formulário de doação]]: imagem, título, descrição, link e ONG vêm do que o doador preencheu (`donationInfos.get(id)` no editor).
+- **Sem `info`** — prédio do lote inicial ou do input de doação: cai no dono estático `BUILDING_OWNER` (mock). Vale também para prédio salvo antes de `infos` existir no storage.
+
+**Dado estático (`BUILDING_OWNER`, fallback):**
 
 | Campo | Valor |
 |---|---|
@@ -204,8 +254,11 @@ Modal central que abre ao clicar num edifício. Mostra dono + valor doado. Dado 
 | Prop | Tipo | Descrição |
 |---|---|---|
 | `value` | `number` | Valor doado do edifício clicado — formatado em BRL (`Intl` pt-BR) |
+| `info` | `DonationInfo \| undefined` | Informações do formulário. Ausente = dono estático |
 | `onCustomize` | `() => void` | Abre `BuildingCustomizePanel` mantendo o zoom |
 | `onClose` | `() => void` | Fecha o modal e limpa o foco (`clearFocus`) |
+
+**Render com `info`:** imagem enviada (sem imagem → faixa com a inicial do título), título, link (`https://` posto na mão quando falta protocolo; some se vazio), descrição e pílula dourada com a ONG.
 
 **Comportamento:**
 - Sem dim/blur — overlay `pointer-events-none`, cena fica **visível e interativa** atrás. Card à direita (desktop) ou bottom-sheet (mobile). Imagem ocupa o topo do card (sem gradiente); infos embaixo
@@ -294,12 +347,14 @@ Overlay modal central. Renderiza lista a partir do **mesmo** array de atalhos (f
 
 | Combo | Ação |
 |---|---|
-| `→` (seta direita) | Adicionar edifício (simula pagamento) — ver [[#`PaymentSimulation.tsx`]] |
+| `→` (seta direita) | Abrir formulário de doação — ver [[#`DonationFormModal.tsx`]] |
 | `Ctrl + M` | Abrir/fechar painel de controle |
 | `Ctrl + B` | Mostrar/esconder input de doação |
 | `Ctrl + J` | Mostrar/esconder log da câmera |
 | `?` | Mostrar/esconder ajuda de atalhos |
-| `Esc` | Fechar painel aberto (ajuda → customizar → controle) |
+| `Esc` | Fechar painel aberto (ajuda → formulário de doação → info → customizar → controle) |
+
+Mouse: **clique direito na cena** abre o [[#`DonationFormModal.tsx`|formulário de doação]] (não é atalho de teclado, não aparece no overlay de ajuda).
 
 > [!note] Adicionar atalho novo
 > Acrescentar entrada no array `shortcuts` em `CitySceneEditor`. Overlay de ajuda atualiza sozinho.
@@ -505,9 +560,9 @@ flowchart LR
 
 ## Persistência (`localStorage`)
 
-`CitySceneEditor` lê o estado salvo **uma vez no módulo** (`STORED_SCENE = loadPersistedScene()`) — precisa de referência estável, senão o efeito de semeadura do canvas reexecuta a cada render. Daí saem `INITIAL_DONATIONS`, `INITIAL_BUILDING_CUSTOMIZATIONS` e `INITIAL_SETTINGS`, que viram estado inicial dos `useState` e props `initialDonations`/`initialBuildingCustomizations` do [[three-components|CitySceneCanvas]].
+`CitySceneEditor` lê o estado salvo **uma vez no módulo** (`STORED_SCENE = loadPersistedScene()`) — precisa de referência estável, senão o efeito de semeadura do canvas reexecuta a cada render. Daí saem `INITIAL_DONATIONS`, `INITIAL_BUILDING_CUSTOMIZATIONS` (via `createInitialBuildingCustomizations`), o mapa inicial de `donationInfos` (via `createInitialDonationInfos`) e `INITIAL_SETTINGS`.
 
-`currentScene` (`useMemo<PersistedScene>`) monta a cena serializável a partir de `persistedDonations`, `buildingCustomizations` e todos os settings. Um `useEffect` grava ela em `cidoa:scene` a cada mudança; os handlers de estado nomeado salvam a mesma referência. Ver [[scene-config#scenePersistence.ts]] para o formato.
+`currentScene` (`useMemo<PersistedScene>`) monta a cena serializável a partir de `persistedDonations`, `buildingCustomizations`, `donationInfos` e todos os settings. Um `useEffect` grava ela em `cidoa:scene` a cada mudança; os handlers de estado nomeado salvam a mesma referência. Ver [[scene-config#scenePersistence.ts]] para o formato.
 
 **Estados nomeados** — `sceneSlots: string[]` (de `listSceneSlots()`) + `activeSceneSlot: string | null` (de `getActiveSceneSlot()`):
 
@@ -523,7 +578,8 @@ Select de troca rápida mora dentro do painel (aba **Tela** → seção Estados 
 
 | Estado | Papel |
 |---|---|
-| `persistedDonations: Array<{ id, value }>` | Só os edifícios que vão para o storage. Guarda o id de runtime para casar com `buildingCustomizations` na hora de salvar |
+| `persistedDonations: Array<{ id, value }>` | Todos os edifícios criados na sessão + os carregados do storage. Guarda o id de runtime para casar com `buildingCustomizations` e `donationInfos` na hora de salvar |
+| `donationInfos: Map<id, DonationInfo>` | Dados do formulário de doação por edifício. Vira `PersistedScene.infos` alinhado por índice |
 | `nextDonationIdRef` | Espelha o contador de ids do donation manager. Todo edifício nasce no editor e o manager numera na ordem de chegada, então os contadores não divergem |
 
 > [!important] Seta direita não persiste

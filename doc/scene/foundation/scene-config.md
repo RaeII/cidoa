@@ -235,17 +235,18 @@ Persiste a cena inteira em `localStorage` (chave `cidoa:scene`): edifícios cria
 |---|---|
 | `donations` | `number[]` — valores na ordem de criação |
 | `customizations` | `Array<BuildingCustomization \| null>` — **alinhado por índice** com `donations`; `null` = sem personalização |
+| `infos` | `Array<DonationInfo \| null>` — **alinhado por índice** com `donations`; dados do [[html-components#`DonationFormModal.tsx`|formulário de doação]] (título, descrição, link, foto, ONG); `null` = prédio sem formulário |
 | `settings` | `PersistedSceneSettings` — building, texture, ground, terrain, light, shadow, renderDirection, environment, horizon, blockLayout |
 
 > [!important]
-> `customizations` casa por **índice**, não por id de runtime. O donation manager renumera ids do zero a cada carga, e edifícios da simulação de pagamento (seta direita) consomem ids sem serem salvos — índice é a única chave estável entre sessões.
+> `customizations` e `infos` casam por **índice**, não por id de runtime: o donation manager renumera ids do zero a cada carga, então índice é a única chave estável entre sessões.
 
-**O que NÃO é salvo:** edifícios gerados pela seta direita (simulação de pagamento). Existem só na sessão. `handleDonation(value, persist=false)` em [[html-components#CitySceneEditor.tsx]] marca esse caso.
+**O que é salvo:** todo edifício criado na sessão — input de doação e formulário de doação (com a `info` dele). Nada de edifício "só de sessão".
 
 **Funções exportadas (cena ativa):**
 - `createDefaultPersistedSettings()` — junta todos os `createDefault*Settings()`
 - `loadPersistedScene()` — `null` se nada salvo ou JSON corrompido; senão mescla settings recursivamente sobre os defaults (campo novo entra com default, campo removido é descartado) e filtra doações inválidas
-- `savePersistedScene(scene)` — grava; se estourar cota, tenta de novo sem `hologramImage` (data URLs de imagem sozinhas passam do limite) antes de desistir
+- `savePersistedScene(scene)` — grava; se estourar cota, tenta sem `hologramImage` (`withoutHolograms`) e depois sem as fotos das doações (`withoutImages`) antes de desistir — data URLs de imagem sozinhas passam do limite
 - `clearPersistedScene()` — remove a chave
 
 > [!note]
@@ -258,7 +259,7 @@ Saves da cidade escolhidos pelo usuário. Chave separada da cena ativa, formato 
 | Função | O que faz |
 |---|---|
 | `listSceneSlots()` | Nomes ordenados (`localeCompare` pt-BR) |
-| `saveSceneSlot(name, scene)` | Grava/sobrescreve + marca `name` como ativo. `false` = cota estourada mesmo sem hologramas |
+| `saveSceneSlot(name, scene)` | Grava/sobrescreve + marca `name` como ativo. Mesma escada de fallback do autosave (sem hologramas → sem fotos); `false` = cota estourada mesmo assim |
 | `deleteSceneSlot(name)` | Remove o nome do record; limpa o ativo se era ele |
 | `applySceneSlot(name)` | Copia o estado para `cidoa:scene` + marca ativo. `false` = nome inexistente |
 | `getActiveSceneSlot()` | Nome do estado que a cena ativa veio de; `null` = cena não salva em nenhum |

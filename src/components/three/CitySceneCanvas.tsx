@@ -43,6 +43,8 @@ export type CitySceneCanvasProps = {
   onCameraDebugChange?: (cameraInfo: CameraDebugInfo) => void;
   onHoverChange?: (value: number | null, x: number, y: number) => void;
   onBuildingClick?: (donationId: number | null) => void;
+  /** Botão direito na cena — abre o formulário de doação. */
+  onSceneRightClick?: () => void;
 };
 
 export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvasProps>(
@@ -64,6 +66,7 @@ export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvas
       onCameraDebugChange,
       onHoverChange,
       onBuildingClick,
+      onSceneRightClick,
     },
     ref,
   ) {
@@ -85,6 +88,7 @@ export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvas
       onCameraDebugChange,
       onHoverChange,
       onBuildingClick,
+      onSceneRightClick,
     });
 
     useEffect(() => {

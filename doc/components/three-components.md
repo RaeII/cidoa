@@ -46,6 +46,8 @@ Componente pequeno por design. Faz três coisas:
 | `environmentSettings` | `EnvironmentSettings` | HDRI / skybox |
 | `blockLayoutSettings` | `BlockLayoutSettings` | Tamanho de quadra e largura de rua |
 | `onStatsChange` | `(stats: SceneStats) => void` | Callback de métricas |
+| `onBuildingClick` | `(donationId: number \| null) => void` | Clique esquerdo num prédio (`null` = clicou fora) |
+| `onSceneRightClick` | `() => void` | Clique direito na cena → abre o [[html-components#`DonationFormModal.tsx`\|formulário de doação]] |
 
 > [!note] Estado próprio
 > `CitySceneCanvas` não guarda estado da cena. Apenas recebe estado do `CitySceneEditor` e entrega ao hook.

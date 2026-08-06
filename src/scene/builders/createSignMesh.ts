@@ -411,8 +411,12 @@ function createSignPanel(
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.minFilter = THREE.LinearFilter;
+  // Mipmap + anisotropia: sem isso o texto cintila ("pisca") quando o letreiro
+  // fica pequeno na tela e os traços finos das letras somem na minificação.
+  // O valor de anisotropia é clampado pelo renderer no máximo suportado.
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.magFilter = THREE.LinearFilter;
+  texture.anisotropy = 16;
 
   const signMaterial = new THREE.MeshStandardMaterial({
     map: texture,
@@ -422,6 +426,14 @@ function createSignPanel(
     roughness: 0.35,
     metalness: 0.6,
     transparent: true,
+    // A placa fica coplanar com a face frontal do backing (backPush + espessura/2
+    // == push do plano, nos dois caminhos). No depth buffer (near 0.1 / far 260) os
+    // dois planos são indistinguíveis a partir de ~50 unidades, então o letreiro
+    // piscava e sumia conforme a câmera girava. O offset negativo puxa o fragmento
+    // do letreiro à frente em unidades de depth — independente da distância.
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
   });
 
   const backingMaterial = new THREE.MeshStandardMaterial({

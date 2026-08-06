@@ -5,7 +5,7 @@ type DonationInfoSectionProps = {
 
 // ONGs parceiras — dados ilustrativos enquanto parcerias reais não são firmadas.
 // `share` define a fração do total arrecadado destinada a cada ONG (soma = 1).
-const PARTNER_NGOS = [
+export const PARTNER_NGOS = [
   {
     name: "Patas do Bem",
     focus: "Resgate e adoção de cães e gatos abandonados",

@@ -385,6 +385,24 @@ Todos gerenciados pelo [[scene-managers|DonationManager]]. A customização é p
 
 ---
 
+### `DonationInfo`
+
+Dados que o doador preenche no [[html-components#`DonationFormModal.tsx`|formulário de doação]]:
+
+```typescript
+type DonationInfo = {
+  title: string;         // nome exibido no card do edifício
+  description: string;   // frase sobre o doador / causa
+  link: string;          // URL (protocolo opcional)
+  image: string | null;  // foto reduzida a 512px como data URL JPEG; null = sem foto
+  ngo: string;           // nome da ONG escolhida (PARTNER_NGOS)
+}
+```
+
+Único tipo daqui que **não chega no Three.js**: mora em `types.ts` porque [[scene-config#scenePersistence.ts|scenePersistence]] o serializa em `PersistedScene.infos`. Consumido pelo [[html-components#`BuildingInfoModal.tsx`|BuildingInfoModal]] no clique do edifício; guardado em `donationInfos: Map<donationId, DonationInfo>` no `CitySceneEditor`.
+
+---
+
 ## Tipos de Dados da Cena
 
 ### `DonationEntry`

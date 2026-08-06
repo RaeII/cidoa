@@ -4,6 +4,7 @@ import { BuildingHeightInput } from "./html/BuildingHeightInput";
 import { PaymentSimulation, type Payment } from "./html/PaymentSimulation";
 import { BuildingCustomizePanel } from "./html/BuildingCustomizePanel";
 import { BuildingInfoModal } from "./html/BuildingInfoModal";
+import { DonationFormModal } from "./html/DonationFormModal";
 import { CityControlPanel } from "./html/CityControlPanel";
 import { DonationInfoSection } from "./html/DonationInfoSection";
 import { KeyboardShortcutsHelp } from "./html/KeyboardShortcutsHelp";
@@ -33,6 +34,7 @@ import type {
   BuildingCustomization,
   BuildingShape,
   CameraDebugInfo,
+  DonationInfo,
   EdgeLightType,
   FacadeStyle,
   RooftopType,
@@ -47,7 +49,7 @@ import { getLightMetrics } from "../scene/utils/lighting";
 import { randomFacadeStyle } from "../scene/utils/facadeStyle";
 
 // Cena começa com um único edifício (modelo padrão/quadrado).
-// Novos edifícios entram via seta direita, sempre superando o mais alto atual.
+// Novos edifícios entram pelo formulário de doação (seta direita ou botão direito na cena).
 const INITIAL_TEST_DONATIONS = [30] as const;
 
 // Estado salvo em localStorage (edifícios + personalizações + settings). Lido uma
@@ -58,23 +60,6 @@ const STORED_SCENE = loadPersistedScene();
 const INITIAL_DONATIONS: readonly number[] = STORED_SCENE?.donations ?? INITIAL_TEST_DONATIONS;
 
 const INITIAL_DONATION_TOTAL = INITIAL_DONATIONS.reduce((sum, v) => sum + v, 0);
-
-// Cada seta direita gera um edifício que supera o maior valor atual da cidade
-// (vira o mais alto e assume o centro da espiral), até o teto de DONATION_MAX_VALUE.
-// O sorteio define só quanto ele ultrapassa o líder.
-const DONATION_INCREMENT_MIN = 10;
-const DONATION_INCREMENT_MAX = 40;
-// Teto do valor gerado pelo botão/seta — nenhuma doação simulada passa disso.
-const DONATION_MAX_VALUE = 150;
-// Valor fixo do primeiro pagamento simulado da sessão.
-const FIRST_PAYMENT_VALUE = 47;
-
-const randomDonationIncrement = () =>
-  Math.round(
-    DONATION_INCREMENT_MIN + Math.random() * (DONATION_INCREMENT_MAX - DONATION_INCREMENT_MIN),
-  );
-
-const INITIAL_MAX_DONATION = Math.max(0, ...INITIAL_DONATIONS);
 
 // Personalizações salvas vêm alinhadas por índice com `donations`. O donation
 // manager numera os edifícios do lote inicial na mesma ordem (id = índice), então
@@ -88,6 +73,15 @@ const createInitialBuildingCustomizations = () => {
 };
 
 const INITIAL_BUILDING_CUSTOMIZATIONS = createInitialBuildingCustomizations();
+
+// Mesma regra de alinhamento por índice das personalizações.
+const createInitialDonationInfos = () => {
+  const map = new Map<number, DonationInfo>();
+  STORED_SCENE?.infos.forEach((info, index) => {
+    if (info) map.set(index, info);
+  });
+  return map;
+};
 
 const INITIAL_SETTINGS = STORED_SCENE?.settings ?? createDefaultPersistedSettings();
 
@@ -126,13 +120,20 @@ export function CitySceneEditor() {
   const [selectedBuildingId, setSelectedBuildingId] = useState<number | null>(null);
   // Edifício clicado: mostra modal de info (dono + valor). `null` = fechado.
   const [infoBuilding, setInfoBuilding] = useState<{ id: number; value: number } | null>(null);
+  // Botão direito na cena abre o formulário de doação (valor, ONG, imagem, texto, link).
+  const [showDonationForm, setShowDonationForm] = useState(false);
+  const [donationFormKey, setDonationFormKey] = useState(0);
+  // Informações preenchidas no formulário, por id de edifício. Persistem junto
+  // da cena (alinhadas por índice em `PersistedScene.infos`).
+  const [donationInfos, setDonationInfos] = useState<Map<number, DonationInfo>>(
+    createInitialDonationInfos,
+  );
   const [buildingCustomizations, setBuildingCustomizations] = useState<Map<number, BuildingCustomization>>(
     createInitialBuildingCustomizations,
   );
 
   // Edifícios que vão para o localStorage. Guarda o id de runtime junto do valor
-  // para casar com `buildingCustomizations` na hora de salvar. Doações da
-  // simulação de pagamento (seta direita) ficam de fora — só existem na sessão.
+  // para casar com `buildingCustomizations`/`donationInfos` na hora de salvar.
   const [persistedDonations, setPersistedDonations] = useState<
     Array<{ id: number; value: number }>
   >(() => INITIAL_DONATIONS.map((value, id) => ({ id, value })));
@@ -147,8 +148,9 @@ export function CitySceneEditor() {
   const [payment, setPayment] = useState<Payment | null>(null);
   const paymentIdRef = useRef(0);
   const paymentBusyRef = useRef(false);
-  // Maior doação já registrada — base para o próximo edifício da seta direita.
-  const maxDonationRef = useRef(INITIAL_MAX_DONATION);
+  // Informações do formulário aguardando a confirmação do pagamento em curso.
+  // Um pagamento por vez (paymentBusyRef), então um único slot basta.
+  const pendingInfoRef = useRef<DonationInfo | null>(null);
 
   const lightMetrics = getLightMetrics(lightSettings);
 
@@ -161,6 +163,7 @@ export function CitySceneEditor() {
     () => ({
       donations: persistedDonations.map((d) => d.value),
       customizations: persistedDonations.map((d) => buildingCustomizations.get(d.id) ?? null),
+      infos: persistedDonations.map((d) => donationInfos.get(d.id) ?? null),
       settings: {
         building: buildingSettings,
         texture: textureSettings,
@@ -177,6 +180,7 @@ export function CitySceneEditor() {
     [
       persistedDonations,
       buildingCustomizations,
+      donationInfos,
       buildingSettings,
       textureSettings,
       groundSettings,
@@ -300,23 +304,27 @@ export function CitySceneEditor() {
     };
   }, []);
 
-  // `persist = false` para a simulação de pagamento: o edifício aparece na cena
-  // mas não entra no localStorage — e entra sempre com a fachada `default`, sem
-  // sorteio de estilo.
-  const handleDonation = (value: number, persist = true) => {
+  // Todo edifício entra no localStorage (e nos estados nomeados da cidade).
+  // Com `info` = veio do formulário de doação: fachada `default`, sem sorteio.
+  const handleDonation = (value: number, info?: DonationInfo) => {
     const id = nextDonationIdRef.current++;
-    canvasRef.current?.addDonation(value, !persist);
-    maxDonationRef.current = Math.max(maxDonationRef.current, value);
+    canvasRef.current?.addDonation(value, Boolean(info));
     setDonationTotal((t) => t + value);
     setDonationCount((c) => c + 1);
-    if (persist) setPersistedDonations((prev) => [...prev, { id, value }]);
+    setPersistedDonations((prev) => [...prev, { id, value }]);
+    if (info) {
+      setDonationInfos((prev) => new Map(prev).set(id, info));
+      // Grava a fachada `default` na personalização: sem isso o reload sorteia
+      // outra textura para o mesmo prédio (a semeadura inicial não sabe que ele
+      // nasceu do formulário).
+      updateCustomization(id, { facadeStyle: "default" });
+    }
   };
 
   const handleBulkDonation = (values: number[]) => {
     const firstId = nextDonationIdRef.current;
     nextDonationIdRef.current += values.length;
     canvasRef.current?.addDonations(values);
-    maxDonationRef.current = Math.max(maxDonationRef.current, ...values);
     setDonationTotal((t) => t + values.reduce((sum, v) => sum + v, 0));
     setDonationCount((c) => c + values.length);
     setPersistedDonations((prev) => [
@@ -325,20 +333,36 @@ export function CitySceneEditor() {
     ]);
   };
 
-  // Seta direita → inicia a simulação de pagamento. Valor = maior doação atual +
-  // incremento sorteado, limitado a DONATION_MAX_VALUE: o edifício novo é o mais
-  // alto da cidade enquanto o teto não chegar, e nunca passa dele.
+  // Confirmação do formulário → cartão de pagamento com o valor escolhido.
   // Ignora novas chamadas enquanto um cartão ainda está na tela.
-  const startPayment = useCallback(() => {
+  const startPayment = useCallback((amount: number) => {
     if (paymentBusyRef.current) return;
     paymentBusyRef.current = true;
     paymentIdRef.current += 1;
-    const amount =
-      paymentIdRef.current === 1
-        ? FIRST_PAYMENT_VALUE
-        : Math.min(DONATION_MAX_VALUE, maxDonationRef.current + randomDonationIncrement());
     setPayment({ id: paymentIdRef.current, amount });
   }, []);
+
+  // Abre o formulário de doação (botão direito na cena ou seta direita).
+  // Bloqueado enquanto um pagamento roda (o cartão da simulação já ocupa a tela).
+  const openDonationForm = useCallback(() => {
+    // Já aberto: sair aqui evita que a seta `→` remonte o formulário e apague o
+    // que o usuário digitou.
+    if (paymentBusyRef.current || showDonationForm) return;
+    // Nova chave = formulário remontado em branco a cada abertura.
+    setDonationFormKey((k) => k + 1);
+    setShowDonationForm(true);
+  }, [showDonationForm]);
+
+  // Confirmação do formulário: fecha o modal, guarda as informações e dispara a
+  // simulação de pagamento — o edifício nasce quando o pagamento confirma.
+  const handleDonationFormConfirm = useCallback(
+    (amount: number, info: DonationInfo) => {
+      setShowDonationForm(false);
+      pendingInfoRef.current = info;
+      startPayment(amount);
+    },
+    [startPayment],
+  );
 
   const handleHoverChange = useCallback(
     (value: number | null, x: number, y: number) => {
@@ -495,8 +519,8 @@ export function CitySceneEditor() {
   const shortcuts: KeyboardShortcut[] = [
     {
       key: "ArrowRight",
-      description: "Adicionar edifício (simula pagamento)",
-      handler: () => startPayment(),
+      description: "Abrir formulário de doação",
+      handler: () => openDonationForm(),
     },
     {
       key: "m",
@@ -530,6 +554,8 @@ export function CitySceneEditor() {
       handler: () => {
         if (showShortcutsHelp) {
           setShowShortcutsHelp(false);
+        } else if (showDonationForm) {
+          setShowDonationForm(false);
         } else if (infoBuilding !== null) {
           handleCloseInfo();
         } else if (selectedBuildingId !== null) {
@@ -567,6 +593,7 @@ export function CitySceneEditor() {
         onCameraDebugChange={setCameraDebugInfo}
         onHoverChange={handleHoverChange}
         onBuildingClick={handleBuildingClick}
+        onSceneRightClick={openDonationForm}
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to from-black/35 to-transparent" />
       {uiVisibility.cameraLog && cameraDebugInfo && (
@@ -604,15 +631,25 @@ export function CitySceneEditor() {
       />
       <PaymentSimulation
         payment={payment}
-        onConfirmed={(amount) => handleDonation(amount, false)}
+        onConfirmed={(amount) => {
+          handleDonation(amount, pendingInfoRef.current ?? undefined);
+          pendingInfoRef.current = null;
+        }}
         onDone={() => setPayment(null)}
         onExited={() => {
           paymentBusyRef.current = false;
         }}
       />
+      <DonationFormModal
+        key={donationFormKey}
+        open={showDonationForm}
+        onConfirm={handleDonationFormConfirm}
+        onClose={() => setShowDonationForm(false)}
+      />
       {infoBuilding !== null && (
         <BuildingInfoModal
           value={infoBuilding.value}
+          info={donationInfos.get(infoBuilding.id)}
           onCustomize={handleCustomizeFromInfo}
           onClose={handleCloseInfo}
         />

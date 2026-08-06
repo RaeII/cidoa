@@ -119,6 +119,10 @@ const handleBuildingClick = useEffectEvent(
     onBuildingClick?.(donationId);
   },
 );
+
+const handleSceneRightClick = useEffectEvent(() => {
+  onSceneRightClick?.();
+});
 ```
 
 Isso repassa os callbacks para o runtime sem recriar o runtime toda vez que o React renderiza — cada callback sempre vê o valor mais recente sem precisar ser listado como dependência.

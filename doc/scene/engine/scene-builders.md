@@ -211,6 +211,11 @@ Cada lado cria seu próprio canvas, textura e material independentes. A largura 
 > [!note] Sombras
 > A placa emissiva do letreiro não projeta sombra. Apenas o backing metálico usa `castShadow`/`receiveShadow`, controlado por `setSignMeshShadowEnabled()`.
 
+> [!warning] Estabilidade na câmera (letreiro piscando/sumindo)
+> Dois defeitos causavam flicker conforme a câmera se movia:
+> - **Coplanaridade** — plano da placa cai exatamente sobre a face frontal do backing (`backPush + espessura/2` == push do plano, nos dois caminhos: `0.005 + 0.015 = 0.02` axis-aligned, `0.085 + 0.015 = 0.10` twisted). Depth buffer `near 0.1 / far 260` não separa os dois além de ~50 unidades → z-fighting, e em certos ângulos a placa some inteira. Corrigido com `polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2` no material da placa — puxa o fragmento à frente em unidades de depth, independente da distância, sem mexer na geometria.
+> - **Textura sem mipmap** — `minFilter = LinearFilter` fazia o texto cintilar na minificação e traços finos sumirem. Agora `LinearMipmapLinearFilter` + `anisotropy = 16` (clampado pelo renderer no máximo suportado).
+
 > [!note] Ajuste automático de fonte
 > O fontSize começa em 52% da altura do canvas e é reduzido pixel a pixel até o texto caber com 12% de padding lateral. Limite máximo: 30 caracteres (imposto pelo UI).
 

@@ -58,6 +58,7 @@ src/
       BuildingHeightInput.tsx
       DonationInfoSection.tsx
       PaymentSimulation.tsx
+      DonationFormModal.tsx
       BuildingCustomizePanel.tsx
       BuildingInfoModal.tsx
       BuildingControls.tsx
@@ -171,14 +172,16 @@ E entrega para:
 
 - [[three-components|CitySceneCanvas]] — monta a cena 3D
 - [[html-components|CityControlPanel]] — mostra os controles (abre pelo ícone de engrenagem, que some quando o painel está aberto; fecha pelo "X" na barra de abas)
-- [[html-components#BuildingInfoModal.tsx|BuildingInfoModal]] — modal que abre ao clicar no edifício: imagem, nome e URL do dono (estático) + valor doado (dinâmico). Botão "Personalizar" abre o painel abaixo
+- [[html-components#DonationFormModal.tsx|DonationFormModal]] — modal centralizado aberto por **clique direito na cena** ou **seta direita (`→`)**: valor, ONG, imagem, título, descrição e link. Confirmar → simulação de pagamento → edifício nasce com essas informações
+- [[html-components#BuildingInfoModal.tsx|BuildingInfoModal]] — modal que abre ao clicar no edifício: informações do formulário (imagem, título, descrição, link, ONG) ou dono estático quando não há; valor doado sempre dinâmico. Botão "Personalizar" abre o painel abaixo
 - [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]] — personalização do edifício selecionado com cor, formato, letreiro, topo, LED e holograma (upload de imagem ou GIF), sem controles de textura
 - [[html-components#BuildingHeightInput.tsx|BuildingHeightInput]] — input de doação e layout
 - [[html-components#DonationInfoSection.tsx|DonationInfoSection]] — seção abaixo da cena com totais e ONGs parceiras
 
 Também gerencia:
 
-- Doações via `canvasRef.addDonation(value, forceDefaultFacade?)` e `canvasRef.addDonations(values)` — pagamento passa `forceDefaultFacade`, prédio entra com textura `default`
+- Doações via `canvasRef.addDonation(value, forceDefaultFacade?)` e `canvasRef.addDonations(values)` — doação do formulário passa `forceDefaultFacade`, prédio entra com textura `default`
+- `donationInfos: Map<donationId, DonationInfo>` — informações preenchidas no formulário de doação, lidas pelo `BuildingInfoModal` no clique e persistidas em `PersistedScene.infos` (autosave + estados nomeados da cidade)
 - Total arrecadado (`donationTotal`) e contagem (`donationCount`) — alimentam a [[html-components#DonationInfoSection.tsx|DonationInfoSection]]
 - Navegação cena ↔ info: container `overflow-y-auto` + `scrollToInfo`/`scrollToScene`. Container usa classe `.scrollbar-hidden` (em `index.css`) — scrollbar some da tela, scroll (roda/touch/teclado) continua funcionando. Descida só pelo botão "Para onde vai o seu investimento" (`scrollToInfo`). Roda do mouse bloqueada na cena (`preventDefault`); painéis flutuantes roláveis usam `overscroll-contain` pra não arrastar a página pra baixo ao chegar no fim. Snap-up automático na info.
 - Foco em edifício via `canvasRef.focusOnDonation(id)` e `canvasRef.clearFocus()`
@@ -209,9 +212,12 @@ flowchart TD
     C --> D[CitySceneCanvas]
     C --> E[CityControlPanel]
     C --> F[BuildingHeightInput]
+    C --> DF[DonationFormModal]
     C --> IM[BuildingInfoModal]
     C --> P[BuildingCustomizePanel]
     IM --> |Personalizar| P
+    DF --> |confirmar| PS[PaymentSimulation]
+    PS --> |pagamento confirmado| C
     D --> G[useCityScene]
     G --> H[createCitySceneRuntime]
     H --> I[createLightingRig]
@@ -272,7 +278,9 @@ flowchart LR
 | Alterar valor padrão dos prédios                 | [[scene-config]]                                  |
 | Alterar a UI do painel de configuração           | [[html-components#CityControlPanel.tsx]]          |
 | Adicionar/alterar atalho de teclado              | [[html-components#Atalhos de teclado]]            |
-| Alterar a animação de pagamento (seta direita)   | [[html-components#`PaymentSimulation.tsx`]]       |
+| Alterar a animação de pagamento (pós-confirmação) | [[html-components#`PaymentSimulation.tsx`]]      |
+| Alterar o formulário de doação (seta direita / clique direito) | [[html-components#`DonationFormModal.tsx`]] |
+| Alterar quem responde ao clique direito na cena  | [[scene-runtime#3. Atualizações do React]]        |
 | Alterar seção de info/ONGs abaixo da cena         | [[html-components#DonationInfoSection.tsx]]       |
 | Mostrar/esconder componentes HTML da tela        | aba **Tela** → [[scene-config#uiVisibilityConfig.ts]] |
 | Alterar o que persiste em localStorage           | [[scene-config#scenePersistence.ts]]              |
