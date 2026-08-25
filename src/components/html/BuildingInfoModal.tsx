@@ -1,7 +1,7 @@
 import type { DonationInfo } from "../../scene/types";
 
 // Dono padrão dos edifícios sem informação preenchida (lote inicial / seta direita).
-const BUILDING_OWNER = {
+export const BUILDING_OWNER = {
   image: "/claudio.png",
   name: "Claudio",
   url: "claudio.dev",

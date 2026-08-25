@@ -60,6 +60,7 @@ src/
       PaymentSimulation.tsx
       DonationFormModal.tsx
       BuildingCustomizePanel.tsx
+      BuildingInfoForm.tsx
       BuildingInfoModal.tsx
       BuildingControls.tsx
       TextureControls.tsx
@@ -129,6 +130,7 @@ src/
       lighting.ts
       random.ts
       facadeStyle.ts
+      image.ts
       devAssertions.ts
 doc/
   index.md                       ← você está aqui (mapa da documentação)
@@ -174,7 +176,7 @@ E entrega para:
 - [[html-components|CityControlPanel]] — mostra os controles (abre pelo ícone de engrenagem, que some quando o painel está aberto; fecha pelo "X" na barra de abas)
 - [[html-components#DonationFormModal.tsx|DonationFormModal]] — modal centralizado aberto por **clique direito na cena** ou **seta direita (`→`)**: valor, ONG, imagem, título, descrição e link. Confirmar → simulação de pagamento → edifício nasce com essas informações
 - [[html-components#BuildingInfoModal.tsx|BuildingInfoModal]] — modal que abre ao clicar no edifício: informações do formulário (imagem, título, descrição, link, ONG) ou dono estático quando não há; valor doado sempre dinâmico. Botão "Personalizar" abre o painel abaixo
-- [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]] — personalização do edifício selecionado com cor, formato, letreiro, topo, LED e holograma (upload de imagem ou GIF), sem controles de textura
+- [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]] — painel de duas abas do edifício selecionado: **Edifício** (cor, formato, letreiro, topo, LED, holograma) e **Informações** ([[html-components#BuildingInfoForm.tsx|BuildingInfoForm]] — edita o conteúdo do modal)
 - [[html-components#BuildingHeightInput.tsx|BuildingHeightInput]] — input de doação e layout
 - [[html-components#DonationInfoSection.tsx|DonationInfoSection]] — seção abaixo da cena com totais e ONGs parceiras
 
@@ -288,6 +290,8 @@ flowchart LR
 | Alterar o select de troca rápida de estado       | aba **Tela** → seção Estados da cidade → [[html-components#CityControlPanel.tsx]] |
 | Alterar a UI de personalização de edifício       | [[html-components#BuildingCustomizePanel.tsx]]    |
 | Alterar o modal de info do edifício (dono/valor) | [[html-components#BuildingInfoModal.tsx]]         |
+| Editar as informações do modal de um edifício    | aba **Informações** → [[html-components#BuildingInfoForm.tsx]] |
+| Alterar o downscale da foto antes do localStorage | [[scene-utils#`image.ts`]]                        |
 | Alterar o canvas ou a ligação com o hook         | [[three-components]]                              |
 | Alterar fórmulas de luz, clamp ou material       | [[scene-utils]]                                   |
 | Alterar criação do chão, grid, luzes ou ambiente | [[scene-builders]]                                |

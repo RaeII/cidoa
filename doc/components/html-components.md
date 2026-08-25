@@ -177,9 +177,17 @@ type DonationInfo = {
 
 Painel de personalização de um edifício individual, exibido ao clicar em um prédio na cena. Posicionado no canto superior direito com scroll interno para caber em telas menores.
 
+**Duas abas** (barra logo abaixo do título, estado local `tab`):
+
+| Aba | Conteúdo |
+|---|---|
+| **Edifício** (padrão) | Seções de aparência 3D — cor, fachada, formato, texturas, letreiro, topo, LED, holograma |
+| **Informações** | [[#`BuildingInfoForm.tsx`|BuildingInfoForm]] — edita o que o [[#`BuildingInfoModal.tsx`|BuildingInfoModal]] mostra (imagem, título, link, ONG, descrição) |
+
 **Responsabilidades:**
 - Exibir campos de personalização para o edifício selecionado
 - Atualizar cor, fachada, formato, letreiro, acessório de topo e LED de arestas em tempo real
+- Editar as informações do modal do edifício (aba **Informações**)
 - Botão de fechar (X) para desselecionar o edifício
 
 **Props:**
@@ -203,6 +211,8 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 | `onSignTextChange` | `(id: number, text: string) => void` | Callback de troca de texto do letreiro |
 | `onSignSidesChange` | `(id: number, sides: number) => void` | Callback de troca de lados do letreiro |
 | `onEdgeLightTypeChange` | `(id: number, type: EdgeLightType) => void` | Callback de toggle do LED |
+| `info` | `DonationInfo \| undefined` | Informações do modal deste edifício (`donationInfos.get(id)`). Ausente = dono padrão |
+| `onInfoChange` | `(id: number, info: DonationInfo) => void` | Callback da aba **Informações** — grava em `donationInfos` no `CitySceneEditor` |
 | `onClose` | `() => void` | Fecha o painel e limpa o foco |
 
 **Seções do painel:**
@@ -216,9 +226,13 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 | **Letreiro** | Input de texto + seletor de lados | Marca/empresa na fachada (máx 30 chars). Seletor de lados (1–4) aparece quando há texto |
 | **Topo** | Botões | Opções: nenhum, holofotes, heliponto, jardim suspenso ou helicóptero |
 | **LED de arestas** | Botões | Liga/desliga o LED nas arestas verticais e topo |
+| **Holograma** | Upload + `ColorField` + `RangeField` | Imagem/GIF projetado acima do prédio (máx 4 MB), tint e opacidade |
+
+> [!note] Aba **Informações**
+> Fica fora da tabela acima: não mexe na cena 3D, só no conteúdo do modal — ver [[#`BuildingInfoForm.tsx`]].
 
 > [!note] Fluxo de personalização
-> Clique no edifício → `onBuildingClick(donationId)` → `CitySceneEditor` chama `focusOnDonation` (zoom + destaque) e abre o [[#`BuildingInfoModal.tsx`|BuildingInfoModal]] (dono + valor). Botão **Personalizar** do modal abre `BuildingCustomizePanel` (mantém o foco) → cada mudança chama `updateCustomization` que monta o `BuildingCustomization` completo e envia ao runtime via `canvasRef.updateDonationCustomization(id, {...})`.
+> Clique no edifício → `onBuildingClick(donationId)` → `CitySceneEditor` chama `focusOnDonation` (zoom + destaque) e abre o [[#`BuildingInfoModal.tsx`|BuildingInfoModal]] (dono + valor). Botão **Personalizar** (lápis) do modal abre `BuildingCustomizePanel` (mantém o foco) — aba **Edifício** muda a cena, aba **Informações** muda o conteúdo do próprio modal → cada mudança de aparência chama `updateCustomization` que monta o `BuildingCustomization` completo e envia ao runtime via `canvasRef.updateDonationCustomization(id, {...})`.
 
 > [!tip] Onde cada personalização é aplicada
 > - **Cor** → `InstancedBufferAttribute` (instanceColor) quando o prédio fica no `InstancedMesh`; clone de material quando o prédio vira mesh próprio
@@ -234,6 +248,28 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 
 ---
 
+### `BuildingInfoForm.tsx`
+
+Conteúdo da aba **Informações** do [[#`BuildingCustomizePanel.tsx`|BuildingCustomizePanel]]. Edita o `DonationInfo` do edifício selecionado — os mesmos campos do [[#`DonationFormModal.tsx`|formulário de doação]], sem valor nem ONG obrigatória.
+
+**Campos:** imagem (enviar/trocar/remover), título, link, ONG beneficiada (`PARTNER_NGOS`) e descrição.
+
+**Props:**
+
+| Prop | Tipo | Descrição |
+|---|---|---|
+| `donationId` | `number` | ID da doação em edição |
+| `info` | `DonationInfo \| undefined` | Informações atuais. Ausente = prefill com o dono padrão |
+| `onInfoChange` | `(id: number, info: DonationInfo) => void` | Aplica a cada tecla/troca de campo |
+
+**Comportamento:**
+- **Sem botão de salvar** — cada mudança monta o `DonationInfo` completo e chama `onInfoChange`, igual ao resto do painel. Fechar o modal e reabrir já mostra o novo conteúdo
+- Prédio **sem `info`** (lote inicial / input de doação) abre com o `BUILDING_OWNER` do [[#`BuildingInfoModal.tsx`|BuildingInfoModal]] preenchido — editar parte do que o modal mostra, não de um form vazio. Primeira edição cria a entrada em `donationInfos`, e o modal para de cair no dono padrão
+- Imagem passa por `readImageDownscaled` (512 px, JPEG) antes de virar data URL — mesmo utilitário do formulário de doação ([[scene-utils#`image.ts`]]). Teto de 8 MB no arquivo bruto
+- `DonationInfo` é **só UI**: não chega no Three.js, persiste em `PersistedScene.infos` ([[scene-config#scenePersistence.ts]])
+
+---
+
 ### `BuildingInfoModal.tsx`
 
 Modal central que abre ao clicar num edifício. Mostra as informações do prédio + valor doado. Duas fontes:
@@ -241,7 +277,7 @@ Modal central que abre ao clicar num edifício. Mostra as informações do préd
 - **Com `info`** — prédio criado pelo [[#`DonationFormModal.tsx`|formulário de doação]]: imagem, título, descrição, link e ONG vêm do que o doador preencheu (`donationInfos.get(id)` no editor).
 - **Sem `info`** — prédio do lote inicial ou do input de doação: cai no dono estático `BUILDING_OWNER` (mock). Vale também para prédio salvo antes de `infos` existir no storage.
 
-**Dado estático (`BUILDING_OWNER`, fallback):**
+**Dado estático (`BUILDING_OWNER`, fallback — exportado, também é o prefill do [[#`BuildingInfoForm.tsx`|BuildingInfoForm]]):**
 
 | Campo | Valor |
 |---|---|

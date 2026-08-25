@@ -221,6 +221,9 @@ Algumas personalizações precisam de **estado de material próprio** por edifí
 
 Quando a flag transiciona (entra ou sai do `customShapeMeshes`), `updateDonationCustomization` chama `rebuildInstances()` e re-aplica `applyFocus(focusedDonationId)`. Mudanças que não atravessam essa fronteira (ex: ajustar tiling de 2.0 → 2.5 num prédio que já é custom) atualizam direto o uniform `uTilingMultiplier` do material — sem rebuild.
 
+> [!warning] Rebuild não encerra a função
+> `rebuildInstances()` só **sincroniza** acessórios já existentes (`syncRooftops`/`syncSigns`/`syncEdgeLights`/`syncHolograms`) — não cria nenhum. Por isso o rebuild marca `rebuilt = true` e a função segue aplicando rooftop, letreiro, LED e holograma. Sair ali (o `return` antigo) perdia esses acessórios ao restaurar um estado salvo, que chega com shape + acessórios de uma vez só. `rebuilt` também pula o rebuild por troca de fachada — o mesh recriado já nasce com o estilo efetivo.
+
 Para cada doação custom, `syncCustomShapes()`:
 
 1. Clona `facadeMaterial`/`topMaterial`.

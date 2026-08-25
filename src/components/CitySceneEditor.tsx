@@ -399,6 +399,11 @@ export function CitySceneEditor() {
     setInfoBuilding(null);
   }, [infoBuilding]);
 
+  // Aba "Informações" do painel: sobrescreve os dados que o modal do edifício mostra.
+  const handleDonationInfoChange = useCallback((donationId: number, info: DonationInfo) => {
+    setDonationInfos((prev) => new Map(prev).set(donationId, info));
+  }, []);
+
   const handleCloseCustomizePanel = useCallback(() => {
     canvasRef.current?.clearFocus();
     setSelectedBuildingId(null);
@@ -671,6 +676,8 @@ export function CitySceneEditor() {
             initialHologramImage={c.hologramImage}
             initialHologramColor={c.hologramColor}
             initialHologramOpacity={c.hologramOpacity}
+            info={donationInfos.get(selectedBuildingId)}
+            onInfoChange={handleDonationInfoChange}
             onColorChange={handleBuildingColorChange}
             onFacadeStyleChange={handleFacadeStyleChange}
             onTilingScaleChange={handleTilingScaleChange}

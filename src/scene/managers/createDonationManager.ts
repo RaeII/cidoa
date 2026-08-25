@@ -2268,19 +2268,23 @@ export function createDonationManager({
       const nowNeedsCustom = needsCustomMesh(customization);
 
       // Transição de allocation: se o prédio entra ou sai do customShapeMeshes
-      // (ou troca de shape), re-alocar instâncias e re-aplicar foco.
+      // (ou troca de shape), re-alocar instâncias e re-aplicar foco. Não pode
+      // sair daqui: rebuildInstances só sincroniza acessórios que já existem —
+      // rooftop/letreiro/LED/holograma ainda precisam ser criados abaixo (é o
+      // caso ao restaurar um estado salvo, que chega com tudo de uma vez).
+      let rebuilt = false;
       if (prevNeedsCustom !== nowNeedsCustom || customization.buildingShape !== prevShape) {
         rebuildInstances();
         if (focusedDonationId !== null) {
           applyFocus(focusedDonationId);
         }
-        return;
+        rebuilt = true;
       }
 
       // Troca de estilo de fachada. Com mesh próprio (shape custom) só troca os mapas
       // do material clonado; no caminho instanciado o prédio muda de bucket, o que
       // exige realocar as instâncias.
-      if (effectiveFacadeStyle(donationId, customization) !== prevFacadeStyle) {
+      if (!rebuilt && effectiveFacadeStyle(donationId, customization) !== prevFacadeStyle) {
         const entry = customShapeMeshes.get(donationId);
         if (entry) {
           entry.facadeMat.userData.facadeStyle = customization.facadeStyle;

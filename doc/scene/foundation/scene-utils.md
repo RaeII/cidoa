@@ -118,6 +118,20 @@ Consumido por:
 
 ---
 
+### `image.ts`
+
+Leitura de imagem enviada pelo usuário:
+
+| Export | Descrição |
+|---|---|
+| `readImageDownscaled(file)` | `File` → data URL JPEG (qualidade 0.82), maior lado limitado a 512 px |
+
+Foto de celular em base64 estoura sozinha a cota do `localStorage` (~5 MB) — reduz antes de guardar. Usa `createImageBitmap` + `<canvas>`; fecha o bitmap depois.
+
+Consumido por [[html-components#`DonationFormModal.tsx`|DonationFormModal]] (nova doação) e [[html-components#BuildingInfoForm.tsx|BuildingInfoForm]] (edição das informações do modal).
+
+---
+
 ### `devAssertions.ts`
 
 Verificações de desenvolvimento com `console.assert`:

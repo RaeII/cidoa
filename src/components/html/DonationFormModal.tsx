@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { PARTNER_NGOS } from "./DonationInfoSection";
 import type { DonationInfo } from "../../scene/types";
+import { readImageDownscaled } from "../../scene/utils/image";
 
 type DonationFormModalProps = {
   open: boolean;
@@ -14,23 +15,9 @@ type DonationFormModalProps = {
 const AMOUNT_PRESETS = [50, 100, 250, 500] as const;
 
 const IMAGE_MAX_BYTES = 8 * 1024 * 1024; // 8 MB — teto antes de decodificar o arquivo
-// A foto vai para o localStorage como data URL junto da cena. Foto de celular em
-// base64 estoura sozinha a cota (~5 MB), então reduz antes de guardar.
-const MAX_IMAGE_SIDE = 512;
 
 const formatBRL = (value: number) =>
   value.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-
-async function readImageDownscaled(file: File): Promise<string> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-  canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  return canvas.toDataURL("image/jpeg", 0.82);
-}
 
 const FIELD_CLASS =
   "w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition-colors placeholder:text-white/25 focus:border-[#c9a86a]/60 focus:bg-white/[0.07]";

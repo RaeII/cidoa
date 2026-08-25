@@ -2,8 +2,10 @@ import { useRef, useState } from "react";
 import { PanelSection } from "./controls/PanelSection";
 import { ColorField } from "./controls/ColorField";
 import { RangeField } from "./controls/RangeField";
+import { BuildingInfoForm } from "./BuildingInfoForm";
 import type {
   BuildingShape,
+  DonationInfo,
   EdgeLightType,
   FacadeStyle,
   RooftopType,
@@ -59,6 +61,14 @@ const EDGE_LIGHT_OPTIONS: { value: EdgeLightType; label: string }[] = [
   { value: "led", label: "LED" },
 ];
 
+// Abas do painel: aparência 3D do edifício x conteúdo do modal de informações.
+const TAB_OPTIONS = [
+  { value: "building", label: "Edifício" },
+  { value: "info", label: "Informações" },
+] as const;
+
+type PanelTab = (typeof TAB_OPTIONS)[number]["value"];
+
 const SIDE_OPTIONS = [
   { value: 1, label: "1 lado" },
   { value: 2, label: "2 lados" },
@@ -79,6 +89,9 @@ type BuildingCustomizePanelProps = {
   initialHologramImage: string | null;
   initialHologramColor: string;
   initialHologramOpacity: number;
+  /** Informações do modal deste edifício. Ausente = dono padrão. */
+  info?: DonationInfo;
+  onInfoChange: (donationId: number, info: DonationInfo) => void;
   onColorChange: (donationId: number, color: string) => void;
   onFacadeStyleChange: (donationId: number, facadeStyle: FacadeStyle) => void;
   onTilingScaleChange: (donationId: number, tilingScale: number) => void;
@@ -106,6 +119,8 @@ export function BuildingCustomizePanel({
   initialHologramImage,
   initialHologramColor,
   initialHologramOpacity,
+  info,
+  onInfoChange,
   onColorChange,
   onFacadeStyleChange,
   onTilingScaleChange,
@@ -131,6 +146,7 @@ export function BuildingCustomizePanel({
   const [hologramColor, setHologramColor] = useState(initialHologramColor);
   const [hologramOpacity, setHologramOpacity] = useState(initialHologramOpacity);
   const [hologramError, setHologramError] = useState<string | null>(null);
+  const [tab, setTab] = useState<PanelTab>("building");
   const hologramInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleColorChange = (newColor: string) => {
@@ -227,7 +243,26 @@ export function BuildingCustomizePanel({
           </svg>
         </button>
       </div>
+      <div className="flex gap-1 border-b border-white/10 px-3 py-2">
+        {TAB_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            onClick={() => setTab(option.value)}
+            className={`flex-1 rounded-lg px-3 py-1.5 text-xs transition-colors ${
+              tab === option.value
+                ? "bg-white/15 text-white"
+                : "text-white/50 hover:bg-white/5 hover:text-white/75"
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
       <div className="space-y-4 overflow-y-auto overscroll-contain p-4">
+        {tab === "info" ? (
+          <BuildingInfoForm donationId={donationId} info={info} onInfoChange={onInfoChange} />
+        ) : (
+        <>
         <PanelSection title="Aparência">
           <ColorField
             label="Cor do edifício"
@@ -416,6 +451,8 @@ export function BuildingCustomizePanel({
             </div>
           )}
         </PanelSection>
+        </>
+        )}
       </div>
     </div>
   );
