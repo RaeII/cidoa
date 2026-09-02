@@ -29,6 +29,7 @@ As páginas ficam em pastas que **espelham as pastas do código** — assim voc�
 | `scene/engine/`    | `src/scene`      | Maquinaria que monta e roda a cena (runtime, hooks, managers, builders) |
 | `scene/foundation/`| `src/scene`      | Base que o engine consome: config, tipos e utils           |
 | `admin/`           | `src/components` · `src/pages/admin` | Área admin (fora da cena): UI HTML/shadcn, roteamento, login e dashboard |
+| `passe/`           | transversal      | Gamificação: liberação de personalização por doação + indicação |
 
 > [!tip] Adicionando uma página nova
 > 1. Crie o `.md` dentro da pasta cujo **tema** combina (componente novo → `components/`; peça nova da cena → `scene/engine/`; tipo/config novo → `scene/foundation/`).
@@ -70,10 +71,11 @@ src/
       user.routes.ts              ← edição autenticada do próprio perfil
       user.types.ts               ← usuário público, incluindo imagem de perfil base64
     donationApi.ts
-    customizationApi.ts             ← catálogo de personalizações (opções do backend)
+    customizationApi.ts             ← catálogo de personalizações + conquistas do usuário
     regions.ts
   components/
     ui/
+      badge.tsx                     ← Badge shadcn; requisito de liberação no admin
       switch.tsx                    ← Switch shadcn usado nas ativações do admin
       select.tsx                    ← Select shadcn; filtro de personalização no admin
     AuthMenu.tsx                  ← menu do usuário na cena: modo noite, perfil, indicação, sair
@@ -100,6 +102,7 @@ src/
       PointLightControls.tsx
   lib/
     image.ts                       ← valida e reduz imagens proporcionalmente para até 400 px
+    unlock.ts                      ← fonte única: requisito do passe → texto (badge, frase, o que falta)
       PanelIntro.tsx
       KeyboardShortcutsHelp.tsx
       controls/
@@ -169,7 +172,7 @@ doc/
   api/                           ← espelha src/api (camada de dados / doações)
     donation-api.md
     referral.md                  ← links, código, confirmação e compartilhamento
-    customization-api.md         ← catálogo de personalizações + hook
+    customization-api.md         ← catálogo, conquistas do usuário, formatação do requisito
   components/                    ← espelha src/components (interface React)
     html-components.md
     three-components.md
@@ -184,6 +187,11 @@ doc/
       scene-config.md
       scene-types.md
       scene-utils.md
+  passe/                         ← gamificação (transversal: api + lib + admin + cena)
+    passe-front.md               ← índice do módulo: contrato, estado, mapa
+    passe-formatacao.md          ← src/lib/unlock.ts — requisito vira texto (fonte única)
+    passe-admin-ui.md            ← tela onde admin define quanto custa cada personalização
+    passe-cena.md                ← cadeado no painel do usuário (fase seguinte)
   admin/                         ← área admin do front (fora da cena 3D)
     componentes-html.md          ← base de UI: shadcn, tema, roteamento, componentes
     area-admin.md                ← login, dashboard, auth e API admin
@@ -322,6 +330,11 @@ flowchart LR
 | Alterar a UI de personalização de edifício       | [[html-components#BuildingCustomizePanel.tsx]]    |
 | Entender de onde vêm as opções de personalização | [[customization-api]]                             |
 | Cadastrar/ativar cores e opções (admin)          | [[personalizacoes]]                               |
+| Entender a gamificação inteira                   | [[passe-front]]                                   |
+| Definir quanto doar/indicar pra liberar (admin)  | [[passe-admin-ui#Dialog de liberação]]            |
+| Ver a curva inteira de conquistas (admin)        | [[passe-admin-ui#Visão Passe]]                    |
+| Mudar o texto do requisito ("R$ 50 + 3 indicações") | [[passe-formatacao]]                           |
+| Colocar cadeado na cena / painel do usuário      | [[passe-cena]]                                    |
 | Trocar textura da fachada (UI) / entender loading | [[scene-textures]] · aba **texturas** → [[html-components#TextureControls.tsx]] |
 | Cadastrar textura nova (dropar pasta + `npm run textures:ktx2` + admin) | [[scene-textures]] · [[personalizacoes]] |
 | Textura por edifício (usuário escolhe a dele)    | [[scene-textures#Por edifício]] · [[html-components#BuildingCustomizePanel.tsx]] |
@@ -385,6 +398,8 @@ flowchart LR
 8. [[scene-builders]]
 9. [[scene-config]]
 10. [[scene-utils]]
+
+Gamificação (transversal, ler à parte): [[passe-front]] → [[passe-formatacao]] → [[passe-admin-ui]] → [[passe-cena]]
 
 ## Ideia Central da Arquitetura
 

@@ -1,3 +1,5 @@
+import type { UnlockRule } from "@/lib/unlock";
+
 /** Métricas agregadas de GET /admin/dashboard/stats (rota JWT + admin). */
 export interface DashboardStats {
   donations: {
@@ -36,9 +38,26 @@ export interface IbgeStatus extends IbgeCounts {
 
 // ─── Personalizações (catálogo) ─────────────────────────────────
 
-export type UnlockType = "free" | "donation" | "referral" | "combo";
+/**
+ * Requisito de liberação na entrada das rotas de escrita. Três estados, e a
+ * diferença entre eles importa:
+ *   ausente → não mexe no que está gravado
+ *   null    → limpa a exigência daquele eixo
+ *   número  → passa a exigir (o backend recusa zero)
+ */
+export interface UnlockInput {
+  unlockDonationMin?: number | null;
+  unlockReferralMin?: number | null;
+}
 
-export interface CustomizationOption {
+/** Alvo com requisito e contagem de quem já conquistou. */
+interface UnlockTarget {
+  unlock: UnlockRule;
+  /** Quantos usuários já liberaram. Eles mantêm o acesso se a regra mudar. */
+  unlockedCount: number;
+}
+
+export interface CustomizationOption extends UnlockTarget {
   id: number;
   key: string;
   label: string;
@@ -46,11 +65,9 @@ export interface CustomizationOption {
   sortOrder: number;
   isActive: boolean;
   isCodeBound: boolean;
-  unlockType: string;
-  unlockThreshold: number | null;
 }
 
-export interface CustomizationCategory {
+export interface CustomizationCategory extends UnlockTarget {
   id: number;
   parentId: number | null;
   key: string;
@@ -66,7 +83,7 @@ export interface CustomizationTree {
   categories: CustomizationCategory[];
 }
 
-export interface CreateOptionInput {
+export interface CreateOptionInput extends UnlockInput {
   categoryId: number;
   key: string;
   label: string;
@@ -74,14 +91,14 @@ export interface CreateOptionInput {
   sortOrder?: number;
 }
 
-export interface UpdateOptionInput {
+export interface UpdateOptionInput extends UnlockInput {
   label?: string;
   value?: string | null;
   sortOrder?: number;
   isActive?: boolean;
 }
 
-export interface UpdateCategoryInput {
+export interface UpdateCategoryInput extends UnlockInput {
   label?: string;
   sortOrder?: number;
   isActive?: boolean;

@@ -15,17 +15,22 @@ Página de gestão do catálogo de personalizações da cena. Rota `/dale/person
 
 ## O que faz
 
-Carrega a árvore completa (`GET /admin/customization`, inclui inativas). Mostra **uma** categoria top-level por vez — `Select` shadcn no topo escolhe qual (rótulo + `(inativa)` quando desligada). Sem scroll longo. Estado = `selectedId`; fallback pro primeiro top-level (`sortOrder`) quando nada escolhido. **Customização** aninha subcategorias (Letreiro/Topo/LED/Holograma), renderizadas dentro da escolhida.
+Carrega a árvore completa (`GET /admin/customization`, inclui inativas). Botão no topo alterna entre visão **Lista** (esta página) e visão **Passe** — a curva de conquistas, documentada em [[passe-admin-ui]].
+
+Na visão Lista, mostra **uma** categoria top-level por vez — `Select` shadcn no topo escolhe qual (rótulo + `(inativa)` quando desligada). Sem scroll longo. Estado = `selectedId`; fallback pro primeiro top-level (`sortOrder`) quando nada escolhido. **Customização** aninha subcategorias (Letreiro/Topo/LED/Holograma), renderizadas dentro da escolhida.
 
 Por opção:
 - **Ativa/Inativa** — `Switch` shadcn controlado. Abre confirmação antes do `PUT /admin/customization/options/:id`; cancelar preserva estado. Desativada some da cena.
 - **Ações** — botão vertical de três pontos abre `DropdownMenu` shadcn.
   - **Editar** — dialog: label + value (hex, se Cor/Textura).
+  - **Definir liberação** — dialog do requisito do passe. Ver [[passe-admin-ui]].
   - **Excluir** — ação destrutiva, só se **não** presa a código (`DELETE`). Presas a código (🔒 Formato/Topo/LED) não exibem essa ação.
+- **Badge de requisito** — na sublinha, junto da key. Ver [[passe-admin-ui#Badge do requisito]].
 
 Por categoria:
 - **Ativa/Inativa** — `Switch` shadcn controlado. Abre confirmação antes do `PUT /admin/customization/categories/:id`; cancelar preserva estado. Serve pra ligar/desligar features (Letreiro/Holograma) e categorias inteiras.
 - **Adicionar opção** — só em categoria extensível. **Cor** = dialog com hex.
+- **Definir liberação** — só em categoria `feature` (Letreiro/Holograma), que não tem lista de opções onde guardar a regra. Ver [[passe-admin-ui]].
 
 ## Preview 3D: Formato, Topo e LED
 
@@ -57,6 +62,8 @@ Textura cadastrada aparece em dois lugares: seletor **global** da cena ([[html-c
 
 ## Regra-chave
 
-Opção **presa a código** (`isCodeBound`) tem key travada a um builder do front — admin não cria/deleta, só toggle/edita label. Só **Cor** (e Textura-URL) é dado puro (`isExtensible`), CRUD livre. Liberação por doação/indicação (`unlockType`) é **estrutura futura** — sem UI ainda.
+Opção **presa a código** (`isCodeBound`) tem key travada a um builder do front — admin não cria/deleta, só toggle/edita label. Só **Cor** (e Textura-URL) é dado puro (`isExtensible`), CRUD livre.
+
+Liberação por doação/indicação = módulo à parte: [[passe-admin-ui]] (tela) · [[passe-front]] (índice).
 
 Backend + tabelas: [[personalizacoes|Módulo Personalizações (backend)]]. Consumo na cena: [[customization-api]].
