@@ -219,3 +219,7 @@ Cria/promove usuário com `is_admin=true` + senha bcrypt. Depois é só logar em
 - [[edificios-teste]] — gerar/excluir edifícios fictícios em massa
 - [[index]] — visão geral + cena 3D
 - [[donation-api]] — cliente HTTP compartilhado
+
+## Primeiros inscritos
+
+Menu **Primeiros inscritos** → `/dale/primeiros-inscritos`. Configura combo e quantidade; libera aos primeiros cadastros, inclusive anteriores. JWT + admin em GET/PUT `/admin/early-signups`. Ver [[primeiros-inscritos]].

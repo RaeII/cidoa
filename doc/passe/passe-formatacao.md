@@ -64,7 +64,7 @@ Tipos `UnlockRule` e `UnlockProgress` também saem daqui — `customizationApi.t
 | [[passe-admin-ui\|Admin · badge da linha]] | `formatUnlockRequirement` |
 | [[passe-admin-ui\|Admin · preview do dialog]] | `formatUnlockCta` |
 | [[passe-admin-ui\|Admin · visão Passe]] | `formatUnlockRequirement` |
-| [[passe-cena\|Cena · cadeado]] (futuro) | `meetsUnlock` + `formatUnlockRemaining` |
+| [[passe-cena\|Cena · cadeado]] | `canUseCustomization` + `formatUnlockCta` |
 
 Preview do admin usar a **mesma** `formatUnlockCta` da cena é o que garante que admin e usuário nunca leem coisas diferentes.
 
@@ -72,3 +72,7 @@ Preview do admin usar a **mesma** `formatUnlockCta` da cena é o que garante que
 
 - [[customization-api]] — de onde vêm `rule` e `progress`
 - [[passe-front]] — índice do módulo
+
+## Direito permanente
+
+`canUseCustomization(rule, progress, granted, isAdmin)` combina grátis, progresso e grant. `granted` inclui passe e [[primeiros-inscritos]]; não depende do progresso atual. `progress = null` mantém item pago bloqueado, salvo grant/admin.

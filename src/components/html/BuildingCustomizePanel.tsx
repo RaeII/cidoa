@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { formatUnlockCta } from "@/lib/unlock";
 import { PanelSection } from "./controls/PanelSection";
 import { ColorField } from "./controls/ColorField";
 import { RangeField } from "./controls/RangeField";
@@ -195,15 +196,16 @@ export function BuildingCustomizePanel({
                 <button
                   key={option.id}
                   onClick={() => handleColorChange(hex)}
-                  title={option.label}
+                  disabled={option.isUnlocked === false}
+                  title={option.isUnlocked === false ? formatUnlockCta(option.unlock) : option.label}
                   aria-label={option.label}
-                  className={`h-8 w-full rounded-lg border transition-transform ${
+                  className={`h-8 w-full rounded-lg border transition-transform disabled:cursor-not-allowed disabled:opacity-40 ${
                     selected
                       ? "border-white ring-2 ring-white/60"
                       : "border-white/15 hover:scale-105"
                   }`}
                   style={{ backgroundColor: hex }}
-                />
+                >{option.isUnlocked === false && <span className="text-xs">🔒</span>}</button>
               );
             })}
           </div>
@@ -215,14 +217,16 @@ export function BuildingCustomizePanel({
             {catalog.shapes.map((option) => (
               <button
                 key={option.id}
+                disabled={option.isUnlocked === false}
+                title={option.isUnlocked === false ? formatUnlockCta(option.unlock) : option.label}
                 onClick={() => handleBuildingShapeChange(option.key as BuildingShape)}
-                className={`rounded-lg border px-3 py-2 text-xs transition-colors ${
+                className={`rounded-lg border px-3 py-2 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                   buildingShape === option.key
                     ? "border-white/40 bg-white/15 text-white"
                     : "border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70"
                 }`}
               >
-                {option.label}
+                {option.isUnlocked === false && "🔒 "}{option.label}
               </button>
             ))}
           </div>
@@ -246,14 +250,16 @@ export function BuildingCustomizePanel({
             {catalog.textures.map((option) => (
               <button
                 key={option.id}
+                disabled={option.isUnlocked === false}
+                title={option.isUnlocked === false ? formatUnlockCta(option.unlock) : option.label}
                 onClick={() => option.value && handleTextureKeyChange(option.value)}
-                className={`rounded-lg border px-3 py-2 text-xs transition-colors ${
+                className={`rounded-lg border px-3 py-2 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                   textureKey === option.value
                     ? "border-white/40 bg-white/15 text-white"
                     : "border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70"
                 }`}
               >
-                {option.label}
+                {option.isUnlocked === false && "🔒 "}{option.label}
               </button>
             ))}
           </div>
@@ -261,6 +267,8 @@ export function BuildingCustomizePanel({
         )}
         {catalog.features.sign && (
         <PanelSection title="Letreiro">
+          {catalog.features.sign.isUnlocked === false && <p className="mb-2 text-xs text-white/60">🔒 {formatUnlockCta(catalog.features.sign.unlock)}</p>}
+          <fieldset disabled={catalog.features.sign.isUnlocked === false} className="disabled:opacity-40">
           <label className="block">
             <span className="mb-2 block text-sm text-white/75">Marca ou empresa</span>
             <input
@@ -292,6 +300,7 @@ export function BuildingCustomizePanel({
               </div>
             </div>
           )}
+          </fieldset>
         </PanelSection>
         )}
         {catalog.rooftops.length > 0 && (
@@ -300,14 +309,16 @@ export function BuildingCustomizePanel({
             {catalog.rooftops.map((option) => (
               <button
                 key={option.id}
+                disabled={option.isUnlocked === false}
+                title={option.isUnlocked === false ? formatUnlockCta(option.unlock) : option.label}
                 onClick={() => handleRooftopChange(option.key as RooftopType)}
-                className={`rounded-lg border px-3 py-2 text-xs transition-colors ${
+                className={`rounded-lg border px-3 py-2 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                   rooftopType === option.key
                     ? "border-white/40 bg-white/15 text-white"
                     : "border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70"
                 }`}
               >
-                {option.label}
+                {option.isUnlocked === false && "🔒 "}{option.label}
               </button>
             ))}
           </div>
@@ -319,14 +330,16 @@ export function BuildingCustomizePanel({
             {catalog.edgeLights.map((option) => (
               <button
                 key={option.id}
+                disabled={option.isUnlocked === false}
+                title={option.isUnlocked === false ? formatUnlockCta(option.unlock) : option.label}
                 onClick={() => handleEdgeLightTypeChange(option.key as EdgeLightType)}
-                className={`rounded-lg border px-3 py-2 text-xs transition-colors ${
+                className={`rounded-lg border px-3 py-2 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                   edgeLightType === option.key
                     ? "border-white/40 bg-white/15 text-white"
                     : "border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70"
                 }`}
               >
-                {option.label}
+                {option.isUnlocked === false && "🔒 "}{option.label}
               </button>
             ))}
           </div>
@@ -335,6 +348,8 @@ export function BuildingCustomizePanel({
         )}
         {catalog.features.hologram && (
         <PanelSection title="Holograma">
+          {catalog.features.hologram.isUnlocked === false && <p className="mb-2 text-xs text-white/60">🔒 {formatUnlockCta(catalog.features.hologram.unlock)}</p>}
+          <fieldset disabled={catalog.features.hologram.isUnlocked === false} className="disabled:opacity-40">
           <p className="mb-2 text-xs text-white/50">
             Imagem ou GIF projetado acima do edifício com efeito cyberpunk.
           </p>
@@ -398,6 +413,7 @@ export function BuildingCustomizePanel({
               />
             </div>
           )}
+          </fieldset>
         </PanelSection>
         )}
           </>

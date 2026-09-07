@@ -433,3 +433,9 @@ hooks    → ponte React ↔ runtime
 > - **Dispose explícito** — todo recurso Three.js tem cleanup
 > - **InstancedMesh** para performance nos prédios
 > - **Seeded random** para geração determinística por posição
+
+## Benefícios dos primeiros inscritos
+
+- [[primeiros-inscritos]] — página própria `/dale/primeiros-inscritos`; combo, quantidade, ativação e contagem histórica.
+- `src/pages/admin/EarlySignups.tsx` — gestão; `src/api/admin/admin.routes.ts` + `admin.types.ts` — contrato.
+- `scripts/check-customization-access.mjs` — verifica presente permanente, requisitos e sessão ausente.

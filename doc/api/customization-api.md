@@ -47,7 +47,7 @@ Requisito viaja no catálogo público porque é **igual pra todo visitante**. É
 ```ts
 type MyUnlocks = {
   progress: { donated: number; referrals: number };
-  unlockedOptionIds: number[];      // opção grátis NÃO aparece — não é conquista
+  unlockedOptionIds: number[];      // inclui presentes de cadastro, mesmo quando item é grátis
   unlockedCategoryKeys: string[];   // 'sign', 'hologram'
 };
 ```
@@ -68,8 +68,7 @@ Hook: carrega catálogo 1× no mount, retorna `CustomizationCatalog | null`. `nu
 
 Endpoint cacheado no backend (staleness ≤60s), mas o cache é **invalidado a cada escrita do admin** — mudança de regra aparece na cena na hora.
 
-> [!todo] Fase seguinte — cena
-> Hook ainda não busca `/customization/me`. Contrato e decisões já fechados em [[passe-cena]].
+Hook busca `/customization/me` por usuário autenticado. Dados vinculados ao ID impedem reutilizar conquistas de outra sessão. Opções/features recebem `isUnlocked` derivado de grátis, ledger ou progresso; admin visualiza todos. Erro/carregamento de conquistas mantém itens pagos bloqueados. Ver [[passe-cena]] e [[primeiros-inscritos]].
 
 ## Fluxo
 

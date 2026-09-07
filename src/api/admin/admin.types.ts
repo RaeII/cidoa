@@ -1,5 +1,17 @@
 import type { UnlockRule } from "@/lib/unlock";
 
+export interface EarlySignupInput {
+  isActive: boolean;
+  userLimit: number;
+  optionIds: number[];
+  categoryIds: number[];
+}
+
+export interface EarlySignupSettings extends EarlySignupInput {
+  registeredCount: number;
+  rewardedCount: number;
+}
+
 /** Métricas agregadas de GET /admin/dashboard/stats (rota JWT + admin). */
 export interface DashboardStats {
   donations: {

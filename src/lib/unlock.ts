@@ -71,6 +71,13 @@ export function meetsUnlock(rule: UnlockRule, progress: UnlockProgress): boolean
   );
 }
 
+/** Conquista permanente (passe ou presente) dispensa os requisitos atuais. */
+export function canUseCustomization(
+  rule: UnlockRule, progress: UnlockProgress | null, granted: boolean, isAdmin = false,
+): boolean {
+  return isAdmin || granted || !rule || (progress !== null && meetsUnlock(rule, progress));
+}
+
 /**
  * O que ainda falta. `null` quando já bate — o chamador usa isso para decidir
  * entre "conquistado" e "faltam X". Eixo já cumprido some da frase pelo mesmo

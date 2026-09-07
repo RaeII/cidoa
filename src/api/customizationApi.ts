@@ -3,6 +3,8 @@ import type { UnlockProgress, UnlockRule } from "@/lib/unlock";
 
 /** Uma opção do catálogo. `value` = hex p/ cor, caminho/URL p/ textura, null p/ shape/topo/led. */
 export type CatalogOption = {
+  /** Resolvido pelo hook com as conquistas da sessão atual. */
+  isUnlocked?: boolean;
   id: number;
   key: string;
   label: string;
@@ -13,7 +15,7 @@ export type CatalogOption = {
 };
 
 /** Categoria-feature ativa (Letreiro/Holograma): existe = habilitada, com seu requisito. */
-export type CatalogFeature = { unlock: UnlockRule };
+export type CatalogFeature = { unlock: UnlockRule; isUnlocked?: boolean };
 
 type CatalogCategory = {
   key: string;
@@ -70,7 +72,7 @@ export async function fetchCustomizationCatalog(
  */
 export type MyUnlocks = {
   progress: UnlockProgress;
-  /** Ids de opção liberadas. Opção grátis não aparece — não é conquista. */
+  /** Ids conquistados pelo passe ou recebidos no combo dos primeiros inscritos. */
   unlockedOptionIds: number[];
   /** Keys de categoria-feature liberadas (`sign`, `hologram`). */
   unlockedCategoryKeys: string[];

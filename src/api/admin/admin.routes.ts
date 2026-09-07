@@ -4,6 +4,8 @@ import type {
   CreateTestBuildingsResult,
   CustomizationTree,
   DashboardStats,
+  EarlySignupInput,
+  EarlySignupSettings,
   DeleteAllBuildingsResult,
   IbgeCounts,
   IbgeStatus,
@@ -12,6 +14,16 @@ import type {
 } from "./admin.types";
 
 // Rotas /admin do backend — todas exigem JWT + admin (cookie httpOnly).
+
+export async function getEarlySignupSettings() {
+  const { data } = await http.get<{ data: EarlySignupSettings }>("/admin/early-signups");
+  return data.data;
+}
+
+export async function saveEarlySignupSettings(input: EarlySignupInput) {
+  const { data } = await http.put<{ data: EarlySignupSettings }>("/admin/early-signups", input);
+  return data.data;
+}
 
 export async function getDashboardStats() {
   const { data } = await http.get<{ data: DashboardStats }>("/admin/dashboard/stats");
