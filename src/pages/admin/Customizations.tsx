@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { EllipsisVertical, Loader2, Lock, Palette, Pencil, Plus, Trash2, Trophy } from "lucide-react";
 import {
   createCustomizationOption,
@@ -13,7 +13,6 @@ import type {
 } from "@/api/admin/admin.types";
 import { ApiError } from "@/api/http";
 import {
-  formatUnlockCta,
   formatUnlockRequirement,
   type UnlockRule,
 } from "@/lib/unlock";
@@ -23,6 +22,11 @@ import {
   type FacadeTextureInfo,
 } from "@/scene/textures/facadeTextureManifest";
 import type { PreviewSubject } from "@/scene/builders/createPreviewScene";
+import { Link } from "react-router-dom";
+import { UnlockDialog } from "@/components/admin/UnlockDialog";
+import { optionTarget, categoryTarget, type UnlockTarget } from "@/lib/adminUnlock";
+import { CustomizationImage } from "@/components/customization/CustomizationImage";
+import { PREVIEW_KIND } from "@/lib/pass";
 import { AppSidebar } from "@/components/AppSidebar";
 import { MobileNav } from "@/components/MobileNav";
 import { Button } from "@/components/ui/button";
@@ -65,19 +69,9 @@ import { Switch } from "@/components/ui/switch";
 // páginas do admin compartilham o mesmo chunk e não podem pagar por isso. Por
 // isso nada daqui importa builder de forma estática (só `import type`).
 const previewModule = () => import("@/components/three/CustomizationPreview");
-const PreviewThumb = lazy(() =>
-  previewModule().then((m) => ({ default: m.CustomizationThumb })),
-);
 const PreviewCanvas = lazy(() =>
   previewModule().then((m) => ({ default: m.CustomizationPreview })),
 );
-
-/** Categoria do catálogo -> tipo de preview 3D. Fora daqui, linha sem miniatura. */
-const PREVIEW_KIND: Record<string, PreviewSubject["kind"]> = {
-  shape: "shape",
-  rooftop: "rooftop",
-  edge_light: "edgeLight",
-};
 
 /**
  * Estado base do edifício (formato padrão, sem topo, LED desligado). O backend
@@ -86,63 +80,8 @@ const PREVIEW_KIND: Record<string, PreviewSubject["kind"]> = {
  */
 const BASELINE_OPTION_KEYS = new Set(["default", "none"]);
 
-/** Alvo de uma regra de liberação: uma opção ou uma categoria-feature. */
-type UnlockTarget = {
-  kind: "option" | "category";
-  id: number;
-  label: string;
-  /** Categoria a que pertence — dá contexto ao chip na visão Passe. */
-  context: string;
-  unlock: UnlockRule;
-  unlockedCount: number;
-};
-
-function optionTarget(option: CustomizationOption, category: CustomizationCategory): UnlockTarget {
-  return {
-    kind: "option",
-    id: option.id,
-    label: option.label,
-    context: category.label,
-    unlock: option.unlock,
-    unlockedCount: option.unlockedCount,
-  };
-}
-
-function categoryTarget(category: CustomizationCategory): UnlockTarget {
-  return {
-    kind: "category",
-    id: category.id,
-    label: category.label,
-    context: "Customização",
-    unlock: category.unlock,
-    unlockedCount: category.unlockedCount,
-  };
-}
-
 /** Categoria-feature (Letreiro/Holograma) carrega a regra na própria categoria. */
 const isFeature = (category: CustomizationCategory) => category.kind === "feature";
-
-/**
- * Aceita as duas formas que o admin digita: "50,90" (vírgula, pt-BR) e "50.90".
- * A vírgula decide: com ela, ponto é separador de milhar. Devolve null para
- * qualquer coisa que não seja um valor exigível (vazio, zero, texto).
- */
-function parseMoney(raw: string): number | null {
-  const text = raw.trim();
-  if (!text) return null;
-  const normalized = text.includes(",")
-    ? text.replace(/\./g, "").replace(",", ".")
-    : text;
-  const parsed = Number(normalized);
-  if (!Number.isFinite(parsed) || parsed <= 0) return null;
-  return Math.round(parsed * 100) / 100;
-}
-
-function parseCount(raw: string): number | null {
-  const parsed = Number(raw.trim());
-  if (!Number.isInteger(parsed) || parsed <= 0) return null;
-  return parsed;
-}
 
 /** Badge do requisito. Grátis fica discreto; regra chama atenção. */
 function UnlockBadge({ unlock, baseline }: { unlock: UnlockRule; baseline?: boolean }) {
@@ -295,179 +234,9 @@ function OptionDialog({
   );
 }
 
-/**
- * Define o requisito de liberação de uma personalização.
- *
- * Cada eixo é um Switch + input. O Switch é o que torna impossível gravar
- * zero: "não exigir" é um estado do controle, não um número digitado — que é
- * exatamente o que impede a tela do usuário de dizer "R$ 30 e 0 indicações".
- */
-function UnlockDialog({
-  target,
-  onClose,
-  onDone,
-}: {
-  target: UnlockTarget;
-  onClose: () => void;
-  onDone: (fb: Feedback) => void;
-}) {
-  const [requireDonation, setRequireDonation] = useState(target.unlock?.donationMin != null);
-  const [donation, setDonation] = useState(
-    target.unlock?.donationMin != null ? String(target.unlock.donationMin).replace(".", ",") : "",
-  );
-  const [requireReferral, setRequireReferral] = useState(target.unlock?.referralMin != null);
-  const [referral, setReferral] = useState(
-    target.unlock?.referralMin != null ? String(target.unlock.referralMin) : "",
-  );
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const donationMin = requireDonation ? parseMoney(donation) : null;
-  const referralMin = requireReferral ? parseCount(referral) : null;
-  const incomplete =
-    (requireDonation && donationMin === null) || (requireReferral && referralMin === null);
-  const preview: UnlockRule =
-    donationMin == null && referralMin == null ? null : { donationMin, referralMin };
-
-  async function handleSave() {
-    setSaving(true);
-    setError(null);
-    // Manda os dois eixos sempre: este diálogo é dono da regra inteira, então
-    // null aqui significa "limpa", não "não mexe".
-    const payload = { unlockDonationMin: donationMin, unlockReferralMin: referralMin };
-    try {
-      if (target.kind === "option") await updateCustomizationOption(target.id, payload);
-      else await updateCustomizationCategory(target.id, payload);
-      onDone({ ok: true, text: `Liberação de "${target.label}" atualizada.` });
-      onClose();
-    } catch (err) {
-      setError(errMsg(err, "Falha ao salvar liberação"));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Liberação · {target.label}</DialogTitle>
-          <DialogDescription>
-            O que o usuário precisa fazer para conquistar esta personalização.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-3">
-          <div className="space-y-3 rounded-lg border p-3">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <span className="text-sm font-medium">Exigir doação</span>
-                <p className="text-xs text-muted-foreground">
-                  Soma de tudo que o usuário já doou.
-                </p>
-              </div>
-              <Switch
-                checked={requireDonation}
-                onCheckedChange={setRequireDonation}
-                aria-label="Exigir doação"
-              />
-            </div>
-            {requireDonation && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">R$</span>
-                <Input
-                  autoFocus
-                  inputMode="decimal"
-                  value={donation}
-                  onChange={(e) => setDonation(e.target.value)}
-                  placeholder="50,00"
-                  aria-label="Valor mínimo de doação"
-                />
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-3 rounded-lg border p-3">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <span className="text-sm font-medium">Exigir indicações</span>
-                <p className="text-xs text-muted-foreground">
-                  Total histórico de pessoas que entraram pelo código dele.
-                </p>
-              </div>
-              <Switch
-                checked={requireReferral}
-                onCheckedChange={setRequireReferral}
-                aria-label="Exigir indicações"
-              />
-            </div>
-            {requireReferral && (
-              <Input
-                inputMode="numeric"
-                value={referral}
-                onChange={(e) => setReferral(e.target.value)}
-                placeholder="3"
-                aria-label="Número mínimo de indicações"
-              />
-            )}
-          </div>
-
-          <div className="rounded-lg bg-muted/50 p-3">
-            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              O usuário vai ler
-            </span>
-            <p className="mt-1 text-sm font-medium">{formatUnlockCta(preview)}</p>
-          </div>
-
-          {target.unlockedCount > 0 && (
-            <p className="flex items-start gap-2 rounded-lg border border-accent/40 bg-accent/5 p-3 text-xs">
-              <Trophy className="mt-0.5 size-3.5 shrink-0" />
-              <span>
-                <strong>{target.unlockedCount}</strong>{" "}
-                {target.unlockedCount === 1 ? "usuário já conquistou" : "usuários já conquistaram"}{" "}
-                esta personalização e {target.unlockedCount === 1 ? "mantém" : "mantêm"} o acesso.
-                A regra nova só vale para quem ainda não conquistou.
-              </span>
-            </p>
-          )}
-
-          {incomplete && (
-            <p className="text-sm text-destructive">
-              Preencha um valor maior que zero, ou desligue a exigência.
-            </p>
-          )}
-          {error && <p className="text-sm text-destructive">{error}</p>}
-        </div>
-
-        <DialogFooter className="sm:justify-between">
-          <Button
-            variant="ghost"
-            disabled={saving || (!requireDonation && !requireReferral)}
-            onClick={() => {
-              setRequireDonation(false);
-              setRequireReferral(false);
-            }}
-          >
-            Tornar grátis
-          </Button>
-          <div className="flex gap-2">
-            <DialogClose asChild>
-              <Button variant="outline">Cancelar</Button>
-            </DialogClose>
-            <Button onClick={() => void handleSave()} disabled={saving || incomplete}>
-              {saving && <Loader2 className="animate-spin" />}
-              Salvar
-            </Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 function OptionRow({
   option,
-  isColor,
+  categoryKey,
   subject,
   busy,
   onToggle,
@@ -477,7 +246,7 @@ function OptionRow({
   onSetUnlock,
 }: {
   option: CustomizationOption;
-  isColor: boolean;
+  categoryKey: string;
   /** Opção renderizável em 3D (formato/topo/LED) — mostra miniatura clicável. */
   subject: PreviewSubject | null;
   busy: boolean;
@@ -499,16 +268,13 @@ function OptionRow({
           aria-label={`Ver ${option.label} em 3D`}
           className={`size-12 shrink-0 overflow-hidden rounded-md border bg-muted/40 transition-colors hover:border-foreground/40 ${option.isActive ? "" : "opacity-40"}`}
         >
-          <Suspense fallback={null}>
-            <PreviewThumb subject={subject} className="size-full object-contain" />
-          </Suspense>
+          <CustomizationImage categoryKey={categoryKey} optionKey={option.key} value={option.value} />
         </button>
       )}
-      {isColor && option.value && (
-        <span
-          className="size-5 shrink-0 rounded border"
-          style={{ backgroundColor: option.value }}
-        />
+      {!subject && (categoryKey === "color" || categoryKey === "texture") && (
+        <div className="size-12 shrink-0 overflow-hidden rounded-md border bg-muted/40">
+          <CustomizationImage categoryKey={categoryKey} optionKey={option.key} value={option.value} />
+        </div>
       )}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
@@ -565,84 +331,6 @@ function OptionRow({
   );
 }
 
-type PassStep = { key: string; unlock: UnlockRule; entries: UnlockTarget[] };
-
-/**
- * Trilha do passe: toda personalização agrupada por requisito idêntico e
- * ordenada por esforço. A visão em lista mostra uma categoria por vez e
- * esconde a curva — buraco entre R$10 e R$500, ou dez conquistas empilhadas no
- * mesmo degrau, só aparecem com tudo lado a lado.
- */
-function buildPass(categories: CustomizationCategory[]): PassStep[] {
-  const steps = new Map<string, PassStep>();
-  const push = (target: UnlockTarget) => {
-    const key = `${target.unlock?.donationMin ?? ""}|${target.unlock?.referralMin ?? ""}`;
-    const step = steps.get(key);
-    if (step) step.entries.push(target);
-    else steps.set(key, { key, unlock: target.unlock, entries: [target] });
-  };
-
-  for (const category of categories) {
-    if (isFeature(category)) push(categoryTarget(category));
-    for (const option of category.options) {
-      if (BASELINE_OPTION_KEYS.has(option.key)) continue;
-      push(optionTarget(option, category));
-    }
-  }
-
-  // Grátis (ambos null) cai em 0/0 e abre a trilha, que é onde ele pertence.
-  return [...steps.values()].sort(
-    (a, b) =>
-      (a.unlock?.donationMin ?? 0) - (b.unlock?.donationMin ?? 0) ||
-      (a.unlock?.referralMin ?? 0) - (b.unlock?.referralMin ?? 0),
-  );
-}
-
-function PassView({
-  steps,
-  onSelect,
-}: {
-  steps: PassStep[];
-  onSelect: (target: UnlockTarget) => void;
-}) {
-  return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Todas as personalizações na ordem em que o usuário conquista. Salto grande entre dois
-        degraus trava o passe; degrau com muita coisa junta entrega tudo de uma vez. Clique em
-        qualquer uma para mudar a regra.
-      </p>
-      <ol className="space-y-3">
-        {steps.map((step) => (
-          <li key={step.key} className="rounded-xl border p-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <UnlockBadge unlock={step.unlock} />
-              <span className="text-xs text-muted-foreground">
-                {step.entries.length === 1
-                  ? "1 personalização"
-                  : `${step.entries.length} personalizações`}
-              </span>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {step.entries.map((entry) => (
-                <button
-                  key={`${entry.kind}-${entry.id}`}
-                  type="button"
-                  onClick={() => onSelect(entry)}
-                  title={`Definir liberação de ${entry.label}`}
-                  className="rounded-md border px-2 py-1 text-xs transition-colors hover:border-foreground/40 hover:bg-muted"
-                >
-                  <span className="text-muted-foreground">{entry.context}</span> · {entry.label}
-                </button>
-              ))}
-            </div>
-          </li>
-        ))}
-      </ol>
-    </div>
-  );
-}
-
 function Customizations() {
   const [categories, setCategories] = useState<CustomizationCategory[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -654,7 +342,6 @@ function Customizations() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [preview, setPreview] = useState<{ subject: PreviewSubject; title: string } | null>(null);
   const [unlockTarget, setUnlockTarget] = useState<UnlockTarget | null>(null);
-  const [view, setView] = useState<"list" | "pass">("list");
 
   useEffect(() => {
     let alive = true;
@@ -706,7 +393,6 @@ function Customizations() {
     const children = all
       .filter((c) => c.parentId === category.id)
       .sort((a, b) => a.sortOrder - b.sortOrder);
-    const isColor = category.key === "color";
     const previewKind = PREVIEW_KIND[category.key];
     const isTexture = category.key === "texture";
     const unregistered = isTexture ? unregisteredFacadeFolders(category.options) : [];
@@ -772,7 +458,7 @@ function Customizations() {
                 <OptionRow
                   key={option.id}
                   option={option}
-                  isColor={isColor}
+                  categoryKey={category.key}
                   subject={subject}
                   busy={busyId === option.id}
                   onToggle={() => setToggleTarget({
@@ -849,7 +535,6 @@ function Customizations() {
     ?.filter((c) => c.parentId === null)
     .sort((a, b) => a.sortOrder - b.sortOrder);
   const selected = topLevel?.find((c) => c.id === selectedId) ?? topLevel?.[0];
-  const passSteps = useMemo(() => buildPass(categories ?? []), [categories]);
 
   return (
     <SidebarProvider className="h-svh">
@@ -869,6 +554,9 @@ function Customizations() {
               <Trophy className="inline size-3" /> de doação e/ou indicação — quem já conquistou
               mantém o acesso mesmo se o valor mudar.
             </p>
+            <Button asChild variant="outline" className="mt-4">
+              <Link to="/dale/passe"><Trophy /> Configurar Passe</Link>
+            </Button>
 
             {feedback && (
               <p className={`mt-4 text-sm ${feedback.ok ? "text-accent" : "text-destructive"}`}>
@@ -888,49 +576,27 @@ function Customizations() {
             ) : (
               <div className="mt-8 space-y-4">
                 <div className="flex flex-wrap items-end gap-3">
-                  {view === "list" && (
-                    <label className="block min-w-56 flex-1 space-y-1.5">
-                      <span className="text-sm font-medium">Personalização</span>
-                      <Select
-                        value={selected ? String(selected.id) : undefined}
-                        onValueChange={(v) => setSelectedId(Number(v))}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Selecione uma personalização" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {topLevel.map((c) => (
-                            <SelectItem key={c.id} value={String(c.id)}>
-                              {c.label}
-                              {c.isActive ? "" : " (inativa)"}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </label>
-                  )}
-                  {/* Duas visões do mesmo catálogo: gerir uma categoria × ler a curva inteira. */}
-                  <div className="ml-auto flex gap-1 rounded-lg border p-1">
-                    <Button
-                      size="sm"
-                      variant={view === "list" ? "secondary" : "ghost"}
-                      onClick={() => setView("list")}
+                  <label className="block min-w-56 flex-1 space-y-1.5">
+                    <span className="text-sm font-medium">Personalização</span>
+                    <Select
+                      value={selected ? String(selected.id) : undefined}
+                      onValueChange={(v) => setSelectedId(Number(v))}
                     >
-                      Lista
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={view === "pass" ? "secondary" : "ghost"}
-                      onClick={() => setView("pass")}
-                    >
-                      <Trophy className="size-4" />
-                      Passe
-                    </Button>
-                  </div>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecione uma personalização" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {topLevel.map((c) => (
+                          <SelectItem key={c.id} value={String(c.id)}>
+                            {c.label}
+                            {c.isActive ? "" : " (inativa)"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </label>
                 </div>
-                {view === "pass"
-                  ? <PassView steps={passSteps} onSelect={setUnlockTarget} />
-                  : selected && renderCategory(selected, categories!)}
+                {selected && renderCategory(selected, categories!)}
               </div>
             )}
           </main>

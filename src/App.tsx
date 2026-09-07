@@ -12,6 +12,7 @@ const Login = lazy(() => import("./pages/admin/Login"));
 const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
 const TestBuildings = lazy(() => import("./pages/admin/TestBuildings"));
 const Customizations = lazy(() => import("./pages/admin/Customizations"));
+const Pass = lazy(() => import("./pages/admin/Pass"));
 const Ibge = lazy(() => import("./pages/admin/Ibge"));
 
 function PageFallback() {
@@ -39,6 +40,7 @@ export default function App() {
               <Route path="/dale" element={<Dashboard />} />
               <Route path="/dale/edificios-teste" element={<TestBuildings />} />
               <Route path="/dale/personalizacoes" element={<Customizations />} />
+              <Route path="/dale/passe" element={<Pass />} />
               <Route path="/dale/ibge" element={<Ibge />} />
             </Route>
 

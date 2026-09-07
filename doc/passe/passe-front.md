@@ -26,7 +26,7 @@ Aqui = lado do front: de onde vem o dado, como vira texto, como admin edita regr
 | [[passe-admin-ui]] | Tela onde admin define quanto custa cada personalização |
 | [[passe-cena]] | Cadeado no painel do usuário — fase seguinte, contrato já fechado |
 
-Camada de dados (`customizationApi.ts`, hook) fica em [[customization-api]].
+Camada de dados (`customizationApi.ts`, hook) fica em [[customization-api]]. Trilha visual compartilhada: `PassTrack` recebe recompensas por props; sem callback de edição, funciona em modo somente leitura. Admin inclui prévia das recompensas ativas.
 
 ## Ideia central
 
@@ -36,7 +36,8 @@ GET /customization/me       → quanto eu tenho + o que ganhei (por usuário, se
               ↓
       lib/unlock.ts  → badge, frase, "faltam X"
               ↓
-   admin: define regra      ·      cena: mostra cadeado
+   admin /dale/passe: define regra → PassTrack: trilha reutilizável
+      cena: mostra cadeado (próxima integração)
 ```
 
 ## Contrato do requisito
@@ -62,7 +63,7 @@ type UnlockRule = { donationMin: number | null; referralMin: number | null } | n
 | `unlock` no catálogo | ✅ [[customization-api]] |
 | `fetchMyUnlocks()` | ✅ escrito, ainda sem consumidor |
 | `lib/unlock.ts` | ✅ [[passe-formatacao]] |
-| UI admin (badge, dialog, visão Passe) | ✅ [[passe-admin-ui]] |
+| UI admin (página Passe, trilha visual, dialog) | ✅ [[passe-admin-ui]] |
 | Cadeado no `BuildingCustomizePanel` | ⏳ [[passe-cena]] |
 
 ## Relacionado

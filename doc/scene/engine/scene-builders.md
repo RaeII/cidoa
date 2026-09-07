@@ -172,7 +172,7 @@ Factory para acessórios de topo dos edifícios. Chamado pelo [[scene-managers|D
 | `spotlights` | `CylinderGeometry` × 3 + `CircleGeometry` × 1 compartilhadas pelo módulo | `SPOTLIGHT_HOUSING_MATERIAL` + `SPOTLIGHT_LENS_MATERIAL` + `SPOTLIGHT_BEAM_MATERIAL` compartilhados | 4 holofotes nos cantos (±0.35, ±0.35) — base (0.08r) + corpo cônico (0.04–0.07r, 0.12h) + lente emissiva amarela + feixe cônico (0.22r, 10.0h) com vertex alpha gradiente (opaco na fonte, desvanece no topo via curva quadrática). Não cria luzes reais por edifício. |
 | `helipad` | `CylinderGeometry`, `TorusGeometry`, `RingGeometry`, `BoxGeometry` e pequenos cilindros compartilhados | Materiais de concreto escuro, aro metálico, pintura branca e lentes verdes emissivas | Heliponto proporcional ao topo do edifício, com base circular baixa, aro metálico, anel externo pintado, “H” central limpo, 12 luzes verdes de perímetro e escotilha técnica discreta. Não cria luzes reais por edifício. |
 | `garden` | `BoxGeometry`, `CylinderGeometry`, `SphereGeometry`, `PlaneGeometry` e instancing para vegetação | Materiais compartilhados de deck, solo, vegetação, água, madeira e luzes quentes | Jardim suspenso proporcional ao topo com deck, canteiros, piscina, banco, pérgola, arbustos, pequenas árvores e guarda-corpo. |
-| `helicopter` | `SphereGeometry`, geometria custom de casco da cabine e painéis de vidro, `BoxGeometry`, `CylinderGeometry`, `CircleGeometry` e pequena esfera compartilhadas | Materiais de fuselagem metálica escura, vidro físico translúcido, acabamento claro, rotores, disco de rotor sutil, esquis e luz emissiva | Helicóptero leve simplificado e realista pousado no topo: fuselagem elipsoidal, cabine modelada como cockpit real com casco opaco afunilado no nariz, barriga achatada, laterais menos ovais, para-brisa frontal dividido e vidros laterais/traseiros como painéis trapezoidais escuros presos diretamente ao `cabinHull`, em coordenadas locais do casco, com pequeno offset externo para evitar z-fighting. Mantém carenagem de motor, boom de cauda, estabilizadores, rotor principal de 3 pás, rotor traseiro lateral, esquis tubulares e luz frontal. O tamanho é calculado pelo footprint do edifício. |
+| `helicopter` | Casco custom único com grupos de material, `ExtrudeGeometry` para deriva, `SphereGeometry`, `BoxGeometry` e cilindros compartilhados | Pintura escura, barriga clara, vidro escuro reflexivo opaco, rotores, esquis e farol emissivo | Helicóptero leve pousado, com nariz afunilado e oito vidros integrados à malha (seis laterais e para-brisa dividido). Molduras fazem parte do casco, sem fuselagem duplicada nem painéis sobrepostos. Carenagem de motor ligada ao mastro, rotor principal de três pás radiais a 120°, cauda cônica, deriva inclinada, estabilizador horizontal, rotor traseiro de duas pás opostas e esquis com pontas elevadas. Sem discos de movimento em rotores parados. Escala uniforme de todo o conjunto calculada pelo footprint. |
 
 **Recursos compartilhados (estáticos de módulo):**
 
@@ -186,12 +186,12 @@ Factory para acessórios de topo dos edifícios. Chamado pelo [[scene-managers|D
 | `HELIPAD_PAINT_MATERIAL` | `#e8edf1` | 0.78 | 0.0 | Pintura branca dos anéis e do “H” |
 | `HELIPAD_GREEN_LENS_MATERIAL` | `#bfffee` | 0.18 | 0.0 | Lentes verdes emissivas de perímetro |
 | `HELICOPTER_BODY_MATERIAL` | `#1f272c` | 0.44 | 0.46 | Fuselagem escura com acabamento metálico discreto |
-| `HELICOPTER_CABIN_MATERIAL` | `#8fb7c9` | 0.04 | 0.0 | Material translúcido legado usado apenas se uma superfície de canopy voltar a ser necessária |
-| `HELICOPTER_WINDOW_MATERIAL` | `#203843` | 0.18 | 0.0 | Painéis finos `DoubleSide` do para-brisa frontal, janelas laterais e janelas traseiras da cabine, com `depthWrite: false` e `polygonOffset` |
-| `HELICOPTER_TRIM_MATERIAL` | `#c7d0d3` | 0.36 | 0.42 | Faixa inferior e estabilizador claro |
+| `HELICOPTER_WINDOW_MATERIAL` | `#294c60` | 0.12 | 0.3 | Faces de vidro no próprio casco, opacas e reflexivas (`envMapIntensity: 1.2`), sem sorting de transparência ou `polygonOffset` |
+| `HELICOPTER_TRIM_MATERIAL` | `#c7d0d3` | 0.36 | 0.42 | Barriga integrada ao casco e estabilizador claro |
 | `HELICOPTER_ROTOR_MATERIAL` | `#111416` | 0.38 | 0.72 | Pás e rotor traseiro escuros e metálicos |
-| `HELICOPTER_ROTOR_BLUR_MATERIAL` | `#dde8ee` | — | — | `MeshBasicMaterial` translúcido para sugerir disco de rotor em movimento |
 | `HELICOPTER_SKID_MATERIAL` | `#4e565b` | 0.42 | 0.74 | Esquis, mastros e hub |
+
+Validação do helicóptero: `node scripts/check-helicopter.mjs` verifica triângulos, visibilidade dos vidros por raycast, quantidade de pás, folgas dos rotores, encaixe do mastro e altura sobre a cobertura em três tamanhos, sem servidor ou navegador.
 
 As geometrias de base, corpo, lente e feixe também são compartilhadas. `disposeRooftopMesh()` apenas libera as referências do grupo; o descarte de GPU dos recursos compartilhados acontece no dispose final.
 
@@ -203,7 +203,7 @@ disposeRooftopSharedResources(): void                       // limpa geometrias 
 ```
 
 > [!note] Otimizações de custo
-> Helipad: deck/aro/anel com **32 segmentos** (era 96 — invisível nesse raio) e as 12 luzes de perímetro são **2 `InstancedMesh`** (base + lente), não 24 meshes. Água do jardim, cabine e janelas do helicóptero usam `MeshStandardMaterial` — `MeshPhysicalMaterial` com `transmission > 0` disparava um render extra da cena inteira (transmission pass).
+> Helipad: deck/aro/anel com **32 segmentos** (era 96 — invisível nesse raio) e as 12 luzes de perímetro são **2 `InstancedMesh`** (base + lente), não 24 meshes. Água do jardim, casco e janelas do helicóptero usam `MeshStandardMaterial` — `MeshPhysicalMaterial` com `transmission > 0` disparava um render extra da cena inteira (transmission pass).
 
 ---
 

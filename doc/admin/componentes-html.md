@@ -60,6 +60,7 @@ src/
     admin/
       Login.tsx                ← ver [[area-admin]]
       Dashboard.tsx            ← ver [[area-admin]]
+      Pass.tsx                 ← /dale/passe; trilha e configuração, ver [[passe-admin-ui]]
   api/
     http.ts                    ← axios único (cookie + evento de sessão)
     auth/                      ← login/logout + tipos
@@ -154,3 +155,8 @@ Antes de escrever: **procure**. Duplicar componente é o erro mais comum.
 - [[area-admin]] — login, dashboard, fluxo de auth e API admin
 - [[index]] — visão geral + cena 3D
 - [[donation-api]] — cliente HTTP da cena (mesmo `http.ts`)
+
+
+## Navegação do Passe
+
+`navItems` inclui **Passe** (`/dale/passe`, ícone Trophy), rota lazy protegida por `RequireAuth`. Sidebar e mobile compartilham entrada. Passe ocupa quarto atalho mobile; IBGE continua no drawer Menu.

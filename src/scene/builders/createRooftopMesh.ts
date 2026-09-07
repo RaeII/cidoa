@@ -7,12 +7,6 @@ type RooftopFootprint = {
 };
 
 type RooftopFactory = (footprint?: RooftopFootprint) => THREE.Group;
-type WindowPanelCorners = [
-  [number, number, number],
-  [number, number, number],
-  [number, number, number],
-  [number, number, number],
-];
 
 const SPOTLIGHT_SCALE = 0.75;
 const SPOTLIGHT_LENS_RADIUS = 0.04 * SPOTLIGHT_SCALE;
@@ -30,10 +24,6 @@ const GARDEN_RAIL_HEIGHT = 0.2;
 const GARDEN_TREE_COUNT = 4;
 const GARDEN_BRANCHES_PER_TREE = 5;
 const GARDEN_LEAF_CARDS_PER_TREE = 15;
-const HELICOPTER_ROOF_CLEARANCE = 0.04;
-const HELICOPTER_SKID_RADIUS = 0.012;
-const HELICOPTER_MAST_RADIUS = 0.014;
-const HELICOPTER_MAST_HEIGHT = 0.09;
 
 const SPOTLIGHT_HOUSING_MATERIAL = new THREE.MeshStandardMaterial({
   color: 0x222222,
@@ -211,30 +201,12 @@ const HELICOPTER_BODY_MATERIAL = new THREE.MeshStandardMaterial({
   metalness: 0.46,
 });
 
-// Standard em vez de Physical (mesmo motivo da água do jardim: transmission
-// dispara render extra da cena; clearcoat dobra o shading). Vidro fake com
-// transparência + envMap fica visualmente equivalente nesse tamanho.
-const HELICOPTER_CABIN_MATERIAL = new THREE.MeshStandardMaterial({
-  color: 0x8fb7c9,
-  roughness: 0.04,
-  metalness: 0.0,
-  transparent: true,
-  side: THREE.DoubleSide,
-  opacity: 0.62,
-  envMapIntensity: 0.85,
-});
-
+// Vidro escuro integrado ao casco: sem superfície opaca atrás ou sorting de transparência.
 const HELICOPTER_WINDOW_MATERIAL = new THREE.MeshStandardMaterial({
-  color: 0x203843,
-  roughness: 0.18,
-  metalness: 0.0,
-  transparent: true,
-  side: THREE.DoubleSide,
-  depthWrite: false,
-  opacity: 0.9,
-  polygonOffset: true,
-  polygonOffsetFactor: -1,
-  polygonOffsetUnits: -1,
+  color: 0x294c60,
+  roughness: 0.12,
+  metalness: 0.3,
+  envMapIntensity: 1.2,
 });
 
 const HELICOPTER_TRIM_MATERIAL = new THREE.MeshStandardMaterial({
@@ -247,14 +219,6 @@ const HELICOPTER_ROTOR_MATERIAL = new THREE.MeshStandardMaterial({
   color: 0x111416,
   roughness: 0.38,
   metalness: 0.72,
-});
-
-const HELICOPTER_ROTOR_BLUR_MATERIAL = new THREE.MeshBasicMaterial({
-  color: 0xdde8ee,
-  transparent: true,
-  opacity: 0.11,
-  side: THREE.DoubleSide,
-  depthWrite: false,
 });
 
 const HELICOPTER_SKID_MATERIAL = new THREE.MeshStandardMaterial({
@@ -294,48 +258,12 @@ const GARDEN_SHRUB_GEOMETRY = new THREE.SphereGeometry(1, 8, 6);
 const GARDEN_LIGHT_GEOMETRY = new THREE.SphereGeometry(1, 8, 5);
 const HELICOPTER_BODY_GEOMETRY = new THREE.SphereGeometry(0.5, 16, 8);
 const HELICOPTER_CABIN_GEOMETRY = createHelicopterCabinHullGeometry();
-const HELICOPTER_RIGHT_WINDSHIELD_GEOMETRY = createWindowPanelGeometry([
-  [0.51, -0.14, 0.035],
-  [0.48, -0.12, 0.18],
-  [0.28, 0.24, 0.3],
-  [0.32, 0.28, 0.08],
-]);
-const HELICOPTER_LEFT_WINDSHIELD_GEOMETRY = createWindowPanelGeometry([
-  [0.48, -0.12, -0.18],
-  [0.51, -0.14, -0.035],
-  [0.32, 0.28, -0.08],
-  [0.28, 0.24, -0.3],
-]);
-const HELICOPTER_RIGHT_SIDE_WINDOW_GEOMETRY = createWindowPanelGeometry([
-  [-0.18, -0.08, 0.505],
-  [0.16, -0.1, 0.49],
-  [0.12, 0.27, 0.47],
-  [-0.2, 0.32, 0.495],
-]);
-const HELICOPTER_RIGHT_REAR_WINDOW_GEOMETRY = createWindowPanelGeometry([
-  [-0.42, -0.1, 0.43],
-  [-0.24, -0.08, 0.5],
-  [-0.24, 0.27, 0.48],
-  [-0.42, 0.2, 0.41],
-]);
-const HELICOPTER_LEFT_SIDE_WINDOW_GEOMETRY = createWindowPanelGeometry([
-  [0.16, -0.1, -0.49],
-  [-0.18, -0.08, -0.505],
-  [-0.2, 0.32, -0.495],
-  [0.12, 0.27, -0.47],
-]);
-const HELICOPTER_LEFT_REAR_WINDOW_GEOMETRY = createWindowPanelGeometry([
-  [-0.24, -0.08, -0.5],
-  [-0.42, -0.1, -0.43],
-  [-0.42, 0.2, -0.41],
-  [-0.24, 0.27, -0.48],
-]);
+const HELICOPTER_FIN_GEOMETRY = createHelicopterFinGeometry();
 const HELICOPTER_BOX_GEOMETRY = new THREE.BoxGeometry(1, 1, 1);
 const HELICOPTER_SKID_GEOMETRY = new THREE.CylinderGeometry(1, 1, 1, 8);
 const HELICOPTER_TAIL_BOOM_GEOMETRY = new THREE.CylinderGeometry(0.42, 1, 1, 10);
 const HELICOPTER_MAST_GEOMETRY = new THREE.CylinderGeometry(1, 1, 1, 10);
 const HELICOPTER_LIGHT_GEOMETRY = new THREE.SphereGeometry(1, 8, 5);
-const HELICOPTER_ROTOR_DISC_GEOMETRY = new THREE.CircleGeometry(1, 24);
 let gardenGrassTexture: THREE.CanvasTexture | null = null;
 let gardenWoodTexture: THREE.CanvasTexture | null = null;
 let gardenPoolTileTexture: THREE.CanvasTexture | null = null;
@@ -377,82 +305,84 @@ function createBeamGeometry(
   return geo;
 }
 
-function createWindowPanelGeometry(
-  corners: WindowPanelCorners,
-): THREE.BufferGeometry {
+/** Casco único; os vidros substituem faces, com molduras na própria malha. Frente = +X. */
+function createHelicopterCabinHullGeometry(): THREE.BufferGeometry {
+  const sections = [
+    { x: -0.42, top: 0.46, shoulder: 0.4, bottom: 0.34, width: 0.055 },
+    { x: -0.25, top: 0.59, shoulder: 0.34, bottom: 0.2, width: 0.145 },
+    { x: -0.065, top: 0.6, shoulder: 0.34, bottom: 0.2, width: 0.155 },
+    { x: 0.12, top: 0.59, shoulder: 0.34, bottom: 0.2, width: 0.155 },
+    { x: 0.38, top: 0.34, shoulder: 0.28, bottom: 0.22, width: 0.11 },
+    { x: 0.5, top: 0.3, shoulder: 0.27, bottom: 0.24, width: 0.045 },
+  ];
+  const rings = sections.map(({ x, top, shoulder, bottom, width }) => [
+    new THREE.Vector3(x, top, 0),
+    new THREE.Vector3(x, top, width * 0.72),
+    new THREE.Vector3(x, shoulder, width),
+    new THREE.Vector3(x, bottom + 0.035, width * 0.85),
+    new THREE.Vector3(x, bottom, width * 0.5),
+    new THREE.Vector3(x, bottom, -width * 0.5),
+    new THREE.Vector3(x, bottom + 0.035, -width * 0.85),
+    new THREE.Vector3(x, shoulder, -width),
+    new THREE.Vector3(x, top, -width * 0.72),
+  ]);
+  const surfaces: number[][] = [[], [], []]; // pintura, vidro, barriga clara
+  const addQuad = (corners: THREE.Vector3[], material: number) => {
+    for (const i of [0, 1, 2, 0, 2, 3]) surfaces[material].push(...corners[i].toArray());
+  };
+
+  for (let section = 0; section < rings.length - 1; section++) {
+    for (let edge = 0; edge < rings[section].length; edge++) {
+      const next = (edge + 1) % rings[section].length;
+      const corners = [rings[section][edge], rings[section][next], rings[section + 1][next], rings[section + 1][edge]];
+      const sideWindow = section >= 1 && section <= 3 && (edge === 1 || edge === 7);
+      const windshield = section === 3 && (edge === 0 || edge === 8);
+      if (sideWindow || windshield) {
+        // Interpolação na mesma face garante encaixe, sem painéis flutuantes ou z-fighting.
+        const point = (u: number, v: number) => corners[0].clone().lerp(corners[1], u)
+          .lerp(corners[3].clone().lerp(corners[2], u), v);
+        const inset = [point(0.09, 0.08), point(0.91, 0.08), point(0.91, 0.92), point(0.09, 0.92)];
+        addQuad(inset, 1);
+        for (let i = 0; i < 4; i++) {
+          const j = (i + 1) % 4;
+          addQuad([corners[i], corners[j], inset[j], inset[i]], 0);
+        }
+      } else {
+        addQuad(corners, edge >= 2 && edge <= 6 ? 2 : 0);
+      }
+    }
+  }
+
+  for (const index of [0, rings.length - 1]) {
+    const ring = rings[index];
+    const center = new THREE.Vector3(sections[index].x, (sections[index].top + sections[index].bottom) / 2, 0);
+    for (let edge = 0; edge < ring.length; edge++) {
+      const next = (edge + 1) % ring.length;
+      const triangle = index === 0 ? [center, ring[next], ring[edge]] : [center, ring[edge], ring[next]];
+      for (const vertex of triangle) surfaces[0].push(...vertex.toArray());
+    }
+  }
+
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute(
-    "position",
-    new THREE.Float32BufferAttribute(corners.flat(), 3),
-  );
-  geometry.setIndex([0, 1, 2, 0, 2, 3]);
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(surfaces.flat(), 3));
+  let start = 0;
+  surfaces.forEach((positions, material) => {
+    geometry.addGroup(start, positions.length / 3, material);
+    start += positions.length / 3;
+  });
   geometry.computeVertexNormals();
   return geometry;
 }
 
-function createHelicopterCabinHullGeometry(): THREE.BufferGeometry {
-  const sections = [
-    { x: -0.5, y: -0.06, ry: 0.3, rz: 0.42 },
-    { x: -0.25, y: 0.01, ry: 0.48, rz: 0.5 },
-    { x: 0.1, y: 0.02, ry: 0.5, rz: 0.48 },
-    { x: 0.35, y: -0.09, ry: 0.3, rz: 0.34 },
-    { x: 0.5, y: -0.2, ry: 0.12, rz: 0.18 },
-  ];
-  const radialSegments = 12;
-  const positions: number[] = [];
-  const indices: number[] = [];
-
-  for (const section of sections) {
-    for (let segment = 0; segment < radialSegments; segment++) {
-      const angle = (segment / radialSegments) * Math.PI * 2;
-      const sin = Math.sin(angle);
-      const cos = Math.cos(angle);
-      const bottomCompression = sin < 0 ? 0.46 : 1;
-      const sideCompression = Math.abs(cos) > 0.72 ? 0.9 : 1;
-      const flattenedBelly = sin < -0.72 ? -0.055 : 0;
-      positions.push(
-        section.x,
-        section.y + sin * section.ry * bottomCompression + flattenedBelly,
-        cos * section.rz * sideCompression,
-      );
-    }
-  }
-
-  for (let section = 0; section < sections.length - 1; section++) {
-    const current = section * radialSegments;
-    const next = (section + 1) * radialSegments;
-
-    for (let segment = 0; segment < radialSegments; segment++) {
-      const a = current + segment;
-      const b = current + ((segment + 1) % radialSegments);
-      const c = next + segment;
-      const d = next + ((segment + 1) % radialSegments);
-      indices.push(a, c, b, b, c, d);
-    }
-  }
-
-  const rearCenterIndex = positions.length / 3;
-  positions.push(sections[0].x, sections[0].y, 0);
-  for (let segment = 0; segment < radialSegments; segment++) {
-    indices.push(rearCenterIndex, segment, (segment + 1) % radialSegments);
-  }
-
-  const frontCenterIndex = positions.length / 3;
-  const frontOffset = (sections.length - 1) * radialSegments;
-  const front = sections[sections.length - 1];
-  positions.push(front.x, front.y, 0);
-  for (let segment = 0; segment < radialSegments; segment++) {
-    indices.push(
-      frontCenterIndex,
-      frontOffset + ((segment + 1) % radialSegments),
-      frontOffset + segment,
-    );
-  }
-
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
+function createHelicopterFinGeometry(): THREE.ExtrudeGeometry {
+  const shape = new THREE.Shape();
+  shape.moveTo(-1.08, 0.46);
+  shape.lineTo(-1.12, 0.73);
+  shape.lineTo(-1.035, 0.73);
+  shape.lineTo(-0.92, 0.48);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: 0.018, bevelEnabled: false, steps: 1 });
+  geometry.translate(0, 0, -0.009);
   return geometry;
 }
 
@@ -483,18 +413,12 @@ const SHARED_ROOFTOP_GEOMETRIES: THREE.BufferGeometry[] = [
   GARDEN_LIGHT_GEOMETRY,
   HELICOPTER_BODY_GEOMETRY,
   HELICOPTER_CABIN_GEOMETRY,
-  HELICOPTER_RIGHT_WINDSHIELD_GEOMETRY,
-  HELICOPTER_LEFT_WINDSHIELD_GEOMETRY,
-  HELICOPTER_RIGHT_SIDE_WINDOW_GEOMETRY,
-  HELICOPTER_RIGHT_REAR_WINDOW_GEOMETRY,
-  HELICOPTER_LEFT_SIDE_WINDOW_GEOMETRY,
-  HELICOPTER_LEFT_REAR_WINDOW_GEOMETRY,
+  HELICOPTER_FIN_GEOMETRY,
   HELICOPTER_BOX_GEOMETRY,
   HELICOPTER_SKID_GEOMETRY,
   HELICOPTER_TAIL_BOOM_GEOMETRY,
   HELICOPTER_MAST_GEOMETRY,
   HELICOPTER_LIGHT_GEOMETRY,
-  HELICOPTER_ROTOR_DISC_GEOMETRY,
 ];
 
 const SHARED_ROOFTOP_MATERIALS: THREE.Material[] = [
@@ -522,11 +446,9 @@ const SHARED_ROOFTOP_MATERIALS: THREE.Material[] = [
   GARDEN_POOL_CAUSTIC_MATERIAL,
   GARDEN_WARM_LIGHT_MATERIAL,
   HELICOPTER_BODY_MATERIAL,
-  HELICOPTER_CABIN_MATERIAL,
   HELICOPTER_WINDOW_MATERIAL,
   HELICOPTER_TRIM_MATERIAL,
   HELICOPTER_ROTOR_MATERIAL,
-  HELICOPTER_ROTOR_BLUR_MATERIAL,
   HELICOPTER_SKID_MATERIAL,
   HELICOPTER_NAV_LIGHT_MATERIAL,
 ];
@@ -1274,274 +1196,93 @@ function createGarden(footprint?: RooftopFootprint): THREE.Group {
 
 function createHelicopter(footprint?: RooftopFootprint): THREE.Group {
   const group = new THREE.Group();
-  const width = Math.max(1, footprint?.width ?? 1);
-  const depth = Math.max(1, footprint?.depth ?? 1);
-  const roofSpan = Math.min(width, depth);
+  const roofSpan = Math.min(Math.max(1, footprint?.width ?? 1), Math.max(1, footprint?.depth ?? 1));
   const size = THREE.MathUtils.clamp(roofSpan * 0.82, 0.78, 1.66);
-  const fuselageLength = size * 0.72;
-  const bodyWidth = size * 0.28;
-  const bodyHeight = size * 0.23;
-  const tailLength = size * 0.7;
-  const rotorDiameter = THREE.MathUtils.clamp(roofSpan * 1.04, 0.98, 2.06);
-  const rotorChord = Math.max(0.018, rotorDiameter * 0.035);
-  const bodyY = HELICOPTER_ROOF_CLEARANCE + bodyHeight * 0.72;
-  const rotorY = HELICOPTER_ROOF_CLEARANCE + bodyHeight * 1.38 + HELICOPTER_MAST_HEIGHT;
-  const tailRootX = -fuselageLength * 0.44;
-  const tailEndX = tailRootX - tailLength;
-  const tailCenterY = bodyY + bodyHeight * 0.13;
 
-  const addBox = (
-    material: THREE.Material,
-    scale: [number, number, number],
-    position: [number, number, number],
-    castsShadow = true,
-    receivesShadow = true,
-  ) => {
-    const mesh = new THREE.Mesh(HELICOPTER_BOX_GEOMETRY, material);
-    mesh.scale.set(scale[0], scale[1], scale[2]);
-    mesh.position.set(position[0], position[1], position[2]);
-    setShadowRole(mesh, castsShadow, receivesShadow);
-    group.add(mesh);
-    return mesh;
-  };
-
-  const addCylinder = (
+  // Todas as peças usam a mesma escala, inclusive mastros, folgas e tubos.
+  const addMesh = (
+    name: string,
     geometry: THREE.BufferGeometry,
-    material: THREE.Material,
+    material: THREE.Material | THREE.Material[],
     scale: [number, number, number],
     position: [number, number, number],
-    rotation: [number, number, number],
-    castsShadow = true,
-    receivesShadow = true,
   ) => {
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.scale.set(scale[0], scale[1], scale[2]);
-    mesh.rotation.set(rotation[0], rotation[1], rotation[2]);
-    mesh.position.set(position[0], position[1], position[2]);
-    setShadowRole(mesh, castsShadow, receivesShadow);
+    mesh.name = name;
+    mesh.scale.set(...scale);
+    mesh.position.set(...position);
+    setShadowRole(mesh, true, true);
     group.add(mesh);
     return mesh;
   };
-
-  const addCylinderBetween = (
-    geometry: THREE.BufferGeometry,
-    material: THREE.Material,
-    start: THREE.Vector3,
-    end: THREE.Vector3,
+  const addTube = (
+    name: string,
+    start: [number, number, number],
+    end: [number, number, number],
     radius: number,
-    castsShadow = true,
-    receivesShadow = true,
+    geometry = HELICOPTER_SKID_GEOMETRY,
+    material = HELICOPTER_SKID_MATERIAL,
   ) => {
-    const direction = end.clone().sub(start);
-    const length = direction.length();
-    if (length <= 0.001) return null;
-
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.copy(start).add(end).multiplyScalar(0.5);
-    mesh.quaternion.setFromUnitVectors(
-      new THREE.Vector3(0, 1, 0),
-      direction.multiplyScalar(1 / length),
-    );
-    mesh.scale.set(radius, length, radius);
-    setShadowRole(mesh, castsShadow, receivesShadow);
-    group.add(mesh);
+    const direction = new THREE.Vector3(...end).sub(new THREE.Vector3(...start));
+    const midpoint = new THREE.Vector3(...start).add(new THREE.Vector3(...end)).multiplyScalar(0.5);
+    const mesh = addMesh(name, geometry, material, [radius, direction.length(), radius], [midpoint.x, midpoint.y, midpoint.z]);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
     return mesh;
   };
 
-  const body = new THREE.Mesh(HELICOPTER_BODY_GEOMETRY, HELICOPTER_BODY_MATERIAL);
-  body.scale.set(fuselageLength, bodyHeight, bodyWidth);
-  body.position.set(-fuselageLength * 0.04, bodyY, 0);
-  setShadowRole(body, true, true);
-  group.add(body);
+  addMesh("fuselage", HELICOPTER_CABIN_GEOMETRY,
+    [HELICOPTER_BODY_MATERIAL, HELICOPTER_WINDOW_MATERIAL, HELICOPTER_TRIM_MATERIAL],
+    [1, 1, 1], [0, 0, 0]);
+  addMesh("engine-cowling", HELICOPTER_BODY_GEOMETRY, HELICOPTER_BODY_MATERIAL,
+    [0.36, 0.2, 0.24], [-0.15, 0.585, 0]);
+  addTube("tail-boom", [-0.39, 0.4, 0], [-1.055, 0.51, 0], 0.05,
+    HELICOPTER_TAIL_BOOM_GEOMETRY, HELICOPTER_BODY_MATERIAL);
+  addMesh("tail-fin", HELICOPTER_FIN_GEOMETRY, HELICOPTER_BODY_MATERIAL,
+    [1, 1, 1], [0, 0, 0]);
+  addMesh("tail-stabilizer", HELICOPTER_BOX_GEOMETRY, HELICOPTER_TRIM_MATERIAL,
+    [0.15, 0.014, 0.34], [-0.84, 0.48, 0]);
 
-  const cabinHull = new THREE.Mesh(HELICOPTER_CABIN_GEOMETRY, HELICOPTER_BODY_MATERIAL);
-  cabinHull.scale.set(fuselageLength * 0.68, bodyHeight * 1.06, bodyWidth * 1.08);
-  cabinHull.position.set(fuselageLength * 0.16, bodyY + bodyHeight * 0.01, 0);
-  cabinHull.rotation.z = -0.04;
-  setShadowRole(cabinHull, true, true);
-  group.add(cabinHull);
-
-  for (const geometry of [
-    HELICOPTER_RIGHT_WINDSHIELD_GEOMETRY,
-    HELICOPTER_LEFT_WINDSHIELD_GEOMETRY,
-    HELICOPTER_RIGHT_SIDE_WINDOW_GEOMETRY,
-    HELICOPTER_RIGHT_REAR_WINDOW_GEOMETRY,
-    HELICOPTER_LEFT_SIDE_WINDOW_GEOMETRY,
-    HELICOPTER_LEFT_REAR_WINDOW_GEOMETRY,
-  ]) {
-    const windowPanel = new THREE.Mesh(geometry, HELICOPTER_WINDOW_MATERIAL);
-    windowPanel.renderOrder = 2;
-    setShadowRole(windowPanel, false, false);
-    cabinHull.add(windowPanel);
-  }
-
-  const frontPillar = addBox(
-    HELICOPTER_TRIM_MATERIAL,
-    [0.01, bodyHeight * 0.43, 0.01],
-    [fuselageLength * 0.392, bodyY + bodyHeight * 0.2, 0],
-    true,
-    true,
-  );
-  frontPillar.rotation.z = -0.42;
-
-  addBox(
-    HELICOPTER_TRIM_MATERIAL,
-    [fuselageLength * 0.56, bodyHeight * 0.035, bodyWidth * 1.04],
-    [-fuselageLength * 0.02, bodyY - bodyHeight * 0.08, 0],
-    true,
-    true,
-  );
-
-  const engineCowling = new THREE.Mesh(HELICOPTER_BODY_GEOMETRY, HELICOPTER_BODY_MATERIAL);
-  engineCowling.scale.set(fuselageLength * 0.32, bodyHeight * 0.52, bodyWidth * 0.72);
-  engineCowling.position.set(-fuselageLength * 0.3, bodyY + bodyHeight * 0.18, 0);
-  setShadowRole(engineCowling, true, true);
-  group.add(engineCowling);
-
-  const tailFairing = new THREE.Mesh(HELICOPTER_BODY_GEOMETRY, HELICOPTER_BODY_MATERIAL);
-  tailFairing.scale.set(fuselageLength * 0.22, bodyHeight * 0.46, bodyWidth * 0.58);
-  tailFairing.position.set(tailRootX + fuselageLength * 0.04, tailCenterY, 0);
-  tailFairing.rotation.z = 0.06;
-  setShadowRole(tailFairing, true, true);
-  group.add(tailFairing);
-
-  addCylinderBetween(
-    HELICOPTER_TAIL_BOOM_GEOMETRY,
-    HELICOPTER_BODY_MATERIAL,
-    new THREE.Vector3(tailRootX, tailCenterY, 0),
-    new THREE.Vector3(tailEndX, tailCenterY + bodyHeight * 0.08, 0),
-    bodyWidth * 0.24,
-  );
-
-  const finX = tailEndX + tailLength * 0.04;
-  const finY = tailCenterY + bodyHeight * 0.28;
-  addBox(
-    HELICOPTER_BODY_MATERIAL,
-    [tailLength * 0.09, bodyHeight * 0.82, bodyWidth * 0.055],
-    [finX, finY, 0],
-  );
-
-  addBox(
-    HELICOPTER_TRIM_MATERIAL,
-    [tailLength * 0.18, bodyHeight * 0.055, bodyWidth * 0.56],
-    [tailEndX + tailLength * 0.16, tailCenterY - bodyHeight * 0.02, 0],
-  );
-
-  const rotorDisc = new THREE.Mesh(
-    HELICOPTER_ROTOR_DISC_GEOMETRY,
-    HELICOPTER_ROTOR_BLUR_MATERIAL,
-  );
-  rotorDisc.rotation.x = -Math.PI / 2;
-  rotorDisc.scale.set(rotorDiameter * 0.5, rotorDiameter * 0.5, 1);
-  rotorDisc.position.set(0, rotorY + 0.003, 0);
-  setShadowRole(rotorDisc, false, false);
-  group.add(rotorDisc);
-
+  const rotorX = -0.09;
+  const rotorY = 0.8;
+  addTube("main-mast", [rotorX, 0.655, 0], [rotorX, rotorY, 0], 0.014);
+  addMesh("main-hub", HELICOPTER_MAST_GEOMETRY, HELICOPTER_SKID_MATERIAL,
+    [0.04, 0.032, 0.04], [rotorX, rotorY, 0]);
   for (let blade = 0; blade < 3; blade++) {
-    const bladeMesh = addBox(
-      HELICOPTER_ROTOR_MATERIAL,
-      [rotorDiameter, Math.max(0.006, size * 0.006), rotorChord],
-      [0, rotorY + blade * 0.002, 0],
-      true,
-      false,
-    );
-    bladeMesh.rotation.y = (blade * Math.PI) / 3 + Math.PI * 0.04;
+    const angle = blade * Math.PI * 2 / 3 + 0.2;
+    // Uma pá radial por braço; barras centradas no eixo duplicavam o número de pás.
+    const mesh = addMesh(`main-blade-${blade}`, HELICOPTER_BOX_GEOMETRY, HELICOPTER_ROTOR_MATERIAL,
+      [0.625, 0.008, 0.038], [rotorX + Math.cos(angle) * 0.3475, rotorY, -Math.sin(angle) * 0.3475]);
+    mesh.rotation.y = angle;
   }
 
-  const hub = new THREE.Mesh(HELICOPTER_MAST_GEOMETRY, HELICOPTER_SKID_MATERIAL);
-  hub.scale.set(size * 0.045, size * 0.035, size * 0.045);
-  hub.position.set(0, rotorY - size * 0.005, 0);
-  setShadowRole(hub, true, true);
-  group.add(hub);
-
-  const mast = new THREE.Mesh(HELICOPTER_MAST_GEOMETRY, HELICOPTER_SKID_MATERIAL);
-  mast.scale.set(HELICOPTER_MAST_RADIUS, HELICOPTER_MAST_HEIGHT, HELICOPTER_MAST_RADIUS);
-  mast.position.set(0, bodyY + bodyHeight * 0.74, 0);
-  setShadowRole(mast, true, true);
-  group.add(mast);
-
-  const skidLength = fuselageLength * 0.92;
-  const skidY = HELICOPTER_ROOF_CLEARANCE + HELICOPTER_SKID_RADIUS;
-  const skidZ = bodyWidth * 0.62;
-  for (const z of [-skidZ, skidZ]) {
-    addCylinder(
-      HELICOPTER_SKID_GEOMETRY,
-      HELICOPTER_SKID_MATERIAL,
-      [HELICOPTER_SKID_RADIUS, skidLength, HELICOPTER_SKID_RADIUS],
-      [fuselageLength * 0.02, skidY, z],
-      [0, 0, Math.PI / 2],
-    );
-
-    for (const x of [-fuselageLength * 0.26, fuselageLength * 0.26]) {
-      addCylinderBetween(
-        HELICOPTER_SKID_GEOMETRY,
-        HELICOPTER_SKID_MATERIAL,
-        new THREE.Vector3(x, skidY + HELICOPTER_SKID_RADIUS, z),
-        new THREE.Vector3(x, bodyY - bodyHeight * 0.28, z * 0.58),
-        HELICOPTER_SKID_RADIUS * 0.68,
-      );
+  for (const side of [-1, 1]) {
+    const z = side * 0.215;
+    addTube(`skid-${side}`, [-0.34, 0.022, z], [0.35, 0.022, z], 0.012);
+    addTube(`skid-toe-${side}`, [0.35, 0.022, z], [0.43, 0.065, z], 0.012);
+    for (const x of [-0.2, 0.22]) {
+      addTube(`skid-support-${side}-${x}`, [x, 0.03, z], [x, 0.255, side * 0.105], 0.009);
     }
   }
 
-  const tailRotorRadius = size * 0.14;
-  const tailRotorX = finX - tailLength * 0.02;
-  const tailRotorY = finY + bodyHeight * 0.02;
-  const tailRotorZ = bodyWidth * 0.34;
-  const tailRotorDisc = new THREE.Mesh(
-    HELICOPTER_ROTOR_DISC_GEOMETRY,
-    HELICOPTER_ROTOR_BLUR_MATERIAL,
-  );
-  tailRotorDisc.scale.set(tailRotorRadius, tailRotorRadius, 1);
-  tailRotorDisc.position.set(tailRotorX, tailRotorY, tailRotorZ + 0.004);
-  setShadowRole(tailRotorDisc, false, false);
-  group.add(tailRotorDisc);
+  // Eixo lateral preso à deriva; disco das pás afastado do boom e do estabilizador.
+  const tailRotorX = -1.04;
+  const tailRotorY = 0.565;
+  const tailRotorZ = 0.09;
+  addTube("tail-axle", [tailRotorX, tailRotorY, 0], [tailRotorX, tailRotorY, tailRotorZ + 0.012], 0.015);
+  const tailHub = addMesh("tail-hub", HELICOPTER_MAST_GEOMETRY, HELICOPTER_SKID_MATERIAL,
+    [0.025, 0.024, 0.025], [tailRotorX, tailRotorY, tailRotorZ]);
+  tailHub.rotation.x = Math.PI / 2;
+  for (let blade = 0; blade < 2; blade++) {
+    const angle = blade * Math.PI + 0.65;
+    const mesh = addMesh(`tail-blade-${blade}`, HELICOPTER_BOX_GEOMETRY, HELICOPTER_ROTOR_MATERIAL,
+      [0.115, 0.022, 0.007], [tailRotorX + Math.cos(angle) * 0.0775, tailRotorY + Math.sin(angle) * 0.0775, tailRotorZ]);
+    mesh.rotation.z = angle;
+  }
 
-  addBox(
-    HELICOPTER_SKID_MATERIAL,
-    [tailLength * 0.05, bodyHeight * 0.16, bodyWidth * 0.1],
-    [tailRotorX, tailRotorY, bodyWidth * 0.16],
-    true,
-    true,
-  );
-  addCylinderBetween(
-    HELICOPTER_SKID_GEOMETRY,
-    HELICOPTER_SKID_MATERIAL,
-    new THREE.Vector3(tailRotorX, tailRotorY, bodyWidth * 0.04),
-    new THREE.Vector3(tailRotorX, tailRotorY, tailRotorZ),
-    size * 0.014,
-  );
-  addCylinder(
-    HELICOPTER_MAST_GEOMETRY,
-    HELICOPTER_SKID_MATERIAL,
-    [size * 0.028, bodyWidth * 0.1, size * 0.028],
-    [tailRotorX, tailRotorY, tailRotorZ],
-    [Math.PI / 2, 0, 0],
-    true,
-    true,
-  );
-
-  addBox(
-    HELICOPTER_ROTOR_MATERIAL,
-    [tailRotorRadius * 2, 0.014, 0.012],
-    [tailRotorX, tailRotorY, tailRotorZ],
-    true,
-    false,
-  );
-  const tailBlade = addBox(
-    HELICOPTER_ROTOR_MATERIAL,
-    [0.014, tailRotorRadius * 2, 0.012],
-    [tailRotorX, tailRotorY, tailRotorZ],
-    true,
-    false,
-  );
-  tailBlade.rotation.z = Math.PI * 0.18;
-
-  const navLight = new THREE.Mesh(HELICOPTER_LIGHT_GEOMETRY, HELICOPTER_NAV_LIGHT_MATERIAL);
-  navLight.scale.set(size * 0.018, size * 0.018, size * 0.018);
-  navLight.position.set(fuselageLength * 0.36, bodyY + bodyHeight * 0.04, 0);
-  setShadowRole(navLight, false, false);
-  group.add(navLight);
-
+  const light = addMesh("landing-light", HELICOPTER_LIGHT_GEOMETRY, HELICOPTER_NAV_LIGHT_MATERIAL,
+    [0.012, 0.018, 0.018], [0.501, 0.27, 0]);
+  setShadowRole(light, false, false);
+  group.scale.setScalar(size);
   group.rotation.y = -Math.PI / 10;
   group.userData.helicopterSize = size;
   return group;

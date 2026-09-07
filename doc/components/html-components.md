@@ -451,3 +451,14 @@ flowchart LR
 
 - Problema **visual ou de formulário** → procure em `src/components/html`
 - Cena **não reagiu ao novo valor** → veja [[scene-hooks|useCityScene.ts]] ou [[scene-runtime|createCitySceneRuntime.ts]]
+
+
+## PassTrack.tsx
+
+`src/components/pass/PassTrack.tsx`: trilha de passe reutilizável, sem API/admin/auth. Recebe `rewards: readonly PassReward[]` e `onConfigure` opcional; ausência do callback deixa somente leitura.
+
+Uma personalização por cartão horizontal: posição, miniatura, categoria, nome, doação acumulada e indicações exigidas. Grátis primeiro; menor doação depois; menos indicações desempata. Mesma exigência não agrupa cartões. Scroll nativo + botões + teclado; respeita movimento reduzido.
+
+`src/components/customization/CustomizationImage.tsx`: imagem compartilhada com catálogo admin. Formato/topo/LED via PNG do preview 3D lazy; cor como amostra; textura usa preview da pasta; features usam ícones.
+
+Consumidor atual: `/dale/passe` ([[passe-admin-ui]]), com configuração e prévia do usuário. `UnlockDialog` compartilhado entre Passe e Personalizações; detalhes em [[passe-admin-ui#Dialog de liberação]].

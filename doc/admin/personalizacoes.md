@@ -15,9 +15,9 @@ Página de gestão do catálogo de personalizações da cena. Rota `/dale/person
 
 ## O que faz
 
-Carrega a árvore completa (`GET /admin/customization`, inclui inativas). Botão no topo alterna entre visão **Lista** (esta página) e visão **Passe** — a curva de conquistas, documentada em [[passe-admin-ui]].
+Carrega a árvore completa (`GET /admin/customization`, inclui inativas). Atalho **Configurar Passe** abre `/dale/passe`: página dedicada com trilha visual de recompensas, documentada em [[passe-admin-ui]].
 
-Na visão Lista, mostra **uma** categoria top-level por vez — `Select` shadcn no topo escolhe qual (rótulo + `(inativa)` quando desligada). Sem scroll longo. Estado = `selectedId`; fallback pro primeiro top-level (`sortOrder`) quando nada escolhido. **Customização** aninha subcategorias (Letreiro/Topo/LED/Holograma), renderizadas dentro da escolhida.
+Mostra **uma** categoria top-level por vez — `Select` shadcn no topo escolhe qual (rótulo + `(inativa)` quando desligada). Sem scroll longo. Estado = `selectedId`; fallback pro primeiro top-level (`sortOrder`) quando nada escolhido. **Customização** aninha subcategorias (Letreiro/Topo/LED/Holograma), renderizadas dentro da escolhida.
 
 Por opção:
 - **Ativa/Inativa** — `Switch` shadcn controlado. Abre confirmação antes do `PUT /admin/customization/options/:id`; cancelar preserva estado. Desativada some da cena.
@@ -48,6 +48,8 @@ Essas três categorias mostram o modelo, não só o nome — admin reconhece de 
 Opção `none` (Nenhuma/Desligado) não tem miniatura — não há o que renderizar. Key sem builder no front (`resolveSubject`, ver [[three-components#CustomizationPreview.tsx]]) = linha normal, sem miniatura — nada quebra.
 
 three.js entra por import dinâmico: as outras páginas do admin dividem o mesmo chunk e não podem pagar ~600 kB por isso. Por isso a página **não** importa nada de `scene/` fora de `import type`.
+
+Miniaturas passam pelo componente compartilhado `CustomizationImage`, também usado em [[passe-admin-ui]]. Cor mostra amostra; textura mostra preview da pasta. Formato/topo/LED preservam botão de preview interativo.
 
 ## Textura: cadastradas × não-cadastradas
 

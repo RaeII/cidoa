@@ -51,6 +51,7 @@ O projeto é dividido em 3 grandes partes:
 ```text
 scripts/
   encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`)
+  check-pass.mjs               ← ordenação do passe sem servidor/navegador
   check-building-shapes.mjs    ← checa os 10 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
 public/
   basis/                       ← transcoder basis do KTX2Loader (js + wasm)
@@ -73,7 +74,15 @@ src/
     donationApi.ts
     customizationApi.ts             ← catálogo de personalizações + conquistas do usuário
     regions.ts
+  pages/admin/
+    Pass.tsx                    ← página dedicada /dale/passe
   components/
+    pass/
+      PassTrack.tsx             ← trilha horizontal reutilizável, um cartão por recompensa
+    customization/
+      CustomizationImage.tsx    ← miniatura compartilhada com catálogo
+    admin/
+      UnlockDialog.tsx          ← editor de requisitos compartilhado
     ui/
       badge.tsx                     ← Badge shadcn; requisito de liberação no admin
       switch.tsx                    ← Switch shadcn usado nas ativações do admin
@@ -102,6 +111,8 @@ src/
       PointLightControls.tsx
   lib/
     image.ts                       ← valida e reduz imagens proporcionalmente para até 400 px
+    pass.ts                        ← contrato visual e ordenação das recompensas
+    adminUnlock.ts                 ← alvos de edição por opção/feature
     unlock.ts                      ← fonte única: requisito do passe → texto (badge, frase, o que falta)
       PanelIntro.tsx
       KeyboardShortcutsHelp.tsx
@@ -220,7 +231,7 @@ Ele guarda todos os estados:
 - `sceneStats`, `hoverInfo`
 - `showControlPanel` — toggle do painel de configuração (escondido por padrão)
 - `selectedBuildingId` — edifício selecionado para personalização
-- `buildingCustomizations` — `Map<donationId, BuildingCustomization>` com cor, formato (default/twisted/octagonal/setback/tapered/chrysler/hearst/empire/taipei/one-trade), acessório de topo (holofotes, heliponto, jardim suspenso ou helicóptero com cabine afunilada realista), letreiro, LED de arestas e holograma cyberpunk
+- `buildingCustomizations` — `Map<donationId, BuildingCustomization>` com cor, formato (default/twisted/octagonal/setback/tapered/chrysler/hearst/empire/taipei/one-trade), acessório de topo (holofotes, heliponto, jardim suspenso ou helicóptero com casco único, vidros integrados e rotores proporcionais), letreiro, LED de arestas e holograma cyberpunk
 
 E entrega para:
 
@@ -333,6 +344,7 @@ flowchart LR
 | Entender a gamificação inteira                   | [[passe-front]]                                   |
 | Definir quanto doar/indicar pra liberar (admin)  | [[passe-admin-ui#Dialog de liberação]]            |
 | Ver a curva inteira de conquistas (admin)        | [[passe-admin-ui#Visão Passe]]                    |
+| Reutilizar a trilha visual para usuários         | [[html-components#PassTrack.tsx]]                |
 | Mudar o texto do requisito ("R$ 50 + 3 indicações") | [[passe-formatacao]]                           |
 | Colocar cadeado na cena / painel do usuário      | [[passe-cena]]                                    |
 | Trocar textura da fachada (UI) / entender loading | [[scene-textures]] · aba **texturas** → [[html-components#TextureControls.tsx]] |
@@ -352,7 +364,7 @@ flowchart LR
 | Alterar holograma cyberpunk                      | [[scene-builders#createHologramMesh.ts]]          |
 | Adicionar formato de edifício novo               | [[scene-builders#createBuildingShapeMesh.ts]] + [[scene-types#BuildingShape]] |
 | Ver formato/topo/LED em 3D no admin              | [[personalizacoes#Preview 3D: Formato, Topo e LED]] · [[three-components#CustomizationPreview.tsx]] |
-| Dar preview 3D a outra categoria do catálogo     | `PREVIEW_KIND` em `src/pages/admin/Customizations.tsx` + [[scene-builders#createPreviewScene.ts]] |
+| Dar preview 3D a outra categoria do catálogo     | `PREVIEW_KIND` em `src/lib/pass.ts` + [[scene-builders#createPreviewScene.ts]] |
 | Alterar torre torcida (twisted)                  | [[scene-builders#createTwistedBuildingMesh.ts]]   |
 | Alterar torre octogonal (octagonal)              | [[scene-builders#createOctagonalBuildingMesh.ts]] |
 | Alterar torre setback (setback)                  | [[scene-builders#createSetbackBuildingMesh.ts]]   |
