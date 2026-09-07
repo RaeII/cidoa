@@ -342,6 +342,7 @@ Para cada doação custom, `syncCustomShapes()`:
    - `shape === "hearst"` → [[scene-builders#createHearstBuildingMesh.ts|createHearstBuildingMesh]] (geometria facetada com diagrid compartilhada).
    - `shape === "empire"` → [[scene-builders#createEmpireBuildingMesh.ts|createEmpireBuildingMesh]] (geometria art déco textureless compartilhada).
    - `shape === "taipei"` → [[scene-builders#createTaipeiBuildingMesh.ts|createTaipeiBuildingMesh]] (geometria modular compartilhada inspirada no Taipei 101).
+   - `shape === "yachthouse"` → [[scene-builders#createYachthouseBuildingMesh.ts|createYachthouseBuildingMesh]] (duas torres por doação; `positionRooftop` ancora acessório na cobertura esquerda e restaura escala/posição ao trocar formato).
    - `shape === "one-trade"` → [[scene-builders#createOneTradeBuildingMesh.ts|createOneTradeBuildingMesh]] (geometria facetada com base chanfrada e pináculo, usando texturas PBR padrão).
    - `shape === "default"` → `THREE.Mesh(buildingGeometry, [facadeMat, topMat])` (mesma `BoxGeometry` do InstancedMesh, criada por `createUnitBuildingGeometry()`).
    - `shape === "empire"` também recebe `setEmpireBuildingMeshColor` quando a cor do prédio difere da cor global — o caso fica no manager, o mapa só constrói.

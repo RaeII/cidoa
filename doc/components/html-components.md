@@ -118,7 +118,7 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 | `donationId` | `number` | ID da doação selecionada |
 | `catalog` | `CustomizationCatalog \| null` | Catálogo de opções do backend (ver [[customization-api]]). `null` = carregando |
 | `initialColor` | `string` | Cor atual do edifício (customizada ou global) |
-| `initialBuildingShape` | `BuildingShape` | Formato atual (`"default"`, `"twisted"`, `"octagonal"`, `"setback"`, `"tapered"`, `"chrysler"`, `"hearst"`, `"empire"`, `"taipei"` ou `"one-trade"`) |
+| `initialBuildingShape` | `BuildingShape` | Formato atual (`"default"`, `"twisted"`, `"octagonal"`, `"setback"`, `"tapered"`, `"chrysler"`, `"hearst"`, `"empire"`, `"taipei"`, `"one-trade"` ou `"yachthouse"`) |
 | `initialTextureKey` | `string \| null` | Textura de fachada do edifício. `null` = "Padrão" (herda a global). Seção **Textura** lista `catalog.textures` + botão "Padrão". Ver [[scene-textures]] |
 | `initialTilingScale` | `number` | Multiplicador de tiling da textura (1.0 = sem alteração) |
 | `initialTextureTransform` | `BuildingTextureTransform` | Ajuste manual de escala/offset da textura |

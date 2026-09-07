@@ -12,6 +12,7 @@ import { getSetbackTierFootprints } from "./createSetbackBuildingMesh";
 import { getTaipeiTierFootprints } from "./createTaipeiBuildingMesh";
 import { getTaperedFootprintScaleAtHeightRatio } from "./createTaperedBuildingMesh";
 import { TWIST_TOTAL_ANGLE } from "./createTwistedBuildingMesh";
+import { YACHTHOUSE_BODY, YACHTHOUSE_ROOF, YACHTHOUSE_TOWER_CENTERS } from "./createYachthouseBuildingMesh";
 
 type EdgeLightFootprint = {
   width: number;
@@ -254,6 +255,31 @@ function createLed(
   const { width, depth, height } = footprint;
   const halfW = width / 2;
   const halfD = depth / 2;
+
+  if (shape === "yachthouse") {
+    for (const center of YACHTHOUSE_TOWER_CENTERS) {
+      for (const tier of [
+        { bottom: YACHTHOUSE_BODY.bottom, top: 0.8675, width: YACHTHOUSE_BODY.width + 0.014, depth: YACHTHOUSE_BODY.depth + 0.016 },
+        { bottom: 0.8675, top: YACHTHOUSE_ROOF.height, width: YACHTHOUSE_ROOF.width, depth: YACHTHOUSE_ROOF.depth },
+      ]) {
+        const w = tier.width * width / 2;
+        const d = tier.depth * depth / 2;
+        const x = center * width;
+        const y = tier.top * height + TOP_LIFT;
+        for (const sx of [-1, 1]) {
+          for (const sz of [-1, 1]) {
+            addEdgeSegment(segments, new THREE.Vector3(x + sx * w, (tier.bottom + tier.top) * height / 2, sz * d),
+              "y", (tier.top - tier.bottom) * height, DEFAULT_EDGE_LIGHT_DISTANCE, DEFAULT_EDGE_LIGHT_THICKNESS);
+          }
+          addEdgeSegment(segments, new THREE.Vector3(x + sx * w, y, 0),
+            "z", d * 2, DEFAULT_EDGE_LIGHT_DISTANCE, DEFAULT_EDGE_LIGHT_THICKNESS);
+          addEdgeSegment(segments, new THREE.Vector3(x, y, sx * d),
+            "x", w * 2, DEFAULT_EDGE_LIGHT_DISTANCE, DEFAULT_EDGE_LIGHT_THICKNESS);
+        }
+      }
+    }
+    return buildInstancedGroup(segments);
+  }
 
   if (shape === "twisted") {
     // Cantos em unit-space (±0.5). A torção da geometria do edifício acontece

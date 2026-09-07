@@ -35,7 +35,8 @@ export type BuildingShape =
   | "hearst"
   | "empire"
   | "taipei"
-  | "one-trade";
+  | "one-trade"
+  | "yachthouse";
 
 export type BuildingCustomization = {
   color: string;

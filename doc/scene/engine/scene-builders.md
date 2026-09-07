@@ -321,7 +321,7 @@ Registro único formato → builder. Ponto de entrada de **todo** consumidor de 
 - `groupBoxGeometryByTop()` — reordena o índice do `BoxGeometry` e consolida as seis faces em dois grupos reais (laterais/base + topo), reduzindo seis draw calls para dois quando há dois materiais
 - `createUnitBuildingGeometry()` — caixa 1×1×1 já consolidada por `groupBoxGeometryByTop` (topo = material 1, resto = 0) + atributos `aProjPosition`/`aProjNormal` do shader triplanar. Instância nova por chamada, quem cria descarta
 - `BUILDING_SHAPES` / `isBuildingShape(key)` — lista e guard pra key vinda do catálogo do banco ([[customization-api]]), que pode ter opção sem builder no front
-- `disposeBuildingShapeSharedResources()` — descarta a geometria compartilhada dos 9 formatos de uma vez
+- `disposeBuildingShapeSharedResources()` — descarta a geometria compartilhada dos 10 formatos customizados de uma vez
 
 **Quando mexer aqui:**
 - Adicionar formato novo (uma linha no mapa + uma no dispose)
@@ -333,7 +333,7 @@ Registro único formato → builder. Ponto de entrada de **todo** consumidor de 
 > [!important] Não chame o dispose no admin
 > As geometrias são cache module-level compartilhado. `disposeBuildingShapeSharedResources()` é do teardown do manager; o preview do admin só descarta os **materiais** que criou.
 
-**Checagem:** `node scripts/check-building-shapes.mjs` — monta os 10 formatos fora do navegador (sem WebGL) e afirma geometria não-degenerada, altura unitária e slots de material na ordem fachada/topo. Cobre também o preview do admin: `resolveSubject` pra toda key semeada e o `frameBox` ignorando volumétrico.
+**Checagem:** `node scripts/check-building-shapes.mjs` — monta os 11 formatos com bundle em memória (sem servidor, watcher, navegador ou WebGL) e afirma geometria não-degenerada, altura unitária e slots de material na ordem fachada/topo. Cobre também o preview do admin: `resolveSubject` pra toda key semeada e o `frameBox` ignorando volumétrico.
 
 > [!note] Guards irmãos nos acessórios
 > `isRooftopType` ([[scene-builders#createRooftopMesh.ts|createRooftopMesh]]) e `isEdgeLightType` ([[scene-builders#createEdgeLightMesh.ts|createEdgeLightMesh]]) seguem o mesmo padrão: `key in FACTORIES`, pra validar key vinda do catálogo antes de chamar o builder.
@@ -539,6 +539,20 @@ getOneTradeTierFootprints(width?: number, depth?: number, height?: number): OneT
 getOneTradeLedFootprintRings(width?: number, depth?: number, height?: number): OneTradeLedFootprintRing[]
 ONE_TRADE_SIGN_Y_OFFSET_RATIO: number
 ```
+
+---
+
+### `createYachthouseBuildingMesh.ts`
+
+Modelo `yachthouse` inspirado nas fotos do Yachthouse Residence Club: duas torres sobre embasamento comum; plantas chanfradas; 64 intervalos de pavimento com faixas em relevo; faixa vertical contínua; coroamentos recuados, coberturas em balanço e mastros internos.
+
+- Um `Mesh` unitário `1×1×1`, centrado; as duas torres pertencem à mesma doação e ao mesmo lote.
+- `BoxGeometry` + `ExtrudeGeometry`, consolidadas por `mergeGeometries` em dois grupos: fachada (0), acabamento/topo (1). Materiais PBR recebidos do manager; sem textura ou material extra.
+- `aProjPosition` / `aProjNormal` preservam shader triplanar. Geometria compartilhada; temporárias descartadas após merge; cache liberado pelo registro geral.
+- `YACHTHOUSE_TOWER_CENTERS`, `YACHTHOUSE_BODY`, `YACHTHOUSE_ROOF`: proporções usadas pelos acessórios. LED contorna cada torre/coroamento; letreiro repete nas duas torres, abaixo do recuo; topo fica na cobertura da torre esquerda, com escala reduzida.
+- `createYachthouseBuildingMesh(facadeMaterial, topMaterial)` cria mesh; `disposeYachthouseBuildingSharedResources()` libera cache.
+- `check-building-shapes.mjs`: testa dimensões, atributos finitos, dois grupos, vão central por raycast, presença das torres/base, compartilhamento e descarte/recriação do cache; registro e preview entram nas checagens dos 11 formatos.
+- Catálogo: migration backend `0012_yachthouse_building.sql`, key `yachthouse`, label **Yachthouse (torres gêmeas)**. Aplicar migration para opção aparecer no painel e admin; catálogo tem cache de até 60 s. Ver [[customization-api]].
 
 ---
 

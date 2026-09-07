@@ -41,6 +41,7 @@ import {
 } from "../builders/createHologramMesh";
 import { DEFAULT_HOLOGRAM_COLOR, DEFAULT_HOLOGRAM_OPACITY } from "../types";
 import { setEmpireBuildingMeshColor } from "../builders/createEmpireBuildingMesh";
+import { YACHTHOUSE_ROOF, YACHTHOUSE_TOWER_CENTERS } from "../builders/createYachthouseBuildingMesh";
 import {
   createBuildingShapeMesh,
   createUnitBuildingGeometry,
@@ -1956,21 +1957,22 @@ export function createDonationManager({
   // Mapa: donationId → { group, type }
   const rooftopMeshes = new Map<number, { group: THREE.Group; type: RooftopType }>();
 
+  const positionRooftop = (donationId: number, group: THREE.Group) => {
+    group.visible = readDonationTransform(donationId);
+    if (!group.visible) return;
+    const isYachthouse = customShapeMeshes.get(donationId)?.shape === "yachthouse";
+    group.scale.setScalar(isYachthouse ? YACHTHOUSE_ROOF.width : 1);
+    group.position.set(
+      tmpTransformPosition.x + (isYachthouse ? YACHTHOUSE_TOWER_CENTERS[0] * tmpTransformScale.x : 0),
+      tmpTransformPosition.y + tmpTransformScale.y * (isYachthouse ? YACHTHOUSE_ROOF.height - 0.5 : 0.5),
+      tmpTransformPosition.z,
+    );
+  };
+
   const syncRooftops = () => {
     // Reposicionar todos os acessórios existentes com base nas posições atuais dos edifícios
     for (const [donId, entry] of rooftopMeshes) {
-      if (!readDonationTransform(donId)) {
-        // Edifício não está visível — esconder
-        entry.group.visible = false;
-        continue;
-      }
-      // Posicionar no topo do edifício
-      entry.group.position.set(
-        tmpTransformPosition.x,
-        tmpTransformPosition.y + tmpTransformScale.y / 2,
-        tmpTransformPosition.z,
-      );
-      entry.group.visible = true;
+      positionRooftop(donId, entry.group);
     }
   };
 
@@ -1996,13 +1998,7 @@ export function createDonationManager({
     scene.add(group);
 
     // Posicionar imediatamente
-    if (readDonationTransform(donationId)) {
-      group.position.set(
-        tmpTransformPosition.x,
-        tmpTransformPosition.y + tmpTransformScale.y / 2,
-        tmpTransformPosition.z,
-      );
-    }
+    positionRooftop(donationId, group);
   };
 
   // --- Letreiros (signs) ---

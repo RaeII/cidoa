@@ -52,7 +52,7 @@ O projeto é dividido em 3 grandes partes:
 scripts/
   encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`)
   check-pass.mjs               ← ordenação do passe sem servidor/navegador
-  check-building-shapes.mjs    ← checa os 10 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
+  check-building-shapes.mjs    ← checa os 11 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
 public/
   basis/                       ← transcoder basis do KTX2Loader (js + wasm)
 src/
@@ -160,6 +160,7 @@ src/
       createEmpireBuildingMesh.ts
       createTaipeiBuildingMesh.ts
       createOneTradeBuildingMesh.ts
+      createYachthouseBuildingMesh.ts ← torres gêmeas sobre embasamento comum
       createHologramMesh.ts
       loadEnvironment.ts
     managers/
@@ -231,7 +232,7 @@ Ele guarda todos os estados:
 - `sceneStats`, `hoverInfo`
 - `showControlPanel` — toggle do painel de configuração (escondido por padrão)
 - `selectedBuildingId` — edifício selecionado para personalização
-- `buildingCustomizations` — `Map<donationId, BuildingCustomization>` com cor, formato (default/twisted/octagonal/setback/tapered/chrysler/hearst/empire/taipei/one-trade), acessório de topo (holofotes, heliponto, jardim suspenso ou helicóptero com casco único, vidros integrados e rotores proporcionais), letreiro, LED de arestas e holograma cyberpunk
+- `buildingCustomizations` — `Map<donationId, BuildingCustomization>` com cor, formato (default/twisted/octagonal/setback/tapered/chrysler/hearst/empire/taipei/one-trade/yachthouse), acessório de topo (holofotes, heliponto, jardim suspenso ou helicóptero com casco único, vidros integrados e rotores proporcionais), letreiro, LED de arestas e holograma cyberpunk
 
 E entrega para:
 
@@ -292,6 +293,7 @@ flowchart TD
     BS --> Y[createEmpireBuildingMesh]
     BS --> Z[createTaipeiBuildingMesh]
     BS --> OT[createOneTradeBuildingMesh]
+    BS --> YC[createYachthouseBuildingMesh]
     M --> HG[createHologramMesh]
     E --> C
     P --> C
@@ -312,7 +314,7 @@ flowchart LR
     Runtime --> DM[donationManager]
     DM --> |cor| IC[instanceColor]
     DM --> |formato| BS[createBuildingShapeMesh]
-    BS --> SH["builder do formato<br/>twisted · octagonal · setback · tapered · chrysler<br/>hearst · empire · taipei · one-trade"]
+    BS --> SH["builder do formato<br/>twisted · octagonal · setback · tapered · chrysler<br/>hearst · empire · taipei · one-trade · yachthouse"]
     DM --> |topo| RM[createRooftopMesh]
     DM --> |sign| SM[createSignMesh]
     DM --> |LED| EL[createEdgeLightMesh]
@@ -372,6 +374,7 @@ flowchart LR
 | Alterar torre Hearst (hearst)                    | [[scene-builders#createHearstBuildingMesh.ts]]    |
 | Alterar torre Empire State (empire)              | [[scene-builders#createEmpireBuildingMesh.ts]]    |
 | Alterar torre Taipei 101 (taipei)                | [[scene-builders#createTaipeiBuildingMesh.ts]]    |
+| Alterar torres Yachthouse (yachthouse)           | [[scene-builders#createYachthouseBuildingMesh.ts]] |
 | Alterar torre One Trade (one-trade)              | [[scene-builders#createOneTradeBuildingMesh.ts]]  |
 
 | Alterar torre Chrysler (chrysler) | [[scene-builders#createChryslerBuildingMesh.ts]] |

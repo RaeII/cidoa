@@ -83,3 +83,7 @@ flowchart LR
   Fmt[lib/unlock] --> Panel
   Fmt --> Admin[Admin · Personalizações]
 ```
+
+## Modelo Yachthouse
+
+Key `yachthouse`, label **Yachthouse (torres gêmeas)**. Migration backend `0012_yachthouse_building.sql` inclui opção em `shape`, ordem 11, presa a código. Painel e preview reutilizam catálogo existente; aplicar migration e aguardar cache público (até 60 s) para disponibilizar opção. Builder em [[scene-builders#createYachthouseBuildingMesh.ts]].
