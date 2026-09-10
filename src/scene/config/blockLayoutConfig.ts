@@ -7,7 +7,7 @@ export function createDefaultBlockLayoutSettings(): BlockLayoutSettings {
     towerRatio: 0.12,
     towersPerBlock: 8,
     baseHeightCap: 0.70,
-    lotColor: "#313a31",
+    lotColor: "#404040",
     sidewalkColor: "#454545",
     sidewalkSideColor: "#292929",
     sidewalkHeight: 0.12,

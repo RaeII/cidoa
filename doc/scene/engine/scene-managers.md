@@ -313,7 +313,7 @@ Quando um edifício recebe uma customização via `updateDonationCustomization`,
 > | Nenhuma customização, ou foco ativo | `currentBuildingColor` | `null` |
 > | Alguma customização | branco (`INSTANCE_COLOR_BASE`) | cor real por instância |
 >
-> Sem a base branca, cor sai ao quadrado: `#9c9c9c` (linear 0.33) × 0.33 = 0.11 → cidade toda escurecia no instante em que um único prédio recebia cor customizada.
+> Sem a base branca, cor sai ao quadrado: `#e6e6e6` (linear 0.33) × 0.33 = 0.11 → cidade toda escurecia no instante em que um único prédio recebia cor customizada.
 
 Para edifícios com `buildingShape !== "default"`, a cor é aplicada diretamente nos materiais clonados (sem instanceColor) via `updateCustomShapeColor`.
 
