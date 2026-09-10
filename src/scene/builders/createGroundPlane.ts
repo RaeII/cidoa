@@ -19,6 +19,7 @@ export function createGroundPlane(
     groundSettings.metalness,
     groundSettings.materialType,
   );
+  // Plano local: coordenadas pequenas preservam a separação de 0.01u do relevo na GPU.
   const geometry = new THREE.PlaneGeometry(CITY_SCENE_CONFIG.groundSize, CITY_SCENE_CONFIG.groundSize);
   const material = new THREE.MeshStandardMaterial({
     color: groundSettings.color,
@@ -27,9 +28,8 @@ export function createGroundPlane(
   });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.rotation.x = -Math.PI / 2;
-  // Chão infinito: fica logo ABAIXO do piso do relevo (TERRAIN_GROUND_Y = -0.04) pra não brigar
-  // (z-fighting). Onde há relevo, o terreno cobre; além da borda do relevo, este plano preenche
-  // o vazio. Segue a câmera no runtime (setPosition) → nunca acaba ao mover a câmera.
+  // Chão local abaixo do relevo (TERRAIN_GROUND_Y = -0.04), seguindo a câmera.
+  // Não estender com fundo cinza: essa camada aparece como uma elevação atrás das montanhas.
   mesh.position.y = -0.05;
   scene.add(mesh);
 

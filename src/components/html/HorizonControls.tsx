@@ -29,9 +29,14 @@ export function HorizonControls({ settings, onChange, culledCount }: Props) {
           value={settings.color}
           onChange={(val) => handleChange("color", val)}
         />
+      </PanelSection>
 
+      <PanelSection
+        title="Renderização dos edifícios"
+        description="Controla até onde os edifícios aparecem, sem cortar o chão ou as montanhas."
+      >
         <RangeField
-          label="Distância"
+          label="Distância dos edifícios à frente"
           value={settings.distance}
           min={100}
           max={600}
@@ -40,7 +45,7 @@ export function HorizonControls({ settings, onChange, culledCount }: Props) {
         />
 
         <RangeField
-          label="Distância atrás da câmera"
+          label="Distância dos edifícios atrás da câmera"
           value={settings.backDistance}
           min={10}
           max={600}
@@ -49,9 +54,8 @@ export function HorizonControls({ settings, onChange, culledCount }: Props) {
         />
 
         <p className="text-xs leading-5 text-white/50">
-          {culledCount} prédios ocultos pelo cull de distância. Prédios atrás da câmera não
-          aparecem na tela — reduzir esta distância corta geometria invisível (ganho de perf e
-          menos reflexo), então o efeito é neste número, não no render.
+          {culledCount} prédios ocultos por distância. Reduzir as distâncias diminui a
+          quantidade de edifícios renderizados.
         </p>
       </PanelSection>
 

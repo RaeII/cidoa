@@ -84,7 +84,7 @@ type CitySceneRuntime = {
   updateTextureSettings(settings: TextureSettings): void
   updateGroundSettings(settings: GroundSettings): void
   updateLightSettings(settings: LightSettings): void
-  updateHorizonSettings(settings: HorizonSettings): void // distance também controla camera.far (+2) — alcance de renderização dos prédios
+  updateHorizonSettings(settings: HorizonSettings): void // distância só dos edifícios; câmera/chão/relevo independentes
   updateEnvironmentSettings(settings: EnvironmentSettings): void
   updateReflectionSettings(settings: ReflectionSettings): void // probe do envMap; resolution recria o cube target
   updateBlockLayout(settings: BlockLayoutSettings): void
@@ -122,6 +122,17 @@ type CitySceneRuntime = {
 > O runtime possui o `terrainRig` ([[scene-builders#createTerrain.ts]]) — opção `terrainSettings` + método `updateTerrainSettings`. Sincroniza a zona plana via `syncTerrainToCity`, que chama `terrainRig.setCityRadius(donationManager.getCityRadius())` após `addDonation`/`addDonations`/`updateBlockLayout` (toda mudança de doação ou layout de quadra). Cor do chão sincronizada via `terrainRig.setGroundColor` em `updateGroundSettings`. Ver [[scene-managers|getCityRadius]].
 >
 > **Chão infinito:** o `groundPlane` fica **sempre visível** (`y=−0.05`, abaixo do piso do relevo em `−0.04`) e **segue a câmera** (`setPosition` no loop). Onde há relevo, o terreno cobre; além da borda do relevo (mesh fixo, 700u na origem), o plano preenche o vazio → cidade grande **não tem limite** ao mover a câmera. Fica sempre abaixo do terreno → **sem z-fighting** (antes o plano era escondido com o relevo ligado, pra não piscar por ficar acima). Na **captura do cube envMap**, relevo e plano cinza permanecem visíveis por padrão e aparecem nos reflexos. Desmarcar `includeGround` os oculta apenas durante a captura; a visibilidade do render principal não muda.
+
+### Alcance visual e distância dos edifícios
+
+- Câmera principal: `CITY_SCENE_CONFIG.far = 2_000`, fixo. Slider não altera projeção. Alcance cobre terreno e edifícios.
+- Chão local: `groundSize = 900`, acompanha câmera, dois triângulos e altura `−0.05`. Coordenadas locais preservam folga de `0.01u` até terreno. Plano de um milhão de unidades foi removido: arredondamento Float32 ultrapassava essa folga e causava piscadas.
+- Camada cinza do horizonte removida: nenhum quad/shader de fundo atrás do terreno, nem nos reflexos. Restam chão local, relevo e céu; eliminação poupa chamada de desenho e material adicionais.
+- Edifícios: `distance`/`backDistance` continuam no `setRenderDistance`; cull a cada 0.25s compacta instâncias e controla formatos customizados/acessórios. Silhueta decorativa acompanha `distance`.
+- Montanhas: mesma malha, seed, cores, posição e resolução. Alterar distância não regenera relevo.
+- Reflexos: `CITY_SCENE_CONFIG.reflectionFar = 260` preserva alcance anterior das seis faces do probe; não herda alcance ampliado da câmera principal.
+
+Verificação: `node scripts/check-horizon.mjs`. Runtime real com I/O substituído; valida ausência da camada cinza adicional, culling de 500 prédios, montanhas intactas, alcance do probe, precisão Float32 em órbita e descarte de recursos. Sem servidor/navegador; não mede FPS da aplicação.
 
 ### Modo noite
 

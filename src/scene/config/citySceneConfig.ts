@@ -12,7 +12,10 @@ export const CITY_SCENE_CONFIG: CitySceneConfig = {
   targetFps: 55,
   minRenderScale: 0.55,
   maxRenderScale: 1,
-  far: 260,
+  // Alcance fixo para terreno e edifícios, independente do controle de distância.
+  far: 2_000,
+  // O probe mantém o alcance anterior para não ampliar o custo das seis capturas.
+  reflectionFar: 260,
   maxSolarIntensity: 20,
   minAmbientDynamic: 4,
   maxAmbientDynamic: 8,

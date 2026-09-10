@@ -78,6 +78,7 @@ export type ChunkData = {
 export type HorizonSettings = {
   enabled: boolean;
   color: string;
+  /** Alcance dos edifícios à frente e posição da silhueta; não limita chão ou montanhas. */
   distance: number;
   /** Distância de renderização dos prédios atrás da câmera (cull direcional). */
   backDistance: number;
@@ -286,6 +287,7 @@ export type CitySceneConfig = {
   minRenderScale: number;
   maxRenderScale: number;
   far: number;
+  reflectionFar: number;
   maxSolarIntensity: number;
   minAmbientDynamic: number;
   maxAmbientDynamic: number;

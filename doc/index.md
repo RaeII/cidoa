@@ -53,6 +53,7 @@ scripts/
   encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`)
   check-pass.mjs               ← ordenação do passe sem servidor/navegador
   check-building-shapes.mjs    ← checa os 11 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
+  check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
 public/
   basis/                       ← transcoder basis do KTX2Loader (js + wasm)
 src/
@@ -263,6 +264,8 @@ Também gerencia:
 ### 6. Runtime da Cena
 
 [[scene-runtime|createCitySceneRuntime.ts]] é o cérebro do Three.js. Orquestra scene, camera, renderer, controls, builders e managers.
+
+Distância na aba **horizonte** limita edifícios. Chão local acompanha câmera; sem camada cinza adicional atrás do terreno. Montanhas mantêm malha e cores; probe conserva alcance próprio. Ver [[scene-runtime#Alcance visual e distância dos edifícios]].
 
 ## Diagrama de Fluxo
 

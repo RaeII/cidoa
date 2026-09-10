@@ -229,7 +229,7 @@ export function createCitySceneRuntime({
       generateMipmaps: false,
       minFilter: THREE.LinearFilter,
     });
-    const cubeCamera = new THREE.CubeCamera(0.1, CITY_SCENE_CONFIG.far, target);
+    const cubeCamera = new THREE.CubeCamera(0.1, CITY_SCENE_CONFIG.reflectionFar, target);
     scene.add(cubeCamera);
     return { target, cubeCamera };
   };
@@ -543,11 +543,7 @@ export function createCitySceneRuntime({
     },
     updateHorizonSettings(settings) {
       currentHorizon = settings;
-      // Distância controla o alcance de renderização: far plane acompanha a silhueta
-      // (+2 cobre a profundidade dos prédios da fileira, que ficam centrados na distância)
-      // e o manager faz cull real das instâncias além dela.
-      camera.far = settings.distance + 2;
-      camera.updateProjectionMatrix();
+      // Só os edifícios usam esse limite; câmera, chão e relevo mantêm o alcance visual.
       donationManager.setRenderDistance(settings.distance, settings.backDistance);
       if (scene.fog instanceof THREE.FogExp2) {
         scene.fog.density = settings.fogDensity;

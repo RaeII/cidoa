@@ -382,16 +382,19 @@ Configurações do ambiente HDRI:
 
 ### `HorizonControls.tsx`
 
-Controles da aba **Horizonte**. Dividido em duas seções:
+Controles da aba **Horizonte**. Três seções:
 
 **Silhueta do Horizonte:**
+- `enabled` — mostrar/ocultar fileira decorativa
 - `color` — cor dos prédios da silhueta
-- `distance` — distância da fileira + alcance de renderização dos prédios (camera.far + cull) (100–600)
-- `backDistance` — alcance de renderização atrás da câmera (cull direcional) (10–600)
+
+**Renderização dos edifícios:**
+- `distance` — alcance dos edifícios à frente (100–600); fileira decorativa acompanha essa distância
+- `backDistance` — alcance dos edifícios atrás da câmera (10–600)
 - prop `culledCount` (de `sceneStats.culled`) — mostra readout embaixo do slider
 
-> [!note] `backDistance` só corta geometria invisível
-> Câmera olha pra frente → prédio atrás dela nunca aparece na tela. Reduzir `backDistance` compacta o buffer e reduz `mesh.count`, poupando vertex shaders sem alterar a imagem principal. O probe fixo recompõe a cidade completa durante sua captura, portanto o culling da câmera não muda mais o conteúdo compartilhado do reflexo. Contraste: `distance` (frontal) também mexe no `camera.far`, então tem efeito visível.
+> [!note] Distância só dos edifícios
+> Sliders usam cull do manager: compactam buffer, reduzem `mesh.count` e ocultam formatos customizados/acessórios. Não alteram `camera.far`, chão ou montanhas. Probe fixo recompõe cidade durante captura; culling da câmera principal não muda conteúdo compartilhado do reflexo.
 
 **Névoa:**
 - `fogDensity` — densidade da névoa exponencial (`FogExp2`). Controla quão rápido os objetos distantes somem (0–0.05, padrão 0.01)

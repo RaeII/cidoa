@@ -258,20 +258,21 @@ Configuração mais global da cena. Define a estrutura completa de `CitySceneCon
 | `targetFps` | FPS alvo para resolução dinâmica |
 | `minRenderScale` | Escala mínima de render |
 | `maxRenderScale` | Escala máxima de render |
-| `far` | Far plane da câmera |
+| `far` | `2_000`: alcance fixo da câmera principal, independente da distância dos edifícios |
+| `reflectionFar` | `260`: alcance do probe, preservado para não ampliar custo das seis capturas |
 | `maxSolarIntensity` | Intensidade solar máxima |
 | `sceneBackground` | Cor de fundo da cena (hex) |
 | `sceneFogColor` | Cor do fog |
 | `sceneFogDensity` | Densidade do FogExp2 |
-| `groundSize` | Tamanho do plano do chão |
+| `groundSize` | `900`: plano local de dois triângulos, sem camada cinza adicional no horizonte |
 | `cameraFov` | Campo de visão da câmera |
 | `cameraNear` | Near plane |
 | `initialCameraPosition` | Posição inicial `{x, y, z}` |
 | `controlTarget` | Target inicial do OrbitControls |
 | `controls.*` | Damping, velocidades, limites de zoom/pan/rotate |
 
-> [!note] CubeCamera sem config própria
-> Update do envMap dinâmico agora é dirty-flag no [[scene-runtime|runtime]]: captura só quando câmera moveu ou cena mudou, no máximo a cada 4 frames. Keys antigas `cubeUpdateIntervalMoving`/`cubeUpdateIntervalStatic`/`envMapNearDistance` foram removidas.
+> [!note] Alcances independentes
+> `far` cobre geometria próxima, sem coordenadas gigantes. [[scene-builders#createGroundPlane.ts]] mantém apenas chão local que acompanha câmera. `HorizonSettings.distance`/`backDistance` limitam só edifícios pelo manager; fileira decorativa acompanha `distance`. `reflectionFar` mantém alcance anterior do probe. Intervalo/resolução da captura continuam em [[#reflectionConfig.ts]]; terreno conserva defaults e geometria.
 
 **Constantes exportadas:**
 - `CITY_SCENE_CONFIG` — objeto de configuração global

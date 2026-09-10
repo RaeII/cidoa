@@ -189,13 +189,16 @@ Configurações da silhueta do horizonte e da névoa da cena:
 
 ```typescript
 type HorizonSettings = {
+  enabled: boolean;    // mostrar fileira decorativa (padrão: false)
   color: string;        // cor dos prédios da silhueta
-  distance: number;     // fileira + alcance de renderização (camera.far + cull) (padrão: 258.8)
-  backDistance: number; // alcance de renderização atrás da câmera (cull direcional, padrão: 258.8)
+  distance: number;     // alcance dos edifícios à frente + posição da fileira (padrão: 208.3)
+  backDistance: number; // alcance dos edifícios atrás da câmera (padrão: 46.2)
   fogDensity: number;   // densidade da névoa exponencial (FogExp2, padrão: 0.01)
   fogColor: string;     // cor da névoa (padrão: "#090c11")
 }
 ```
+
+`distance` e `backDistance` não alteram projeção da câmera, chão ou montanhas. [[scene-runtime#Alcance visual e distância dos edifícios|Runtime]] mantém cull dos edifícios separado do alcance visual.
 
 > [!note] Névoa global
 > `fogDensity` e `fogColor` controlam o `THREE.FogExp2` da cena inteira. Como os prédios do horizonte têm `fog: true`, a névoa os dissolve progressivamente — quanto maior a densidade, mais apagada fica a silhueta.
@@ -435,6 +438,8 @@ type CameraVisibilityState = {
 ### `CitySceneConfig`
 
 Descreve a estrutura esperada para a config global da cena. Garante consistência de `citySceneConfig.ts`.
+
+`far: number` = alcance visual da câmera principal. `reflectionFar: number` = alcance independente da CubeCamera; ampliar horizonte não amplia captura dos reflexos.
 
 Ver campos completos em [[scene-config#citySceneConfig.ts ⭐]].
 
