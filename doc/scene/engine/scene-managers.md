@@ -126,8 +126,8 @@ O manager usa um único par de materiais para prédios e um material de asfalto 
 
 | Material | Tipo | Descrição |
 |---|---|---|
-| `facadeMaterial` | `MeshPhysicalMaterial` | Textura de fachada com shader triplanar + cube envMap dinâmico |
-| `topMaterial` | `MeshPhysicalMaterial` | Textura de concreto para o topo dos prédios |
+| `facadeMaterial` | `MeshPhysicalMaterial` | Textura de fachada com shader triplanar + cube envMap dinâmico. `clearcoat 1.0` / `clearcoatRoughness 0.02` — verniz que dá o brilho de vidro nas quinas; sem ele a fachada fica fosca mesmo com envMap |
+| `topMaterial` | `MeshPhysicalMaterial` | Textura de concreto para o topo dos prédios; mesmo clearcoat da fachada |
 | `focusFacadeMaterial` | `MeshPhysicalMaterial` | Clone do facadeMaterial para o edifício em destaque (opacidade total quando o instanced mesh fica semitransparente) |
 | `focusTopMaterial` | `MeshPhysicalMaterial` | Clone do topMaterial para o edifício em destaque |
 | `asphaltMaterial` | `MeshStandardMaterial` | Cor escura (#18191c), roughness 0.92 — usado nas faixas de asfalto entre quadras |
@@ -135,7 +135,7 @@ O manager usa um único par de materiais para prédios e um material de asfalto 
 | `sidewalkSideMaterial` | `MeshStandardMaterial` | Cor das laterais da calçada (de `blockLayoutSettings.sidewalkSideColor`, padrão #55575c, mais escura) — dá efeito de sombra p/ enxergar a altura. O `sidewalkGeometry` remapeia os grupos de face (topo → material 0, laterais+base → material 1) |
 | `lotMaterial` | `MeshStandardMaterial` | Cor das quadras (de `blockLayoutSettings.lotColor`, padrão #5b5048), roughness 0.98 — tile de lote vazio. `onBeforeCompile` injeta borda escura (`vLotPos`) demarcando cada lote, mantendo luz + sombra |
 
-`applyFacadeMaterial` e `applyTextureToTop` só mantêm mapas cujo efeito está ativo. `normalScale = 0`, `roughnessIntensity = 0`, `emissiveIntensity = 0` e `displacementScale = 0` retiram os respectivos mapas/defines do shader; mudanças apenas de uniform não forçam `material.needsUpdate`. A caixa padrão e a calçada reordenam os índices do `BoxGeometry` em dois grupos reais (laterais/base + topo), em vez de conservar os seis draws originais.
+`applyFacadeMaterial` e `applyTextureToTop` só mantêm mapas cujo efeito está ativo. `normalScale = 0`, `roughnessIntensity = 0`, `emissiveIntensity = 0` e `displacementScale = 0` retiram os respectivos mapas/defines do shader. Exceção: `bumpMap` recebe sempre o mapa de displacement (`bumpScale 1`) — relevo de shading, sem custo de vértice, independente do `displacementScale`; mudanças apenas de uniform não forçam `material.needsUpdate`. A caixa padrão e a calçada reordenam os índices do `BoxGeometry` em dois grupos reais (laterais/base + topo), em vez de conservar os seis draws originais.
 
 #### Janelas acesas de noite
 

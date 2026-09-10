@@ -476,13 +476,15 @@ export function createDonationManager({
     };
   };
 
-  // Sem clearcoat: segundo lobo especular dobra o custo de shading do material
-  // mais caro do three.js na superfície que domina a tela. EnvMap + roughness
-  // baixa já dão o brilho de vidro/fachada.
+  // Clearcoat: verniz sobre a fachada (video-2). Custa um segundo lobo especular no
+  // material mais caro do three.js, mas é ele que dá o brilho de vidro nas quinas e
+  // no topo — sem ele o prédio fica fosco mesmo com envMap.
   const facadeMaterial = new THREE.MeshPhysicalMaterial({
     color: buildingSettings.color,
     roughness: buildingSettings.roughness,
     metalness: buildingSettings.metalness,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.02,
     envMapIntensity: 1.8,
     emissive: new THREE.Color(0xffffff),
     emissiveIntensity: 0,
@@ -493,6 +495,8 @@ export function createDonationManager({
     color: buildingSettings.color,
     roughness: buildingSettings.roughness,
     metalness: buildingSettings.metalness,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.02,
     envMapIntensity: 1.8,
   });
   applyTriplanarShader(topMaterial, "donation-top-triplanar", topTilingUniform);
@@ -1315,7 +1319,9 @@ export function createDonationManager({
       mat.metalnessMap = settings.metalnessIntensity !== 0 ? set.metalness : null;
       mat.roughness = settings.roughnessIntensity;
       mat.metalness = settings.metalnessIntensity;
-      mat.bumpMap = null;
+      // bumpMap usa o displacement como relevo de shading (bumpScale 1), sem custo de
+      // vértice — é o microrrelevo da fachada que o normalMap sozinho não dá.
+      mat.bumpMap = set.displacement;
       // Com scale 0 o displacement é um fetch de vértice inútil — só liga quando ativo.
       mat.displacementMap = settings.displacementScale > 0 ? set.displacement : null;
       mat.displacementScale = settings.displacementScale;
@@ -1354,7 +1360,7 @@ export function createDonationManager({
         mat.roughnessMap = top.roughnessIntensity > 0 ? topSet.roughness : null;
         mat.roughness = top.roughnessIntensity;
         mat.metalness = top.metalnessIntensity;
-        mat.bumpMap = null;
+        mat.bumpMap = topSet.displacement;
         mat.displacementMap = top.displacementScale > 0 ? topSet.displacement : null;
         mat.displacementScale = top.displacementScale;
       } else {

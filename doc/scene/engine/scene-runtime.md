@@ -60,7 +60,7 @@ A cada frame:
 3. `environmentUpdater.updatePosition(...)` — skybox segue a câmera
 4. **Métricas de FPS** — acumula e suaviza a cada 0.5s
 5. **Resolução dinâmica** — ajusta `renderScale` para atingir `targetFps`
-6. **CubeCamera** — captura reflexos só quando `cubeDirty` (cena mudou via `add*/update*` ou asset assíncrono chegou), após 180ms sem nova alteração e no máximo a cada `updateInterval` frames (30 no padrão). O culling da câmera principal não invalida o probe fixo. Ver [[#Probe de reflexo (envMap dos prédios)]].
+6. **CubeCamera** — captura reflexos só quando `cubeDirty` (cena mudou via `add*/update*` ou asset assíncrono chegou), após 180ms sem nova alteração e no máximo a cada `updateInterval` frames (4 no padrão; `followCamera`/`continuous` ligados por padrão recapturam sempre). O culling da câmera principal não invalida o probe fixo. Ver [[#Probe de reflexo (envMap dos prédios)]].
 7. **Culling de acessórios** — a cada 0.25s chama `donationManager.updateAccessoryVisibility(camera.position)`: letreiro, LED, topo e holograma somem além de 80 unidades (fog já os apaga; só a silhueta do prédio importa)
 8. `renderer.render(scene, camera)` — renderiza o frame
 
@@ -180,15 +180,15 @@ Fachada usa o cube do `buildingCubeTarget` como `envMap` (ver [[scene-managers|s
 | `enabled` | `true` | `false` → `setEnvMap(null)` e captura não roda; three.js cai no `scene.environment` (HDRI PMREM), então sobra reflexo difuso do céu — só a **cidade** sai do reflexo |
 | `resolution` | `256` | Lado do `WebGLCubeRenderTarget`; trocar **recria** target + `CubeCamera` |
 | `probeX/Y/Z` | `0, 18, 0` | Posição da captura (Y sobe = mais céu, desce = mais fachada) |
-| `followCamera` | `false` | Probe na câmera; força recaptura todo intervalo |
-| `skyDrop` | `-0.030` | `offsetY` extra do céu **só na captura** |
-| `envHorizon` | `0.6` | `donationManager.setEnvHorizon` → uniform `uEnvHorizon`; achata `reflectVec.y` no `getIBLRadiance`. Muda a **direção amostrada**, não a captura |
+| `followCamera` | `true` | Probe na câmera; força recaptura todo intervalo |
+| `skyDrop` | `0` | `offsetY` extra do céu **só na captura** |
+| `envHorizon` | `0` | `donationManager.setEnvHorizon` → uniform `uEnvHorizon`; achata `reflectVec.y` no `getIBLRadiance`. Muda a **direção amostrada**, não a captura |
 | `envRotY` | `0` | Graus. `donationManager.setEnvMapRotation` → `material.envMapRotation` (só eixo Y) |
 | `heightFadeStart/End` | `32.8 / 57.6` | Faixa de altura sobre o chão usada pelo `smoothstep` |
-| `heightBlur` | `0.65` | Piso máximo de rugosidade aplicado quando a câmera está alta |
-| `reflectionDistanceStart/End` | `40 / 90` | Reflexo completo até o início; fade até zero no fim, pela distância horizontal câmera→prédio |
-| `updateInterval` | `30` | Frames entre capturas (`cubeFrameCounter % max(1, n)`) |
-| `continuous` | `false` | Recaptura mesmo sem `cubeDirty` |
+| `heightBlur` | `0` | Piso máximo de rugosidade aplicado quando a câmera está alta |
+| `reflectionDistanceStart/End` | `599 / 600` (fade desligado) | Reflexo completo até o início; fade até zero no fim, pela distância horizontal câmera→prédio |
+| `updateInterval` | `4` | Frames entre capturas (`cubeFrameCounter % max(1, n)`) |
+| `continuous` | `true` | Recaptura mesmo sem `cubeDirty` |
 | `includeGround` | `true` | Mantém plano cinza + relevo na captura |
 | `includeCityFloor` | `true` | Mantém asfalto/calçada/lotes (repassado a `beginEnvCapture`) |
 

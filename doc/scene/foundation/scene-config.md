@@ -53,7 +53,7 @@ Valores padrão das texturas PBR das fachadas:
 |---|---|
 | `enabled` | `true` |
 | `textureKey` | `"texture/Facade006_1K-mirrored-PNG"` (= value seed; pasta da fachada ativa, ver [[scene-textures]]) |
-| `normalScale` | — |
+| `normalScale` | `0` |
 | `displacementScale` | — |
 | `tilingScale` | — |
 | `roughnessIntensity` | — |
@@ -201,17 +201,17 @@ Padrões do probe de reflexo dos prédios. `createDefaultReflectionSettings()` +
 | `enabled` | `true` | — |
 | `resolution` | `256` | Fachada é espelho (`roughness 0`, amostra mip 0); 128 vira mancha lisa |
 | `probeX/Y/Z` | `0, 18, 0` | Centro da cidade, logo acima dos telhados |
-| `followCamera` | `false` | Probe na câmera = reflexo escorrega com a órbita |
-| `skyDrop` | `-0.030` | Desce a faixa de céu na captura — direção que a fachada espelha vista de frente |
-| `envHorizon` | `0.6` | Achata `reflectVec.y` no shader. Fachada vertical espelha pra baixo (`R.y = −V.y`) onde o cube só tem cinza; puxar pro horizonte devolve o skyline. Escala só Y → **igual em toda face** |
+| `followCamera` | `true` | Probe na câmera: cada prédio devolve o que está à frente do ponto de vista |
+| `skyDrop` | `0` | Sem deslocamento de céu na captura — cube vê o mesmo horizonte do render normal |
+| `envHorizon` | `0` | Vetor de reflexão cru, sem achatamento. Slider achata `reflectVec.y` no shader. Fachada vertical espelha pra baixo (`R.y = −V.y`) onde o cube só tem cinza; puxar pro horizonte devolve o skyline. Escala só Y → **igual em toda face** |
 | `envRotY` | `0` | Giro horizontal do envMap no material (graus). Único eixo de rotação rígida que preserva simetria entre faces |
 | `heightFadeStart` | `32.8` | Altura da câmera onde começa a suavização |
 | `heightFadeEnd` | `57.6` | Altura onde o desfoque chega ao máximo |
-| `heightBlur` | `0.65` | Rugosidade mínima do reflexo na altura máxima |
-| `reflectionDistanceStart` | `40` | Distância horizontal com reflexo completo |
-| `reflectionDistanceEnd` | `90` | Distância horizontal onde o reflexo desaparece |
-| `updateInterval` | `30` | Frames entre capturas |
-| `continuous` | `false` | Captura só quando a cena muda |
+| `heightBlur` | `0` | Sem piso de rugosidade por altura — fachada mantém o espelho vista de cima |
+| `reflectionDistanceStart` | `599` | Fade desligado: além do alcance do probe (`reflectionFar 260`) |
+| `reflectionDistanceEnd` | `600` | Fade desligado: proximidade sempre `1` |
+| `updateInterval` | `4` | Frames entre capturas |
+| `continuous` | `true` | Recaptura sempre — probe segue a câmera, `cubeDirty` não basta |
 | `includeGround` | `true` | Plano cinza + relevo entram no cube e aparecem nos reflexos |
 | `includeCityFloor` | `true` | Asfalto/calçada/lotes entram no cube e aparecem nos reflexos |
 
