@@ -135,6 +135,8 @@ type CitySceneRuntime = {
 > [!note] Relevo (terrainRig)
 > O runtime possui o `terrainRig` ([[scene-builders#createTerrain.ts]]) — opção `terrainSettings` + método `updateTerrainSettings`. Sincroniza a zona plana via `syncTerrainToCity`, que chama `terrainRig.setCityRadius(donationManager.getCityRadius())` após `addDonation`/`addDonations`/`updateBlockLayout` (toda mudança de doação ou layout de quadra). Cor do chão sincronizada via `terrainRig.setGroundColor` em `updateGroundSettings`. Ver [[scene-managers|getCityRadius]].
 >
+> **Teto de edifícios:** `syncTerrainToCity` também resolve a visibilidade — `terrainRig.mesh.visible = currentTerrain.enabled && getDonationCount() <= TERRAIN_MAX_BUILDINGS` (5000, ver [[scene-config#terrainConfig.ts]]). Passou do teto, relevo some sozinho; caiu abaixo, volta. `currentTerrain` guarda o que o painel pediu, e `updateTerrainSettings` repassa `{ ...settings, enabled: terrainEnabled() }` pro rig — senão o rebuild devolveria `mesh.visible = s.enabled` por cima.
+>
 > **Chão infinito:** o `groundPlane` fica **sempre visível** (`y=−0.05`, abaixo do piso do relevo em `−0.04`) e **segue a câmera** (`setPosition` no loop). Onde há relevo, o terreno cobre; além da borda do relevo (mesh fixo, 700u na origem), o plano preenche o vazio → cidade grande **não tem limite** ao mover a câmera. Fica sempre abaixo do terreno → **sem z-fighting** (antes o plano era escondido com o relevo ligado, pra não piscar por ficar acima). Na **captura do cube envMap**, relevo e plano cinza permanecem visíveis por padrão e aparecem nos reflexos. Desmarcar `includeGround` os oculta apenas durante a captura; a visibilidade do render principal não muda.
 
 ### Alcance visual e distância dos edifícios

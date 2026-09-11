@@ -121,6 +121,7 @@ Valores padrão e constantes estruturais do relevo procedural (ver [[scene-types
 | `TERRAIN_CITY_PADDING` | `30` | Folga plana entre a borda do loteamento e o início do verde. Largo o bastante pra ultrapassar ~1 célula da malha (`size/segments`), senão a interpolação grosseira do relevo sangra verde sobre as quadras de borda |
 | `TERRAIN_TRANSITION` | `60` | Largura MÍNIMA do degradê cidade→colinas (cresce com a altura: `max(este, height*3)`) |
 | `TERRAIN_GROUND_Y` | `-0.04` | Nível plano do **chão único**, abaixo das ruas (−0.015) com folga. O plano cinza fica escondido no render normal (ver runtime), então não há z-fighting entre os dois |
+| `TERRAIN_MAX_BUILDINGS` | `5000` | Teto de edifícios. Acima disso o runtime esconde o relevo — cidade já passou da borda da malha (`size` 700) e o verde só paga vértices. Painel continua mandando; runtime sobrepõe `enabled` (ver [[scene-runtime#Relevo (terrainRig)]]) |
 
 **Funções exportadas:**
 - `DEFAULT_TERRAIN_SETTINGS`

@@ -6,6 +6,7 @@ import { createTerrain } from "../builders/createTerrain";
 import { loadEnvironment } from "../builders/loadEnvironment";
 import { CITY_SCENE_CONFIG, DEFAULT_SCENE_STATS } from "../config/citySceneConfig";
 import { NIGHT_PRESET } from "../config/environmentConfig";
+import { TERRAIN_MAX_BUILDINGS } from "../config/terrainConfig";
 import { createDonationManager } from "../managers/createDonationManager";
 import type {
   BlockLayoutSettings,
@@ -262,8 +263,14 @@ export function createCitySceneRuntime({
 
   // Reabre a zona plana do relevo quando a cidade cresce. Cheap: setCityRadius
   // só recalcula a malha quando o raio muda (ganho de anel).
+  // Acima de TERRAIN_MAX_BUILDINGS o relevo some: a cidade já passou da borda da malha e
+  // o painel perde a palavra final (currentTerrain guarda o que o usuário pediu).
+  let currentTerrain = terrainSettings;
+  const terrainEnabled = () =>
+    currentTerrain.enabled && donationManager.getDonationCount() <= TERRAIN_MAX_BUILDINGS;
   const syncTerrainToCity = () => {
     terrainRig.setCityRadius(donationManager.getCityRadius());
+    terrainRig.mesh.visible = terrainEnabled();
   };
 
   // Hover: raycast com throttle por RAF para não impactar o loop de animação
@@ -540,8 +547,9 @@ export function createCitySceneRuntime({
       markCubeDirty();
     },
     updateTerrainSettings(settings) {
+      currentTerrain = settings;
       // update() reaproveita o cityRadius retido pelo rig — relevo e zona plana juntos.
-      terrainRig.update(settings);
+      terrainRig.update({ ...settings, enabled: terrainEnabled() });
       // Plano cinza continua sempre visível (chão infinito abaixo do relevo).
       markCubeDirty();
     },
