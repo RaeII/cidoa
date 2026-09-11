@@ -31,7 +31,7 @@ Manager principal da cena atual. Gerencia os prédios como representações visu
 - Criar e atualizar um único `InstancedMesh` com capacidade para até 500 prédios
 - Posicionar prédios em **espiral quadrada** a partir do centro
 - Calcular altura proporcional ao valor máximo
-- Aplicar texturas PBR de fachada (cor, normal, roughness, metalness, displacement, emissive) — fachada **e** topo vêm do loader lazy + assíncrono + cache, em KTX2 ([[scene-textures]]). Nenhuma textura é descartada no `dispose` (cache compartilhado)
+- Aplicar texturas PBR de fachada (cor, normal, roughness, metalness, displacement, emissive) — fachada **e** topo vêm do loader lazy + assíncrono + cache ([[scene-textures]]). Nenhuma textura é descartada no `dispose` (cache compartilhado)
 - Atualizar materiais em tempo real
 - Gerenciar envMap dinâmico via cube camera
 
@@ -127,7 +127,7 @@ O manager usa um único par de materiais para prédios e um material de asfalto 
 | Material | Tipo | Descrição |
 |---|---|---|
 | `facadeMaterial` | `MeshPhysicalMaterial` | Textura de fachada com shader triplanar + cube envMap dinâmico. `clearcoat 1.0` / `clearcoatRoughness 0.02` — verniz que dá o brilho de vidro nas quinas; sem ele a fachada fica fosca mesmo com envMap |
-| `topMaterial` | `MeshPhysicalMaterial` | Textura de concreto para o topo dos prédios; mesmo clearcoat da fachada |
+| `topMaterial` | `MeshPhysicalMaterial` | Textura de concreto para o topo dos prédios; mesmo clearcoat da fachada. Cor fixa `TOP_CEMENT_COLOR` (`#b9b6b1`) — laje não segue a cor do edifício nem a da customização |
 | `focusFacadeMaterial` | `MeshPhysicalMaterial` | Clone do facadeMaterial para o edifício em destaque (opacidade total quando o instanced mesh fica semitransparente) |
 | `focusTopMaterial` | `MeshPhysicalMaterial` | Clone do topMaterial para o edifício em destaque |
 | `asphaltMaterial` | `MeshStandardMaterial` | Cor escura (#18191c), roughness 0.92 — usado nas faixas de asfalto entre quadras |
@@ -308,12 +308,14 @@ Quando um edifício recebe uma customização via `updateDonationCustomization`,
 > [!warning] instanceColor multiplica, não substitui
 > Shader do three.js faz `diffuseColor *= vColor` — instanceColor é **multiplicado** pela cor do material, não troca ela. Então `applyInstanceColors` alterna a base:
 >
-> | Estado | `facadeMaterial.color` / `topMaterial.color` | `mesh.instanceColor` |
+> | Estado | `facadeMaterial.color` | `mesh.instanceColor` |
 > |---|---|---|
 > | Nenhuma customização, ou foco ativo | `currentBuildingColor` | `null` |
 > | Alguma customização | branco (`INSTANCE_COLOR_BASE`) | cor real por instância |
 >
 > Sem a base branca, cor sai ao quadrado: `#e6e6e6` (linear 0.33) × 0.33 = 0.11 → cidade toda escurecia no instante em que um único prédio recebia cor customizada.
+>
+> `topMaterial` fica **fora** dessa alternância: `applyTriplanarShader` remove o `#include <color_fragment>` de todo material cujo `cacheKey` contém `top`, então a laje ignora vColor/instanceColor e mantém `TOP_CEMENT_COLOR`. `instanceColor` vale pra geometria inteira — sem esse descarte, a laje seria pintada com a cor do edifício.
 
 Para edifícios com `buildingShape !== "default"`, a cor é aplicada diretamente nos materiais clonados (sem instanceColor) via `updateCustomShapeColor`.
 
@@ -332,7 +334,7 @@ Para cada doação custom, `syncCustomShapes()`:
 
 1. Clona `facadeMaterial`/`topMaterial`.
 2. **Re-aplica `applyTriplanarShader` no clone** para que ele tenha seu próprio `uTilingMultiplier` (default 1.0). Sem isso, o clone herdaria o `onBeforeCompile` do original, apontando para o uniform compartilhado.
-3. Define cor (`customization.color`), tiling (`customization.tilingScale`) e ajuste manual de textura (`customization.textureTransform`) no clone.
+3. Define cor (`customization.color`) **só na fachada** — o `topMat` herda `TOP_CEMENT_COLOR` do clone —, tiling (`customization.tilingScale`) e ajuste manual de textura (`customization.textureTransform`).
 4. Cria o mesh via [[scene-builders#createBuildingShapeMesh.ts|createBuildingShapeMesh(shape, facadeMat, topMat, buildingGeometry)]] — mapa formato → builder, sem `if` no manager:
    - `shape === "twisted"` → [[scene-builders#createTwistedBuildingMesh.ts|createTwistedBuildingMesh]] (geometria espiralada compartilhada).
    - `shape === "octagonal"` → [[scene-builders#createOctagonalBuildingMesh.ts|createOctagonalBuildingMesh]] (geometria octogonal compartilhada).

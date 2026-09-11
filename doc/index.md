@@ -168,7 +168,7 @@ src/
       createDonationManager.ts
       createChunkManager.ts   ← referência arquitetural
     textures/
-      facadeTextureManifest.ts  ← descobre pastas de textura (glob, sem THREE). KTX2 > PNG/JPG
+      facadeTextureManifest.ts  ← descobre pastas de textura (glob, sem THREE). PNG/JPG > KTX2
       facadeTextureLoader.ts    ← carrega set PBR (KTX2Loader, lazy + async + cache)
     hooks/
       useCityScene.ts

@@ -61,6 +61,8 @@ import { resolveFacadeFolder } from "../textures/facadeTextureManifest";
 
 // Pasta de fachada usada quando o catálogo aponta pra um asset que não existe mais.
 const DEFAULT_FACADE_FOLDER = "Facade006_1K-mirrored-PNG";
+// Laje de cimento: cor fixa, não segue a cor do edifício nem a da customização.
+const TOP_CEMENT_COLOR = "#b9b6b1";
 // Topo dos prédios (concreto). Não faz parte do catálogo de fachada, mas passa
 // pelo mesmo loader — ganha KTX2, lazy e cache compartilhado de graça.
 const TOP_TEXTURE_FOLDER = "Concrete024_1K-JPG";
@@ -271,6 +273,9 @@ export function createDonationManager({
     // Fachada tem janela; topo não. Derivado do cacheKey pra não repetir o flag em
     // todos os call sites (inclui os clones de shape custom).
     const windows = cacheKey.includes("facade");
+    // Topo de cimento: descarta vColor/instanceColor para o InstancedMesh não pintar
+    // a laje com a cor do edifício (instanceColor vale p/ todos os grupos da geometria).
+    const ignoreInstanceColor = cacheKey.includes("top");
     const tilingMultiplier = { value: 1.0 };
     const textureTransform = {
       value: new THREE.Vector4(
@@ -473,6 +478,9 @@ export function createDonationManager({
         IBL_RETURN_ANCHOR,
         "return envMapColor.rgb * envMapIntensity * reflectionProximity;",
       );
+      if (ignoreInstanceColor) {
+        shader.fragmentShader = shader.fragmentShader.replace("#include <color_fragment>", "");
+      }
     };
   };
 
@@ -492,7 +500,7 @@ export function createDonationManager({
   applyTriplanarShader(facadeMaterial, "donation-facade-triplanar", tilingUniform);
 
   const topMaterial = new THREE.MeshPhysicalMaterial({
-    color: buildingSettings.color,
+    color: TOP_CEMENT_COLOR,
     roughness: buildingSettings.roughness,
     metalness: buildingSettings.metalness,
     clearcoat: 1.0,
@@ -1130,9 +1138,9 @@ export function createDonationManager({
   // a base dos materiais tem que ser branca — senão a cor sai ao quadrado e todos
   // os prédios escurecem no instante em que um único recebe cor customizada.
   const INSTANCE_COLOR_BASE = new THREE.Color(0xffffff);
+  // Só a fachada: o topo descarta o instanceColor no shader, então mantém TOP_CEMENT_COLOR.
   const setInstancedBaseColor = (color: THREE.Color) => {
     facadeMaterial.color.copy(color);
-    topMaterial.color.copy(color);
   };
   const tmpTransformMatrix = new THREE.Matrix4();
   const tmpTransformPosition = new THREE.Vector3();
@@ -2244,9 +2252,7 @@ export function createDonationManager({
       return;
     }
     entry.facadeMat.color.set(color);
-    entry.topMat.color.set(color);
     entry.facadeMat.needsUpdate = true;
-    entry.topMat.needsUpdate = true;
   };
 
   const disposeCustomShapeEntry = (entry: CustomShapeEntry) => {
@@ -2290,7 +2296,7 @@ export function createDonationManager({
         applyTriplanarShader(facadeMat, "donation-facade-triplanar", tilingUniform);
         applyTriplanarShader(topMat, "donation-top-triplanar", topTilingUniform);
         facadeMat.color.set(customization.color);
-        topMat.color.set(customization.color);
+        // topMat herda TOP_CEMENT_COLOR do clone — laje não recebe a cor do edifício.
         facadeMat.userData.tilingMultiplier.value = customization.tilingScale;
         topMat.userData.tilingMultiplier.value = customization.tilingScale;
         setMaterialTextureTransform(facadeMat, customization.textureTransform);
@@ -2420,7 +2426,7 @@ export function createDonationManager({
     updateBuildingSettings(settings) {
       currentBuildingColor.set(settings.color); // manter em sync para instanceColor fallback
       facadeMaterial.color.set(settings.color);
-      topMaterial.color.set(settings.color);
+      // topMaterial mantém TOP_CEMENT_COLOR — laje de cimento não muda de cor.
       // Roughness/metalness afetam todos os materiais (inclui clones twisted).
       // Cor é específica por edifício para clones — não sobrescrever aqui.
       if (!currentTextureSettings.enabled) {

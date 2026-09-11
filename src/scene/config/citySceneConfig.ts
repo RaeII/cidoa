@@ -8,9 +8,12 @@ export const CITY_SCENE_CONFIG: CitySceneConfig = {
   minHeight: 1.8,
   maxHeight: 18,
   maxBuildingsPerChunk: 180,
-  dprCap: 1.5,
+  // Teto do devicePixelRatio. 2 = qualidade nativa em telas retina; só corta 3x+.
+  dprCap: 2,
   targetFps: 55,
-  minRenderScale: 0.55,
+  // 1 = escala dinâmica desligada (video-2): o render nunca sai da resolução nativa.
+  // Baixar reativa o downscale por FPS no loop do runtime.
+  minRenderScale: 1,
   maxRenderScale: 1,
   // Alcance fixo para terreno e edifícios, independente do controle de distância.
   far: 2_000,

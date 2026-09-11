@@ -12,19 +12,19 @@ aliases:
 
 # Texturas de Fachada — manifesto + loader + KTX2
 
-Pasta `src/scene/textures/`. Textura de fachada vem do **catálogo do backend** (só o endereço/pasta), assets ficam no front (`src/assets/texture/`). Loading é **lazy + assíncrono + cache**, formato é **KTX2** (comprimido na GPU). Foco: desempenho de carregamento.
+Pasta `src/scene/textures/`. Textura de fachada vem do **catálogo do backend** (só o endereço/pasta), assets ficam no front (`src/assets/texture/`). Loading é **lazy + assíncrono + cache**. Formato é o **PNG/JPG fonte**; o `.ktx2` (Basis, comprimido na GPU) é fallback pra pasta sem fonte. Foco: desempenho de carregamento sem perder qualidade de imagem.
 
 > [!info] Plano A
 > Backend guarda só o `value` (nome da pasta). Bytes ficam no front, hasheados pelo Vite = cache imutável de graça no host (Cloudflare Pages/Vercel). Zero infra, zero custo. Ver [[customization-api]] e [[personalizacoes]].
 
 ## Números
 
-| | Antes (PNG/JPG) | Agora (KTX2) |
+| | Eager PNG/JPG | Lazy PNG/JPG (atual) | Se tudo virasse KTX2 |
 |---|---|---|
-| Download das texturas | 4946 KB | **1140 KB** (−77%) |
-| VRAM (RGBA8 vs bloco comprimido) | ~48 MB | **~12 MB** |
-| Transcoder basis (1× por cliente, cacheado) | — | 636 KB |
-| Carga | eager (import estático do topo) | **lazy**, só o que a cena usa |
+| Download das texturas | 4946 KB | **só o que a cena usa** | 1140 KB (−77%) |
+| VRAM (RGBA8 vs bloco comprimido) | ~48 MB | ~48 MB | ~12 MB |
+| Transcoder basis (1× por cliente, cacheado) | — | só se houver `.ktx2` | 636 KB |
+| Carga | eager (import estático do topo) | **lazy**, só o que a cena usa | lazy |
 
 ## `facadeTextureManifest.ts` (sem THREE)
 
@@ -32,7 +32,7 @@ Descobre as pastas de textura via `import.meta.glob` — **sem import de THREE**
 
 - Glob casa **só sufixos usados**: `*_{Color,NormalGL,Roughness,Metalness,Displacement}.{png,jpg,jpeg,ktx2}`. Assim Vite não emite pro dist o que ninguém carrega (`_NormalDX`, preview `.png`). Usa NormalGL (OpenGL), não DX.
 - `eager` + `?url` = só as **URLs** (strings hasheadas), não os bytes. Bytes só baixam quando o loader busca a URL.
-- **`.ktx2` ganha do PNG/JPG do mesmo mapa.** Pasta sem `.ktx2` continua funcionando pela fonte — rodar o encoder é opcional, nunca quebra o build.
+- **PNG/JPG ganha do `.ktx2` do mesmo mapa.** Basis é lossy e o artefato aparece no normal map (reflexo cintilante na fachada). O `.ktx2` só é usado onde não existe fonte PNG/JPG — rodar o encoder nunca quebra o build, mas também não muda o que a cena carrega enquanto a fonte estiver no repo.
 - Parse agrupa por pasta; pasta sem `_Color` é descartada.
 
 Exporta:
@@ -99,8 +99,8 @@ Detalhes que o pipeline garante:
 
 O transcoder mora em `public/basis/` (`basis_transcoder.js` + `.wasm`, cópia de `three/examples/jsm/libs/basis/`). Baixado 1× por cliente, só quando um `.ktx2` é pedido.
 
-> [!warning] Plugin `drop-textures-superseded-by-ktx2` (vite.config.ts)
-> O glob casa fonte **e** `.ktx2`, então o Rollup emitiria as duas pro dist — a fonte como peso morto (nunca baixada). O plugin remove do bundle todo PNG/JPG que tem `.ktx2` do mesmo nome, e **loga** o que removeu. A condição espelha a do manifesto; sem o log, um drop indevido viraria 404 só em produção.
+> [!warning] Plugin `drop-ktx2-superseded-by-textures` (vite.config.ts)
+> O glob casa fonte **e** `.ktx2`, então o Rollup emitiria as duas pro dist — a perdedora como peso morto (nunca baixada). O plugin remove do bundle todo `.ktx2` que tem PNG/JPG do mesmo nome, e **loga** o que removeu. A condição **tem que espelhar a do manifesto**: invertida, ela apaga justamente o arquivo que o runtime pede → 404 só em produção. Mexeu na prioridade do manifesto, mexa aqui junto.
 
 ## Fiação na cena
 
@@ -108,7 +108,7 @@ O transcoder mora em `public/basis/` (`basis_transcoder.js` + `.wasm`, cópia de
 
 - [[scene-types#TextureSettings|TextureSettings.textureKey]] = `value` do catálogo da textura ativa. Default = `"texture/Facade006_1K-mirrored-PNG"` (= seed).
 - [[scene-managers|createDonationManager]]: `peek` no construtor (cache quente = nasce texturizado), senão pede assíncrono. Em `updateTextureSettings`, pasta diferente → `requestGlobalFacadeSet` recarrega, reatribui `facadeSet` e reaplica em todos os materiais de fachada. Um **token** descarta a resolução de uma seleção já superada (clique rápido no seletor).
-- Topo (concreto `Concrete024`) **não** entra no catálogo, mas passa pelo mesmo loader — ganha KTX2, lazy e cache compartilhado de graça. Antes eram 4 imports estáticos (~4 MB baixados sempre).
+- Topo (concreto `Concrete024`) **não** entra no catálogo, mas passa pelo mesmo loader — ganha lazy e cache compartilhado de graça. Antes eram 4 imports estáticos (~4 MB baixados sempre).
 - Mapas sem contribuição não entram no programa do material: normal/roughness/emissive/displacement são `null` quando sua intensidade/escala é zero. `material.needsUpdate` só é acionado quando a presença de um mapa muda; arrastar intensidade/tiling atualiza uniforms sem recompilar o shader.
 - **Nada é descartado no `dispose`**: fachada e topo vêm do cache compartilhado, reusado entre recriações do manager.
 - Seletor global: [[html-components#TextureControls.tsx|TextureControls]] lista `catalog.textures` ativas; clicar seta `textureKey`.

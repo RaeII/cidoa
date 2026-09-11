@@ -254,9 +254,9 @@ Configuração mais global da cena. Define a estrutura completa de `CitySceneCon
 | `minHeight` | Altura mínima dos prédios |
 | `maxHeight` | Cap visual absoluto (teto de altura; prédios nunca ultrapassam) |
 | `maxBuildingsPerChunk` | Limite de prédios por chunk |
-| `dprCap` | Limite máximo de device pixel ratio |
-| `targetFps` | FPS alvo para resolução dinâmica |
-| `minRenderScale` | Escala mínima de render |
+| `dprCap` | Limite máximo de device pixel ratio. `2` = resolução nativa em retina; só corta telas 3x+ |
+| `targetFps` | FPS alvo para resolução dinâmica (inerte enquanto `minRenderScale = 1`) |
+| `minRenderScale` | Escala mínima de render. `1` = escala dinâmica **desligada**: render sempre em resolução nativa. Baixar reativa o downscale por FPS |
 | `maxRenderScale` | Escala máxima de render |
 | `far` | `2_000`: alcance fixo da câmera principal, independente da distância dos edifícios |
 | `reflectionFar` | `260`: alcance do probe, preservado para não ampliar custo das seis capturas |

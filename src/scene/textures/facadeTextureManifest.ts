@@ -20,9 +20,9 @@ export type FacadeTextureInfo = { folder: string; label: string };
 // Vite não emite pro dist o que ninguém carrega (ex: _NormalDX, preview .png). Só
 // esses arquivos viram asset hasheado. Usamos NormalGL (OpenGL), não DX.
 //
-// .ktx2 (Basis Universal, gerado por `npm run textures:ktx2`) tem prioridade sobre
-// o PNG/JPG do mesmo mapa: fica comprimido na GPU (~4x menos VRAM) e baixa menor.
-// Pasta sem .ktx2 continua funcionando pelo PNG/JPG — rodar o encoder é opcional.
+// O PNG/JPG tem prioridade sobre o .ktx2 (Basis Universal, gerado por
+// `npm run textures:ktx2`) do mesmo mapa: Basis é lossy e a perda é visível no normal
+// map. O .ktx2 (~4x menos VRAM) só é usado onde não existe fonte PNG/JPG.
 const files = import.meta.glob(
   "../../assets/texture/*/*_{Color,NormalGL,Roughness,Metalness,Displacement}.{png,jpg,jpeg,ktx2}",
   { query: "?url", import: "default", eager: true },
@@ -54,10 +54,11 @@ for (const [path, url] of Object.entries(files)) {
   if (!kind) continue;
   let maps = byFolder.get(folder);
   if (!maps) byFolder.set(folder, (maps = {}));
-  // Um mapa pode existir nas duas formas (PNG fonte + KTX2 gerado). KTX2 ganha;
-  // o PNG que chegar depois não sobrescreve.
+  // Um mapa pode existir nas duas formas (PNG fonte + KTX2 gerado). O PNG/JPG ganha:
+  // Basis é lossy e o artefato aparece no normal map (reflexo cintilante na fachada).
+  // KTX2 só entra onde não existe fonte PNG/JPG.
   const isKtx2 = file.endsWith(".ktx2");
-  if (maps[kind] && !isKtx2) continue;
+  if (maps[kind] && isKtx2) continue;
   maps[kind] = url;
 }
 
