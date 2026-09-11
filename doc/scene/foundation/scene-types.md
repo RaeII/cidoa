@@ -111,7 +111,7 @@ type GroundSettings = {
 }
 ```
 
-Sem campo de tamanho aqui: o lado do plano sai de [[scene-types#HorizonSettings|`groundDistance`]] `* 2` e é aplicado por `setSpan` ([[scene-builders#createGroundPlane.ts]]) — sem recriar geometria. Alcance mora no horizonte porque é `camera.far` que decide se a borda do mesh aparece.
+Tamanho e formato em [[scene-types#HorizonSettings|HorizonSettings]]: `groundDistance` + `groundEdgeMode`. Aplicados por [[scene-builders#createGroundPlane.ts]]; material permanece em GroundSettings.
 
 ---
 
@@ -195,7 +195,8 @@ type HorizonSettings = {
   distance: number;       // alcance dos edifícios à frente (padrão: 208.3)
   backDistance: number;   // alcance dos edifícios atrás da câmera (padrão: 46.2)
   renderDistance: number; // limite do horizonte: camera.far + raio do céu (padrão: 600)
-  groundDistance: number; // raio em que o chão cinza acaba (padrão: far * 1.1 = 660)
+  groundDistance: number; // alcance conforme modo (padrão: 660)
+  groundEdgeMode: "straight" | "circular" | "square"; // GroundEdgeMode; padrão straight
   fogDensity: number;     // densidade da névoa exponencial (FogExp2, padrão: 0.007)
   fogColor: string;       // cor da névoa
 }
@@ -205,7 +206,7 @@ type HorizonSettings = {
 
 `renderDistance` escreve `camera.far` e o raio da esfera do céu ([[scene-builders#loadEnvironment.ts]]) — céu sempre a `renderDistance * 0.9`, dentro do far plane. Independente de `distance`/`backDistance`: mexer no horizonte não mexe no cull dos edifícios.
 
-`groundDistance` manda só no lado do chão (`* 2`, via `setSpan`). Plano é centrado na câmera, então o valor é o raio em que o chão acaba. `groundDistance > renderDistance` (padrão `far * 1.1`) mantém a borda do mesh fora do far plane → linha do horizonte reta; abaixo disso a borda do quadrado aparece e o chão termina antes do céu. Não toca em projeção, céu, edifícios ou relevo.
+`groundEdgeMode: GroundEdgeMode` seleciona `"straight" | "circular" | "square"` (padrão `straight`). `groundDistance` define distância à frente no reto, raio no disco, meio lado no quadrado. Modo reto acompanha azimute da câmera, estende laterais além do frustum; não depende de `groundDistance > renderDistance`. Não altera projeção, céu, edifícios ou relevo.
 
 > [!note] Névoa global
 > `fogDensity` e `fogColor` controlam o `THREE.FogExp2` da cena inteira — dissolvem terreno e edifícios distantes antes do far plane. Céu (`fog: false`) não recebe névoa.

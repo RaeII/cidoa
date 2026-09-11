@@ -24,13 +24,6 @@ import type {
 } from "../types";
 import { runDevAssertionsOnce } from "../utils/devAssertions";
 
-// Lado do quadrado do chão = 2 * HorizonSettings.groundDistance. O plano é centrado na câmera,
-// então meio lado = groundDistance: esse é o raio em que o chão acaba. Com groundDistance > far
-// (padrão 1.1*far) a borda do mesh cai além do far plane em qualquer direção horizontal e nunca
-// é desenhada — quem corta é o far plane, a uma distância constante → linha reta na tela, sem
-// canto de quadrado. Abaixo de far o usuário vê a borda: chão acabando antes do céu, de propósito.
-const groundSpanOf = (horizon: HorizonSettings) => horizon.groundDistance * 2;
-
 // Raio do cull do relevo, em relação a `camera.far`. O cull do relevo é radial, então a borda
 // que ele desenha é um ARCO — e com o alcance dos EDIFÍCIOS (208 por padrão) esse arco caía bem
 // dentro do campo de visão, cortando as colinas numa curva antes da névoa fechar. Amarrado ao
@@ -201,7 +194,7 @@ export function createCitySceneRuntime({
   const groundPlane = createGroundPlane(
     scene,
     groundSettings,
-    groundSpanOf(horizonSettings),
+    horizonSettings,
   );
   const terrainRig = createTerrain(scene, terrainSettings, groundSettings.color);
   // Plano cinza é o CHÃO INFINITO: sempre visível, segue a câmera (ver animate) e fica abaixo do
@@ -420,7 +413,7 @@ export function createCitySceneRuntime({
           ) * currentReflection.heightBlur
         : 0,
     );
-    groundPlane.setPosition(camera.position.x, camera.position.z);
+    groundPlane.updateCamera(camera);
     environmentUpdater.updatePosition(camera.position.x, camera.position.y, camera.position.z);
 
     if (onCameraDebugChange) {
@@ -592,7 +585,7 @@ export function createCitySceneRuntime({
       camera.updateProjectionMatrix();
       environmentUpdater.setRadius(settings.renderDistance);
       // Chão tem alcance próprio (groundDistance): o slider entra por aqui junto do horizonte.
-      groundPlane.setSpan(groundSpanOf(settings));
+      groundPlane.updateHorizon(settings);
       // Cor da névoa sai daqui: no modo noite ganha override.
       applyNightMode();
       markCubeDirty();

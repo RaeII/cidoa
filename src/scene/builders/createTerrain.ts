@@ -126,7 +126,7 @@ export function createTerrain(
   // compactar instâncias. O teste é RADIAL (dot(delta, delta) > limite): a borda que ele produz
   // é um ARCO. Por isso o runtime alimenta esse limite com o alcance do HORIZONTE, não com a
   // distância dos edifícios: o arco fica fora do frustum e quem corta é o far plane (reta).
-  // Ver groundSpanOf / TERRAIN_CULL_SPAN em createCitySceneRuntime.
+  // Ver TERRAIN_CULL_SPAN em createCitySceneRuntime.
   const NO_CULL = 1e12; // Infinity em uniform float é terreno de driver
   const cullUniforms = {
     uCullOrigin: { value: new THREE.Vector3() },

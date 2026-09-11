@@ -128,21 +128,75 @@ const hiddenBehind = stats.culled;
 runtime.updateHorizonSettings({ ...settings.horizonSettings, distance: 600, backDistance: 600 });
 advance();
 assert(stats.culled < hiddenBehind, "Controle traseiro não restaurou os prédios");
-// Invariante da linha do horizonte no PADRÃO: a borda do MESH fica além do far plane em toda
-// direção horizontal. Se falhar, a silhueta do quadrado aparece de volta no lugar da linha reta.
-// Com groundDistance abaixo do horizonte a borda aparece — é o que o slider do chão oferece.
-const groundEdgeBeyondFar = () => ground.scale.x / 2 > camera.far;
-assert(groundEdgeBeyondFar(), "Borda do chão entrou no far plane (quadrado volta a aparecer)");
-// Slider do chão: manda no lado do plano e não toca na câmera nem no relevo.
-for (const groundDistance of [40, 300, 2200]) {
-  runtime.updateHorizonSettings({ ...settings.horizonSettings, groundDistance });
-  advance();
-  assert.equal(ground.scale.x, groundDistance * 2, `Chão ignorou groundDistance ${groundDistance}`);
-  assert.equal(camera.far, settings.horizonSettings.renderDistance, "Slider do chão mexeu no far");
-  assert.deepEqual(terrain.geometry.attributes.position.array, terrainPositions,
-    "Slider do chão alterou as montanhas");
-  assert(ground.visible, "Slider do chão escondeu o plano");
+// Os formatos compartilham material e reutilizam as duas geometrias.
+const planeGeometry = ground.geometry;
+let circleGeometry;
+for (const groundEdgeMode of ["circular", "square", "straight", "circular", "straight"]) {
+  for (const groundDistance of [40, 300, 2200]) {
+    runtime.updateHorizonSettings({ ...settings.horizonSettings, groundEdgeMode, groundDistance });
+    advance();
+    if (groundEdgeMode === "circular") {
+      circleGeometry ??= ground.geometry;
+      assert.equal(ground.geometry, circleGeometry);
+      assert.equal(ground.geometry.type, "CircleGeometry");
+    } else {
+      assert.equal(ground.geometry, planeGeometry);
+    }
+    if (groundEdgeMode !== "straight") assert.equal(ground.scale.x, groundDistance * 2);
+    assert.equal(camera.far, settings.horizonSettings.renderDistance, "Modo do chão mexeu no far");
+    assert.deepEqual(terrain.geometry.attributes.position.array, terrainPositions);
+    assert(ground.visible);
+  }
 }
+
+// Raios na imagem: todo ponto antes do corte reto deve ter chão; depois deve ficar vazio.
+// Cobre orientação, pan, inclinação, aspecto, zoom e distância sem servidor/navegador/GPU.
+const groundSurface = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0.05);
+const raycaster = new THREE.Raycaster();
+let checkedRays = 0;
+for (const aspect of [9 / 16, 16 / 9, 32 / 9]) {
+  for (const zoom of [0.75, 1, 2]) {
+    camera.aspect = aspect;
+    camera.zoom = zoom;
+    for (const renderDistance of [60, 600, 2000]) {
+      for (const groundDistance of [20, 300, 2200]) {
+        runtime.updateHorizonSettings({ ...settings.horizonSettings, renderDistance, groundDistance });
+        for (let yaw = 0; yaw < Math.PI * 2; yaw += Math.PI / 4) {
+          camera.position.set(Math.sin(yaw) * 23 + 5, yaw < Math.PI ? 19 : 70, Math.cos(yaw) * 23 - 5);
+          advance();
+          camera.updateMatrixWorld(true);
+          ground.updateMatrixWorld(true);
+          const forward = camera.getWorldDirection(new THREE.Vector3());
+          forward.y = 0;
+          forward.normalize();
+          const edge = [-0.5, 0.5].map((x) => new THREE.Vector3(x, 0.5, 0).applyMatrix4(ground.matrixWorld));
+          for (const point of edge) {
+            assert(Math.abs(point.clone().sub(camera.position).dot(forward) - groundDistance) < 1e-6,
+              "Distância não posicionou a borda à frente da câmera");
+          }
+          assert(Math.abs(edge[0].project(camera).y - edge[1].project(camera).y) < 1e-6,
+            "Borda deixou de ser horizontal na tela");
+          for (const x of [-0.999, -0.75, 0, 0.75, 0.999]) {
+            for (const y of [-0.999, -0.75, -0.5, 0, 0.5, 0.999]) {
+              raycaster.setFromCamera(new THREE.Vector2(x, y), camera);
+              const point = raycaster.ray.intersectPlane(groundSurface, new THREE.Vector3());
+              if (!point) continue;
+              const depth = -point.clone().applyMatrix4(camera.matrixWorldInverse).z;
+              if (depth < camera.near || depth > camera.far) continue;
+              const shouldHit = point.clone().sub(camera.position).dot(forward) < groundDistance;
+              assert.equal(raycaster.intersectObject(ground).length > 0, shouldHit,
+                `Quina/buraco: aspect=${aspect}, zoom=${zoom}, far=${renderDistance}, chão=${groundDistance}, yaw=${yaw}`);
+              checkedRays++;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+assert(checkedRays > 1000, "Amostragem insuficiente do frustum");
+camera.aspect = 16 / 9;
+camera.zoom = 1;
 runtime.updateHorizonSettings(settings.horizonSettings);
 advance();
 // O cull do relevo é RADIAL: o arco só some se o raio passar do canto do frustum (~1.55*far
@@ -158,7 +212,7 @@ for (const renderDistance of [60, 200, 600, 2000]) {
   });
   advance();
   assert.equal(camera.far, renderDistance, "camera.far não seguiu o horizonte");
-  assert(groundEdgeBeyondFar(), `Borda do chão apareceu com horizonte ${renderDistance}`);
+  assert(ground.scale.x / 2 > camera.far, "Laterais do chão encolheram");
   assert(terrainCullRadius() > camera.far * 1.6, `Arco do relevo entrou no frustum (${renderDistance})`);
   assert(terrainCullBackRadius() > camera.far * 1.6, `Arco traseiro do relevo entrou no frustum (${renderDistance})`);
 }
@@ -188,19 +242,8 @@ function floatViewPosition(vector, matrix) {
 }
 ground.position.set(0, -0.05, 0);
 ground.updateMatrixWorld(true);
-// Três vértices BEM separados (x mínimo, x máximo, y máximo). Vizinhos na borda arredondada
-// são quase colineares: o plano ajustado neles amplifica o arredondamento e mede ruído.
-const planeSample = (() => {
-  const position = ground.geometry.attributes.position;
-  const picked = [0, 0, 0];
-  let minX = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (let i = 0; i < position.count; i++) {
-    if (position.getX(i) < minX) { minX = position.getX(i); picked[0] = i; }
-    if (position.getX(i) > maxX) { maxX = position.getX(i); picked[1] = i; }
-    if (position.getY(i) > maxY) { maxY = position.getY(i); picked[2] = i; }
-  }
-  return picked;
-})();
+// Três vértices distintos do plano; repetir um vértice produz normal zero e falso positivo.
+const planeSample = [0, 1, 2];
 let worstError = 0;
 for (let yaw = 0; yaw < Math.PI * 2; yaw += 0.03) {
   camera.position.set(Math.sin(yaw) * 23, 19, Math.cos(yaw) * 23);
@@ -210,13 +253,15 @@ for (let yaw = 0; yaw < Math.PI * 2; yaw += 0.03) {
   const points = planeSample.map((i) => floatViewPosition(
     new THREE.Vector3().fromBufferAttribute(ground.geometry.attributes.position, i), modelView));
   const roundedPlane = new THREE.Plane().setFromCoplanarPoints(...points);
+  assert(roundedPlane.normal.lengthSq() > 0.99, "Amostra Float32 degenerada");
   const center = ground.position.clone().applyMatrix4(camera.matrixWorldInverse);
   worstError = Math.max(worstError, Math.abs(roundedPlane.distanceToPoint(center)));
 }
 assert(worstError < 0.001, `Plano invade a folga até o terreno: erro ${worstError}`);
-const resources = [ground.geometry, ground.material];
+const resources = [planeGeometry, circleGeometry, ground.material];
 let disposed = 0;
 resources.forEach((resource) => resource.addEventListener("dispose", () => { disposed++; }));
 runtime.dispose();
 assert.equal(disposed, resources.length);
-console.log("Horizonte OK: sem fundo cinza adicional, precisão Float32, montanhas, culling, reflexos e dispose.");
+console.log(`Raios verificados: ${checkedRays}`);
+console.log("Horizonte OK: modos reto/circular/quadrado, sem fundo cinza adicional, precisão Float32, montanhas, culling, reflexos e dispose.");

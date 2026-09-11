@@ -184,7 +184,7 @@ Componente que monta o painel completo de configuração da cena. **Escondido po
 | **Texturas** | Configurações PBR das fachadas |
 | **Reflexo** | Probe do envMap: on/off, intensidade, resolução, posição, céu na captura, o que entra na captura, cadência — ver [[#ReflectionControls.tsx]] |
 | **Luz** | Ambient, hemisphere, directional |
-| **Horizonte** | Alcance do horizonte, alcance do chão, alcance dos edifícios, névoa e **chão** ([[#GroundControls.tsx]]). Chão mora aqui porque `HorizonSettings.groundDistance` define o lado do plano (`* 2`) e o horizonte decide se a borda aparece — ver [[scene-runtime#Alcance visual e distância dos edifícios]] |
+| **Horizonte** | Modo do final do chão (reta/circular/quadrado), alcance do horizonte/chão/edifícios, névoa e material do chão ([[#GroundControls.tsx]]). Ver [[#HorizonControls.tsx]]. |
 | **Terreno** | Relevo procedural ao redor da cidade — ver [[#TerrainControls.tsx]] |
 | **Tela** | Checkbox por componente HTML sobreposto (log de câmera + 3 inputs de geração/posição). Liga/desliga visibilidade; preferência persistida em `localStorage` via [[scene-config#uiVisibilityConfig.ts]] |
 
@@ -395,7 +395,8 @@ Controles da aba **Horizonte**. Três seções:
 
 **Renderização do horizonte:**
 - `renderDistance` — limite do horizonte (60–2000, passo 5, padrão 600). Escreve `camera.far` e o raio da esfera do céu; não mexe no cull dos edifícios nem no alcance do chão. Baixar aproxima o céu → some o vazio entre a cidade e o horizonte
-- `groundDistance` — alcance do chão (20–2200, passo 5, padrão `far * 1.1` = 660). Raio em que o plano cinza acaba (plano segue a câmera): lado do mesh = `groundDistance * 2`, aplicado por `setSpan`. Acima de `renderDistance` a borda fica fora do far plane e a linha do horizonte é reta; abaixo, a borda do quadrado entra na imagem de propósito e o chão termina antes do céu. Não toca em `camera.far`, céu, edifícios ou montanhas
+- `groundEdgeMode` — seletor **Final do chão**: Linha reta (padrão), Circular, Quadrado (original). Descrição contextual explica curva/quinas. Controles renderizados pelo `CityControlPanel.tsx` na aba Horizonte.
+- `groundDistance` — 20–2200, passo 5, padrão 660. Distância à frente no reto; raio no disco; meio lado no quadrado. Reduzir ajuda a comparar modos. Só chão muda; montanhas podem cobrir sua borda. Névoa existente suaviza transição.
 
 **Renderização dos edifícios:**
 - `distance` — alcance dos edifícios à frente (100–600)

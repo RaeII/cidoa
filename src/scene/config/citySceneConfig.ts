@@ -17,7 +17,7 @@ export const CITY_SCENE_CONFIG: CitySceneConfig = {
   maxRenderScale: 1,
   // Padrão do alcance do horizonte (camera.far + raio do céu). Ajustável na aba "horizonte";
   // independente do cull dos edifícios, que vive em HorizonSettings.distance/backDistance.
-  far: 600,
+  far: 190,
   // O probe mantém o alcance anterior para não ampliar o custo das seis capturas.
   reflectionFar: 260,
   maxSolarIntensity: 20,

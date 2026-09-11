@@ -18,7 +18,7 @@ export const DEFAULT_TEXTURE_SETTINGS: TextureSettings = {
   tilingScale: 0.4,
   roughnessIntensity: 24,
   metalnessIntensity: 1.46,
-  envMapIntensity: 3.5,
+  envMapIntensity: .9,
   emissiveIntensity: 0,
   clayRender: false,
   top: { ...DEFAULT_TOP_TEXTURE_SETTINGS },

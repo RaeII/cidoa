@@ -1,7 +1,13 @@
 import { ColorField } from "./controls/ColorField";
 import { PanelSection } from "./controls/PanelSection";
 import { RangeField } from "./controls/RangeField";
-import type { HorizonSettings } from "../../scene/types";
+import type { GroundEdgeMode, HorizonSettings } from "../../scene/types";
+
+const groundEdgeDescriptions: Record<GroundEdgeMode, string> = {
+  straight: "Borda reta que acompanha a direção da câmera, sem quinas. A distância define onde o chão termina à frente.",
+  circular: "Chão em disco, sem quinas. A distância define o raio; a borda forma uma curva, mais visível ao olhar de cima.",
+  square: "Formato original para comparação. A distância define metade do lado do quadrado; as quinas podem aparecer ao girar a câmera.",
+};
 
 type Props = {
   settings: HorizonSettings;
@@ -34,6 +40,22 @@ export function HorizonControls({ settings, onChange, culledCount }: Props) {
           o horizonte. Não altera a renderização dos edifícios.
         </p>
 
+        <label className="block">
+          <span className="mb-2 block text-sm text-white/75">Final do chão</span>
+          <select
+            value={settings.groundEdgeMode}
+            onChange={(event) => handleChange("groundEdgeMode", event.target.value as GroundEdgeMode)}
+            className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:border-white/20"
+          >
+            <option value="straight" className="bg-[#0b0d11] text-white">Linha reta (padrão)</option>
+            <option value="circular" className="bg-[#0b0d11] text-white">Circular</option>
+            <option value="square" className="bg-[#0b0d11] text-white">Quadrado (original)</option>
+          </select>
+        </label>
+        <p className="text-xs leading-5 text-white/50">
+          {groundEdgeDescriptions[settings.groundEdgeMode]}
+        </p>
+
         <RangeField
           label="Distância do chão"
           value={settings.groundDistance}
@@ -44,10 +66,9 @@ export function HorizonControls({ settings, onChange, culledCount }: Props) {
         />
 
         <p className="text-xs leading-5 text-white/50">
-          Raio em que o chão cinza acaba (o plano segue a câmera). Acima de{" "}
-          {Math.round(settings.renderDistance)}u (o horizonte) a borda fica fora do alcance da
-          câmera e o horizonte é uma linha reta; abaixo, a borda do quadrado aparece e o chão
-          termina antes do céu.
+          O chão acompanha a câmera. Reduza a distância para comparar os formatos; use a névoa
+          abaixo para suavizar a transição com o céu. Estes modos alteram apenas o chão, sem
+          mudar o relevo das montanhas.
         </p>
       </PanelSection>
 

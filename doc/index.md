@@ -106,6 +106,7 @@ src/
       TextureControls.tsx
       ReflectionControls.tsx         ← aba reflexo: probe do envMap dos prédios
       GroundControls.tsx
+      HorizonControls.tsx          ← modos do final do chão, distâncias e névoa
       TerrainControls.tsx
       SceneLightControls.tsx
       EnvironmentControls.tsx
@@ -138,6 +139,7 @@ src/
       buildingConfig.ts
       textureConfig.ts
       groundConfig.ts
+      horizonConfig.ts             ← linha reta por padrão
       terrainConfig.ts
       lightConfig.ts
       environmentConfig.ts
@@ -267,7 +269,7 @@ Também gerencia:
 
 [[scene-runtime|createCitySceneRuntime.ts]] é o cérebro do Three.js. Orquestra scene, camera, renderer, controls, builders e managers.
 
-Alcance do chão tem slider próprio na aba **horizonte**: `groundDistance` (20–2200, padrão `far * 1.1`), lado do mesh = `* 2`. Distância na mesma aba limita edifícios. Slider `renderDistance` (60–2000) mexe em `camera.far` e raio do céu, sem tocar no cull nem no chão. Linha do horizonte é RETA enquanto `groundDistance > far`: borda do plano fica além do `far`, quem corta é o far plane, a distância constante. Baixar `groundDistance` abaixo do `far` mostra a borda do quadrado — chão acaba antes do céu, de propósito. Formato do mesh (quadrado, disco, canto arredondado) não aparece. Chão local acompanha câmera; sem camada cinza adicional atrás do terreno. Montanhas mantêm malha e cores; probe conserva alcance próprio. Ver [[scene-runtime#Alcance visual e distância dos edifícios]].
+Aba **Horizonte** → **Final do chão**: **Linha reta** (padrão), **Circular** ou **Quadrado (original)**. `groundEdgeMode` escolhe formato; `groundDistance` (20–2200, padrão 660) define distância à frente, raio ou meio lado. Reta acompanha direção da câmera e dimensiona laterais pelo frustum completo, evitando quinas mesmo em ultrawide ou distância curta. Névoa suaviza transição. `renderDistance` continua controlando câmera/céu; edifícios e montanhas preservam controles próprios. Pesquisa e limites em [[scene-builders#createGroundPlane.ts]]; integração em [[scene-runtime#Alcance visual e distância dos edifícios]].
 
 ## Diagrama de Fluxo
 

@@ -75,6 +75,8 @@ export type ChunkData = {
   scales: Float32Array;
 };
 
+export type GroundEdgeMode = "straight" | "circular" | "square";
+
 export type HorizonSettings = {
   /** Alcance dos edifícios à frente; não limita chão ou montanhas. */
   distance: number;
@@ -82,12 +84,9 @@ export type HorizonSettings = {
   backDistance: number;
   /** Limite do horizonte: `camera.far` + raio da esfera do céu. Não mexe no cull dos edifícios. */
   renderDistance: number;
-  /**
-   * Até onde o chão cinza é desenhado, em unidades a partir da câmera (o plano segue a câmera).
-   * Acima de `renderDistance` a borda fica fora do far plane e o horizonte é uma linha reta;
-   * abaixo, a borda do quadrado entra na imagem de propósito — o chão acaba antes do céu.
-   */
+  /** Reto: distância à frente; circular: raio; quadrado: meio lado. */
   groundDistance: number;
+  groundEdgeMode: GroundEdgeMode;
   fogDensity: number;
   fogColor: string;
 };
