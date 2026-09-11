@@ -65,7 +65,10 @@ Cria o relevo procedural (colinas verdes) ao redor da cidade — partes sem edif
 - `wireframe` alterna `material.wireframe`
 - `BufferGeometry` indexada com `vertexColors`; recomputa normais/bounding só quando posições mudam (recolor puro pula normais)
 
-**Retorna:** `TerrainRig` com `mesh`, `update`, `setCityRadius`, `setGroundColor`, `dispose`.
+**Retorna:** `TerrainRig` com `mesh`, `update`, `setCityRadius`, `setGroundColor`, `setRenderDistance`, `updateCulling`, `setCullEnabled`, `dispose`.
+
+> [!important] Cull de distância no fragmento
+> Montanha segue o mesmo alcance dos prédios (`HorizonSettings.distance`/`backDistance`). Relevo é **um mesh só** — não dá pra compactar instâncias como o manager faz —, então o corte é no fragmento: `onBeforeCompile` injeta `vTerrainWorld` (VS) e um `discard` por distância XZ à câmera (FS), com limite traseiro quando `dot(delta, forward) < 0` e radial quando a câmera olha reto pra baixo. Some **só a colina**: a zona plana tem a cor do [[scene-builders#createGroundPlane.ts|plano cinza]] que fica logo abaixo. `NO_CULL = 1e12` (não `Infinity`: uniform float infinito é terreno de driver). Runtime alimenta `setRenderDistance`/`updateCulling` no mesmo passe de 0.25s do manager, e desliga via `setCullEnabled(false)` durante a captura do cube — probe é fixo, vê o relevo inteiro.
 
 > [!important] Chão infinito abaixo do relevo = sem z-fighting
 > Plano cinza **sempre visível** (`groundPlane.mesh.visible` nunca é forçado a `false` no render), em `y=−0.05`, ABAIXO do piso do relevo (`−0.04`). Onde há relevo, o terreno (opaco) cobre o plano; além da borda do relevo (mesh fixo, 700u na origem), o plano — que **segue a câmera** — preenche o vazio → cidade grande **não tem limite** ao mover a câmera. Fica sempre abaixo → **sem z-fighting** (antes ele ficava ACIMA do terreno e as duas superfícies cinza piscavam). Na captura do envMap relevo **e** plano cinza entram por padrão, logo aparecem no reflexo dos prédios; `includeGround` permite excluí-los (ver [[scene-runtime#Probe de reflexo (envMap dos prédios)]]).

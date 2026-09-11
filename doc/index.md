@@ -180,6 +180,7 @@ src/
       materials.ts
       lighting.ts
       random.ts
+      instanceCulling.ts
       devAssertions.ts
 doc/
   index.md                       ← você está aqui (mapa da documentação)
@@ -361,6 +362,8 @@ flowchart LR
 | Mexer no pipeline KTX2 (codec, tamanho, qualidade) | [[scene-textures#Pipeline KTX2]] · `scripts/encode-ktx2.mjs` |
 | Alterar o canvas ou a ligação com o hook         | [[three-components]]                              |
 | Alterar fórmulas de luz, clamp ou material       | [[scene-utils]]                                   |
+| Mexer no cull de distância do chão (quadra, calçada, poste, asfalto) | [[scene-utils#`instanceCulling.ts`]] · [[scene-managers#Cull do chão da cidade]] |
+| Mexer no cull de distância das montanhas         | [[scene-builders#createTerrain.ts]]               |
 | Alterar criação do chão, grid, luzes ou ambiente | [[scene-builders]]                                |
 | Alterar o relevo procedural (terreno verde)      | [[scene-builders#createTerrain.ts]]               |
 | Alterar valores padrão do relevo                 | [[scene-config#terrainConfig.ts]]                 |

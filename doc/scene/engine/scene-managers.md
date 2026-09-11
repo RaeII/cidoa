@@ -153,7 +153,7 @@ Acende **parte** das janelas da fachada. Só fachada — `applyTriplanarShader` 
 
 #### Rede de Estradas (Asfalto)
 
-Como o loteamento tem piso mínimo `r ≥ MIN_LOTEAMENTO_RADIUS` (= 1), há sempre mais de um bloco. `rebuildRoads(r, blockSpacing, streetWidth)` agrega todas as vias em **dois meshes** — um `BufferGeometry` para o asfalto e outro para o tracejado:
+Como o loteamento tem piso mínimo `r ≥ MIN_LOTEAMENTO_RADIUS` (= 1), há sempre mais de um bloco. `rebuildRoads(r, blockSpacing, streetWidth)` agrega todas as vias em **dois `InstancedMesh`** — um pro asfalto e outro pro tracejado, ambos sobre o mesmo plano unitário (`roadSegmentGeometry`) escalado por instância:
 
 - **Faixas longitudinais** (correm na direção Z): posicionadas em `x = (bx + 0.5) × blockSpacing` para cada gap entre colunas de blocos
 - **Faixas transversais** (correm na direção X): posicionadas em `z = (bz + 0.5) × blockSpacing` para cada gap entre linhas de blocos
@@ -162,9 +162,10 @@ Como o loteamento tem piso mínimo `r ≥ MIN_LOTEAMENTO_RADIUS` (= 1), há semp
 - Y = -0.015 (acima do ground plane em -0.03, abaixo dos prédios em 0)
 - Cache: se `r`, `blockSpacing` e `streetWidth` não mudaram, `rebuildRoads` retorna imediatamente
 - As faixas são recriadas toda vez que `rebuildInstances` muda o anel `r` ou os parâmetros de layout
-- A quantidade de vias aumenta apenas os quads dentro dos dois buffers; não cria um `Mesh`/material por linha
+- A quantidade de vias aumenta apenas o número de instâncias; não cria um `Mesh`/material por linha
+- **Fatiada em segmentos:** cada via vira `2r + 1` segmentos (≈ 1 por fileira de quadras) em vez de uma tira contínua. Granularidade pro cull de distância sumir com a rua longe da câmera — tira contínua era tudo-ou-nada. Segmentos vizinhos se sobrepõem 0.002 (coplanares e da mesma cor → z-fighting invisível; costura de gap de arredondamento não seria)
 
-**Faixa central (tracejado):** um único `ShaderMaterial` (`dashFS`) desenha todas as linhas. A geometria já tem a largura final da faixa (`roadWidth × 0.02`), evitando rasterizar a pista inteira para descartar 98% dos fragmentos. O atributo `aDashCoord` unifica vias X/Z; o shader ainda apaga vãos (85%) e cruzamentos (`distInter < interHalf`, `interHalf = roadWidth/2 + 0.15`).
+**Faixa central (tracejado):** um único `ShaderMaterial` (`dashFS`) desenha todas as linhas. A instância já tem a largura final da faixa (`roadWidth × 0.02`), evitando rasterizar a pista inteira para descartar 98% dos fragmentos. O VS deriva a coordenada ao longo da via (`vDashAlong`) da posição da **instância** — eixo da via = aquele em que o segmento é comprido (`length(instanceMatrix[0].xyz)` vs `[2]`) —, então os segmentos desenham tracejado contínuo como se fossem uma tira só. O FS apaga vãos (85%, ciclo `dashSpacing` em unidades de mundo) e cruzamentos (`distInter < interHalf`, `interHalf = roadWidth/2 + 0.15`).
 
 **Calçadas (`rebuildSidewalks`):** moldura de concreto elevada **estreita** em volta de **cada quadra**, no vão entre o lote e o asfalto.
 
@@ -203,6 +204,16 @@ Cena nunca fica vazia: o manager sempre desenha um **loteamento** (grade de quad
 - **Cor configurável:** `lotColor`, `sidewalkColor` (topo) e `sidewalkSideColor` (laterais) vêm de `blockLayoutSettings`. `updateBlockLayout` aplica direto em `lotMaterial.color` / `sidewalkTopMaterial.color` / `sidewalkSideMaterial.color` (materiais compartilhados → tudo de uma vez) e **só reconstrói** as instâncias quando muda um campo de geometria (`blockSize`, `streetWidth`, `towerRatio`, `towersPerBlock`, `baseHeightCap`) — trocar só a cor não dispara rebuild.
 - **Altura da calçada configurável:** `sidewalkHeight` em `blockLayoutSettings`. `updateBlockLayout` faz um **rebuild localizado** só das tiras de calçada (`rebuildSidewalks` com os últimos params de estrada salvos: `lastRoadR`/`lastRoadBlockSpacing`/`lastRoadStreetWidth`) — não mexe nos prédios.
 - **Cleanup:** `dispose()` remove `lotMesh` e libera `lotGeometry`/`lotMaterial`.
+
+#### Cull do chão da cidade
+
+Lotes, calçadas, postes e asfalto seguem o **mesmo critério dos prédios** (`setRenderDistance`: limite frontal `distance`, traseiro `backDistance`). Antes o loteamento continuava desenhado além do alcance onde os prédios já sumiram — ruas vazias flutuando na névoa.
+
+- **Grupos:** `lotCull`, `sidewalkCull`, `lampCull`, `roadCull` — cada um é um `InstanceCullGroup` de [[scene-utils#`instanceCulling.ts`]]. Cada `rebuild*` tira o snapshot das matrizes no fim (`snapshotInstances`), ou zera o grupo (`null`) quando não há o que desenhar.
+- **Índice compartilhado:** poste + luminária + mancha de luz num grupo só (somem juntos); asfalto + tracejado idem.
+- **Passe:** `cullGroundInstances()` roda dentro de `updateDistanceCulling` (0.25s, guarda a câmera em `lastCullPos`/`lastCullForward`) e **também no fim de cada rebuild** — senão o chão reaparece inteiro até o próximo passe.
+- **Direcional:** mesma regra dos prédios — `dot(delta, forward) < 0` → `backDistanceSq`; câmera reta pra baixo (sem forward em XZ) → limite radial pelo menor dos dois.
+- **Probe de reflexo:** `beginEnvCapture` chama `restoreInstances` nos quatro grupos (probe é fixo, captura a cidade inteira); `endEnvCapture` refaz o cull.
 
 > [!note] Por que shader triplanar?
 > Prédios dentro do mesmo `InstancedMesh` têm alturas diferentes. O shader triplanar garante que a textura de fachada seja aplicada corretamente sem distorção, independente da escala de cada instância.
@@ -401,7 +412,7 @@ Cada edifício pode ter um acessório 3D no topo, como holofotes ou heliponto, g
 - **Posicionamento:** após cada `rebuildInstances`, `syncRooftops()` reposiciona todos os grupos no topo dos edifícios correspondentes.
 - **Criação/remoção:** `setRooftop(donationId, type)` remove o grupo anterior e cria um novo se `type !== "none"`.
 - **Performance:** o lookup do edifício usa `donationIdToInstanceIndex` em vez de `indexOf`, e os transforms temporários são reutilizados nos syncs.
-- **LOD:** `updateDistanceCulling(cameraPos)` (chamado pelo runtime a cada 0.25s) esconde o grupo além de `ACCESSORY_DETAIL_DISTANCE` (80u) — vale pra rooftop, sign, LED e holograma. Mesmo passe faz cull dos prédios além da distância de renderização (`setRenderDistance`): custom shapes via `visible`, instâncias via compactação do buffer/`mesh.count`.
+- **LOD:** `updateDistanceCulling(cameraPos)` (chamado pelo runtime a cada 0.25s) esconde o grupo além de `ACCESSORY_DETAIL_DISTANCE` (80u) — vale pra rooftop, sign, LED e holograma. Mesmo passe faz cull dos prédios além da distância de renderização (`setRenderDistance`): custom shapes via `visible`, instâncias via compactação do buffer/`mesh.count`. Ver [[#Cull do chão da cidade]] pro resto do loteamento.
 - **Cleanup:** no `dispose()`, todos os grupos são removidos e `disposeRooftopSharedResources()` limpa geometrias e materiais compartilhados.
 
 #### Letreiros (Signs)

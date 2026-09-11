@@ -255,6 +255,7 @@ export function createCitySceneRuntime({
     reflectionSettings.reflectionDistanceEnd,
   );
   donationManager.setRenderDistance(horizonSettings.distance, horizonSettings.backDistance);
+  terrainRig.setRenderDistance(horizonSettings.distance, horizonSettings.backDistance);
   // Depois do manager: applyNightMode acende as janelas e ajusta o reflexo da fachada.
   applyNightMode();
   terrainRig.setCityRadius(donationManager.getCityRadius());
@@ -466,6 +467,7 @@ export function createCitySceneRuntime({
       // de baixo do cube livre para o céu (ver skyDrop).
       const terrainWasVisible = terrainRig.mesh.visible;
       const groundWasVisible = groundPlane.mesh.visible;
+      terrainRig.setCullEnabled(false);
       if (!currentReflection.includeGround) {
         terrainRig.mesh.visible = false;
         groundPlane.mesh.visible = false;
@@ -477,6 +479,7 @@ export function createCitySceneRuntime({
       // O custo da captura/PMREM aparece no delta do próximo rAF; não deixar um
       // evento esporádico reduzir permanentemente a resolução principal.
       skipNextFpsSample = true;
+      terrainRig.setCullEnabled(true);
       terrainRig.mesh.visible = terrainWasVisible;
       groundPlane.mesh.visible = groundWasVisible;
       donationManager.endEnvCapture();
@@ -494,6 +497,7 @@ export function createCitySceneRuntime({
         camera.position,
         camera.getWorldDirection(cullForward),
       );
+      terrainRig.updateCulling(camera.position, cullForward);
       // O probe fixo recompõe a cidade completa; cull só atualiza UI/render principal.
       if (culled !== currentStats.culled) {
         emitStatsPatch({ culled });
@@ -548,8 +552,9 @@ export function createCitySceneRuntime({
     },
     updateHorizonSettings(settings) {
       currentHorizon = settings;
-      // Só os edifícios usam esse limite; câmera, chão e relevo mantêm o alcance visual.
+      // Edifícios, chão da cidade e relevo usam esse limite; a câmera mantém o alcance visual.
       donationManager.setRenderDistance(settings.distance, settings.backDistance);
+      terrainRig.setRenderDistance(settings.distance, settings.backDistance);
       if (scene.fog instanceof THREE.FogExp2) {
         scene.fog.density = settings.fogDensity;
       }

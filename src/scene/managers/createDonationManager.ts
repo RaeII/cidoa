@@ -49,6 +49,12 @@ import {
   groupBoxGeometryByTop,
 } from "../builders/createBuildingShapeMesh";
 import { pickIndex, seeded } from "../utils/random";
+import {
+  cullInstances,
+  restoreInstances,
+  snapshotInstances,
+  type InstanceCullGroup,
+} from "../utils/instanceCulling";
 import { createBuildingParapets } from "../builders/createParapetMesh";
 import { NIGHT_PRESET } from "../config/environmentConfig";
 
@@ -589,6 +595,45 @@ export function createDonationManager({
   // Índices de grupo do sorteio (dedupe do pool, já resolvidos).
   let randomGroupIndices: number[] = [];
 
+  // --- Cull de distância do chão da cidade ---
+  // Lotes, calçadas, postes e asfalto seguem o MESMO critério dos prédios (frontal /
+  // traseiro). Sem isso, o loteamento continuava desenhado além do alcance onde os
+  // prédios já sumiram — ruas vazias flutuando na névoa.
+  let lotCull: InstanceCullGroup | null = null;
+  let sidewalkCull: InstanceCullGroup | null = null;
+  let lampCull: InstanceCullGroup | null = null;
+  let roadCull: InstanceCullGroup | null = null;
+  // Última câmera vista pelo cull. Rebuild refaz o cull na hora — senão o chão
+  // reaparece inteiro até o próximo passe (throttle de 0.25 s no runtime).
+  const lastCullPos = new THREE.Vector3();
+  const lastCullForward = new THREE.Vector3();
+  let hasCullView = false;
+
+  const cullGroundInstances = () => {
+    if (!hasCullView) return;
+    let fx = lastCullForward.x;
+    let fz = lastCullForward.z;
+    const fLen = Math.hypot(fx, fz);
+    const hasDirection = fLen > 1e-3;
+    if (hasDirection) {
+      fx /= fLen;
+      fz /= fLen;
+    }
+    const fallbackSq = Math.min(renderDistanceSq, backDistanceSq);
+    const visible = (x: number, z: number) => {
+      const dx = x - lastCullPos.x;
+      const dz = z - lastCullPos.z;
+      const limit = hasDirection
+        ? (dx * fx + dz * fz < 0 ? backDistanceSq : renderDistanceSq)
+        : fallbackSq;
+      return dx * dx + dz * dz <= limit;
+    };
+    cullInstances(lotCull, visible);
+    cullInstances(sidewalkCull, visible);
+    cullInstances(lampCull, visible);
+    cullInstances(roadCull, visible);
+  };
+
   // --- Rede de estradas (asfalto entre blocos) ---
   const asphaltMaterial = new THREE.MeshStandardMaterial({
     color: new THREE.Color(0x18191c),
@@ -649,6 +694,7 @@ export function createDonationManager({
     const sidewalkWidth = outerHalf - innerHalf;
     if (sidewalkWidth <= 0.01 || blockFootprint <= 0) {
       if (sidewalkMesh) sidewalkMesh.count = 0;
+      sidewalkCull = null;
       return;
     }
     const midHalf = (innerHalf + outerHalf) / 2;
@@ -699,6 +745,7 @@ export function createDonationManager({
     m.count = idx;
     m.instanceMatrix.needsUpdate = true;
     m.computeBoundingSphere();
+    sidewalkCull = snapshotInstances([m], idx);
   };
 
   // --- Postes de luz (meio-fio das quadras) ---
@@ -814,6 +861,7 @@ export function createDonationManager({
       if (lampPoleMesh) lampPoleMesh.count = 0;
       if (lampHeadMesh) lampHeadMesh.count = 0;
       if (lampPoolMesh) lampPoolMesh.count = 0;
+      lampCull = null;
       return;
     }
 
@@ -880,41 +928,66 @@ export function createDonationManager({
       m!.instanceMatrix.needsUpdate = true;
       m!.computeBoundingSphere();
     }
+    // Poste, luminária e mancha de luz compartilham o índice: somem juntos no cull.
+    lampCull = snapshotInstances([lampPoleMesh, lampHeadMesh, lampPoolMesh], idx);
   };
 
-  // Shader de linhas pontilhadas centrais (divisória de pistas)
+  // Shader da faixa central tracejada (divisória de pistas). A coordenada ao longo da
+  // via vem da posição da INSTÂNCIA, então os segmentos desenham um tracejado contínuo
+  // como se ainda fossem uma tira só.
   const dashVS = /* glsl */`
-    attribute float aDashCoord;
-    varying float vDashCoord;
+    varying float vDashAlong;
     void main() {
-      vDashCoord = aDashCoord;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      vec4 local = instanceMatrix * vec4(position, 1.0);
+      // Eixo da via = aquele em que o segmento é comprido (o outro tem a largura da faixa).
+      float sx = length(instanceMatrix[0].xyz);
+      float sz = length(instanceMatrix[2].xyz);
+      vDashAlong = sz > sx ? local.z : local.x;
+      gl_Position = projectionMatrix * modelViewMatrix * local;
     }
   `;
   const dashFS = /* glsl */`
-    varying float vDashCoord;
-    uniform float dashRepeat;   // ciclos de tracejado ao longo da via
-    uniform float roadLen;      // comprimento físico da via (unidades de mundo)
+    varying float vDashAlong;
+    uniform float dashSpacing;  // comprimento físico de um ciclo traço+vão
     uniform float blockSpacing; // distância entre cruzamentos
     uniform float interHalf;    // meia-largura do cruzamento (zona sem faixa)
 
     void main() {
       // Apaga a faixa nos cruzamentos pra ela não conflitar com a faixa da via
-      // perpendicular. Via centrada na origem; cruzamentos em (k+0.5)*blockSpacing.
-      // distInter = distância física ao cruzamento mais próximo.
-      float along = (vDashCoord - 0.5) * roadLen;
-      float u = along / blockSpacing - 0.5;
+      // perpendicular. Cruzamentos em (k+0.5)*blockSpacing; distInter = distância
+      // física ao cruzamento mais próximo.
+      float u = vDashAlong / blockSpacing - 0.5;
       float distInter = abs(fract(u + 0.5) - 0.5) * blockSpacing;
       if (distInter < interHalf) discard;
 
       // Padrão de tracejado: 15% cheio, 85% vazio
-      if (fract(vDashCoord * dashRepeat) > 0.15) discard;
+      if (fract(vDashAlong / dashSpacing) > 0.15) discard;
 
       gl_FragColor = vec4(0.92, 0.88, 0.55, 0.7); // amarelo-creme
     }
   `;
 
-  const roadMeshes: THREE.Mesh[] = [];
+  const dashMaterial = new THREE.ShaderMaterial({
+    vertexShader: dashVS,
+    fragmentShader: dashFS,
+    uniforms: {
+      dashSpacing: { value: 1 },
+      blockSpacing: { value: 1 },
+      interHalf: { value: 0 },
+    },
+    transparent: true,
+    depthWrite: false,
+  });
+
+  // Asfalto e faixa central são INSTANCIADOS por segmento de quadra (antes: duas tiras
+  // contínuas por eixo). Continua 1 draw call por mesh, mas o cull de distância
+  // consegue sumir com a rua longe — tira contínua é tudo-ou-nada.
+  const roadSegmentGeometry = new THREE.PlaneGeometry(1, 1);
+  roadSegmentGeometry.rotateX(-Math.PI / 2); // deita no chão; matriz de instância escala
+  const roadDummy = new THREE.Object3D();
+  let roadCapacity = 0;
+  let asphaltMesh: THREE.InstancedMesh | null = null;
+  let dashMesh: THREE.InstancedMesh | null = null;
   let lastRoadR = -1;
   let lastRoadBlockSpacing = 0;
   let lastRoadStreetWidth = 0;
@@ -929,21 +1002,19 @@ export function createDonationManager({
     lastRoadBlockSpacing = blockSpacing;
     lastRoadStreetWidth = streetWidth;
 
-    for (const m of roadMeshes) {
-      scene.remove(m);
-      m.geometry.dispose();
-      if (m.material !== asphaltMaterial) (m.material as THREE.Material).dispose();
-    }
-    roadMeshes.length = 0;
-
     if (r === 0) {
+      if (asphaltMesh) asphaltMesh.count = 0;
+      if (dashMesh) dashMesh.count = 0;
       if (sidewalkMesh) sidewalkMesh.count = 0;
       for (const m of [lampPoleMesh, lampHeadMesh, lampPoolMesh]) if (m) m.count = 0;
+      roadCull = null;
+      sidewalkCull = null;
+      lampCull = null;
       return; // bloco único, sem estradas entre blocos
     }
 
     // Asfalto: rua menos a reserva das calçadas (`SIDEWALK_RESERVE`) — fica mais
-    // estreito que antes. A calçada (`rebuildSidewalks`) preenche o resto da rua.
+    // estreito que a rua. A calçada (`rebuildSidewalks`) preenche o resto.
     const roadWidth = Math.max(1.0, streetWidth - SIDEWALK_RESERVE);
     // Meia-largura do cruzamento onde a faixa central é apagada (= largura da via
     // perpendicular, + folga) — evita o conflito de faixas no cruzamento.
@@ -958,120 +1029,76 @@ export function createDonationManager({
     const roadY = -0.015;
     const dashY = roadY + 0.005;
     const dashSpacing = 1.0; // espaçamento físico (unidades) de cada ciclo traço+vão
-    // O shader antigo rasterizava a pista inteira e descartava 98% da largura.
-    // Agora a própria geometria já tem a largura final da faixa.
     const dashWidth = roadWidth * 0.02;
-    const asphaltPositions: number[] = [];
-    const asphaltIndices: number[] = [];
-    const dashPositions: number[] = [];
-    const dashIndices: number[] = [];
-    const dashCoords: number[] = [];
+    // Uma via fatiada em 2r+1 segmentos ≈ 1 por fileira de quadras: granularidade do
+    // cull sem custo de draw call (instâncias do mesmo mesh).
+    const segCount = 2 * r + 1;
+    const segLen = totalLen / segCount;
+    const needed = 2 * (2 * r) * segCount; // vias longitudinais + transversais
 
-    const pushQuad = (
-      positions: number[],
-      indices: number[],
-      xMin: number,
-      xMax: number,
-      zMin: number,
-      zMax: number,
-      y: number,
-      coords?: readonly [number, number, number, number],
-    ) => {
-      const base = positions.length / 3;
-      positions.push(
-        xMin, y, zMin,
-        xMax, y, zMin,
-        xMin, y, zMax,
-        xMax, y, zMax,
-      );
-      indices.push(base, base + 2, base + 1, base + 2, base + 3, base + 1);
-      if (coords) dashCoords.push(...coords);
+    if (!asphaltMesh || needed > roadCapacity) {
+      for (const m of [asphaltMesh, dashMesh]) {
+        if (!m) continue;
+        scene.remove(m);
+        m.dispose();
+      }
+      roadCapacity = Math.max(64, Math.ceil(needed * 1.5));
+      asphaltMesh = new THREE.InstancedMesh(roadSegmentGeometry, asphaltMaterial, roadCapacity);
+      dashMesh = new THREE.InstancedMesh(roadSegmentGeometry, dashMaterial, roadCapacity);
+      for (const m of [asphaltMesh, dashMesh]) {
+        m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        scene.add(m);
+      }
+    }
+    dashMaterial.uniforms.dashSpacing.value = dashSpacing;
+    dashMaterial.uniforms.blockSpacing.value = blockSpacing;
+    dashMaterial.uniforms.interHalf.value = interHalf;
+
+    let idx = 0;
+    // `alongX` = via correndo em X (transversal); senão corre em Z (longitudinal).
+    const addSegment = (cx: number, cz: number, alongX: boolean, length: number) => {
+      // +0.002 de overlap entre segmentos vizinhos: coplanares e da mesma cor, então o
+      // z-fighting é invisível — a costura de um gap de arredondamento não seria.
+      const span = length + 0.002;
+      roadDummy.rotation.set(0, 0, 0);
+      roadDummy.position.set(cx, roadY, cz);
+      roadDummy.scale.set(alongX ? span : roadWidth, 1, alongX ? roadWidth : span);
+      roadDummy.updateMatrix();
+      asphaltMesh!.setMatrixAt(idx, roadDummy.matrix);
+      roadDummy.position.set(cx, dashY, cz);
+      roadDummy.scale.set(alongX ? length : dashWidth, 1, alongX ? dashWidth : length);
+      roadDummy.updateMatrix();
+      dashMesh!.setMatrixAt(idx, roadDummy.matrix);
+      idx++;
     };
 
     // Faixas longitudinais (direção Z), entre colunas de blocos (separação em X)
     for (let bx = -r; bx < r; bx++) {
       const x = (bx + 0.5) * blockSpacing;
-      pushQuad(
-        asphaltPositions,
-        asphaltIndices,
-        x - roadWidth / 2,
-        x + roadWidth / 2,
-        -totalLen / 2,
-        totalLen / 2,
-        roadY,
-      );
-      pushQuad(
-        dashPositions,
-        dashIndices,
-        x - dashWidth / 2,
-        x + dashWidth / 2,
-        -totalLen / 2,
-        totalLen / 2,
-        dashY,
-        [1, 1, 0, 0],
-      );
+      for (let i = 0; i < segCount; i++) {
+        addSegment(x, -totalLen / 2 + (i + 0.5) * segLen, false, segLen);
+      }
     }
 
     // Faixas transversais (direção X), entre linhas de blocos (separação em Z)
     for (let bz = -r; bz < r; bz++) {
       const z = (bz + 0.5) * blockSpacing;
-      pushQuad(
-        asphaltPositions,
-        asphaltIndices,
-        -totalLen / 2,
-        totalLen / 2,
-        z - roadWidth / 2,
-        z + roadWidth / 2,
-        roadY,
-      );
-      pushQuad(
-        dashPositions,
-        dashIndices,
-        -totalLen / 2,
-        totalLen / 2,
-        z - dashWidth / 2,
-        z + dashWidth / 2,
-        dashY,
-        [0, 1, 0, 1],
-      );
+      for (let i = 0; i < segCount; i++) {
+        addSegment(-totalLen / 2 + (i + 0.5) * segLen, z, true, segLen);
+      }
     }
 
-    const asphaltGeometry = new THREE.BufferGeometry();
-    asphaltGeometry.setAttribute(
-      "position",
-      new THREE.Float32BufferAttribute(asphaltPositions, 3),
-    );
-    asphaltGeometry.setIndex(asphaltIndices);
-    asphaltGeometry.computeVertexNormals();
-    asphaltGeometry.computeBoundingSphere();
-    const asphaltMesh = new THREE.Mesh(asphaltGeometry, asphaltMaterial);
-    scene.add(asphaltMesh);
-    roadMeshes.push(asphaltMesh);
-
-    const dashGeometry = new THREE.BufferGeometry();
-    dashGeometry.setAttribute("position", new THREE.Float32BufferAttribute(dashPositions, 3));
-    dashGeometry.setAttribute("aDashCoord", new THREE.Float32BufferAttribute(dashCoords, 1));
-    dashGeometry.setIndex(dashIndices);
-    dashGeometry.computeBoundingSphere();
-    const dashMaterial = new THREE.ShaderMaterial({
-      vertexShader: dashVS,
-      fragmentShader: dashFS,
-      uniforms: {
-        dashRepeat: { value: totalLen / dashSpacing },
-        roadLen: { value: totalLen },
-        blockSpacing: { value: blockSpacing },
-        interHalf: { value: interHalf },
-      },
-      transparent: true,
-      depthWrite: false,
-    });
-    const dashMesh = new THREE.Mesh(dashGeometry, dashMaterial);
-    scene.add(dashMesh);
-    roadMeshes.push(dashMesh);
+    for (const m of [asphaltMesh, dashMesh]) {
+      m!.count = idx;
+      m!.instanceMatrix.needsUpdate = true;
+      m!.computeBoundingSphere();
+    }
+    roadCull = snapshotInstances([asphaltMesh, dashMesh], idx);
 
     // Calçadas elevadas em volta de cada quadra, preenchendo o resto da rua
     rebuildSidewalks(r, blockSpacing, streetWidth, roadWidth);
     rebuildStreetLamps(r, blockSpacing, streetWidth, roadWidth);
+    cullGroundInstances();
   };
 
   // --- Lotes vazios (loteamento esperando edifícios) ---
@@ -1123,6 +1150,7 @@ export function createDonationManager({
     const needed = positions.length;
     if (needed === 0) {
       if (lotMesh) lotMesh.count = 0;
+      lotCull = null;
       return;
     }
     let m = lotMesh;
@@ -1145,6 +1173,8 @@ export function createDonationManager({
     m.count = needed;
     m.instanceMatrix.needsUpdate = true;
     m.computeBoundingSphere();
+    lotCull = snapshotInstances([m], needed);
+    cullGroundInstances();
   };
 
   const donations: DonationEntry[] = [];
@@ -2640,6 +2670,7 @@ export function createDonationManager({
         rebuildSidewalks(lastRoadR, lastRoadBlockSpacing, lastRoadStreetWidth, roadWidth);
         // Poste assenta no topo do meio-fio — subiu a calçada, sobe o poste.
         rebuildStreetLamps(lastRoadR, lastRoadBlockSpacing, lastRoadStreetWidth, roadWidth);
+        cullGroundInstances();
       }
     },
     setEnvMap(envMap) {
@@ -2704,10 +2735,15 @@ export function createDonationManager({
         spillIntensitiesBeforeCapture.push(light.intensity);
         light.intensity = 0;
       }
+      // Chão da cidade também volta inteiro: o probe é fixo, não segue o cull da câmera.
+      restoreInstances(lotCull);
+      restoreInstances(sidewalkCull);
+      restoreInstances(lampCull);
+      restoreInstances(roadCull);
       // O controle pode retirar o piso da cidade (asfalto, calçada, lotes) para liberar o
       // hemisfério de baixo do cube ao céu e destacar o skyline na fachada.
       if (includeCityFloor) return;
-      for (const m of roadMeshes) m.visible = false;
+      for (const m of [asphaltMesh, dashMesh]) if (m) m.visible = false;
       if (sidewalkMesh) sidewalkMesh.visible = false;
       if (lotMesh) lotMesh.visible = false;
       for (const m of [lampPoleMesh, lampHeadMesh, lampPoolMesh]) if (m) m.visible = false;
@@ -2731,10 +2767,11 @@ export function createDonationManager({
         spillLights[i].intensity = spillIntensitiesBeforeCapture[i] ?? 0;
       }
       spillIntensitiesBeforeCapture.length = 0;
-      for (const m of roadMeshes) m.visible = true;
+      for (const m of [asphaltMesh, dashMesh]) if (m) m.visible = true;
       if (sidewalkMesh) sidewalkMesh.visible = true;
       if (lotMesh) lotMesh.visible = true;
       for (const m of [lampPoleMesh, lampHeadMesh, lampPoolMesh]) if (m) m.visible = true;
+      cullGroundInstances();
     },
     getDonationCount() {
       return donations.length;
@@ -2892,8 +2929,13 @@ export function createDonationManager({
     },
     // LOD barato: acessórios de detalhe (topo, letreiro, LED, holograma) somem além
     // da distância onde o fog já os apaga — o prédio (silhueta) continua visível.
-    // Prédios (instanciados e customizados) somem além da distância de renderização.
+    // Prédios (instanciados e customizados) somem além da distância de renderização,
+    // junto com o chão da cidade (lotes, calçadas, postes, asfalto).
     updateDistanceCulling(cameraPos, cameraForward) {
+      lastCullPos.copy(cameraPos);
+      lastCullForward.copy(cameraForward);
+      hasCullView = true;
+      cullGroundInstances();
       // Forward projetado no plano XZ; olhando reto pra baixo não há "atrás" definido
       // → cull vira puramente radial (limite frontal pra todo mundo).
       let fx = cameraForward.x;
@@ -3037,13 +3079,16 @@ export function createDonationManager({
       topMaterial.dispose();
       // Nenhuma textura é descartada aqui: fachada E topo vêm do cache compartilhado
       // do loader, reusado entre recriações do manager.
-      for (const m of roadMeshes) {
+      for (const m of [asphaltMesh, dashMesh]) {
+        if (!m) continue;
         scene.remove(m);
-        m.geometry.dispose();
-        if (m.material !== asphaltMaterial) (m.material as THREE.Material).dispose();
+        m.dispose();
       }
-      roadMeshes.length = 0;
+      asphaltMesh = null;
+      dashMesh = null;
+      roadSegmentGeometry.dispose();
       asphaltMaterial.dispose();
+      dashMaterial.dispose();
       // Limpar calçadas
       if (sidewalkMesh) {
         scene.remove(sidewalkMesh);

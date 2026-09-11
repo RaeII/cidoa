@@ -99,6 +99,25 @@ O [[scene-managers|ChunkManager]] usa essas funções para definir, de forma **d
 
 ---
 
+### `instanceCulling.ts`
+
+Cull de distância para `InstancedMesh` do chão da cidade (lotes, calçadas, postes, asfalto). Mesmo esquema dos prédios: matriz lógica fica em snapshot, buffer renderizado leva só as visíveis.
+
+| Função | Descrição |
+|---|---|
+| `snapshotInstances(meshes, count)` | Congela matrizes já escritas nos meshes. Deriva posição XZ da translação do primeiro mesh. Retorna `InstanceCullGroup` (ou `null` se `count === 0`) |
+| `cullInstances(group, visible)` | Compacta o buffer com as instâncias aprovadas por `visible(x, z)` e ajusta `count`. Retorna quantas sumiram |
+| `restoreInstances(group)` | Devolve todas as instâncias — probe de reflexo captura cidade inteira |
+
+Meshes do mesmo grupo compartilham índice lógico: poste + luminária + mancha de luz são a **mesma** instância vista de três meshes, somem juntos.
+
+> [!note] Por que compactar em vez de `visible = false`
+> Cada grupo é 1 draw call. Esconder o mesh sumiria com a cidade toda; zero-scale ainda gastaria vertex shader. Compactar corta vértice de verdade.
+
+Usado por [[scene-managers|createDonationManager]]. Relacionado: [[scene-runtime#Horizonte]].
+
+---
+
 ### `devAssertions.ts`
 
 Verificações de desenvolvimento com `console.assert`:
