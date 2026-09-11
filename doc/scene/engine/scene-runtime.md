@@ -139,10 +139,10 @@ type CitySceneRuntime = {
 
 ### Alcance visual e distância dos edifícios
 
-- Câmera principal: `CITY_SCENE_CONFIG.far = 2_000`, fixo. Slider não altera projeção. Alcance cobre terreno e edifícios.
-- Chão local: `groundSize = 900`, acompanha câmera, dois triângulos e altura `−0.05`. Coordenadas locais preservam folga de `0.01u` até terreno. Plano de um milhão de unidades foi removido: arredondamento Float32 ultrapassava essa folga e causava piscadas.
+- Câmera principal: `camera.far = HorizonSettings.renderDistance` (padrão `CITY_SCENE_CONFIG.far = 600`). Slider "Distância do horizonte" reescreve `far` + `updateProjectionMatrix()` e chama `environmentUpdater.setRadius` — céu fica a `renderDistance * 0.9`, sempre dentro do far plane.
+- Chão local: `GroundSettings.size` (padrão `groundSize = 600`), acompanha câmera, dois triângulos e altura `−0.05`. Slider "Tamanho do chão" escala o plano em `updateGroundSettings`; não toca em `camera.far`. Meia-diagonal `300*sqrt(2) ≈ 424` fica dentro do `far` padrão (600); a névoa apaga a borda bem antes dela. Coordenadas locais preservam folga de `0.01u` até terreno. Plano de um milhão de unidades foi removido: arredondamento Float32 ultrapassava essa folga e causava piscadas.
 - Camada cinza do horizonte removida: nenhum quad/shader de fundo atrás do terreno, nem nos reflexos. Restam chão local, relevo e céu; eliminação poupa chamada de desenho e material adicionais.
-- Edifícios: `distance`/`backDistance` continuam no `setRenderDistance`; cull a cada 0.25s compacta instâncias e controla formatos customizados/acessórios. Silhueta decorativa acompanha `distance`.
+- Edifícios: `distance`/`backDistance` continuam no `setRenderDistance`; cull a cada 0.25s compacta instâncias e controla formatos customizados/acessórios. `renderDistance` não toca nesse cull.
 - Montanhas: mesma malha, seed, cores, posição e resolução. Alterar distância não regenera relevo.
 - Reflexos: `CITY_SCENE_CONFIG.reflectionFar = 260` preserva alcance anterior das seis faces do probe; não herda alcance ampliado da câmera principal.
 
@@ -155,7 +155,7 @@ Verificação: `node scripts/check-horizon.mjs`. Runtime real com I/O substituí
 | Parte | Onde |
 |---|---|
 | Céu tingido + estrelas | [[scene-builders#loadEnvironment.ts]] (`environmentUpdater.updateSettings`) |
-| Luz, IBL, névoa, silhueta | `applyNightMode()` no runtime |
+| Luz, IBL, névoa | `applyNightMode()` no runtime |
 | Janelas acesas + reflexo da fachada | [[scene-managers#Janelas acesas de noite]] (`donationManager.setNight`) |
 | Postes de rua acesos | [[scene-managers#Postes de Luz (rebuildStreetLamps)]] (mesmo `setNight`) |
 
@@ -169,7 +169,6 @@ if (night) {
 }
 scene.environmentIntensity = night ? NIGHT_PRESET.environmentIntensity : 1
 scene.fog.color.set(night ? NIGHT_PRESET.fogColor : currentHorizon.fogColor)
-horizonSilhouette.updateSettings(night ? { ...currentHorizon, color: NIGHT_PRESET.horizonColor } : currentHorizon)
 donationManager.setNight(night)
 ```
 
@@ -177,7 +176,7 @@ donationManager.setNight(night)
 > `applyNightMode()` toca o manager, então a chamada inicial fica **abaixo** do `createDonationManager` (não junto da definição). Subir de volta = `ReferenceError` na const.
 
 > [!warning] Chamar em toda mudança que a noite pisa por cima
-> `updateLightSettings`, `updateHorizonSettings` e `updateEnvironmentSettings` guardam o valor em `currentLight`/`currentHorizon`/`currentEnvironment` e chamam `applyNightMode()` — não escrevem luz/névoa/silhueta direto. Sem isso, mexer num slider de luz com a noite ligada devolve o valor diurno na cena.
+> `updateLightSettings`, `updateHorizonSettings` e `updateEnvironmentSettings` guardam o valor em `currentLight`/`currentHorizon`/`currentEnvironment` e chamam `applyNightMode()` — não escrevem luz/névoa direto. Sem isso, mexer num slider de luz com a noite ligada devolve o valor diurno na cena.
 
 > [!note] Reflexo acompanha
 > O probe captura a cena real → céu escuro e prédios apagados já entram no cube. `updateEnvironmentSettings` faz `markCubeDirty()`, então alternar dia/noite recaptura. Durante a captura o `night` sobrevive: o override de `skyDrop` é um spread de `currentEnvironment`.

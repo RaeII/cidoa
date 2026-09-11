@@ -1,4 +1,3 @@
-import { CheckboxField } from "./controls/CheckboxField";
 import { ColorField } from "./controls/ColorField";
 import { PanelSection } from "./controls/PanelSection";
 import { RangeField } from "./controls/RangeField";
@@ -17,18 +16,22 @@ export function HorizonControls({ settings, onChange, culledCount }: Props) {
 
   return (
     <>
-      <PanelSection title="Silhueta do Horizonte">
-        <CheckboxField
-          label="Mostrar Silhueta"
-          checked={settings.enabled}
-          onChange={(val) => handleChange("enabled", val)}
+      <PanelSection
+        title="Renderização do horizonte"
+        description="Até onde a cena é desenhada: alcance da câmera e distância do céu."
+      >
+        <RangeField
+          label="Distância do horizonte"
+          value={settings.renderDistance}
+          min={250}
+          max={2000}
+          step={10}
+          onChange={(val) => handleChange("renderDistance", val)}
         />
 
-        <ColorField
-          label="Cor da Silhueta"
-          value={settings.color}
-          onChange={(val) => handleChange("color", val)}
-        />
+        <p className="text-xs leading-5 text-white/50">
+          Não altera a renderização dos edifícios — só o limite do horizonte.
+        </p>
       </PanelSection>
 
       <PanelSection

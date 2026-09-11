@@ -1,7 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { createGroundPlane } from "../builders/createGroundPlane";
-import { createHorizonSilhouette } from "../builders/createHorizonSilhouette";
 import { createLightingRig } from "../builders/createLightingRig";
 import { createTerrain } from "../builders/createTerrain";
 import { loadEnvironment } from "../builders/loadEnvironment";
@@ -106,7 +105,7 @@ export function createCitySceneRuntime({
     CITY_SCENE_CONFIG.cameraFov,
     mount.clientWidth / mount.clientHeight,
     CITY_SCENE_CONFIG.cameraNear,
-    CITY_SCENE_CONFIG.far,
+    horizonSettings.renderDistance,
   );
   camera.position.set(
     CITY_SCENE_CONFIG.initialCameraPosition.x,
@@ -173,6 +172,7 @@ export function createCitySceneRuntime({
     scene,
     renderer,
     environmentSettings,
+    horizonSettings.renderDistance,
     (envMap, bgTexture) => {
       loadedEnvMap = envMap;
       loadedBgTexture = bgTexture;
@@ -187,7 +187,6 @@ export function createCitySceneRuntime({
   // Plano cinza é o CHÃO INFINITO: sempre visível, segue a câmera (ver animate) e fica abaixo do
   // relevo. Onde há relevo, o terreno cobre; além da borda do relevo (mesh fixo na origem), este
   // plano preenche o vazio → sem limite ao mover a câmera numa cidade grande.
-  const horizonSilhouette = createHorizonSilhouette(scene, horizonSettings);
 
   // Probe de reflexo. Tudo (resolução, posição, intervalo, o que entra na captura) vem de
   // ReflectionSettings — ver aba "reflexo" do painel e [[scene-config#reflectionConfig.ts]].
@@ -221,9 +220,6 @@ export function createCitySceneRuntime({
     if (scene.fog instanceof THREE.FogExp2) {
       scene.fog.color.set(night ? NIGHT_PRESET.fogColor : currentHorizon.fogColor);
     }
-    horizonSilhouette.updateSettings(
-      night ? { ...currentHorizon, color: NIGHT_PRESET.horizonColor } : currentHorizon,
-    );
     donationManager.setNight(night, currentEnvironment.windowIntensity);
   };
 
@@ -396,7 +392,6 @@ export function createCitySceneRuntime({
         : 0,
     );
     groundPlane.setPosition(camera.position.x, camera.position.z);
-    horizonSilhouette.update(camera);
     environmentUpdater.updatePosition(camera.position.x, camera.position.y, camera.position.z);
 
     if (onCameraDebugChange) {
@@ -558,7 +553,11 @@ export function createCitySceneRuntime({
       if (scene.fog instanceof THREE.FogExp2) {
         scene.fog.density = settings.fogDensity;
       }
-      // Silhueta e cor da névoa saem daqui: no modo noite ganham override.
+      // Alcance da câmera + raio do céu HDRI: limite de renderização do horizonte.
+      camera.far = settings.renderDistance;
+      camera.updateProjectionMatrix();
+      environmentUpdater.setRadius(settings.renderDistance);
+      // Cor da névoa sai daqui: no modo noite ganha override.
       applyNightMode();
       markCubeDirty();
     },
@@ -702,7 +701,6 @@ export function createCitySceneRuntime({
       donationManager.dispose();
       groundPlane.dispose();
       terrainRig.dispose();
-      horizonSilhouette.dispose();
       lightingRig.dispose();
       isDisposed = true;
       environmentUpdater.dispose();

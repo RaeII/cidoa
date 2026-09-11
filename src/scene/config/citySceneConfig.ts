@@ -15,8 +15,9 @@ export const CITY_SCENE_CONFIG: CitySceneConfig = {
   // Baixar reativa o downscale por FPS no loop do runtime.
   minRenderScale: 1,
   maxRenderScale: 1,
-  // Alcance fixo para terreno e edifícios, independente do controle de distância.
-  far: 2_000,
+  // Padrão do alcance do horizonte (camera.far + raio do céu). Ajustável na aba "horizonte";
+  // independente do cull dos edifícios, que vive em HorizonSettings.distance/backDistance.
+  far: 600,
   // O probe mantém o alcance anterior para não ampliar o custo das seis capturas.
   reflectionFar: 260,
   maxSolarIntensity: 20,
@@ -25,7 +26,9 @@ export const CITY_SCENE_CONFIG: CitySceneConfig = {
   sceneBackground: "#05070a",
   sceneFogColor: "#8c8c8c",
   sceneFogDensity: 0.007,
-  groundSize: 900,
+  // Lado do quadrado do chão local (segue a câmera). Meia-diagonal 300*sqrt(2) ~= 424 cabe
+  // dentro do far padrão (600) — em 900 os cantos já eram cortados pelo far plane.
+  groundSize: 600,
   cameraFov: 58,
   cameraNear: 0.1,
   initialCameraPosition: {

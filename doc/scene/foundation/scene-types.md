@@ -105,11 +105,14 @@ Configurações do chão:
 ```typescript
 type GroundSettings = {
   color: string;
+  size: number;          // lado do quadrado do chão local (padrão: CITY_SCENE_CONFIG.groundSize = 600)
   roughness: number;
   metalness: number;
   materialType: GroundMaterialType;
 }
 ```
+
+`size` vira `mesh.scale` do plano unitário ([[scene-builders#createGroundPlane.ts]]) — sem recriar geometria. Independente de [[scene-types#HorizonSettings|`renderDistance`]]: encolher o chão não muda o alcance do horizonte. Acima de ~850 a meia-diagonal passa do `far` padrão e os cantos são cortados.
 
 ---
 
@@ -186,23 +189,24 @@ type LightSettings = {
 
 ### `HorizonSettings`
 
-Configurações da silhueta do horizonte e da névoa da cena:
+Alcance do horizonte, distância dos edifícios e névoa da cena:
 
 ```typescript
 type HorizonSettings = {
-  enabled: boolean;    // mostrar fileira decorativa (padrão: false)
-  color: string;        // cor dos prédios da silhueta
-  distance: number;     // alcance dos edifícios à frente + posição da fileira (padrão: 208.3)
-  backDistance: number; // alcance dos edifícios atrás da câmera (padrão: 46.2)
-  fogDensity: number;   // densidade da névoa exponencial (FogExp2, padrão: 0.01)
-  fogColor: string;     // cor da névoa (padrão: "#090c11")
+  distance: number;       // alcance dos edifícios à frente (padrão: 208.3)
+  backDistance: number;   // alcance dos edifícios atrás da câmera (padrão: 46.2)
+  renderDistance: number; // limite do horizonte: camera.far + raio do céu (padrão: 600)
+  fogDensity: number;     // densidade da névoa exponencial (FogExp2, padrão: 0.007)
+  fogColor: string;       // cor da névoa
 }
 ```
 
 `distance` e `backDistance` não alteram projeção da câmera, chão ou montanhas. [[scene-runtime#Alcance visual e distância dos edifícios|Runtime]] mantém cull dos edifícios separado do alcance visual.
 
+`renderDistance` escreve `camera.far` e o raio da esfera do céu ([[scene-builders#loadEnvironment.ts]]) — céu sempre a `renderDistance * 0.9`, dentro do far plane. Independente de `distance`/`backDistance`: mexer no horizonte não mexe no cull dos edifícios.
+
 > [!note] Névoa global
-> `fogDensity` e `fogColor` controlam o `THREE.FogExp2` da cena inteira. Como os prédios do horizonte têm `fog: true`, a névoa os dissolve progressivamente — quanto maior a densidade, mais apagada fica a silhueta.
+> `fogDensity` e `fogColor` controlam o `THREE.FogExp2` da cena inteira — dissolvem terreno e edifícios distantes antes do far plane. Céu (`fog: false`) não recebe névoa.
 
 ---
 

@@ -120,7 +120,7 @@ Cidade de dia ou de noite. Estado é `environmentSettings.night` no `CitySceneEd
 
 - **Onde clica** — dropdown do `AuthMenu` ("Modo noite" / "Modo dia"). Deslogado não tem dropdown: o mesmo toggle vira botão de ícone (lua/sol) ao lado do "Entrar".
 - **Props** — `AuthMenu` recebe `night` + `onNightChange`; não guarda estado próprio.
-- **O que muda na cena** — céu tingido + estrelas ([[scene-builders#loadEnvironment.ts]]), luz/IBL/névoa/silhueta ([[scene-runtime#Modo noite]]), valores em `NIGHT_PRESET` ([[scene-config#environmentConfig.ts]]).
+- **O que muda na cena** — céu tingido + estrelas ([[scene-builders#loadEnvironment.ts]]), luz/IBL/névoa ([[scene-runtime#Modo noite]]), valores em `NIGHT_PRESET` ([[scene-config#environmentConfig.ts]]).
 - **Não persiste** — recarregar volta pro dia. Persistir = mesmo padrão de [[scene-config#uiVisibilityConfig.ts]].
 
 Nada a ver com o `ThemeToggle`/`useTheme` do admin, que é o tema claro/escuro do HTML.

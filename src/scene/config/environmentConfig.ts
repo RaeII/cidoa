@@ -23,7 +23,6 @@ export const NIGHT_PRESET = {
   /** Peso do IBL (scene.environment continua sendo o HDRI diurno). */
   environmentIntensity: 0.1,
   fogColor: "#070b16",
-  horizonColor: "#0d1220",
   /** Cor da luz interna vista pela janela acesa. */
   windowColor: "#ffcb82",
   /** Padrão do slider "Brilho das janelas" (`EnvironmentSettings.windowIntensity`). */
@@ -36,8 +35,9 @@ export const NIGHT_PRESET = {
   lampEmissive: 2.6,
   /** Ganho da mancha de luz que o poste joga no asfalto. */
   lampPool: 0.55,
-  /** Pontos do campo de estrelas (hemisfério de cima, raio 180). */
+  /** Pontos do campo de estrelas (hemisfério de cima). */
   starCount: 1400,
-  starRadius: 180,
+  /** Raio no espaço LOCAL da esfera do céu (que é unitária e escalada em runtime). */
+  starRadius: 0.9,
   starSize: 1.6,
 };

@@ -76,12 +76,12 @@ export type ChunkData = {
 };
 
 export type HorizonSettings = {
-  enabled: boolean;
-  color: string;
-  /** Alcance dos edifícios à frente e posição da silhueta; não limita chão ou montanhas. */
+  /** Alcance dos edifícios à frente; não limita chão ou montanhas. */
   distance: number;
   /** Distância de renderização dos prédios atrás da câmera (cull direcional). */
   backDistance: number;
+  /** Limite do horizonte: `camera.far` + raio da esfera do céu. Não mexe no cull dos edifícios. */
+  renderDistance: number;
   fogDensity: number;
   fogColor: string;
 };
@@ -132,6 +132,8 @@ export type BuildingSettings = {
 
 export type GroundSettings = {
   color: string;
+  /** Lado do quadrado do chão local (segue a câmera). Não mexe no alcance do horizonte. */
+  size: number;
   roughness: number;
   metalness: number;
   materialType: GroundMaterialType;

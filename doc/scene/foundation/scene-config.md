@@ -184,7 +184,6 @@ Exporta também `NIGHT_PRESET` — tudo que a noite muda. Sem HDRI noturno: noit
 | `ambientScale` | `0.09` | Fator sobre `ambientTotal` — prédio escurece, LED/holograma dominam |
 | `environmentIntensity` | `0.1` | `scene.environmentIntensity`: IBL do HDRI diurno perde peso |
 | `fogColor` | `#070b16` | Cor da `FogExp2` (densidade continua do horizonte) |
-| `horizonColor` | `#0d1220` | Cor da silhueta do horizonte |
 | `windowColor` · `windowLitFraction` | `#ffcb82` · `0.26` | Cor e fração das janelas acesas ([[scene-managers#Janelas acesas de noite]]) |
 | `windowIntensity` | `1.7` | Só **padrão** do slider `EnvironmentSettings.windowIntensity` — quem manda em runtime é o painel |
 | `facadeEnvMapIntensity` | `0.6` | `envMapIntensity` da fachada de noite — override do slider "Intensidade na fachada" (só de dia) |
@@ -259,13 +258,13 @@ Configuração mais global da cena. Define a estrutura completa de `CitySceneCon
 | `targetFps` | FPS alvo para resolução dinâmica (inerte enquanto o granulado for `0`) |
 | `minRenderScale` | Piso **inicial** da escala de render. `1` = escala dinâmica desligada no boot. Em runtime quem manda é o `setGrain` do granulado — ver [[scene-runtime]] |
 | `maxRenderScale` | Escala máxima de render |
-| `far` | `2_000`: alcance fixo da câmera principal, independente da distância dos edifícios |
+| `far` | `600`: **padrão** do `HorizonSettings.renderDistance` (`camera.far` + raio do céu). Em runtime quem manda é o slider da aba horizonte |
 | `reflectionFar` | `260`: alcance do probe, preservado para não ampliar custo das seis capturas |
 | `maxSolarIntensity` | Intensidade solar máxima |
 | `sceneBackground` | Cor de fundo da cena (hex) |
 | `sceneFogColor` | Cor do fog |
 | `sceneFogDensity` | Densidade do FogExp2 |
-| `groundSize` | `900`: plano local de dois triângulos, sem camada cinza adicional no horizonte |
+| `groundSize` | `600`: **padrão** do `GroundSettings.size` (lado do quadrado do chão local, dois triângulos, segue a câmera). Em runtime quem manda é o slider da aba geral. Meia-diagonal ~424 cabe no `far` padrão |
 | `cameraFov` | Campo de visão da câmera |
 | `cameraNear` | Near plane |
 | `initialCameraPosition` | Posição inicial `{x, y, z}` |
@@ -273,7 +272,7 @@ Configuração mais global da cena. Define a estrutura completa de `CitySceneCon
 | `controls.*` | Damping, velocidades, limites de zoom/pan/rotate |
 
 > [!note] Alcances independentes
-> `far` cobre geometria próxima, sem coordenadas gigantes. [[scene-builders#createGroundPlane.ts]] mantém apenas chão local que acompanha câmera. `HorizonSettings.distance`/`backDistance` limitam só edifícios pelo manager; fileira decorativa acompanha `distance`. `reflectionFar` mantém alcance anterior do probe. Intervalo/resolução da captura continuam em [[#reflectionConfig.ts]]; terreno conserva defaults e geometria.
+> `far` cobre geometria próxima, sem coordenadas gigantes. [[scene-builders#createGroundPlane.ts]] mantém apenas chão local que acompanha câmera. `HorizonSettings.distance`/`backDistance` limitam só edifícios pelo manager; `renderDistance` mexe em `camera.far` e no raio do céu. `reflectionFar` mantém alcance anterior do probe. Intervalo/resolução da captura continuam em [[#reflectionConfig.ts]]; terreno conserva defaults e geometria.
 
 **Constantes exportadas:**
 - `CITY_SCENE_CONFIG` — objeto de configuração global

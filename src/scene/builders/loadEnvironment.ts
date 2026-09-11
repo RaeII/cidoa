@@ -8,10 +8,16 @@ import { seeded } from "../utils/random";
 export type EnvironmentUpdater = {
   updateSettings: (settings: EnvironmentSettings) => void;
   updatePosition: (x: number, y: number, z: number) => void;
+  /** Raio da esfera do céu. Segue o alcance da câmera — acima de `far` o céu seria cortado. */
+  setRadius: (renderDistance: number) => void;
   /** Esconde as estrelas (pontos de tamanho fixo em pixels viram borrões no cube do reflexo). */
   setStarsVisible: (visible: boolean) => void;
   dispose: () => void;
 };
+
+// Esfera do céu unitária escalada em runtime: raio = renderDistance * SKY_RADIUS_RATIO.
+// Fica dentro do far plane com folga; acima dele o céu some e o fundo vira preto.
+const SKY_RADIUS_RATIO = 0.9;
 
 // Cache persistente da imagem HDRI no Cache API do browser.
 // Bump versão se a imagem mudar de conteúdo.
@@ -84,6 +90,7 @@ export function loadEnvironment(
   scene: THREE.Scene,
   renderer: THREE.WebGLRenderer,
   settings: EnvironmentSettings,
+  initialRenderDistance: number,
   onLoaded?: (envMap: THREE.Texture, bgTexture: THREE.Texture) => void,
   isCancelled?: () => boolean,
 ): EnvironmentUpdater {
@@ -91,6 +98,7 @@ export function loadEnvironment(
   let skyGeometry: THREE.SphereGeometry | null = null;
   let skyMaterial: THREE.MeshBasicMaterial | null = null;
   let stars: THREE.Points | null = null;
+  let currentRadius = initialRenderDistance * SKY_RADIUS_RATIO;
   // HDRI 4K demora; noite pode ser ligada antes do load terminar.
   let currentSettings = settings;
 
@@ -104,7 +112,7 @@ export function loadEnvironment(
     texture.wrapT = THREE.RepeatWrapping;
 
     // Esfera invertida como background — permite offset UV uniforme em todas as direções
-    skyGeometry = new THREE.SphereGeometry(200, 64, 40);
+    skyGeometry = new THREE.SphereGeometry(1, 64, 40);
     skyMaterial = new THREE.MeshBasicMaterial({
       map: texture,
       side: THREE.BackSide,
@@ -112,6 +120,7 @@ export function loadEnvironment(
       fog: false,
     });
     skyMesh = new THREE.Mesh(skyGeometry, skyMaterial);
+    skyMesh.scale.setScalar(currentRadius);
     skyMesh.renderOrder = -1000;
     stars = createStars();
     skyMesh.add(stars);
@@ -144,6 +153,10 @@ export function loadEnvironment(
     },
     updatePosition(x: number, y: number, z: number) {
       skyMesh?.position.set(x, y, z);
+    },
+    setRadius(renderDistance: number) {
+      currentRadius = renderDistance * SKY_RADIUS_RATIO;
+      skyMesh?.scale.setScalar(currentRadius);
     },
     setStarsVisible(visible: boolean) {
       if (stars) stars.visible = visible && currentSettings.night;

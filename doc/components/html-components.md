@@ -325,6 +325,7 @@ Ver [[scene-types#ReflectionSettings]], [[scene-config#reflectionConfig.ts]] e [
 
 Configurações do chão:
 
+- `size` — lado do quadrado do chão (100–1200, padrão 600). Escala o plano que acompanha a câmera; não mexe na "Renderização do horizonte"
 - Cor
 - Tipo de material (`standard`, `matte`, `soft-metal`, `polished`)
 
@@ -392,12 +393,11 @@ Configurações do ambiente HDRI:
 
 Controles da aba **Horizonte**. Três seções:
 
-**Silhueta do Horizonte:**
-- `enabled` — mostrar/ocultar fileira decorativa
-- `color` — cor dos prédios da silhueta
+**Renderização do horizonte:**
+- `renderDistance` — limite do horizonte (250–2000, padrão 600). Escreve `camera.far` e o raio da esfera do céu; não mexe no cull dos edifícios
 
 **Renderização dos edifícios:**
-- `distance` — alcance dos edifícios à frente (100–600); fileira decorativa acompanha essa distância
+- `distance` — alcance dos edifícios à frente (100–600)
 - `backDistance` — alcance dos edifícios atrás da câmera (10–600)
 - prop `culledCount` (de `sceneStats.culled`) — mostra readout embaixo do slider
 

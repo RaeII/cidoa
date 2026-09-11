@@ -1,6 +1,7 @@
 import type { GroundMaterialType, GroundSettings } from "../../scene/types";
 import { ColorField } from "./controls/ColorField";
 import { PanelSection } from "./controls/PanelSection";
+import { RangeField } from "./controls/RangeField";
 
 type GroundControlsProps = {
   value: GroundSettings;
@@ -9,7 +10,24 @@ type GroundControlsProps = {
 
 export function GroundControls({ value, onChange }: GroundControlsProps) {
   return (
-    <PanelSection title="Chão" description="Altere a cor do chão e o acabamento do material.">
+    <PanelSection
+      title="Chão"
+      description="Altere o tamanho, a cor do chão e o acabamento do material."
+    >
+      <RangeField
+        label="Tamanho do chão"
+        value={value.size}
+        min={100}
+        max={1200}
+        step={10}
+        onChange={(size) => onChange({ ...value, size })}
+      />
+
+      <p className="mb-4 text-xs leading-5 text-white/50">
+        Lado do quadrado cinza que acompanha a câmera. Independente da distância do horizonte —
+        acima de ~850 os cantos passam do alcance padrão e são cortados.
+      </p>
+
       <ColorField
         label="Cor do chão"
         value={value.color}

@@ -3,11 +3,10 @@ import type { HorizonSettings } from "../types";
 
 export function createDefaultHorizonSettings(): HorizonSettings {
   return {
-    enabled: false,
     distance: 208.3,
     // Igual à frontal por padrão = comportamento inalterado até o usuário reduzir.
     backDistance: 46.2,
-    color: "#5c5c5c",
+    renderDistance: CITY_SCENE_CONFIG.far,
     fogDensity: CITY_SCENE_CONFIG.sceneFogDensity,
     fogColor: CITY_SCENE_CONFIG.sceneFogColor,
   };

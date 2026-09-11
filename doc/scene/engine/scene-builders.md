@@ -31,6 +31,7 @@ Cria o chão da cidade.
 
 **Responsabilidades:**
 - Criar geometria e material do chão
+- Aplicar `GroundSettings.size` como escala do plano
 - Aplicar valores derivados do tipo de material via [[scene-utils#materials.ts|getGroundMaterialValues]]
 - Mover o chão junto com a câmera (no loop de animação)
 - Limpar geometria e material no `dispose`
@@ -43,7 +44,7 @@ Cria o chão da cidade.
 > [!note] Chão infinito
 > Plano cinza = **chão infinito**. Segue a câmera (`setPosition` no loop), **sempre visível**, em `y=-0.05` — logo ABAIXO do piso do relevo (`TERRAIN_GROUND_Y = -0.04`). Onde há relevo, o terreno cobre; além da borda do relevo (mesh fixo na origem), o plano preenche o vazio → cidade grande não tem limite ao mover a câmera. Fica abaixo → sem z-fighting com o terreno.
 
-Plano local: `groundSize = 900`, dois triângulos e um material PBR. Sem quad de fundo, material clonado ou shader de continuação. Camada cinza adicional atrás das montanhas removida, inclusive dos reflexos. `dispose` libera somente geometria/material do plano local.
+Plano local: `PlaneGeometry(1, 1)` escalado por `GroundSettings.size` (padrão `groundSize = 600`), dois triângulos e um material PBR. Escala em vez de rebuild: mexer no slider não recria geometria nem re-envia buffer à GPU. Escala fica no espaço local (X/Y), aplicada antes do `rotation.x = -PI/2` → vira X/Z no mundo. Sem quad de fundo, material clonado ou shader de continuação. Camada cinza adicional atrás das montanhas removida, inclusive dos reflexos. `dispose` libera somente geometria/material do plano local.
 
 > [!warning] Não ampliar plano para coordenadas gigantes
 > Folga chão→terreno = `0.01u`. Plano de um milhão de unidades introduzia erro Float32 maior que a folga: piscadas e superfícies aparentes indevidas. Não adicionar fundo cinza até o horizonte: aparece como elevação atrás do terreno. Montanhas continuam exclusivamente no `createTerrain`. Ver [[scene-runtime#Alcance visual e distância dos edifícios]].
@@ -147,17 +148,6 @@ Carrega e configura o ambiente HDRI/skybox.
 - Alterar como o skybox responde ao offset de ambiente
 - Mudar a geração do `scene.environment`
 - Mexer nas estrelas (quantidade, tamanho, distribuição) → `NIGHT_PRESET` + `createStars`
-
----
-
-### `createHorizonSilhouette.ts`
-
-Fileira fake de 260 prédios (`InstancedMesh` de `BoxGeometry` + `MeshBasicMaterial`) que segue a câmera à distância configurada — fecha o horizonte sem custo de cidade real. `frustumCulled = false` (posicionada relativa à câmera).
-
-`distance` posiciona somente fileira; alcance da câmera independente. Montanhas pertencem ao `createTerrain`, sem alterações por esse controle.
-
-> [!note] Skip com câmera parada
-> `update(camera)` só reescreve as 260 matrizes de instância (+ upload de buffer) quando o `cameraShift` derivado de posição/yaw mudou. Câmera parada = zero trabalho por frame.
 
 ---
 
