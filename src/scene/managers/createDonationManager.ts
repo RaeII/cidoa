@@ -49,6 +49,7 @@ import {
   groupBoxGeometryByTop,
 } from "../builders/createBuildingShapeMesh";
 import { pickIndex, seeded } from "../utils/random";
+import { createBuildingParapets } from "../builders/createParapetMesh";
 import { NIGHT_PRESET } from "../config/environmentConfig";
 
 import {
@@ -267,6 +268,7 @@ export function createDonationManager({
 
   // Geometria 1×1×1 — escala via instanceMatrix
   const buildingGeometry = createUnitBuildingGeometry();
+  const parapets = createBuildingParapets(scene);
 
   // Shader triplanar: aplica textura usando coordenadas de mundo, não UV locais.
   // Necessário para instanced mesh onde cada prédio tem escala/posição diferente.
@@ -515,6 +517,9 @@ export function createDonationManager({
     envMapIntensity: 1.8,
   });
   applyTriplanarShader(topMaterial, "donation-top-triplanar", topTilingUniform);
+  for (const material of parapets.materials) {
+    applyTriplanarShader(material, "donation-parapet-triplanar", topTilingUniform);
+  }
 
   // Materiais clonados para o edifício em destaque (opacidade total, independente do instanced)
   const focusFacadeMaterial = facadeMaterial.clone();
@@ -1453,6 +1458,7 @@ export function createDonationManager({
       }
       if (previousMask !== textureDefineMask(mat)) mat.needsUpdate = true;
     }
+    parapets.updateTexture(topMaterial);
   };
 
   // Troca da textura GLOBAL de fachada. O token descarta resolução de uma seleção
@@ -1977,6 +1983,12 @@ export function createDonationManager({
     // Reposicionar/criar prédios com formato customizado (twisted)
     syncCustomShapes();
 
+    parapets.rebuild(donations.map((donation) => ({
+      id: donation.id,
+      shape: donation.customization?.buildingShape ?? "default",
+      ...donationTransforms.get(donation.id)!,
+    })));
+
     // Reposicionar acessórios de topo e letreiros
     syncRooftops();
     syncSigns();
@@ -2018,6 +2030,7 @@ export function createDonationManager({
 
   const applyFocus = (donationId: number | null) => {
     focusedDonationId = donationId;
+    parapets.setFocus(donationId);
     removeFocusHighlight();
 
     if (donationId === null) {
@@ -2916,6 +2929,10 @@ export function createDonationManager({
       for (const [donId, entry] of signMeshes) applyCull(donId, entry.group);
       for (const [donId, entry] of edgeLightMeshes) applyCull(donId, entry.group);
       for (const [donId, entry] of hologramMeshes) applyCull(donId, entry.group);
+      parapets.updateVisibility((position) => {
+        const distanceSq = distSqTo(position);
+        return distanceSq <= ACCESSORY_DETAIL_DISTANCE_SQ && distanceSq <= limitSqFor(position);
+      });
 
       // Pool de luz do LED: os mais próximos da câmera assumem as luzes; o resto
       // fica com intensidade 0 (mesma contagem de luzes → sem recompilar shader).
@@ -2969,6 +2986,7 @@ export function createDonationManager({
     },
     dispose() {
       removeFocusHighlight();
+      parapets.dispose();
       // Limpar acessórios de topo
       for (const [, entry] of rooftopMeshes) {
         scene.remove(entry.group);

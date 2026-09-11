@@ -168,6 +168,28 @@ Holograma cyberpunk acima do prédio: 1 plano + `ShaderMaterial` (uTime, aberra�
 > [!note] Cap de resolução de GIF
 > Canvas do GIF limitado a **512px** no maior lado — GIF grande viraria upload de textura gigante a cada frame. `tickHologram` só roda para hologramas visíveis (culling por distância do manager).
 
+### `createParapetMesh.ts`
+
+Acabamento automático das coberturas planas. `createParapetGeometry(shape, variant)` cria anéis vazados com parede interna/externa, friso e capeamento. Laje original permanece aparente no centro; acessórios continuam ancorados nela.
+
+| Modelo | Acabamento |
+|---|---|
+| 0 | Platibanda simples, capeamento claro discreto |
+| 1 | Parede mais alta, friso recuado escuro sob capeamento |
+| 2 | Base saliente e cornija escalonada |
+
+- Contornos: `default`, `twisted` (planta final quadrada a 90°), `octagonal`, `setback` (último patamar), `tapered` e `hearst`. Reutiliza medidas dos builders; formatos com coroamento próprio retornam `null`.
+- Altura via `getParapetHeightScale`: menor dimensão horizontal, limitada por 90% da altura do corpo; geometria aplica perfil de 8–11,5% dessa escala. Torres altas não esticam acabamento; prédios baixos mantêm proporção.
+- Mesmos mapas de cor, normal e bump da laje (`Concrete024_1K-JPG`), compartilhados sem download/cópia adicional. Projeção em coordenadas de mundo via `aProjPosition`/`aProjNormal`, com tiling do topo. `updateTexture(topMaterial)` sincroniza carregamento assíncrono e ativação/desativação dos mapas, inclusive no material de foco.
+- `createParapetMaterial`: cor da laje multiplicada por `0.8` (20% mais escura em RGB linear); cores de vértice preservam contraste entre frisos/capeamento. Acabamento fosco: roughness `1`, metalness/clearcoat/specularIntensity/envMapIntensity `0`. Controles de reflexo da laje não reativam brilho. Sem displacement nas bordas finas.
+- `createBuildingParapets(scene)`: agrupa por formato/modelo; **um `InstancedMesh` por combinação**, três draw calls para cidade de prédios padrão. Modelo sorteado pelo ID (`pickIndex`, salt `83`), estável ao reordenar doações.
+- `rebuild`: recalcula posição/escala sobre laje, reaproveita geometria e libera buffers dos batches anteriores. `updateVisibility`: compacta apenas quando visibilidade muda.
+- `setFocus`: acabamento do selecionado ganha mesh temporário opaco; outros acompanham opacidade `0.15`. Sem duplicar instância do selecionado.
+- `dispose`: remove meshes, libera buffers, geometrias e materiais. Recursos pertencem à instância, sem cache global entre cenas.
+- [[scene-builders#createPreviewScene.ts|Preview do admin]] usa modelo simples nos formatos compatíveis, mesmo material fosco com cor 20% abaixo da laje de preview, e descarta geometria/material próprios.
+
+**Checagem:** `node scripts/check-building-shapes.mjs` cobre três modelos × seis contornos, centro vazado, escala, estabilidade por ID, batches, culling, foco e descarte. Sem servidor/navegador/WebGL.
+
 ### `createRooftopMesh.ts`
 
 Factory para acessórios de topo dos edifícios. Chamado pelo [[scene-managers|DonationManager]] quando o usuário personaliza um edifício via [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]].

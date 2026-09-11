@@ -149,6 +149,7 @@ src/
       createGroundPlane.ts
       createTerrain.ts
       createRooftopMesh.ts
+      createParapetMesh.ts         ← platibandas automáticas, 3 modelos instanciados
       createSignMesh.ts
       createEdgeLightMesh.ts
       createBuildingShapeMesh.ts   ← registro formato → builder (cena + admin)
@@ -365,6 +366,7 @@ flowchart LR
 | Alterar valores padrão do relevo                 | [[scene-config#terrainConfig.ts]]                 |
 | Alterar a UI dos controles de relevo (aba **terreno**) | [[html-components#TerrainControls.tsx]]     |
 | Alterar acessórios de topo                       | [[scene-builders#createRooftopMesh.ts]]           |
+| Alterar platibandas automáticas                  | [[scene-builders#createParapetMesh.ts]]           |
 | Alterar letreiros de fachada (signs)             | [[scene-builders#createSignMesh.ts]]              |
 | Alterar LED de arestas                           | [[scene-builders#createEdgeLightMesh.ts]]         |
 | Ajustar luz do LED nos vizinhos (intensidade, alcance, nº de luzes) | [[scene-managers#Fora do reflexo, dentro da luz]] |

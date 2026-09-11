@@ -15,6 +15,7 @@ import {
   isRooftopType,
 } from "./createRooftopMesh";
 import type { BuildingShape, EdgeLightType, RooftopType } from "../types";
+import { createParapetGeometry, createParapetMaterial, getParapetHeightScale } from "./createParapetMesh";
 
 /** O que mostrar. `key` vem do catálogo — pode não ter builder no front. */
 export type PreviewSubject = {
@@ -77,6 +78,15 @@ function buildSubject(resolved: ResolvedSubject) {
 
   const root = new THREE.Group();
   root.add(building);
+  const parapetGeometry = createParapetGeometry(shape);
+  const parapetMaterial = createParapetMaterial();
+  parapetMaterial.color.copy(topMat.color).multiplyScalar(0.8);
+  if (parapetGeometry) {
+    const parapet = new THREE.Mesh(parapetGeometry, parapetMaterial);
+    parapet.position.y = height / 2;
+    parapet.scale.y = getParapetHeightScale(building.scale);
+    root.add(parapet);
+  }
   if (accessory) {
     // Topo do prédio pro rooftop, base pro LED (o grupo cresce até `height`).
     accessory.position.setY(resolved.kind === "rooftop" ? height / 2 : -height / 2);
@@ -88,6 +98,8 @@ function buildSubject(resolved: ResolvedSubject) {
     for (const material of new Set(materials)) material.dispose();
     // Só a caixa é nossa: geometrias de formato/acessório são cache dos builders.
     boxGeometry.dispose();
+    parapetGeometry?.dispose();
+    parapetMaterial.dispose();
     if (accessory) {
       (resolved.kind === "rooftop" ? disposeRooftopMesh : disposeEdgeLightMesh)(accessory);
     }

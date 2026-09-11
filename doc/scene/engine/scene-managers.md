@@ -384,6 +384,16 @@ Pontos de integração:
 > 2. Estender `needsCustomMesh` para considerar o novo campo.
 > 3. Aplicar no clone dentro de `syncCustomShapes` e atualizar via uniform em `updateDonationCustomization`.
 
+#### Platibandas automáticas
+
+`createBuildingParapets(scene)` ([[scene-builders#createParapetMesh.ts]]) adiciona acabamento às coberturas planas, independente de `rooftopType` e sem exigir personalização.
+
+- Após `syncCustomShapes`, `rebuildInstances` passa IDs, formatos e transforms lógicos. Nova doação, troca de formato, filtro e alteração de altura/layout reposicionam acabamentos.
+- Três modelos por sorteio estável de ID. Geometria compartilhada por formato/modelo, instância por prédio. Formatos com coroamento próprio permanecem com acabamento original.
+- `applyTextureToTop` sincroniza mapas da laje com platibandas após carregamento e mudanças nos controles. Materiais normal/foco usam shader triplanar com `topTilingUniform`, cor 20% mais escura e reflexos desativados; ficam fora das listas que propagam parâmetros de brilho.
+- `applyFocus` sincroniza transparência/destaque. Passe de culling aplica mesmo limite frontal/traseiro dos prédios e limite de detalhe de 80u; buffers contêm somente platibandas visíveis.
+- `dispose` libera todos os recursos da instância. Dataset vazio remove batches anteriores.
+
 #### Acessórios de Topo
 
 Cada edifício pode ter um acessório 3D no topo, como holofotes ou heliponto, gerenciado pelo campo `rooftopType` em `BuildingCustomization`. O manager mantém um `Map<donationId, { group, type }>` com os `THREE.Group` criados por [[scene-builders#createRooftopMesh.ts|createRooftopMesh]].
