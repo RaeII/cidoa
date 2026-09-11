@@ -82,6 +82,12 @@ export type HorizonSettings = {
   backDistance: number;
   /** Limite do horizonte: `camera.far` + raio da esfera do céu. Não mexe no cull dos edifícios. */
   renderDistance: number;
+  /**
+   * Até onde o chão cinza é desenhado, em unidades a partir da câmera (o plano segue a câmera).
+   * Acima de `renderDistance` a borda fica fora do far plane e o horizonte é uma linha reta;
+   * abaixo, a borda do quadrado entra na imagem de propósito — o chão acaba antes do céu.
+   */
+  groundDistance: number;
   fogDensity: number;
   fogColor: string;
 };

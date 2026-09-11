@@ -265,7 +265,7 @@ Configuração mais global da cena. Define a estrutura completa de `CitySceneCon
 | `sceneBackground` | Cor de fundo da cena (hex) |
 | `sceneFogColor` | Cor do fog |
 | `sceneFogDensity` | Densidade do FogExp2 |
-| ~~`groundSize`~~ | **removido**. Lado do chão agora deriva do horizonte no runtime: `renderDistance * GROUND_SPAN` (`2.2`) |
+| ~~`groundSize`~~ | **removido**. Lado do chão sai de `HorizonSettings.groundDistance * 2` no runtime (padrão `far * 1.1` em [[#horizonConfig.ts]]) |
 | `cameraFov` | Campo de visão da câmera |
 | `cameraNear` | Near plane |
 | `initialCameraPosition` | Posição inicial `{x, y, z}` |
@@ -273,7 +273,7 @@ Configuração mais global da cena. Define a estrutura completa de `CitySceneCon
 | `controls.*` | Damping, velocidades, limites de zoom/pan/rotate |
 
 > [!note] Alcances independentes
-> `far` cobre geometria próxima, sem coordenadas gigantes. [[scene-builders#createGroundPlane.ts]] mantém apenas chão local que acompanha câmera. `HorizonSettings.distance`/`backDistance` limitam só edifícios pelo manager; `renderDistance` mexe em `camera.far`, no raio do céu e no lado do chão (`* 2.2`). `reflectionFar` mantém alcance anterior do probe. Intervalo/resolução da captura continuam em [[#reflectionConfig.ts]]; terreno conserva defaults e geometria.
+> `far` cobre geometria próxima, sem coordenadas gigantes. [[scene-builders#createGroundPlane.ts]] mantém apenas chão local que acompanha câmera. `HorizonSettings.distance`/`backDistance` limitam só edifícios pelo manager; `renderDistance` mexe em `camera.far` e no raio do céu; `groundDistance` manda só no lado do chão (`* 2`). `reflectionFar` mantém alcance anterior do probe. Intervalo/resolução da captura continuam em [[#reflectionConfig.ts]]; terreno conserva defaults e geometria.
 
 **Constantes exportadas:**
 - `CITY_SCENE_CONFIG` — objeto de configuração global

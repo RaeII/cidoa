@@ -5,7 +5,7 @@ import { getGroundMaterialValues } from "../utils/materials";
 export type GroundPlaneRig = {
   mesh: THREE.Mesh;
   update: (settings: GroundSettings) => void;
-  /** Lado do quadrado. O runtime deriva do horizonte — ver GROUND_SPAN no runtime. */
+  /** Lado do quadrado. O runtime passa `groundDistance * 2` — ver groundSpanOf no runtime. */
   setSpan: (size: number) => void;
   setPosition: (x: number, z: number) => void;
   dispose: () => void;
@@ -24,9 +24,9 @@ export function createGroundPlane(
   // Plano local: coordenadas pequenas preservam a separação de 0.01u do relevo na GPU.
   // Unitário + escala: mudar o tamanho não recria geometria nem re-envia buffer à GPU.
   //
-  // Quadrado simples de dois triângulos, de propósito. O formato da borda do MESH nunca aparece:
-  // o runtime dá ao plano um lado maior que 2*camera.far, então em qualquer direção a borda fica
-  // além do far plane e quem corta é o far plane — que está a uma distância CONSTANTE da câmera.
+  // Quadrado simples de dois triângulos, de propósito. No padrão o formato da borda do MESH não
+  // aparece: o lado (2*groundDistance) passa de 2*camera.far, então em qualquer direção a borda
+  // fica além do far plane e quem corta é o far plane — a uma distância CONSTANTE da câmera.
   // Corte a distância constante = linha reta na tela, em qualquer ângulo, sem canto e sem curva.
   // (Foi por isso que disco e canto arredondado saíram: os dois trocavam o canto por uma curva.)
   const geometry = new THREE.PlaneGeometry(1, 1);

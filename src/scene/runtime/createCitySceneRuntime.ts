@@ -24,12 +24,12 @@ import type {
 } from "../types";
 import { runDevAssertionsOnce } from "../utils/devAssertions";
 
-// Lado do chão em relação a `camera.far` (= HorizonSettings.renderDistance). O chão é centrado
-// na câmera, então meio lado = 1.1*far > far: em QUALQUER direção horizontal a borda do mesh
-// cai além do far plane e nunca é desenhada. Sobra o corte do próprio far plane, que fica a uma
-// distância constante da câmera → linha reta na tela, sem canto de quadrado e sem curva de disco.
-// 2.0 seria o mínimo exato; 2.2 dá folga para a câmera olhar de cima (a borda fica mais longe).
-const GROUND_SPAN = 2.2;
+// Lado do quadrado do chão = 2 * HorizonSettings.groundDistance. O plano é centrado na câmera,
+// então meio lado = groundDistance: esse é o raio em que o chão acaba. Com groundDistance > far
+// (padrão 1.1*far) a borda do mesh cai além do far plane em qualquer direção horizontal e nunca
+// é desenhada — quem corta é o far plane, a uma distância constante → linha reta na tela, sem
+// canto de quadrado. Abaixo de far o usuário vê a borda: chão acabando antes do céu, de propósito.
+const groundSpanOf = (horizon: HorizonSettings) => horizon.groundDistance * 2;
 
 // Raio do cull do relevo, em relação a `camera.far`. O cull do relevo é radial, então a borda
 // que ele desenha é um ARCO — e com o alcance dos EDIFÍCIOS (208 por padrão) esse arco caía bem
@@ -201,7 +201,7 @@ export function createCitySceneRuntime({
   const groundPlane = createGroundPlane(
     scene,
     groundSettings,
-    horizonSettings.renderDistance * GROUND_SPAN,
+    groundSpanOf(horizonSettings),
   );
   const terrainRig = createTerrain(scene, terrainSettings, groundSettings.color);
   // Plano cinza é o CHÃO INFINITO: sempre visível, segue a câmera (ver animate) e fica abaixo do
@@ -230,9 +230,6 @@ export function createCitySceneRuntime({
   let currentLight = lightSettings;
   let currentHorizon = horizonSettings;
 
-  const fitGroundToHorizon = () => {
-    groundPlane.setSpan(currentHorizon.renderDistance * GROUND_SPAN);
-  };
   const applyNightMode = () => {
     const night = currentEnvironment.night;
     const metrics = lightingRig.update(currentLight);
@@ -594,8 +591,8 @@ export function createCitySceneRuntime({
       camera.far = settings.renderDistance;
       camera.updateProjectionMatrix();
       environmentUpdater.setRadius(settings.renderDistance);
-      // Chão acompanha o horizonte: borda sempre além do far, corte sempre no far = linha reta.
-      fitGroundToHorizon();
+      // Chão tem alcance próprio (groundDistance): o slider entra por aqui junto do horizonte.
+      groundPlane.setSpan(groundSpanOf(settings));
       // Cor da névoa sai daqui: no modo noite ganha override.
       applyNightMode();
       markCubeDirty();

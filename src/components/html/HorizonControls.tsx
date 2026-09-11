@@ -30,9 +30,24 @@ export function HorizonControls({ settings, onChange, culledCount }: Props) {
         />
 
         <p className="text-xs leading-5 text-white/50">
-          Alcance da câmera + raio do céu. Baixar aproxima o céu e encolhe o chão junto (limite{" "}
-          {Math.round(settings.renderDistance * 1.25)}u), tirando o vazio entre a cidade e o
-          horizonte. Não altera a renderização dos edifícios.
+          Alcance da câmera + raio do céu. Baixar aproxima o céu, tirando o vazio entre a cidade e
+          o horizonte. Não altera a renderização dos edifícios.
+        </p>
+
+        <RangeField
+          label="Distância do chão"
+          value={settings.groundDistance}
+          min={20}
+          max={2200}
+          step={5}
+          onChange={(val) => handleChange("groundDistance", val)}
+        />
+
+        <p className="text-xs leading-5 text-white/50">
+          Raio em que o chão cinza acaba (o plano segue a câmera). Acima de{" "}
+          {Math.round(settings.renderDistance)}u (o horizonte) a borda fica fora do alcance da
+          câmera e o horizonte é uma linha reta; abaixo, a borda do quadrado aparece e o chão
+          termina antes do céu.
         </p>
       </PanelSection>
 

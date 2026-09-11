@@ -14,9 +14,9 @@ export function GroundControls({ value, onChange }: GroundControlsProps) {
       description="Altere o tamanho, a cor do chão e o acabamento do material."
     >
       <p className="mb-4 text-xs leading-5 text-white/50">
-        O tamanho do chão não tem controle próprio: sai de 2,2× a distância do horizonte, pra
-        borda do plano cair sempre além do alcance da câmera. Assim quem corta é o alcance, a uma
-        distância constante — o horizonte vira uma linha reta, sem canto nem curva.
+        Até onde o chão é desenhado fica em "Distância do chão", acima nesta aba: o valor vive no
+        horizonte porque é ele que decide se a borda do plano aparece ou se quem corta é o alcance
+        da câmera.
       </p>
 
       <ColorField

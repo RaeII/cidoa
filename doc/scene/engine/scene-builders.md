@@ -31,7 +31,7 @@ Cria o chão da cidade.
 
 **Responsabilidades:**
 - Criar geometria e material do chão
-- Aplicar o lado do plano via `setSpan` (o runtime deriva do horizonte, ver `GROUND_SPAN`)
+- Aplicar o lado do plano via `setSpan` (o runtime passa `groundDistance * 2`, ver [[scene-types#HorizonSettings]])
 - Aplicar valores derivados do tipo de material via [[scene-utils#materials.ts|getGroundMaterialValues]]
 - Mover o chão junto com a câmera (no loop de animação)
 - Limpar geometria e material no `dispose`
@@ -47,14 +47,14 @@ Cria o chão da cidade.
 Plano local: `PlaneGeometry(1, 1)` escalado por `setSpan` (dois triângulos) e um material PBR. Escala em vez de rebuild: mudar o lado não recria geometria nem re-envia buffer à GPU.
 
 > [!important] Por que a linha do horizonte é reta
-> O formato da borda do **mesh** nunca aparece. O runtime dá ao plano lado `renderDistance * GROUND_SPAN` (`2.2`), e o plano é centrado na câmera → meio lado `1.1*far > far`: em qualquer direção horizontal a borda cai **além do far plane** e não é rasterizada. Quem corta é o far plane, que fica a uma distância **constante** da câmera; corte a distância constante projeta como **linha reta** na tela, em qualquer ângulo da órbita.
+> Com o chão no padrão o formato da borda do **mesh** não aparece. O runtime dá ao plano lado `groundDistance * 2` (padrão `2.2*far`), e o plano é centrado na câmera → meio lado `1.1*far > far`: em qualquer direção horizontal a borda cai **além do far plane** e não é rasterizada. Quem corta é o far plane, que fica a uma distância **constante** da câmera; corte a distância constante projeta como **linha reta** na tela, em qualquer ângulo da órbita. Slider "Distância do chão" abaixo do horizonte desfaz isso de propósito: a borda entra na imagem e o chão acaba antes do céu.
 >
 > Por isso quadrado puro basta, e por isso disco e canto arredondado foram descartados: os dois só trocavam o canto do quadrado por uma curva. O problema nunca foi o formato — era a borda do mesh estar DENTRO do alcance da câmera.
 >
 > Corolário: `camera.far` é o único dono da linha. Mexer no alcance do horizonte move a linha; a névoa (mesma distância → mesma densidade) é o que suaviza o corte. Escala fica no espaço local (X/Y), aplicada antes do `rotation.x = -PI/2` → vira X/Z no mundo. Sem quad de fundo, material clonado ou shader de continuação. Camada cinza adicional atrás das montanhas removida, inclusive dos reflexos. `dispose` libera somente geometria/material do plano local.
 
 > [!warning] Não ampliar plano para coordenadas gigantes
-> Folga chão→terreno = `0.01u`. Plano de um milhão de unidades introduzia erro Float32 maior que a folga: piscadas e superfícies aparentes indevidas. `GROUND_SPAN = 2.2` mantém as coordenadas em `±1.1*far` (±660 no padrão, ±2200 no horizonte máximo) — ordens de grandeza abaixo do problema, e o [[#createGroundPlane.ts|check headless]] mede o erro Float32 a cada ângulo. Não adicionar fundo cinza até o horizonte: aparece como elevação atrás do terreno. Montanhas continuam exclusivamente no `createTerrain`. Ver [[scene-runtime#Alcance visual e distância dos edifícios]].
+> Folga chão→terreno = `0.01u`. Plano de um milhão de unidades introduzia erro Float32 maior que a folga: piscadas e superfícies aparentes indevidas. `groundDistance` (teto 2200 no slider) mantém as coordenadas em `±groundDistance` — ordens de grandeza abaixo do problema, e o [[#createGroundPlane.ts|check headless]] mede o erro Float32 a cada ângulo. Não adicionar fundo cinza até o horizonte: aparece como elevação atrás do terreno. Montanhas continuam exclusivamente no `createTerrain`. Ver [[scene-runtime#Alcance visual e distância dos edifícios]].
 
 ---
 

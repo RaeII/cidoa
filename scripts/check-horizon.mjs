@@ -128,17 +128,34 @@ const hiddenBehind = stats.culled;
 runtime.updateHorizonSettings({ ...settings.horizonSettings, distance: 600, backDistance: 600 });
 advance();
 assert(stats.culled < hiddenBehind, "Controle traseiro não restaurou os prédios");
-// Horizonte curto tem que encolher o chão: canto do plano dentro do far, sem vazio cortado.
-// Invariante da linha do horizonte: a borda do MESH tem que ficar além do far plane em toda
+// Invariante da linha do horizonte no PADRÃO: a borda do MESH fica além do far plane em toda
 // direção horizontal. Se falhar, a silhueta do quadrado aparece de volta no lugar da linha reta.
+// Com groundDistance abaixo do horizonte a borda aparece — é o que o slider do chão oferece.
 const groundEdgeBeyondFar = () => ground.scale.x / 2 > camera.far;
 assert(groundEdgeBeyondFar(), "Borda do chão entrou no far plane (quadrado volta a aparecer)");
+// Slider do chão: manda no lado do plano e não toca na câmera nem no relevo.
+for (const groundDistance of [40, 300, 2200]) {
+  runtime.updateHorizonSettings({ ...settings.horizonSettings, groundDistance });
+  advance();
+  assert.equal(ground.scale.x, groundDistance * 2, `Chão ignorou groundDistance ${groundDistance}`);
+  assert.equal(camera.far, settings.horizonSettings.renderDistance, "Slider do chão mexeu no far");
+  assert.deepEqual(terrain.geometry.attributes.position.array, terrainPositions,
+    "Slider do chão alterou as montanhas");
+  assert(ground.visible, "Slider do chão escondeu o plano");
+}
+runtime.updateHorizonSettings(settings.horizonSettings);
+advance();
 // O cull do relevo é RADIAL: o arco só some se o raio passar do canto do frustum (~1.55*far
 // com FOV 58° em 16:9). Amarrado ao alcance dos EDIFÍCIOS (208), o arco cortava as colinas.
 const terrainCullRadius = () => Math.sqrt(terrain.material.userData.cullUniforms.uCullFrontSq.value);
 const terrainCullBackRadius = () => Math.sqrt(terrain.material.userData.cullUniforms.uCullBackSq.value);
 for (const renderDistance of [60, 200, 600, 2000]) {
-  runtime.updateHorizonSettings({ ...settings.horizonSettings, renderDistance });
+  // groundDistance no padrão de fábrica (1.1*horizonte) = chão acompanhando o horizonte.
+  runtime.updateHorizonSettings({
+    ...settings.horizonSettings,
+    renderDistance,
+    groundDistance: renderDistance * 1.1,
+  });
   advance();
   assert.equal(camera.far, renderDistance, "camera.far não seguiu o horizonte");
   assert(groundEdgeBeyondFar(), `Borda do chão apareceu com horizonte ${renderDistance}`);
