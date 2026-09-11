@@ -24,8 +24,9 @@ export function GroundControls({ value, onChange }: GroundControlsProps) {
       />
 
       <p className="mb-4 text-xs leading-5 text-white/50">
-        Lado do quadrado cinza que acompanha a câmera. Independente da distância do horizonte —
-        acima de ~850 os cantos passam do alcance padrão e são cortados.
+        Lado do quadrado cinza que acompanha a câmera. Limitado pela distância do horizonte
+        (aba "horizonte"): acima de 1,25× o horizonte os cantos seriam cortados, então o valor
+        aqui vira um teto — volta sozinho quando o horizonte é ampliado.
       </p>
 
       <ColorField

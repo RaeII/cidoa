@@ -23,14 +23,16 @@ export function HorizonControls({ settings, onChange, culledCount }: Props) {
         <RangeField
           label="Distância do horizonte"
           value={settings.renderDistance}
-          min={250}
+          min={60}
           max={2000}
-          step={10}
+          step={5}
           onChange={(val) => handleChange("renderDistance", val)}
         />
 
         <p className="text-xs leading-5 text-white/50">
-          Não altera a renderização dos edifícios — só o limite do horizonte.
+          Alcance da câmera + raio do céu. Baixar aproxima o céu e encolhe o chão junto (limite{" "}
+          {Math.round(settings.renderDistance * 1.25)}u), tirando o vazio entre a cidade e o
+          horizonte. Não altera a renderização dos edifícios.
         </p>
       </PanelSection>
 

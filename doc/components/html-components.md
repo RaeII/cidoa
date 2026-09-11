@@ -180,11 +180,11 @@ Componente que monta o painel completo de configuração da cena. **Escondido po
 
 | Aba | Seções |
 |---|---|
-| **Geral** | Intro, prédios, chão, **quadras** (cor dos lotes vazios → [[scene-types#BlockLayoutSettings]]), calçada, ambiente |
+| **Geral** | Intro, prédios, **quadras** (cor dos lotes vazios → [[scene-types#BlockLayoutSettings]]), calçada, ambiente |
 | **Texturas** | Configurações PBR das fachadas |
 | **Reflexo** | Probe do envMap: on/off, intensidade, resolução, posição, céu na captura, o que entra na captura, cadência — ver [[#ReflectionControls.tsx]] |
 | **Luz** | Ambient, hemisphere, directional |
-| **Horizonte** | Configurações de HDRI e skybox |
+| **Horizonte** | Alcance do horizonte, alcance dos edifícios, névoa e **chão** ([[#GroundControls.tsx]]). Chão mora aqui porque `renderDistance` limita `GroundSettings.size` (teto `* 1.25`) — ver [[scene-runtime#Alcance visual e distância dos edifícios]] |
 | **Terreno** | Relevo procedural ao redor da cidade — ver [[#TerrainControls.tsx]] |
 | **Tela** | Checkbox por componente HTML sobreposto (log de câmera + 3 inputs de geração/posição). Liga/desliga visibilidade; preferência persistida em `localStorage` via [[scene-config#uiVisibilityConfig.ts]] |
 
@@ -323,9 +323,9 @@ Ver [[scene-types#ReflectionSettings]], [[scene-config#reflectionConfig.ts]] e [
 
 ### `GroundControls.tsx`
 
-Configurações do chão:
+Configurações do chão. Fica na aba **Horizonte** (logo depois de [[#HorizonControls.tsx]]) — saiu da **Geral** porque o alcance do horizonte limita o tamanho do chão:
 
-- `size` — lado do quadrado do chão (100–1200, padrão 600). Escala o plano que acompanha a câmera; não mexe na "Renderização do horizonte"
+- `size` — lado do quadrado do chão (100–1200, padrão 600). Escala o plano que acompanha a câmera. Vira TETO: runtime aplica `min(size, renderDistance * 1.25)`, então horizonte curto encolhe o chão junto
 - Cor
 - Tipo de material (`standard`, `matte`, `soft-metal`, `polished`)
 
@@ -394,7 +394,7 @@ Configurações do ambiente HDRI:
 Controles da aba **Horizonte**. Três seções:
 
 **Renderização do horizonte:**
-- `renderDistance` — limite do horizonte (250–2000, padrão 600). Escreve `camera.far` e o raio da esfera do céu; não mexe no cull dos edifícios
+- `renderDistance` — limite do horizonte (60–2000, passo 5, padrão 600). Escreve `camera.far`, o raio da esfera do céu e o TETO do chão cinza (`size <= renderDistance * 1.25`); não mexe no cull dos edifícios. Baixar puxa céu e chão juntos → some o vazio entre a cidade e o horizonte
 
 **Renderização dos edifícios:**
 - `distance` — alcance dos edifícios à frente (100–600)

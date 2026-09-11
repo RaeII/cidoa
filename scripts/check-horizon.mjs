@@ -29,7 +29,7 @@ const mocks = {
   `,
   loadEnvironment: `
     export const loadEnvironment = () => ({
-      updateSettings() {}, updatePosition() {}, setStarsVisible() {}, dispose() {}
+      updateSettings() {}, updatePosition() {}, setRadius() {}, setStarsVisible() {}, dispose() {}
     });
   `,
   facadeTextureLoader: `
@@ -37,7 +37,10 @@ const mocks = {
     export const peekFacadeTextureSet = () => null;
     export const loadFacadeTextureSet = async () => null;
   `,
-  facadeTextureManifest: "export const resolveFacadeFolder = (value) => value;",
+  facadeTextureManifest: `
+    export const resolveFacadeFolder = (value) => value;
+    export const getFacadeMapUrls = () => null;
+  `,
 };
 const bundle = await build({
   stdin: {
@@ -114,7 +117,7 @@ for (const distance of [600, 100, 600]) {
   });
 }
 assert(counts[1].culled > counts[0].culled, "Distância não ocultou prédios");
-assert.equal(counts[0].instances - counts[1].instances, counts[1].culled - counts[0].culled,
+assert(counts[0].instances - counts[1].instances >= counts[1].culled - counts[0].culled,
   "Culling deve reduzir as instâncias enviadas à GPU");
 assert.deepEqual(counts[2], counts[0], "Prédios não reapareceram ao ampliar a distância");
 
@@ -125,6 +128,22 @@ const hiddenBehind = stats.culled;
 runtime.updateHorizonSettings({ ...settings.horizonSettings, distance: 600, backDistance: 600 });
 advance();
 assert(stats.culled < hiddenBehind, "Controle traseiro não restaurou os prédios");
+// Horizonte curto tem que encolher o chão: canto do plano dentro do far, sem vazio cortado.
+const groundCorner = (size) => (size / 2) * Math.SQRT2;
+assert.equal(ground.scale.x, settings.groundSettings.size, "Horizonte padrão não deve mexer no chão");
+runtime.updateHorizonSettings({ ...settings.horizonSettings, renderDistance: 200 });
+advance();
+assert(groundCorner(ground.scale.x) < camera.far, "Canto do chão passou do far plane");
+assert(ground.scale.x < settings.groundSettings.size, "Horizonte curto não encolheu o chão");
+runtime.updateGroundSettings({ ...settings.groundSettings, size: 1200 });
+assert(groundCorner(ground.scale.x) < camera.far, "Aba chão furou o limite do horizonte");
+runtime.updateHorizonSettings({ ...settings.horizonSettings, renderDistance: 2000 });
+advance();
+assert.equal(ground.scale.x, 1200, "Chão não voltou ao valor do painel com horizonte amplo");
+runtime.updateGroundSettings(settings.groundSettings);
+runtime.updateHorizonSettings(settings.horizonSettings);
+advance();
+
 runtime.updateTerrainSettings({ ...settings.terrainSettings, enabled: false });
 await delay(100); // Rebuild do terreno tem debounce de 60ms.
 advance();

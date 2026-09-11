@@ -210,6 +210,20 @@ export function createCitySceneRuntime({
   // volta por cima (lightingRig.update parte sempre dos settings do painel).
   let currentLight = lightSettings;
   let currentHorizon = horizonSettings;
+  let currentGround = groundSettings;
+
+  // O chão cinza não pode ultrapassar o horizonte: além de `camera.far` os cantos são cortados
+  // e aparece um vazio entre a borda do plano e o céu. Meia-diagonal = size/2*sqrt(2), então
+  // size <= far*1.25 mantém os cantos dentro do far plane E da esfera do céu (raio 0.9*far).
+  // Só limita — o valor da aba "chão" volta sozinho quando o horizonte é ampliado.
+  const GROUND_HORIZON_FIT = 1.25;
+  const fitGroundToHorizon = () => {
+    groundPlane.update({
+      ...currentGround,
+      size: Math.min(currentGround.size, currentHorizon.renderDistance * GROUND_HORIZON_FIT),
+    });
+  };
+  fitGroundToHorizon();
   const applyNightMode = () => {
     const night = currentEnvironment.night;
     const metrics = lightingRig.update(currentLight);
@@ -541,7 +555,8 @@ export function createCitySceneRuntime({
       markCubeDirty();
     },
     updateGroundSettings(settings) {
-      groundPlane.update(settings);
+      currentGround = settings;
+      fitGroundToHorizon();
       // Zona plana do relevo = chão da cidade: mantém a mesma cor.
       terrainRig.setGroundColor(settings.color);
       markCubeDirty();
@@ -570,6 +585,8 @@ export function createCitySceneRuntime({
       camera.far = settings.renderDistance;
       camera.updateProjectionMatrix();
       environmentUpdater.setRadius(settings.renderDistance);
+      // Puxar o horizonte para perto encolhe o chão junto — senão sobra plano cortado pelo far.
+      fitGroundToHorizon();
       // Cor da névoa sai daqui: no modo noite ganha override.
       applyNightMode();
       markCubeDirty();

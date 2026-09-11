@@ -132,7 +132,6 @@ export function CityControlPanel({
           <div className="space-y-6 pb-8 pt-2">
             <PanelIntro sceneStats={sceneStats} solarIntensity={lightMetrics.solarIntensity} />
             <BuildingControls value={buildingSettings} onChange={onBuildingSettingsChange} />
-            <GroundControls value={groundSettings} onChange={onGroundSettingsChange} />
             <PanelSection
               title="Quadras"
               description="Cor dos lotes vazios do loteamento (quadras esperando edifício)."
@@ -216,6 +215,7 @@ export function CityControlPanel({
               onChange={onHorizonSettingsChange}
               culledCount={sceneStats.culled}
             />
+            <GroundControls value={groundSettings} onChange={onGroundSettingsChange} />
           </div>
         )}
 
