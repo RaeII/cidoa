@@ -48,7 +48,7 @@ import {
   disposeBuildingShapeSharedResources,
   groupBoxGeometryByTop,
 } from "../builders/createBuildingShapeMesh";
-import { seeded } from "../utils/random";
+import { pickIndex, seeded } from "../utils/random";
 import { NIGHT_PRESET } from "../config/environmentConfig";
 
 import {
@@ -57,10 +57,12 @@ import {
   peekFacadeTextureSet,
   type FacadeTextureSet,
 } from "../textures/facadeTextureLoader";
-import { resolveFacadeFolder } from "../textures/facadeTextureManifest";
+import { getFacadeMapUrls, resolveFacadeFolder } from "../textures/facadeTextureManifest";
 
 // Pasta de fachada usada quando o catálogo aponta pra um asset que não existe mais.
 const DEFAULT_FACADE_FOLDER = "Facade006_1K-mirrored-PNG";
+// Salt do sorteio de textura por edifício (ver facadeGroupFor).
+const FACADE_VARIANT_SEED = 37;
 // Laje de cimento: cor fixa, não segue a cor do edifício nem a da customização.
 const TOP_CEMENT_COLOR = "#b9b6b1";
 // Topo dos prédios (concreto). Não faz parte do catálogo de fachada, mas passa
@@ -200,6 +202,11 @@ export type DonationManager = {
   getDonationWorldPosition: (donationId: number) => THREE.Vector3 | null;
   setFocusedDonation: (donationId: number | null) => void;
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
+  /**
+   * Pool de texturas sorteáveis por edifício (`value` das texturas ativas do
+   * catálogo). Lista vazia = toda a cidade usa a textura global.
+   */
+  setFacadeTexturePool: (keys: readonly string[]) => void;
   tickAnimations: (elapsedSeconds: number, deltaMs: number) => void;
   setRenderDistance: (distance: number, backDistance: number) => void;
   /** Retorna quantos prédios ficaram ocultos pelo cull de distância (frontal + traseiro). */
@@ -516,14 +523,66 @@ export function createDonationManager({
   applyTriplanarShader(focusTopMaterial, "focus-top-triplanar", topTilingUniform);
 
   let capacity = 512;
-  let mesh = new THREE.InstancedMesh(
-    buildingGeometry,
-    [facadeMaterial, topMaterial],
-    capacity,
-  );
-  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  mesh.count = 0;
-  scene.add(mesh);
+
+  // ── Grupos de fachada ──────────────────────────────────────────────────────
+  // Um InstancedMesh por textura de fachada em uso: draw calls = nº de texturas,
+  // não de prédios. Grupo 0 = textura global da cena (facadeMaterial); os demais
+  // vêm do pool do catálogo (setFacadeTexturePool). É o que deixa cada edifício
+  // ter a própria textura — sorteada ou escolhida — sem mesh dedicado por prédio.
+  // O topo (cimento) é igual em todos, então topMaterial é compartilhado.
+  type FacadeGroup = {
+    folder: string; // "" = herda a textura global da cena
+    material: THREE.MeshPhysicalMaterial;
+    mesh: THREE.InstancedMesh;
+    capacity: number;
+    colors: Float32Array; // instanceColor compactado deste grupo
+    renderCount: number;
+    logicalCount: number;
+  };
+
+  const ensureGroupCapacity = (group: FacadeGroup, needed: number) => {
+    if (needed <= group.capacity) return;
+    let cap = Math.max(group.capacity, 64);
+    while (cap < needed) cap = Math.ceil(cap * 1.5);
+    scene.remove(group.mesh);
+    group.mesh.dispose();
+    group.capacity = cap;
+    group.colors = new Float32Array(cap * 3);
+    group.mesh = new THREE.InstancedMesh(buildingGeometry, [group.material, topMaterial], cap);
+    group.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    group.mesh.count = 0;
+    scene.add(group.mesh);
+  };
+
+  const createFacadeGroup = (
+    folder: string,
+    material: THREE.MeshPhysicalMaterial,
+  ): FacadeGroup => {
+    const group: FacadeGroup = {
+      folder,
+      material,
+      mesh: new THREE.InstancedMesh(buildingGeometry, [material, topMaterial], 0),
+      capacity: 0,
+      colors: new Float32Array(0),
+      renderCount: 0,
+      logicalCount: 0,
+    };
+    // Capacidade real vem do rebuild (ensureGroupCapacity com a contagem do
+    // grupo). Aqui só o mínimo: nascer com a capacidade global daria N × total
+    // de instâncias alocadas — dezenas de MB à toa com a cidade cheia.
+    ensureGroupCapacity(group, 64);
+    return group;
+  };
+
+  const facadeGroups: FacadeGroup[] = [createFacadeGroup("", facadeMaterial)];
+  // pasta → índice do grupo. A pasta da textura global sempre aponta pro grupo 0.
+  const groupIndexByFolder = new Map<string, number>([
+    [resolveFacadeFolder(textureSettings.textureKey), 0],
+  ]);
+  // Pool sorteável: `value` das texturas ATIVAS do catálogo (vem do backend).
+  let facadeTexturePool: readonly string[] = [];
+  // Índices de grupo do sorteio (dedupe do pool, já resolvidos).
+  let randomGroupIndices: number[] = [];
 
   // --- Rede de estradas (asfalto entre blocos) ---
   const asphaltMaterial = new THREE.MeshStandardMaterial({
@@ -1096,9 +1155,11 @@ export function createDonationManager({
   let backDistanceSq = Infinity;
   let logicalInstanceCount = 0;
   let instanceHidden = new Uint8Array(0);
+  // Grupo de fachada (= textura) de cada instância lógica. Uint8 = teto de 256
+  // texturas simultâneas, folgado pro catálogo curado.
+  let instanceGroup = new Uint8Array(0);
   let useInstanceColors = false;
   let logicalInstanceColorArray = new Float32Array(0);
-  let renderInstanceColorArray = new Float32Array(0);
   const raycaster = new THREE.Raycaster();
   const mouseVec = new THREE.Vector2();
   const instanceToValue: number[] = [];
@@ -1140,7 +1201,7 @@ export function createDonationManager({
   const INSTANCE_COLOR_BASE = new THREE.Color(0xffffff);
   // Só a fachada: o topo descarta o instanceColor no shader, então mantém TOP_CEMENT_COLOR.
   const setInstancedBaseColor = (color: THREE.Color) => {
-    facadeMaterial.color.copy(color);
+    for (const group of facadeGroups) group.material.color.copy(color);
   };
   const tmpTransformMatrix = new THREE.Matrix4();
   const tmpTransformPosition = new THREE.Vector3();
@@ -1148,9 +1209,14 @@ export function createDonationManager({
   const tmpTransformScale = new THREE.Vector3();
 
   const compactVisibleInstances = (includeCulled = false) => {
-    let renderIndex = 0;
+    for (const group of facadeGroups) group.renderCount = 0;
     for (let logicalIndex = 0; logicalIndex < logicalInstanceCount; logicalIndex++) {
       if (!includeCulled && instanceHidden[logicalIndex]) continue;
+      const group = facadeGroups[instanceGroup[logicalIndex]] ?? facadeGroups[0];
+      const renderIndex = group.renderCount;
+      // Capacidade é dimensionada no rebuild; a guarda cobre o caso de o grupo
+      // ter recebido instância fora dele (nunca deve acontecer).
+      if (renderIndex >= group.capacity) continue;
 
       tmpTransformPosition.set(
         instPosX[logicalIndex],
@@ -1168,33 +1234,32 @@ export function createDonationManager({
         tmpTransformQuaternion,
         tmpTransformScale,
       );
-      mesh.setMatrixAt(renderIndex, tmpTransformMatrix);
+      group.mesh.setMatrixAt(renderIndex, tmpTransformMatrix);
 
       if (useInstanceColors) {
         const source = logicalIndex * 3;
         const target = renderIndex * 3;
-        renderInstanceColorArray[target] = logicalInstanceColorArray[source];
-        renderInstanceColorArray[target + 1] = logicalInstanceColorArray[source + 1];
-        renderInstanceColorArray[target + 2] = logicalInstanceColorArray[source + 2];
+        group.colors[target] = logicalInstanceColorArray[source];
+        group.colors[target + 1] = logicalInstanceColorArray[source + 1];
+        group.colors[target + 2] = logicalInstanceColorArray[source + 2];
       }
-      renderIndex++;
+      group.renderCount++;
     }
 
-    mesh.count = renderIndex;
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.boundingSphere = null;
-    if (useInstanceColors) {
-      if (
-        !mesh.instanceColor ||
-        mesh.instanceColor.array !== renderInstanceColorArray
-      ) {
-        mesh.instanceColor = new THREE.InstancedBufferAttribute(
-          renderInstanceColorArray,
-          3,
-        );
-        mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+    for (const group of facadeGroups) {
+      group.mesh.count = group.renderCount;
+      group.mesh.instanceMatrix.needsUpdate = true;
+      group.mesh.boundingSphere = null;
+      if (useInstanceColors) {
+        if (
+          !group.mesh.instanceColor ||
+          group.mesh.instanceColor.array !== group.colors
+        ) {
+          group.mesh.instanceColor = new THREE.InstancedBufferAttribute(group.colors, 3);
+          group.mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+        }
+        group.mesh.instanceColor.needsUpdate = true;
       }
-      mesh.instanceColor.needsUpdate = true;
     }
   };
 
@@ -1202,10 +1267,13 @@ export function createDonationManager({
     instanceIndex: number,
     donationId: number,
     value: number,
+    groupIndex: number,
   ) => {
     instanceToValue[instanceIndex] = value;
     instanceToDonationId[instanceIndex] = donationId;
     donationIdToInstanceIndex.set(donationId, instanceIndex);
+    instanceGroup[instanceIndex] = groupIndex;
+    facadeGroups[groupIndex].logicalCount++;
     // dummy já está posicionado/escalado pelo chamador (rebuildInstances)
     instPosX[instanceIndex] = dummy.position.x;
     instPosY[instanceIndex] = dummy.position.y;
@@ -1290,7 +1358,8 @@ export function createDonationManager({
   };
 
   const getAllFacadeMaterials = (): THREE.MeshPhysicalMaterial[] => {
-    const list: THREE.MeshPhysicalMaterial[] = [facadeMaterial, focusFacadeMaterial];
+    const list: THREE.MeshPhysicalMaterial[] = [focusFacadeMaterial];
+    for (const group of facadeGroups) list.push(group.material);
     for (const entry of customShapeMeshes.values()) list.push(entry.facadeMat);
     return list;
   };
@@ -1421,18 +1490,15 @@ export function createDonationManager({
     });
   }
 
-  // Expande o InstancedMesh e as posições de espiral quando o total excede a capacidade atual.
+  // Expande os arrays lógicos e as posições de espiral quando o total excede a
+  // capacidade atual. Os InstancedMesh são dimensionados por grupo no rebuild
+  // (ver ensureGroupCapacity), já com a contagem real de cada textura.
   const growIfNeeded = (needed: number) => {
     if (needed <= capacity) return;
     while (capacity < needed) capacity = Math.ceil(capacity * 1.5);
     if (spiralPositions.length < capacity) {
       spiralPositions = generateSpiralPositions(capacity);
     }
-    scene.remove(mesh);
-    mesh.dispose();
-    mesh = new THREE.InstancedMesh(buildingGeometry, [facadeMaterial, topMaterial], capacity);
-    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    scene.add(mesh);
   };
 
   // Sistema de 2 camadas: torres + base urbana.
@@ -1450,21 +1516,68 @@ export function createDonationManager({
     if (c.buildingShape !== "default") return true;
     if (Math.abs(c.tilingScale - 1) > 0.001) return true;
     if (!isDefaultTextureTransform(c.textureTransform)) return true;
-    if (hasOwnFacadeTexture(c)) return true;
+    if (hasUngroupedFacadeTexture(c)) return true;
     return false;
   };
 
-  // Textura por edifício só custa um mesh dedicado quando difere da global — quem
-  // escolheu justamente a textura da cena continua dentro do InstancedMesh.
-  // ponytail: prédio com textura própria = 1 mesh dedicado. Serve pro catálogo
-  // curado atual; se a maioria passar a ter textura própria, agrupar em um
-  // InstancedMesh por textura (draws = nº de texturas/grupos, não de prédios).
+  // Textura por edifício só custa um mesh dedicado quando NÃO existe grupo pra
+  // ela (pasta fora do pool do catálogo). Com grupo, o prédio entra no
+  // InstancedMesh daquela textura — ver facadeGroups.
+  const hasUngroupedFacadeTexture = (c?: BuildingCustomization): boolean => {
+    if (!hasOwnFacadeTexture(c)) return false;
+    return !groupIndexByFolder.has(resolveFacadeFolder(c!.textureKey));
+  };
+
+  // Textura própria = diferente da global da cena.
   const hasOwnFacadeTexture = (c?: BuildingCustomization): boolean => {
     if (!c?.textureKey) return false;
     return (
       resolveFacadeFolder(c.textureKey) !==
       resolveFacadeFolder(currentTextureSettings.textureKey)
     );
+  };
+
+  // Grupo (textura) de uma doação: a escolhida na customização, senão o sorteio
+  // determinístico pelo id sobre o pool do catálogo, senão a textura global.
+  const facadeGroupFor = (donation: DonationEntry): number => {
+    const own = resolveFacadeFolder(donation.customization?.textureKey);
+    if (own) return groupIndexByFolder.get(own) ?? 0;
+    if (randomGroupIndices.length === 0) return 0;
+    return randomGroupIndices[pickIndex(donation.id, FACADE_VARIANT_SEED, randomGroupIndices.length)];
+  };
+
+  // Reconstrói a lista de grupos a partir do pool + textura global atual.
+  // Chamado quando o catálogo chega e quando a textura global muda (a pasta
+  // global sempre vira o grupo 0, então o mapa pasta→grupo muda junto).
+  const rebuildFacadeGroups = () => {
+    for (let i = facadeGroups.length - 1; i >= 1; i--) {
+      const group = facadeGroups[i];
+      scene.remove(group.mesh);
+      group.mesh.dispose();
+      group.material.dispose();
+    }
+    facadeGroups.length = 1;
+    groupIndexByFolder.clear();
+    groupIndexByFolder.set(resolveFacadeFolder(currentTextureSettings.textureKey), 0);
+    randomGroupIndices = [];
+
+    for (const key of facadeTexturePool) {
+      const folder = resolveFacadeFolder(key);
+      // Pasta cadastrada no catálogo mas ausente do bundle: ignora (o prédio cai
+      // na textura global em vez de ficar sem textura).
+      if (!folder || !getFacadeMapUrls(folder)) continue;
+      let index = groupIndexByFolder.get(folder);
+      if (index === undefined) {
+        if (facadeGroups.length >= 256) break; // teto do Uint8Array de instanceGroup
+        const material = facadeMaterial.clone();
+        applyTriplanarShader(material, "donation-facade-triplanar", tilingUniform);
+        index = facadeGroups.length;
+        facadeGroups.push(createFacadeGroup(folder, material));
+        groupIndexByFolder.set(folder, index);
+        applyFacadeFolder(material, folder);
+      }
+      if (!randomGroupIndices.includes(index)) randomGroupIndices.push(index);
+    }
   };
 
   // Aplica a textura própria de UM prédio no material clonado dele.
@@ -1475,9 +1588,13 @@ export function createDonationManager({
     facadeMat: THREE.MeshPhysicalMaterial,
     customization?: BuildingCustomization,
   ) => {
-    const desired = hasOwnFacadeTexture(customization)
-      ? resolveFacadeFolder(customization!.textureKey)
-      : "";
+    applyFacadeFolder(
+      facadeMat,
+      hasOwnFacadeTexture(customization) ? resolveFacadeFolder(customization!.textureKey) : "",
+    );
+  };
+
+  const applyFacadeFolder = (facadeMat: THREE.MeshPhysicalMaterial, desired: string) => {
     if (materialFacadeKeys.get(facadeMat) === desired) return;
     materialFacadeKeys.set(facadeMat, desired);
 
@@ -1556,6 +1673,8 @@ export function createDonationManager({
     instanceToDonationId.length = 0;
     donationIdToInstanceIndex.clear();
     pickBlocks.length = 0;
+    if (instanceGroup.length < capacity) instanceGroup = new Uint8Array(capacity);
+    for (const group of facadeGroups) group.logicalCount = 0;
     if (instPosX.length < capacity) {
       instPosX = new Float32Array(capacity);
       instPosY = new Float32Array(capacity);
@@ -1566,7 +1685,6 @@ export function createDonationManager({
     }
     if (logicalInstanceColorArray.length < capacity * 3) {
       logicalInstanceColorArray = new Float32Array(capacity * 3);
-      renderInstanceColorArray = new Float32Array(capacity * 3);
     }
 
     const { blockSize, streetWidth, towerRatio, towersPerBlock, baseHeightCap } = currentBlockLayout;
@@ -1778,8 +1896,12 @@ export function createDonationManager({
         // (formato torcido, tilingScale ≠ 1.0, etc) pulam alocação no InstancedMesh —
         // são desenhados como Mesh próprio em syncCustomShapes.
         if (!needsCustomMesh(donations[donIdx].customization)) {
-          mesh.setMatrixAt(instanceIdx, dummy.matrix);
-          setInstanceMetadata(instanceIdx, id, donations[donIdx].value);
+          setInstanceMetadata(
+            instanceIdx,
+            id,
+            donations[donIdx].value,
+            facadeGroupFor(donations[donIdx]),
+          );
           instanceIdx++;
         }
       }
@@ -1798,8 +1920,12 @@ export function createDonationManager({
         dummy.updateMatrix();
         recordTransform(id);
         if (!needsCustomMesh(donations[donIdx].customization)) {
-          mesh.setMatrixAt(instanceIdx, dummy.matrix);
-          setInstanceMetadata(instanceIdx, id, donations[donIdx].value);
+          setInstanceMetadata(
+            instanceIdx,
+            id,
+            donations[donIdx].value,
+            facadeGroupFor(donations[donIdx]),
+          );
           instanceIdx++;
         }
       }
@@ -1835,16 +1961,18 @@ export function createDonationManager({
     }
 
     logicalInstanceCount = instanceIdx;
-    mesh.count = logicalInstanceCount;
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.boundingSphere = null; // força recomputação na próxima chamada de raycast
 
     // Layout reescreveu todas as matrizes → todas visíveis; próximo passe de cull re-esconde.
     if (instanceHidden.length < capacity) instanceHidden = new Uint8Array(capacity);
     else instanceHidden.fill(0);
 
-    // Aplicar cores individuais (customização) por instância
-    applyInstanceColors();
+    // Cada grupo já sabe quantas instâncias recebeu — dimensiona antes de escrever.
+    for (const group of facadeGroups) ensureGroupCapacity(group, group.logicalCount);
+
+    // Aplicar cores individuais (customização) por instância. Sem compactar aqui:
+    // a compactação logo abaixo escreve matrizes E cores numa passada só.
+    applyInstanceColors(false);
+    compactVisibleInstances(true);
 
     // Reposicionar/criar prédios com formato customizado (twisted)
     syncCustomShapes();
@@ -1893,7 +2021,7 @@ export function createDonationManager({
     removeFocusHighlight();
 
     if (donationId === null) {
-      setMatOpacity(facadeMaterial, 1);
+      for (const group of facadeGroups) setMatOpacity(group.material, 1);
       setMatOpacity(topMaterial, 1);
       for (const entry of customShapeMeshes.values()) {
         setCustomShapeOpacity(entry, 1);
@@ -1902,11 +2030,11 @@ export function createDonationManager({
       return;
     }
 
-    setMatOpacity(facadeMaterial, 0.15);
+    for (const group of facadeGroups) setMatOpacity(group.material, 0.15);
     setMatOpacity(topMaterial, 0.15);
     setInstancedBaseColor(currentBuildingColor);
     useInstanceColors = false;
-    mesh.instanceColor = null;
+    clearInstanceColors();
 
     for (const [donId, entry] of customShapeMeshes) {
       const opacity = donId === donationId ? 1 : 0.15;
@@ -1918,6 +2046,11 @@ export function createDonationManager({
     if (!readDonationTransform(donationId)) return;
 
     const donation = donations.find((d) => d.id === donationId);
+    // Destaque replica a textura do grupo do prédio (sorteada ou escolhida).
+    applyFacadeFolder(
+      focusFacadeMaterial,
+      donation ? facadeGroups[facadeGroupFor(donation)]?.folder ?? "" : "",
+    );
     if (donation?.customization) {
       focusFacadeMaterial.color.set(donation.customization.color);
       focusTopMaterial.color.set(donation.customization.color);
@@ -1931,7 +2064,11 @@ export function createDonationManager({
     scene.add(focusHighlightMesh);
   };
 
-  const applyInstanceColors = () => {
+  const clearInstanceColors = () => {
+    for (const group of facadeGroups) group.mesh.instanceColor = null;
+  };
+
+  const applyInstanceColors = (compact = true) => {
     if (logicalInstanceCount === 0) return;
 
     // Em foco, as instâncias ficam sem cor própria (só o mesh destacado tem).
@@ -1941,7 +2078,7 @@ export function createDonationManager({
       // Sem customizações: remover instanceColor para usar cor do material
       setInstancedBaseColor(currentBuildingColor);
       useInstanceColors = false;
-      mesh.instanceColor = null;
+      clearInstanceColors();
       return;
     }
 
@@ -1964,7 +2101,7 @@ export function createDonationManager({
       logicalInstanceColorArray[i * 3 + 2] = tmpColor.b;
     }
 
-    compactVisibleInstances();
+    if (compact) compactVisibleInstances();
   };
 
   // --- Acessórios de topo ---
@@ -2425,7 +2562,7 @@ export function createDonationManager({
     },
     updateBuildingSettings(settings) {
       currentBuildingColor.set(settings.color); // manter em sync para instanceColor fallback
-      facadeMaterial.color.set(settings.color);
+      for (const group of facadeGroups) group.material.color.set(settings.color);
       // topMaterial mantém TOP_CEMENT_COLOR — laje de cimento não muda de cor.
       // Roughness/metalness afetam todos os materiais (inclui clones twisted).
       // Cor é específica por edifício para clones — não sobrescrever aqui.
@@ -2441,6 +2578,16 @@ export function createDonationManager({
       }
       applyInstanceColors();
     },
+    setFacadeTexturePool(keys) {
+      const next = keys.filter(Boolean);
+      const same =
+        next.length === facadeTexturePool.length &&
+        next.every((key, i) => key === facadeTexturePool[i]);
+      if (same) return;
+      facadeTexturePool = next;
+      rebuildFacadeGroups();
+      rebuildInstances();
+    },
     updateTextureSettings(settings) {
       const folderChanged =
         resolveFacadeFolder(settings.textureKey) !==
@@ -2451,9 +2598,12 @@ export function createDonationManager({
       if (folderChanged) requestGlobalFacadeSet(settings.textureKey);
       applyTextureToFacade(settings); // relê facadeSet (inclui clones custom)
       applyTextureToTop(settings);
-      // Prédio com textura própria entra/sai do InstancedMesh conforme ela passe
-      // a coincidir (ou não) com a nova textura global.
-      if (folderChanged) rebuildInstances();
+      // A pasta global vira o grupo 0: trocar a textura da cena remapeia
+      // pasta→grupo e realoca as instâncias.
+      if (folderChanged) {
+        rebuildFacadeGroups();
+        rebuildInstances();
+      }
     },
     updateBlockLayout(settings) {
       // Cores: aplicam direto nos materiais compartilhados, sem rebuild.
@@ -2642,7 +2792,22 @@ export function createDonationManager({
       // próprio já saiu acima, pelo needsCustomMesh.
       if (customization.textureKey !== prevTextureKey) {
         const entry = customShapeMeshes.get(donationId);
-        if (entry) applyBuildingFacadeTexture(entry.facadeMat, customization);
+        if (entry) {
+          applyBuildingFacadeTexture(entry.facadeMat, customization);
+        } else {
+          // Instanciado: a textura define em QUAL InstancedMesh o prédio vive.
+          // Basta remapear o grupo da instância e recompactar — sem refazer o
+          // layout inteiro da cidade.
+          const index = donationIdToInstanceIndex.get(donationId);
+          const nextGroup = index === undefined ? 0 : facadeGroupFor(donation);
+          if (index !== undefined && nextGroup !== instanceGroup[index]) {
+            facadeGroups[instanceGroup[index]].logicalCount--;
+            instanceGroup[index] = nextGroup;
+            facadeGroups[nextGroup].logicalCount++;
+            ensureGroupCapacity(facadeGroups[nextGroup], facadeGroups[nextGroup].logicalCount);
+            compactVisibleInstances();
+          }
+        }
       }
 
       if (!sameTextureTransform(customization.textureTransform, prevTextureTransform)) {
@@ -2844,10 +3009,13 @@ export function createDonationManager({
       disposeBuildingShapeSharedResources();
       focusFacadeMaterial.dispose();
       focusTopMaterial.dispose();
-      scene.remove(mesh);
-      mesh.dispose();
+      for (const group of facadeGroups) {
+        scene.remove(group.mesh);
+        group.mesh.dispose();
+        group.material.dispose(); // grupo 0 = facadeMaterial
+      }
+      facadeGroups.length = 0;
       buildingGeometry.dispose();
-      facadeMaterial.dispose();
       topMaterial.dispose();
       // Nenhuma textura é descartada aqui: fachada E topo vêm do cache compartilhado
       // do loader, reusado entre recriações do manager.

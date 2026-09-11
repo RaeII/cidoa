@@ -49,6 +49,12 @@ export function TextureControls({ value, facadeTextures, onChange }: TextureCont
       />
 
       <CheckboxField
+        label="Textura aleatória por edifício"
+        checked={value.randomPerBuilding}
+        onChange={(randomPerBuilding) => onChange({ ...value, randomPerBuilding })}
+      />
+
+      <CheckboxField
         label="Clay Render"
         checked={value.clayRender}
         onChange={(clayRender) => onChange({ ...value, clayRender })}

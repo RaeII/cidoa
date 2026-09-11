@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CitySceneCanvas, type CitySceneCanvasHandle } from "./three/CitySceneCanvas";
 import { AuthMenu } from "./AuthMenu";
 import { BuildingHeightInput } from "./html/BuildingHeightInput";
@@ -62,6 +62,8 @@ export function CitySceneEditor() {
   const [showControlPanel, setShowControlPanel] = useState(false);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [uiVisibility, setUIVisibility] = useState(loadUIVisibilitySettings);
+  // Granulado de renderização zerado por padrão: cena sempre abre na resolução nativa.
+  const [grain, setGrain] = useState(0);
   const [selectedBuildingId, setSelectedBuildingId] = useState<number | null>(null);
   const [buildingCustomizations, setBuildingCustomizations] = useState<Map<number, BuildingCustomization>>(
     () => new Map(),
@@ -98,6 +100,19 @@ export function CitySceneEditor() {
       cancelAnimationFrame(rafInner);
     };
   }, [donations, loadState.status]);
+
+  // Pool de sorteio de textura por edifício: todas as texturas ATIVAS do
+  // catálogo. Desligado o sorteio, a lista vai vazia e a cidade inteira usa
+  // `textureSettings.textureKey`.
+  const facadeTexturePool = useMemo(
+    () =>
+      textureSettings.randomPerBuilding
+        ? (customizationCatalog?.textures ?? [])
+            .map((option) => option.value)
+            .filter((value): value is string => !!value)
+        : [],
+    [textureSettings.randomPerBuilding, customizationCatalog],
+  );
 
   const lightMetrics = getLightMetrics(lightSettings);
 
@@ -297,6 +312,8 @@ export function CitySceneEditor() {
         reflectionSettings={reflectionSettings}
         horizonSettings={horizonSettings}
         blockLayoutSettings={blockLayoutSettings}
+        facadeTexturePool={facadeTexturePool}
+        grain={grain}
         onStatsChange={setSceneStats}
         onCameraDebugChange={uiVisibility.cameraLog ? setCameraDebugInfo : undefined}
         onHoverChange={handleHoverChange}
@@ -405,10 +422,12 @@ export function CitySceneEditor() {
           reflectionSettings={reflectionSettings}
           horizonSettings={horizonSettings}
           uiVisibility={uiVisibility}
+          grain={grain}
           onEnvironmentSettingsChange={setEnvironmentSettings}
           onReflectionSettingsChange={setReflectionSettings}
           onHorizonSettingsChange={setHorizonSettings}
           onUIVisibilityChange={setUIVisibility}
+          onGrainChange={setGrain}
           onClose={() => setShowControlPanel(false)}
         />
       )}

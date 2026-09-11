@@ -42,6 +42,8 @@ export type CityControlPanelProps = {
   reflectionSettings: ReflectionSettings;
   horizonSettings: HorizonSettings;
   uiVisibility: UIVisibilitySettings;
+  /** Granulado de renderização: 0 = resolução nativa travada (padrão), 1 = downscale agressivo sob carga. */
+  grain: number;
   sceneStats: SceneStats;
   lightMetrics: {
     ambientDynamic: number;
@@ -58,6 +60,7 @@ export type CityControlPanelProps = {
   onReflectionSettingsChange: (settings: ReflectionSettings) => void;
   onHorizonSettingsChange: (settings: HorizonSettings) => void;
   onUIVisibilityChange: (settings: UIVisibilitySettings) => void;
+  onGrainChange: (grain: number) => void;
   onClose: () => void;
 };
 
@@ -73,6 +76,7 @@ export function CityControlPanel({
   reflectionSettings,
   horizonSettings,
   uiVisibility,
+  grain,
   sceneStats,
   lightMetrics,
   onBuildingSettingsChange,
@@ -85,6 +89,7 @@ export function CityControlPanel({
   onReflectionSettingsChange,
   onHorizonSettingsChange,
   onUIVisibilityChange,
+  onGrainChange,
   onClose,
 }: CityControlPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>("geral");
@@ -252,6 +257,20 @@ export function CityControlPanel({
                   }
                 />
               </div>
+            </PanelSection>
+            <PanelSection
+              title="Granulado"
+              description="Quando a cena pesa, o render cai de resolução e a imagem fica granulada. 0 trava na resolução nativa (sem granulado); acima disso, troca nitidez por FPS."
+            >
+              <RangeField
+                label="Granulado sob carga"
+                value={grain}
+                min={0}
+                max={1}
+                step={0.05}
+                valueLabel={grain === 0 ? "desligado" : grain.toFixed(2)}
+                onChange={onGrainChange}
+              />
             </PanelSection>
           </div>
         )}

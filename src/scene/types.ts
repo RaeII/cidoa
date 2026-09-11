@@ -106,6 +106,12 @@ export type TopTextureSettings = {
 export type TextureSettings = {
   enabled: boolean;
   textureKey: string; // pasta de textura da fachada (value do catálogo). Global por ora.
+  /**
+   * Sorteia a textura de cada edifício entre TODAS as texturas ativas do
+   * catálogo (determinístico pelo id da doação). Off = cidade inteira com
+   * `textureKey`. Prédio com textura escolhida na customização ignora o sorteio.
+   */
+  randomPerBuilding: boolean;
   normalScale: number;
   displacementScale: number;
   tilingScale: number;

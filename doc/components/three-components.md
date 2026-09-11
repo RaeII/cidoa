@@ -49,6 +49,8 @@ Componente pequeno por design. Faz três coisas:
 | `environmentSettings` | `EnvironmentSettings` | HDRI / skybox |
 | `reflectionSettings` | `ReflectionSettings` | Probe do envMap dos prédios ([[scene-runtime#Probe de reflexo (envMap dos prédios)]]) |
 | `blockLayoutSettings` | `BlockLayoutSettings` | Tamanho de quadra e largura de rua |
+| `facadeTexturePool` | `readonly string[]` | Texturas sorteáveis por edifício (`value` das ativas do catálogo). Vazio = textura global em tudo. Ver [[scene-textures#Sorteio por edifício]] |
+| `grain` | `number` | Granulado de renderização. `0` = resolução nativa travada. Repassado ao `setGrain` do runtime — ver [[scene-runtime]] |
 | `onStatsChange` | `(stats: SceneStats) => void` | Callback de métricas |
 
 > [!note] Estado próprio

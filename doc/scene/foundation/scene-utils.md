@@ -86,6 +86,7 @@ Utilitários de geração procedural:
 |---|---|
 | `fract(x)` | Parte fracionária de um número |
 | `seeded(seed)` | Gerador de números pseudoaleatórios por seed |
+| `pickIndex(id, salt, length)` | Índice determinístico em `[0, length)` a partir de um id — sorteio estável (mesmo id, mesmo item). `length <= 0` → `0`. Usado no sorteio de textura por edifício ([[scene-textures#Sorteio por edifício]]); coberto pelos asserts de `devAssertions.ts` |
 
 O [[scene-managers|ChunkManager]] usa essas funções para definir, de forma **determinística por chunk**:
 - densidade dos prédios

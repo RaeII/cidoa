@@ -35,6 +35,8 @@ Quando [[three-components|CitySceneCanvas]] monta:
 
 > [!note] initialSettingsRef
 > As settings iniciais são capturadas numa ref para evitar que o `useEffect` de criação rode novamente quando as settings mudarem. O runtime recebe os valores corretos na criação; as atualizações subsequentes são feitas pelos efeitos de sincronização.
+>
+> `facadeTexturePool` fica **fora** dessa ref: vem do catálogo do backend (fetch assíncrono), então chega depois do mount e entra só pelo efeito de sincronização. Ver [[scene-textures#Sorteio por edifício]].
 
 ### Sincronização
 
@@ -48,6 +50,11 @@ useEffect(() => {
 useEffect(() => {
   runtimeRef.current?.updateTextureSettings(textureSettings);
 }, [textureSettings]);
+
+// Catálogo chega depois do mount (fetch): o pool entra por efeito, não no setup.
+useEffect(() => {
+  runtimeRef.current?.setFacadeTexturePool(facadeTexturePool);
+}, [facadeTexturePool]);
 
 useEffect(() => {
   runtimeRef.current?.updateGroundSettings(groundSettings);
@@ -72,7 +79,14 @@ useEffect(() => {
 useEffect(() => {
   runtimeRef.current?.updateTerrainSettings(terrainSettings);
 }, [terrainSettings]);
+
+useEffect(() => {
+  runtimeRef.current?.setGrain(grain);
+}, [grain]);
 ```
+
+> [!note] grain
+> Número solto, não settings object — fica **fora** do `initialSettingsRef` (o `Omit` remove). Efeito de sync roda logo após o efeito de criação, então o runtime já existe. Ver granulado em [[scene-runtime]].
 
 > [!note] terrainSettings
 > Threaded também no `initialSettingsRef` (criação) — um `useEffect` dedicado chama `updateTerrainSettings` quando muda. Ver relevo em [[scene-runtime]].

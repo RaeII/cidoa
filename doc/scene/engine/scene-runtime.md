@@ -59,7 +59,7 @@ A cada frame:
 2. `groundPlane.setPosition(camera.x, camera.z)` — chão segue a câmera
 3. `environmentUpdater.updatePosition(...)` — skybox segue a câmera
 4. **Métricas de FPS** — acumula e suaviza a cada 0.5s
-5. **Resolução dinâmica** — ajusta `renderScale` para atingir `targetFps`. **Desligada no padrão** (`minRenderScale = maxRenderScale = 1`)
+5. **Resolução dinâmica** — ajusta `renderScale` para atingir `targetFps`. **Desligada no padrão** (piso `renderScaleFloor = 1`, controlado pelo granulado do painel)
 6. **CubeCamera** — captura reflexos só quando `cubeDirty` (cena mudou via `add*/update*` ou asset assíncrono chegou), após 180ms sem nova alteração e no máximo a cada `updateInterval` frames (4 no padrão; `followCamera`/`continuous` ligados por padrão recapturam sempre). O culling da câmera principal não invalida o probe fixo. Ver [[#Probe de reflexo (envMap dos prédios)]].
 7. **Culling de acessórios** — a cada 0.25s chama `donationManager.updateAccessoryVisibility(camera.position)`: letreiro, LED, topo e holograma somem além de 80 unidades (fog já os apaga; só a silhueta do prédio importa)
 8. `renderer.render(scene, camera)` — renderiza o frame
@@ -71,7 +71,19 @@ FPS < targetFps - 8  → renderScale -= 0.05 (reduz qualidade)
 FPS > targetFps + 1  → renderScale += 0.025 (aumenta qualidade)
 ```
 
-O `renderScale` é multiplicado pelo `devicePixelRatio` (limitado pelo `dprCap`, `2` no padrão). Com `minRenderScale = 1` os dois ramos ficam presos em `1` e nenhum `setPixelRatio` roda — o render nunca sai da resolução nativa. Baixar `minRenderScale` reativa o mecanismo. Mudanças têm cooldown de 1,5s; o delta imediatamente posterior à captura do cubemap não entra na média, evitando que um frame esporádico de CubeCamera/PMREM deixe a resolução permanentemente baixa em monitores de 60 Hz.
+O `renderScale` é multiplicado pelo `devicePixelRatio` (limitado pelo `dprCap`, `2` no padrão). O piso da queda é `renderScaleFloor`, não `minRenderScale`: começa em `CITY_SCENE_CONFIG.minRenderScale` e é reescrito por `setGrain`. Com piso `1` os dois ramos ficam presos em `1` e nenhum `setPixelRatio` roda — o render nunca sai da resolução nativa.
+
+#### Granulado (`setGrain`)
+
+Granulado = queda de resolução sob carga, visível como imagem granulada. Controle na aba **tela** do [[html-components|CityControlPanel]], estado `grain` do `CitySceneEditor`, **padrão `0`**.
+
+```
+renderScaleFloor = 1 - clamp(grain, 0, 1) * 0.5
+grain 0   → piso 1.00 → downscale desligado, nunca granula
+grain 1   → piso 0.50 → troca nitidez por FPS de forma agressiva
+```
+
+Baixar o granulado sobe `renderScale` até o novo piso **na hora** (`setPixelRatio` + `setSize` imediatos) — sem isso a imagem ficaria granulada até o FPS se recuperar sozinho. Mudanças têm cooldown de 1,5s; o delta imediatamente posterior à captura do cubemap não entra na média, evitando que um frame esporádico de CubeCamera/PMREM deixe a resolução permanentemente baixa em monitores de 60 Hz.
 
 ### 3. Atualizações do React
 
@@ -82,6 +94,7 @@ type CitySceneRuntime = {
   // Configurações da cena
   updateBuildingSettings(settings: BuildingSettings): void
   updateTextureSettings(settings: TextureSettings): void
+  setFacadeTexturePool(keys: readonly string[]): void  // texturas sorteáveis por edifício (catálogo)
   updateGroundSettings(settings: GroundSettings): void
   updateLightSettings(settings: LightSettings): void
   updateHorizonSettings(settings: HorizonSettings): void // distância só dos edifícios; câmera/chão/relevo independentes
@@ -89,6 +102,7 @@ type CitySceneRuntime = {
   updateReflectionSettings(settings: ReflectionSettings): void // probe do envMap; resolution recria o cube target
   updateBlockLayout(settings: BlockLayoutSettings): void
   updateTerrainSettings(settings: TerrainSettings): void
+  setGrain(grain: number): void // 0 = resolução nativa travada; >0 libera o downscale por FPS
 
   // Doações
   addDonation(value: number): void

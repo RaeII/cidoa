@@ -36,6 +36,9 @@ Ao montar, busca `getDashboardStats().donations.count` (mesma rota do dashboard,
 
 Input de quantidade (1..200000) + botão. **Acumulativo** — cada chamada soma. Valida faixa no cliente antes de chamar; backend revalida (400 fora da faixa). Sucesso mostra `+N criados. Total: X`.
 
+> [!tip] Textura dos prédios de teste
+> Doação de teste não carrega textura: quem varia a fachada é a **cena**. Com `randomPerBuilding` ligado (padrão, aba **texturas**), cada prédio sorteia uma entre todas as texturas **ativas do catálogo** ([[personalizacoes]]) — cidade de teste sai com fachadas variadas, não uma só. Sorteio é determinístico pelo id da doação. Ver [[scene-textures#Sorteio por edifício]].
+
 ```ts
 await createTestBuildings(count); // POST /admin/test-buildings { count }
 // → { inserted, total_active }

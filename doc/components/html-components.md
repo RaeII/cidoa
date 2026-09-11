@@ -190,7 +190,14 @@ Componente que monta o painel completo de configuração da cena. **Escondido po
 
 Tipo da aba ativa: `"geral" | "texturas" | "reflexo" | "luz" | "horizonte" | "terreno" | "tela"`. Sete abas → rótulo em `text-xs` pra caber nos 360px do painel.
 
-Props extras da aba **Tela**: `uiVisibility: UIVisibilitySettings` + `onUIVisibilityChange`. Ver [[scene-types#UIVisibilitySettings]].
+Props extras da aba **Tela**: `uiVisibility: UIVisibilitySettings` + `onUIVisibilityChange` (ver [[scene-types#UIVisibilitySettings]]) e `grain: number` + `onGrainChange`.
+
+Aba **Tela** tem duas seções inline (não componentizadas):
+
+| Seção | Controla |
+|---|---|
+| Componentes da tela | Checkboxes de `uiVisibility`, persistidos em localStorage |
+| Granulado | `RangeField` 0–1 (passo 0.05) do granulado de renderização. **Padrão `0`** = resolução nativa travada, rótulo "desligado". Acima disso o runtime troca nitidez por FPS sob carga — ver `setGrain` em [[scene-runtime]] |
 
 `CitySceneEditor` só encaminha `onCameraDebugChange` ao canvas quando `cameraLog` está visível. Com o log desligado, as amostras de câmera a cada 200ms não atualizam estado React. Estatísticas iguais também são ignoradas pelo runtime.
 
@@ -272,6 +279,7 @@ Configurações de textura PBR das fachadas:
 | Controle | Descrição |
 |---|---|
 | `enabled` | Ativa/desativa texturas |
+| `randomPerBuilding` | Sorteia a textura de cada prédio entre as ativas do catálogo (padrão ligado). Desligado = cidade inteira com a textura selecionada. Ver [[scene-textures#Sorteio por edifício]] |
 | `clayRender` | Espelhamento nas superfícies (roughness baixo + metalness alto) |
 | `normalScale` | Intensidade do mapa de normais |
 | `displacementScale` | Relevo visual via displacement map (0–5) |

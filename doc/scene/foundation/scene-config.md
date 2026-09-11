@@ -53,6 +53,7 @@ Valores padrão das texturas PBR das fachadas:
 |---|---|
 | `enabled` | `true` |
 | `textureKey` | `"texture/Facade006_1K-mirrored-PNG"` (= value seed; pasta da fachada ativa, ver [[scene-textures]]) |
+| `randomPerBuilding` | `true` — cada prédio sorteia uma textura do catálogo (ver [[scene-textures#Sorteio por edifício]]). `false` = cidade inteira com `textureKey` |
 | `normalScale` | `0` |
 | `displacementScale` | — |
 | `tilingScale` | — |
@@ -255,8 +256,8 @@ Configuração mais global da cena. Define a estrutura completa de `CitySceneCon
 | `maxHeight` | Cap visual absoluto (teto de altura; prédios nunca ultrapassam) |
 | `maxBuildingsPerChunk` | Limite de prédios por chunk |
 | `dprCap` | Limite máximo de device pixel ratio. `2` = resolução nativa em retina; só corta telas 3x+ |
-| `targetFps` | FPS alvo para resolução dinâmica (inerte enquanto `minRenderScale = 1`) |
-| `minRenderScale` | Escala mínima de render. `1` = escala dinâmica **desligada**: render sempre em resolução nativa. Baixar reativa o downscale por FPS |
+| `targetFps` | FPS alvo para resolução dinâmica (inerte enquanto o granulado for `0`) |
+| `minRenderScale` | Piso **inicial** da escala de render. `1` = escala dinâmica desligada no boot. Em runtime quem manda é o `setGrain` do granulado — ver [[scene-runtime]] |
 | `maxRenderScale` | Escala máxima de render |
 | `far` | `2_000`: alcance fixo da câmera principal, independente da distância dos edifícios |
 | `reflectionFar` | `260`: alcance do probe, preservado para não ampliar custo das seis capturas |

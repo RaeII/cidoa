@@ -26,6 +26,10 @@ type UseCitySceneOptions = {
   environmentSettings: EnvironmentSettings;
   reflectionSettings: ReflectionSettings;
   blockLayoutSettings: BlockLayoutSettings;
+  /** Texturas sorteáveis por edifício (values do catálogo). Vazio = textura global em tudo. */
+  facadeTexturePool: readonly string[];
+  /** Granulado de renderização: 0 = resolução nativa travada, 1 = downscale agressivo sob carga. */
+  grain: number;
   onStatsChange: (stats: SceneStats) => void;
   onCameraDebugChange?: (cameraInfo: CameraDebugInfo) => void;
   onHoverChange?: (value: number | null, x: number, y: number) => void;
@@ -43,13 +47,17 @@ export function useCityScene({
   environmentSettings,
   reflectionSettings,
   blockLayoutSettings,
+  facadeTexturePool,
+  grain,
   onStatsChange,
   onCameraDebugChange,
   onHoverChange,
   onBuildingClick,
 }: UseCitySceneOptions) {
   const runtimeRef = useRef<CitySceneRuntime | null>(null);
-  const initialSettingsRef = useRef<Omit<UseCitySceneOptions, "mountRef" | "onStatsChange">>({
+  const initialSettingsRef = useRef<
+    Omit<UseCitySceneOptions, "mountRef" | "onStatsChange" | "grain" | "facadeTexturePool">
+  >({
     buildingSettings,
     textureSettings,
     groundSettings,
@@ -111,6 +119,11 @@ export function useCityScene({
     runtimeRef.current?.updateTextureSettings(textureSettings);
   }, [textureSettings]);
 
+  // Catálogo chega depois do mount (fetch): o pool entra por efeito, não no setup.
+  useEffect(() => {
+    runtimeRef.current?.setFacadeTexturePool(facadeTexturePool);
+  }, [facadeTexturePool]);
+
   useEffect(() => {
     runtimeRef.current?.updateGroundSettings(groundSettings);
   }, [groundSettings]);
@@ -138,6 +151,10 @@ export function useCityScene({
   useEffect(() => {
     runtimeRef.current?.updateBlockLayout(blockLayoutSettings);
   }, [blockLayoutSettings]);
+
+  useEffect(() => {
+    runtimeRef.current?.setGrain(grain);
+  }, [grain]);
 
   // Referência estável: delega ao runtime atual sem recriar a função
   const addDonation = useCallback((value: number) => {

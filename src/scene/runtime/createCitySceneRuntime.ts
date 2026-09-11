@@ -51,10 +51,14 @@ export type CitySceneRuntime = {
   updateEnvironmentSettings: (settings: EnvironmentSettings) => void;
   updateReflectionSettings: (settings: ReflectionSettings) => void;
   updateBlockLayout: (settings: BlockLayoutSettings) => void;
+  /** 0 = sem granulado (resolução nativa travada). >0 libera o downscale por FPS. */
+  setGrain: (grain: number) => void;
   addDonation: (value: number) => void;
   addDonations: (values: number[]) => void;
   setDonations: (entries: ReadonlyArray<{ id: number; value: number }>) => void;
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
+  /** Texturas sorteáveis por edifício (values do catálogo). Vazio = textura global em tudo. */
+  setFacadeTexturePool: (keys: readonly string[]) => void;
   focusOnDonation: (donationId: number) => void;
   clearFocus: () => void;
   dispose: () => void;
@@ -119,6 +123,8 @@ export function createCitySceneRuntime({
   renderer.toneMappingExposure = 1.45;
 
   let renderScale = 1;
+  // Piso da escala dinâmica. 1 = downscale desligado (sem granulado), o padrão.
+  let renderScaleFloor = CITY_SCENE_CONFIG.minRenderScale;
   const getPixelRatio = () =>
     Math.min(window.devicePixelRatio || 1, CITY_SCENE_CONFIG.dprCap) * renderScale;
 
@@ -349,7 +355,7 @@ export function createCitySceneRuntime({
     if (time - lastResolutionChangeAt < 1500) return;
     const previousScale = renderScale;
     if (fps < CITY_SCENE_CONFIG.targetFps - 8) {
-      renderScale = Math.max(CITY_SCENE_CONFIG.minRenderScale, renderScale - 0.05);
+      renderScale = Math.max(renderScaleFloor, renderScale - 0.05);
     } else if (fps > CITY_SCENE_CONFIG.targetFps + 1) {
       renderScale = Math.min(CITY_SCENE_CONFIG.maxRenderScale, renderScale + 0.025);
     }
@@ -524,6 +530,10 @@ export function createCitySceneRuntime({
       donationManager.updateTextureSettings(settings);
       markCubeDirty();
     },
+    setFacadeTexturePool(keys) {
+      donationManager.setFacadeTexturePool(keys);
+      markCubeDirty();
+    },
     updateGroundSettings(settings) {
       groundPlane.update(settings);
       // Zona plana do relevo = chão da cidade: mantém a mesma cor.
@@ -556,6 +566,17 @@ export function createCitySceneRuntime({
       donationManager.updateBlockLayout(settings);
       syncTerrainToCity();
       markCubeDirty();
+    },
+    setGrain(grain) {
+      // grain 0..1 -> piso 1..0.5. Em 0 o piso é 1: updateDynamicResolution nunca desce.
+      renderScaleFloor = 1 - Math.min(Math.max(grain, 0), 1) * 0.5;
+      if (renderScale < renderScaleFloor) {
+        // Subir na hora, senão a imagem fica granulada até o FPS se recuperar sozinho.
+        renderScale = renderScaleFloor;
+        lastResolutionChangeAt = performance.now();
+        renderer.setPixelRatio(getPixelRatio());
+        renderer.setSize(mount.clientWidth, mount.clientHeight, false);
+      }
     },
     updateEnvironmentSettings(settings) {
       currentEnvironment = settings;

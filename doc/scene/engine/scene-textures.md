@@ -117,15 +117,24 @@ O transcoder mora em `public/basis/` (`basis_transcoder.js` + `.wasm`, cópia de
 
 [[scene-types#BuildingCustomization|BuildingCustomization.textureKey]] (`string | null`, `null` = herda a global).
 
-- Prédio com textura **igual à global** fica no `InstancedMesh` — sem draw call próprio.
-- Prédio com textura **diferente** entra em `customShapeMeshes` (mesmo caminho já usado por shape/tiling/textureTransform): mesh dedicado com material clonado.
+Textura por edifício **não** custa mesh dedicado: cada textura em uso tem o próprio `InstancedMesh` (**grupo de fachada**, ver [[scene-managers#Grupos de fachada]]). Draw calls = nº de texturas, não de prédios.
+
+- Grupo 0 = textura global da cena (`facadeMaterial`). Prédio sem textura própria e sem sorteio fica nele.
+- Demais grupos = pool do catálogo (`setFacadeTexturePool`), um material clonado por pasta.
+- Textura própria com grupo → o prédio só muda de `InstancedMesh`. Só cai em `customShapeMeshes` a pasta **sem** grupo (fora do pool) — `hasUngroupedFacadeTexture`.
 - O set do clone vive num `WeakMap<Material, FacadeTextureSet>` — **não** em `userData`, porque `Material.copy` serializa `userData` com JSON e estouraria com `THREE.Texture` dentro.
-- `applyBuildingFacadeTexture` é **idempotente** (compara com a pasta já aplicada), então `syncCustomShapes` pode chamar em todo rebuild sem custo. Também guarda contra corrida: se a seleção mudar enquanto baixa, o resultado velho é descartado.
-- Trocar a textura **global** dispara `rebuildInstances()` — prédios entram/saem do `InstancedMesh` conforme a textura própria passe a coincidir (ou não) com a nova global.
+- `applyFacadeFolder` (usado por `applyBuildingFacadeTexture` e pelos grupos) é **idempotente**: compara com a pasta já aplicada e sai cedo, então `syncCustomShapes` pode chamar em todo rebuild sem custo. Também guarda contra corrida: se a seleção mudar enquanto baixa, o resultado velho é descartado.
+- Trocar a textura **global** refaz os grupos (a pasta global é sempre o grupo 0) + `rebuildInstances()`.
 - UI: [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]], seção **Textura** (opção "Padrão" = `null`).
 
-> [!note] ponytail
-> Prédio com textura própria = um mesh dedicado (com draws conforme os grupos de material da geometria). Serve pro catálogo curado atual. Se a maioria dos prédios passar a ter textura própria, agrupar em um `InstancedMesh` por textura (draw calls = nº de texturas/grupos, não de prédios).
+### Sorteio por edifício
+
+`TextureSettings.randomPerBuilding` (padrão **ligado**, aba **texturas**): prédio **sem** textura escolhida sorteia uma entre **todas as texturas ativas do catálogo**, em vez da cidade inteira usar `textureKey`. Serve pra ver a cidade de teste com variedade real ([[edificios-teste]]).
+
+- Pool = `value` das texturas do catálogo, plumbado do editor até o manager: `facadeTexturePool` → [[three-components|CitySceneCanvas]] → [[scene-hooks|useCityScene]] → `runtime.setFacadeTexturePool` → `donationManager.setFacadeTexturePool`. Toggle desligado = lista vazia = textura global em tudo.
+- Sorteio é **determinístico pelo id da doação** (`pickIndex`, ver [[scene-utils#random.ts]]): o mesmo prédio cai sempre na mesma textura — reload, troca de filtro e recriação do runtime não embaralham a cidade.
+- Pasta cadastrada no catálogo mas ausente de `src/assets/texture/` é ignorada (o prédio fica na textura global, nunca sem textura).
+- Customização do usuário **ganha** do sorteio.
 
 ## Admin: cadastradas × não-cadastradas
 

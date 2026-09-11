@@ -15,7 +15,7 @@ export const DEFAULT_REFLECTION_SETTINGS: ReflectionSettings = {
   probeZ: 0,
   followCamera: true,
   // Sem deslocamento de céu na captura — o cube vê o mesmo horizonte do render normal.
-  skyDrop: 0,
+  skyDrop: -0.015,
   // Vetor de reflexão cru, sem achatamento em direção ao horizonte.
   envHorizon: 0,
   envRotY: 0,

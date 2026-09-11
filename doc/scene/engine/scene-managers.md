@@ -126,7 +126,7 @@ O manager usa um único par de materiais para prédios e um material de asfalto 
 
 | Material | Tipo | Descrição |
 |---|---|---|
-| `facadeMaterial` | `MeshPhysicalMaterial` | Textura de fachada com shader triplanar + cube envMap dinâmico. `clearcoat 1.0` / `clearcoatRoughness 0.02` — verniz que dá o brilho de vidro nas quinas; sem ele a fachada fica fosca mesmo com envMap |
+| `facadeMaterial` | `MeshPhysicalMaterial` | Textura de fachada com shader triplanar + cube envMap dinâmico. `clearcoat 1.0` / `clearcoatRoughness 0.02` — verniz que dá o brilho de vidro nas quinas; sem ele a fachada fica fosca mesmo com envMap. É o material do **grupo 0**; cada outra textura em uso ganha um clone (ver [[#Grupos de fachada]]). `getAllFacadeMaterials()` devolve todos — é por ele que noite, envMap, reflexo e settings alcançam os clones |
 | `topMaterial` | `MeshPhysicalMaterial` | Textura de concreto para o topo dos prédios; mesmo clearcoat da fachada. Cor fixa `TOP_CEMENT_COLOR` (`#b9b6b1`) — laje não segue a cor do edifício nem a da customização |
 | `focusFacadeMaterial` | `MeshPhysicalMaterial` | Clone do facadeMaterial para o edifício em destaque (opacidade total quando o instanced mesh fica semitransparente) |
 | `focusTopMaterial` | `MeshPhysicalMaterial` | Clone do topMaterial para o edifício em destaque |
@@ -313,11 +313,30 @@ Quando um edifício recebe uma customização via `updateDonationCustomization`,
 > | Nenhuma customização, ou foco ativo | `currentBuildingColor` | `null` |
 > | Alguma customização | branco (`INSTANCE_COLOR_BASE`) | cor real por instância |
 >
-> Sem a base branca, cor sai ao quadrado: `#e6e6e6` (linear 0.33) × 0.33 = 0.11 → cidade toda escurecia no instante em que um único prédio recebia cor customizada.
+> Sem a base branca, cor sai ao quadrado: `#d4d4d4` (linear 0.33) × 0.33 = 0.11 → cidade toda escurecia no instante em que um único prédio recebia cor customizada.
 >
 > `topMaterial` fica **fora** dessa alternância: `applyTriplanarShader` remove o `#include <color_fragment>` de todo material cujo `cacheKey` contém `top`, então a laje ignora vColor/instanceColor e mantém `TOP_CEMENT_COLOR`. `instanceColor` vale pra geometria inteira — sem esse descarte, a laje seria pintada com a cor do edifício.
 
 Para edifícios com `buildingShape !== "default"`, a cor é aplicada diretamente nos materiais clonados (sem instanceColor) via `updateCustomShapeColor`.
+
+#### Grupos de fachada
+
+Um `InstancedMesh` **por textura de fachada em uso** — `facadeGroups`. Draw calls = nº de texturas, não de prédios: é o que permite cada edifício ter a própria textura (sorteada ou escolhida) com a cidade cheia.
+
+| Campo do grupo | O que é |
+|---|---|
+| `folder` | Pasta da textura. `""` = grupo 0, herda a textura global da cena |
+| `material` | Grupo 0 = `facadeMaterial`; demais = clone (mesmo `cacheKey` → **um** programa de shader pra todos) |
+| `mesh` | `InstancedMesh(buildingGeometry, [material, topMaterial], capacity)`. O topo é o mesmo material em todos os grupos — laje de cimento não varia |
+| `colors` | Buffer de `instanceColor` compactado **do grupo** |
+| `logicalCount` / `renderCount` | Instâncias atribuídas / efetivamente escritas (pós-culling) |
+
+- **Índices lógicos não mudam.** `instanceGroup[i]` (`Uint8Array`, teto de 256 texturas) diz em qual grupo a instância lógica `i` vive. Picking, culling, `donationTransforms` e acessórios continuam indexados por instância lógica — nada disso sabe que existem N meshes.
+- `compactVisibleInstances` distribui as instâncias visíveis pelos grupos numa passada só (matriz + cor), e fecha cada mesh com `count = renderCount`.
+- **Capacidade por grupo** vem de `ensureGroupCapacity(group, group.logicalCount)` no fim do `rebuildInstances`, com a contagem real daquela textura. Grupo nasce com 64 — nascer com a capacidade global daria N × total de instâncias alocadas.
+- `rebuildFacadeGroups()` refaz a lista a partir do pool + textura global; roda em `setFacadeTexturePool` e na troca da textura global (a pasta global é sempre o grupo 0), sempre seguido de `rebuildInstances()`.
+- Trocar a textura de **um** prédio instanciado não refaz o layout: remapeia `instanceGroup[i]`, ajusta a capacidade do grupo destino e recompacta.
+- O prédio em destaque (`focusFacadeMaterial`) recebe a pasta do próprio grupo — o realce não volta pra textura global.
 
 #### Customizações que exigem Mesh próprio (`needsCustomMesh`)
 
@@ -326,7 +345,7 @@ Algumas personalizações precisam de **estado de material próprio** por edifí
 - `buildingShape !== "default"` (ex: torre torcida, octogonal, setback, tapered, Chrysler, Hearst, Empire, Taipei ou One Trade)
 - `Math.abs(tilingScale - 1) > 0.001` (tiling de textura customizado por edifício)
 - `textureTransform` diferente do padrão `{ scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0 }` (ajuste manual de textura por edifício)
-- `textureKey` apontando pra uma pasta **diferente** da textura global da cena (`hasOwnFacadeTexture`). `null` ou igual à global → continua no `InstancedMesh`. Trocar a textura global chama `rebuildInstances()`, porque prédios entram/saem dessa condição. Ver [[scene-textures]]
+- `textureKey` apontando pra uma pasta **sem grupo de fachada** (`hasUngroupedFacadeTexture`) — pasta fora do pool do catálogo. Textura própria **com** grupo não sai do instancing: o prédio só troca de `InstancedMesh`. Ver [[#Grupos de fachada]] e [[scene-textures]]
 
 Quando a flag transiciona (entra ou sai do `customShapeMeshes`), `updateDonationCustomization` chama `rebuildInstances()` e re-aplica `applyFocus(focusedDonationId)`. Mudanças que não atravessam essa fronteira (ex: ajustar tiling de 2.0 → 2.5 num prédio que já é custom) atualizam direto o uniform `uTilingMultiplier` do material — sem rebuild.
 

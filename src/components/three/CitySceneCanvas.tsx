@@ -34,6 +34,10 @@ export type CitySceneCanvasProps = {
   environmentSettings: EnvironmentSettings;
   reflectionSettings: ReflectionSettings;
   blockLayoutSettings: BlockLayoutSettings;
+  /** Texturas sorteáveis por edifício (values do catálogo). Vazio = textura global em tudo. */
+  facadeTexturePool: readonly string[];
+  /** Granulado de renderização: 0 = resolução nativa travada, 1 = downscale agressivo sob carga. */
+  grain: number;
   onStatsChange: (stats: SceneStats) => void;
   onCameraDebugChange?: (cameraInfo: CameraDebugInfo) => void;
   onHoverChange?: (value: number | null, x: number, y: number) => void;
@@ -52,6 +56,8 @@ export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvas
       environmentSettings,
       reflectionSettings,
       blockLayoutSettings,
+      facadeTexturePool,
+      grain,
       onStatsChange,
       onCameraDebugChange,
       onHoverChange,
@@ -72,6 +78,8 @@ export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvas
       environmentSettings,
       reflectionSettings,
       blockLayoutSettings,
+      facadeTexturePool,
+      grain,
       onStatsChange,
       onCameraDebugChange,
       onHoverChange,
