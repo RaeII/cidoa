@@ -105,14 +105,13 @@ Configurações do chão:
 ```typescript
 type GroundSettings = {
   color: string;
-  size: number;          // lado do quadrado do chão local (padrão: CITY_SCENE_CONFIG.groundSize = 600)
   roughness: number;
   metalness: number;
   materialType: GroundMaterialType;
 }
 ```
 
-`size` vira `mesh.scale` do plano unitário ([[scene-builders#createGroundPlane.ts]]) — sem recriar geometria. Independente de [[scene-types#HorizonSettings|`renderDistance`]]: encolher o chão não muda o alcance do horizonte. Acima de ~850 a meia-diagonal passa do `far` padrão e os cantos são cortados.
+Sem campo de tamanho: o lado do plano é derivado de [[scene-types#HorizonSettings|`renderDistance`]] `* 2.2` no runtime e aplicado por `setSpan` ([[scene-builders#createGroundPlane.ts]]) — sem recriar geometria. Tamanho manual voltaria a deixar a borda do mesh dentro do alcance da câmera, e a silhueta do plano apareceria no lugar da linha reta do horizonte.
 
 ---
 

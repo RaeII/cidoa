@@ -132,8 +132,6 @@ export type BuildingSettings = {
 
 export type GroundSettings = {
   color: string;
-  /** Lado do quadrado do chão local (segue a câmera). Não mexe no alcance do horizonte. */
-  size: number;
   roughness: number;
   metalness: number;
   materialType: GroundMaterialType;
@@ -302,7 +300,6 @@ export type CitySceneConfig = {
   sceneBackground: string;
   sceneFogColor: string;
   sceneFogDensity: number;
-  groundSize: number;
   cameraFov: number;
   cameraNear: number;
   initialCameraPosition: {

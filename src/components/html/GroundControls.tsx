@@ -1,7 +1,6 @@
 import type { GroundMaterialType, GroundSettings } from "../../scene/types";
 import { ColorField } from "./controls/ColorField";
 import { PanelSection } from "./controls/PanelSection";
-import { RangeField } from "./controls/RangeField";
 
 type GroundControlsProps = {
   value: GroundSettings;
@@ -14,19 +13,10 @@ export function GroundControls({ value, onChange }: GroundControlsProps) {
       title="Chão"
       description="Altere o tamanho, a cor do chão e o acabamento do material."
     >
-      <RangeField
-        label="Tamanho do chão"
-        value={value.size}
-        min={100}
-        max={1200}
-        step={10}
-        onChange={(size) => onChange({ ...value, size })}
-      />
-
       <p className="mb-4 text-xs leading-5 text-white/50">
-        Lado do quadrado cinza que acompanha a câmera. Limitado pela distância do horizonte
-        (aba "horizonte"): acima de 1,25× o horizonte os cantos seriam cortados, então o valor
-        aqui vira um teto — volta sozinho quando o horizonte é ampliado.
+        O tamanho do chão não tem controle próprio: sai de 2,2× a distância do horizonte, pra
+        borda do plano cair sempre além do alcance da câmera. Assim quem corta é o alcance, a uma
+        distância constante — o horizonte vira uma linha reta, sem canto nem curva.
       </p>
 
       <ColorField

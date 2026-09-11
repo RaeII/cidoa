@@ -129,17 +129,18 @@ runtime.updateHorizonSettings({ ...settings.horizonSettings, distance: 600, back
 advance();
 assert(stats.culled < hiddenBehind, "Controle traseiro não restaurou os prédios");
 // Horizonte curto tem que encolher o chão: canto do plano dentro do far, sem vazio cortado.
-const groundCorner = (size) => (size / 2) * Math.SQRT2;
-assert.equal(ground.scale.x, settings.groundSettings.size, "Horizonte padrão não deve mexer no chão");
-runtime.updateHorizonSettings({ ...settings.horizonSettings, renderDistance: 200 });
+// Invariante da linha do horizonte: a borda do MESH tem que ficar além do far plane em toda
+// direção horizontal. Se falhar, a silhueta do quadrado aparece de volta no lugar da linha reta.
+const groundEdgeBeyondFar = () => ground.scale.x / 2 > camera.far;
+assert(groundEdgeBeyondFar(), "Borda do chão entrou no far plane (quadrado volta a aparecer)");
+for (const renderDistance of [60, 200, 600, 2000]) {
+  runtime.updateHorizonSettings({ ...settings.horizonSettings, renderDistance });
+  advance();
+  assert.equal(camera.far, renderDistance, "camera.far não seguiu o horizonte");
+  assert(groundEdgeBeyondFar(), `Borda do chão apareceu com horizonte ${renderDistance}`);
+}
+runtime.updateHorizonSettings(settings.horizonSettings);
 advance();
-assert(groundCorner(ground.scale.x) < camera.far, "Canto do chão passou do far plane");
-assert(ground.scale.x < settings.groundSettings.size, "Horizonte curto não encolheu o chão");
-runtime.updateGroundSettings({ ...settings.groundSettings, size: 1200 });
-assert(groundCorner(ground.scale.x) < camera.far, "Aba chão furou o limite do horizonte");
-runtime.updateHorizonSettings({ ...settings.horizonSettings, renderDistance: 2000 });
-advance();
-assert.equal(ground.scale.x, 1200, "Chão não voltou ao valor do painel com horizonte amplo");
 runtime.updateGroundSettings(settings.groundSettings);
 runtime.updateHorizonSettings(settings.horizonSettings);
 advance();
@@ -159,13 +160,26 @@ function floatViewPosition(vector, matrix) {
 }
 ground.position.set(0, -0.05, 0);
 ground.updateMatrixWorld(true);
+// Três vértices BEM separados (x mínimo, x máximo, y máximo). Vizinhos na borda arredondada
+// são quase colineares: o plano ajustado neles amplifica o arredondamento e mede ruído.
+const planeSample = (() => {
+  const position = ground.geometry.attributes.position;
+  const picked = [0, 0, 0];
+  let minX = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (let i = 0; i < position.count; i++) {
+    if (position.getX(i) < minX) { minX = position.getX(i); picked[0] = i; }
+    if (position.getX(i) > maxX) { maxX = position.getX(i); picked[1] = i; }
+    if (position.getY(i) > maxY) { maxY = position.getY(i); picked[2] = i; }
+  }
+  return picked;
+})();
 let worstError = 0;
 for (let yaw = 0; yaw < Math.PI * 2; yaw += 0.03) {
   camera.position.set(Math.sin(yaw) * 23, 19, Math.cos(yaw) * 23);
   camera.lookAt(0, 9, 0);
   camera.updateMatrixWorld(true);
   const modelView = new THREE.Matrix4().multiplyMatrices(camera.matrixWorldInverse, ground.matrixWorld);
-  const points = [0, 1, 2].map((i) => floatViewPosition(
+  const points = planeSample.map((i) => floatViewPosition(
     new THREE.Vector3().fromBufferAttribute(ground.geometry.attributes.position, i), modelView));
   const roundedPlane = new THREE.Plane().setFromCoplanarPoints(...points);
   const center = ground.position.clone().applyMatrix4(camera.matrixWorldInverse);

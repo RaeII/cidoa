@@ -267,7 +267,7 @@ Também gerencia:
 
 [[scene-runtime|createCitySceneRuntime.ts]] é o cérebro do Three.js. Orquestra scene, camera, renderer, controls, builders e managers.
 
-Tamanho do chão sai de `GroundSettings.size` (slider na aba **horizonte**, junto do alcance), limitado pelo horizonte. Distância na aba **horizonte** limita edifícios. Slider `renderDistance` (60–2000) mexe em `camera.far`, raio do céu e teto do chão (`* 1.25`), sem tocar no cull — puxar pra perto mata o vazio entre cidade e horizonte. Chão local acompanha câmera; sem camada cinza adicional atrás do terreno. Montanhas mantêm malha e cores; probe conserva alcance próprio. Ver [[scene-runtime#Alcance visual e distância dos edifícios]].
+Tamanho do chão não tem slider: sai de `renderDistance * 2.2` no runtime. Distância na aba **horizonte** limita edifícios. Slider `renderDistance` (60–2000) mexe em `camera.far`, raio do céu e lado do chão (`* 2.2`), sem tocar no cull — puxar pra perto mata o vazio entre cidade e horizonte. Linha do horizonte é RETA porque a borda do plano fica sempre além do `far`: quem corta é o far plane, a distância constante. Formato do mesh (quadrado, disco, canto arredondado) não aparece. Chão local acompanha câmera; sem camada cinza adicional atrás do terreno. Montanhas mantêm malha e cores; probe conserva alcance próprio. Ver [[scene-runtime#Alcance visual e distância dos edifícios]].
 
 ## Diagrama de Fluxo
 
