@@ -122,9 +122,11 @@ export function createTerrain(
     wireframe: settings.wireframe,
   });
 
-  // Cull de distância, mesmo critério dos prédios (frontal / traseiro). O relevo é um
-  // mesh só — não dá pra compactar instâncias, então o corte é no fragmento. Some só a
-  // colina: a zona plana tem a cor do plano de chão que fica logo abaixo.
+  // Cull de distância no fragmento (frontal / traseiro) — o relevo é um mesh só, não dá pra
+  // compactar instâncias. O teste é RADIAL (dot(delta, delta) > limite): a borda que ele produz
+  // é um ARCO. Por isso o runtime alimenta esse limite com o alcance do HORIZONTE, não com a
+  // distância dos edifícios: o arco fica fora do frustum e quem corta é o far plane (reta).
+  // Ver GROUND_SPAN / TERRAIN_CULL_SPAN em createCitySceneRuntime.
   const NO_CULL = 1e12; // Infinity em uniform float é terreno de driver
   const cullUniforms = {
     uCullOrigin: { value: new THREE.Vector3() },
@@ -133,6 +135,8 @@ export function createTerrain(
     uCullBackSq: { value: NO_CULL },
     uCullEnabled: { value: 1 },
   };
+  // Exposto pro check headless conferir que o arco fica fora do frustum.
+  material.userData.cullUniforms = cullUniforms;
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, cullUniforms);
     shader.vertexShader = shader.vertexShader

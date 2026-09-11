@@ -31,6 +31,14 @@ import { runDevAssertionsOnce } from "../utils/devAssertions";
 // 2.0 seria o mínimo exato; 2.2 dá folga para a câmera olhar de cima (a borda fica mais longe).
 const GROUND_SPAN = 2.2;
 
+// Raio do cull do relevo, em relação a `camera.far`. O cull do relevo é radial, então a borda
+// que ele desenha é um ARCO — e com o alcance dos EDIFÍCIOS (208 por padrão) esse arco caía bem
+// dentro do campo de visão, cortando as colinas numa curva antes da névoa fechar. Amarrado ao
+// horizonte e com folga para o canto do frustum (~1.55*far com FOV 58° em 16:9), o arco nunca
+// entra na imagem: sobra o corte do far plane, que é reto. Também cumpre o que o painel promete
+// nos controles de edifício ("sem cortar o chão ou as montanhas").
+const TERRAIN_CULL_SPAN = 1.8;
+
 type CitySceneRuntimeOptions = {
   mount: HTMLDivElement;
   buildingSettings: BuildingSettings;
@@ -271,7 +279,8 @@ export function createCitySceneRuntime({
     reflectionSettings.reflectionDistanceEnd,
   );
   donationManager.setRenderDistance(horizonSettings.distance, horizonSettings.backDistance);
-  terrainRig.setRenderDistance(horizonSettings.distance, horizonSettings.backDistance);
+  const terrainCullRadius = () => currentHorizon.renderDistance * TERRAIN_CULL_SPAN;
+  terrainRig.setRenderDistance(terrainCullRadius(), terrainCullRadius());
   // Depois do manager: applyNightMode acende as janelas e ajusta o reflexo da fachada.
   applyNightMode();
   terrainRig.setCityRadius(donationManager.getCityRadius());
@@ -575,9 +584,9 @@ export function createCitySceneRuntime({
     },
     updateHorizonSettings(settings) {
       currentHorizon = settings;
-      // Edifícios, chão da cidade e relevo usam esse limite; a câmera mantém o alcance visual.
+      // Edifícios usam distance/backDistance; o relevo segue o horizonte (arco fora do frustum).
       donationManager.setRenderDistance(settings.distance, settings.backDistance);
-      terrainRig.setRenderDistance(settings.distance, settings.backDistance);
+      terrainRig.setRenderDistance(terrainCullRadius(), terrainCullRadius());
       if (scene.fog instanceof THREE.FogExp2) {
         scene.fog.density = settings.fogDensity;
       }

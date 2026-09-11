@@ -133,12 +133,23 @@ assert(stats.culled < hiddenBehind, "Controle traseiro não restaurou os prédio
 // direção horizontal. Se falhar, a silhueta do quadrado aparece de volta no lugar da linha reta.
 const groundEdgeBeyondFar = () => ground.scale.x / 2 > camera.far;
 assert(groundEdgeBeyondFar(), "Borda do chão entrou no far plane (quadrado volta a aparecer)");
+// O cull do relevo é RADIAL: o arco só some se o raio passar do canto do frustum (~1.55*far
+// com FOV 58° em 16:9). Amarrado ao alcance dos EDIFÍCIOS (208), o arco cortava as colinas.
+const terrainCullRadius = () => Math.sqrt(terrain.material.userData.cullUniforms.uCullFrontSq.value);
+const terrainCullBackRadius = () => Math.sqrt(terrain.material.userData.cullUniforms.uCullBackSq.value);
 for (const renderDistance of [60, 200, 600, 2000]) {
   runtime.updateHorizonSettings({ ...settings.horizonSettings, renderDistance });
   advance();
   assert.equal(camera.far, renderDistance, "camera.far não seguiu o horizonte");
   assert(groundEdgeBeyondFar(), `Borda do chão apareceu com horizonte ${renderDistance}`);
+  assert(terrainCullRadius() > camera.far * 1.6, `Arco do relevo entrou no frustum (${renderDistance})`);
+  assert(terrainCullBackRadius() > camera.far * 1.6, `Arco traseiro do relevo entrou no frustum (${renderDistance})`);
 }
+// Slider de edifício não pode mais encolher o arco do relevo — o painel promete isso.
+runtime.updateHorizonSettings({ ...settings.horizonSettings, distance: 100, backDistance: 10 });
+advance();
+assert(terrainCullRadius() > camera.far * 1.6, "Distância dos edifícios voltou a cortar o relevo");
+assert(terrainCullBackRadius() > camera.far * 1.6, "Distância traseira voltou a cortar o relevo");
 runtime.updateHorizonSettings(settings.horizonSettings);
 advance();
 runtime.updateGroundSettings(settings.groundSettings);
