@@ -9,6 +9,7 @@ export function createDefaultUIVisibilitySettings(): UIVisibilitySettings {
     bulkInput: true,
     blockLayoutInput: true,
     renderDistanceCard: false,
+    donationFilter: true,
   };
 }
 
@@ -33,6 +34,8 @@ export function loadUIVisibilitySettings(): UIVisibilitySettings {
         typeof parsed.renderDistanceCard === "boolean"
           ? parsed.renderDistanceCard
           : defaults.renderDistanceCard,
+      donationFilter:
+        typeof parsed.donationFilter === "boolean" ? parsed.donationFilter : defaults.donationFilter,
     };
   } catch {
     return defaults;

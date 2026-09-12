@@ -88,6 +88,7 @@ Barra de filtros das doações. Presentacional — recebe listas e filtro, emite
 - Select de **ONG**
 - Botão **Limpar** — reseta o filtro
 - Sem estado próprio nem Three.js — só dispara `onChange`
+- Montada só com dataset pronto **e** `uiVisibility.donationFilter` ligado (aba **Tela**)
 
 **Props:**
 | Prop | Tipo | Descrição |

@@ -232,6 +232,7 @@ Controla visibilidade dos componentes HTML sobrepostos na tela. Persiste prefer�
 | `bulkInput` | `true` | Input de geração em lote (mín/máx/qtd) |
 | `blockLayoutInput` | `true` | Input de configuração de quadras |
 | `renderDistanceCard` | `false` | Card flutuante das distâncias dos edifícios ([[html-components#RenderDistanceCard.tsx]]) |
+| `donationFilter` | `true` | Barra de filtros das doações (região/UF/cidade/ONG) |
 
 **Funções exportadas:**
 - `createDefaultUIVisibilitySettings()` — tudo visível, menos `renderDistanceCard` (card de gravação começa fechado)
