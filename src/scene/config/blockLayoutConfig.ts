@@ -4,8 +4,8 @@ export function createDefaultBlockLayoutSettings(): BlockLayoutSettings {
   return {
     blockSize: 8,
     streetWidth: 6.0,
-    towerRatio: 0.12,
-    towersPerBlock: 8,
+    towerRatio: 0.33,
+    towersPerBlock: 14,
     baseHeightCap: 0.70,
     lotColor: "#404040",
     sidewalkColor: "#454545",

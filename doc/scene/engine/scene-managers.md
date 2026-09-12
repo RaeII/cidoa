@@ -39,29 +39,38 @@ Manager principal da cena atual. Gerencia os prédios como representações visu
 
 `blockLayoutSettings.centerTallest` escolhe como as doações ocupam os slots. Quadras, ruas, calçadas e lotes vazios são **idênticos** nos dois modos — só a posição e a altura dos edifícios mudam.
 
-| Modo | `centerTallest` | Posição |
-|---|---|---|
-| **Por quadra** (padrão) | `false` | Torres agrupadas nos slots centrais de cada quadra, base urbana embaralhada no meio delas |
-| **Mais alto no centro** | `true` | Gradiente global: maior doação no slot central exato da cena, altura decrescendo pra borda |
-
-##### Modo por quadra — Sistema de 2 Camadas
-
-Os prédios são separados em **torres** e **base urbana**:
-
-| Camada | Seleção | Range de altura | Posição |
+| Modo | `centerTallest` | Posição | Altura |
 |---|---|---|---|
-| **Torres** | Top `towerRatio`% das doações | `minBuildingHeight` → `maxSceneHeight` (range completo) | Slot central de cada quadra, 1 torre por quadra, quadras em espiral |
-| **Base urbana** | Restante das doações | `minBuildingHeight` → `baseHeightCap × maxSceneHeight` (teto reduzido) | Shuffle determinístico nos slots restantes de todas as quadras |
+| **Por quadra** (padrão) | `false` | Três camadas: topo agrupado por quadra, meio nas quadras centrais, baixo nas de fora | Três faixas encaixadas |
+| **Mais alto no centro** | `true` | Gradiente global: maior doação no slot central exato da cena, decrescendo pra borda | Régua única, direta do valor |
 
-Essa separação cria **contraste abrupto** entre torres e vizinhos — o efeito visual de skyline de cidade real, não pirâmide.
+##### Modo por quadra — Sistema de 3 Camadas
 
-**Geometria de uma quadra (blockSize=3):**
+Doações ordenadas por valor decrescente e cortadas em três camadas. Cada uma ganha uma **faixa de altura própria** e um **critério de posição** próprio:
+
+| Camada | Seleção | Faixa de altura | Posição |
+|---|---|---|---|
+| **Topo** | Top `towerRatio` (padrão 33%) | `baseHeightCap × maxSceneHeight` → `maxSceneHeight` (11.2 → 16) | `towersPerBlock` por quadra (padrão 14), quadras em espiral do centro pra fora |
+| **Meio** | Metade do que sobrou (~33%) | metade da faixa de baixo → `baseHeightCap × maxSceneHeight` (5.8 → 11.2) | Sorteio determinístico, mas preenche **quadras centrais primeiro** |
+| **Baixo** | Resto (~34%) | `minBuildingHeight` → metade (0.5 → 5.8) | Sorteio determinístico nas quadras que sobraram |
+
+**Faixas encaixadas, não sobrepostas.** Cada camada ocupa um trecho exclusivo da régua e dentro dela a altura é proporcional ao valor. Consequência: quem doou mais **nunca** ganha prédio mais baixo que quem doou menos, em qualquer formato de distribuição.
+
+> [!warning] Por que não normalizar cada camada pelo próprio máximo
+> O modelo antigo media cada camada contra o maior valor **dela mesma**. O primeiro prédio da camada de baixo então batia sempre no teto da própria faixa, independente do valor. Com doação de cauda longa (poucos doadores grandes, muitos pequenos) o degrau **invertia**: o último do topo saía 18× mais baixo que o primeiro do meio, com valores praticamente iguais. As faixas encaixadas eliminam isso por construção.
+
+**Posição da camada do meio.** A camada do meio é sorteada separada da de baixo e concatenada **na frente** dela. As etapas A/B de preenchimento vão do centro pra fora, então a ordem do array vira ordem geográfica — o meio ocupa as quadras centrais, o resto sobra pras de fora. Prêmio de posição para quem ficou logo abaixo do corte do topo.
+
+**Geometria de uma quadra (blockSize=8, 64 slots):**
 
 ```
-[ ▪ ][ ▪ ][ ▪ ]
-[ ▪ ][ █ ][ ▪ ]   █ = torre (range completo, proporcional ao valor)
-[ ▪ ][ ▪ ][ ▪ ]   ▪ = base urbana (teto reduzido, shuffle aleatório)
+[ ▪ ][ ▫ ][ █ ][ ▪ ][ ▫ ][ ▪ ][ █ ][ ▫ ]   █ = topo (14 por quadra, faixa alta)
+[ ▫ ][ █ ][ ▪ ][ ▫ ][ █ ][ ▫ ][ ▪ ][ ▪ ]   ▫ = meio (faixa média, quadras centrais)
+[ ▪ ][ ▪ ][ ▫ ][ █ ][ ▪ ][ █ ][ ▫ ][ ▪ ]   ▪ = baixo (faixa baixa, quadras de fora)
+                    ⋮
 ```
+
+Quadra central é **7×7 = 49 slots** (grade ímpar na mesma pegada) — ver [[#Destaque da Quadra Central]].
 
 **Cálculo de espaçamento:**
 ```
@@ -72,8 +81,9 @@ blockSpacing   = blockFootprint + streetWidth
 **Configurado por [[scene-types#BlockLayoutSettings]] (editável em tempo real):**
 - `blockSize` — prédios por lado (padrão: 3 → 9 slots/quadra)
 - `streetWidth` — espaço entre quadras (padrão: 6.0)
-- `towerRatio` — fração de torres (padrão: 0.12 = 12%)
-- `baseHeightCap` — teto da base como fração de maxSceneHeight (padrão: 0.30 = 30%)
+- `towerRatio` — fração da camada de topo (padrão: 0.33 = 33%)
+- `towersPerBlock` — quantos do topo por quadra (padrão: 14). Controla o **espalhamento**: valor baixo força mais quadras e deixa a cidade vazada; ~`blockSize² × towerRatio` (≈21) deixa densa
+- `baseHeightCap` — onde começa a faixa do topo, como fração de maxSceneHeight (padrão: 0.70 = 70%). Também é o teto da camada do meio
 
 ##### Modo mais alto no centro
 

@@ -1754,6 +1754,36 @@ export function createDonationManager({
       hasDonations && !centerTallest ? Math.max(1, Math.round(donations.length * towerRatio)) : 0;
     const baseMaxHeight = DONATION_LAYOUT.maxSceneHeight * baseHeightCap;
 
+    // Camada do meio = metade do que sobrou depois do topo. Recebe as quadras centrais
+    // como prêmio de posição; a altura dela vive na faixa do meio da régua.
+    const midCount = Math.max(0, Math.round((donations.length - towerCount) / 2));
+    const midEnd = towerCount + midCount; // 1º índice da camada de baixo
+
+    // Três faixas de altura encaixadas, sem sobreposição: cada camada ocupa um trecho
+    // próprio da régua e nunca invade o da camada acima. É isso que impede um prédio de
+    // camada inferior de nascer mais alto que um da superior quando a curva de doações é
+    // desigual (antes cada camada era normalizada pelo próprio maior valor, e com doação
+    // de cauda longa o degrau invertia).
+    const midFloorHeight =
+      DONATION_LAYOUT.minBuildingHeight +
+      (baseMaxHeight - DONATION_LAYOUT.minBuildingHeight) / 2;
+    // Altura dentro de uma faixa: proporcional ao valor entre o menor e o maior da faixa.
+    const bandHeight = (
+      value: number, firstIdx: number, lastIdx: number, floorH: number, ceilH: number,
+    ): number => {
+      const hi = donations[firstIdx]?.value ?? value;
+      const lo = donations[lastIdx]?.value ?? hi;
+      const span = hi - lo;
+      const t = span > 0 ? (value - lo) / span : 1;
+      return floorH + t * (ceilH - floorH);
+    };
+    // Modo "mais alto no centro" não usa faixas: régua única, altura direta do valor
+    // contra a maior doação da cena. A separação visual ali vem da posição, não da camada.
+    const centeredHeight = (value: number): number =>
+      DONATION_LAYOUT.minBuildingHeight +
+      (maxValue > 0 ? value / maxValue : 0) *
+        (DONATION_LAYOUT.maxSceneHeight - DONATION_LAYOUT.minBuildingHeight);
+
     // Mínimo de quadras necessárias para acomodar torres e base
     const towerBlockCount = Math.ceil(towerCount / tpb);
     const baseSlotsPerBlock = buildingsPerBlock - tpb;
@@ -1831,13 +1861,23 @@ export function createDonationManager({
         if (b !== undefined) blocks[b].towers.push(t);
       }
 
-      // Shuffle determinístico da base (Fisher-Yates com seeded random)
-      const baseIndices: number[] = [];
-      for (let i = towerCount; i < donations.length; i++) baseIndices.push(i);
-      for (let i = baseIndices.length - 1; i > 0; i--) {
-        const j = Math.floor(seeded(i, baseIndices.length, 42) * (i + 1));
-        const tmp = baseIndices[i]; baseIndices[i] = baseIndices[j]; baseIndices[j] = tmp;
-      }
+      // Camada do meio e camada de baixo são sorteadas SEPARADAS e concatenadas com a do
+      // meio na frente. As etapas A/B abaixo preenchem do centro pra fora, então a ordem do
+      // array vira ordem geográfica: o meio ocupa as quadras centrais, o resto sobra pras de
+      // fora. Fisher-Yates com seeded random → mesma cidade a cada reload.
+      const shuffleRange = (from: number, to: number): number[] => {
+        const out: number[] = [];
+        for (let i = from; i < to; i++) out.push(i);
+        for (let i = out.length - 1; i > 0; i--) {
+          const j = Math.floor(seeded(i, out.length, 42) * (i + 1));
+          const tmp = out[i]; out[i] = out[j]; out[j] = tmp;
+        }
+        return out;
+      };
+      const baseIndices = [
+        ...shuffleRange(towerCount, midEnd),
+        ...shuffleRange(midEnd, donations.length),
+      ];
 
       // Etapa A: preencher anel interno até a capacidade normal
       let basePtr = 0;
@@ -1867,10 +1907,6 @@ export function createDonationManager({
 
     // --- Posicionar instâncias ---
     let instanceIdx = 0;
-    const maxBaseValue = donations[towerCount]?.value ?? maxValue;
-    // Centralizado não tem base urbana rebaixada: todo prédio usa o range completo,
-    // então a altura vira função direta do valor e cai suave do centro pra borda.
-    const baseCeiling = centerTallest ? DONATION_LAYOUT.maxSceneHeight : baseMaxHeight;
     // Slots de quadra sem edifício → coletados como lotes demarcados (loteamento esperando).
     const emptyLots: Array<[number, number]> = [];
 
@@ -1956,9 +1992,10 @@ export function createDonationManager({
         const [ox, oz] = towerSlots[t];
         const height =
           towerHeightBoost(donations[donIdx].value) *
-          (DONATION_LAYOUT.minBuildingHeight +
-            (donations[donIdx].value / maxValue) *
-              (DONATION_LAYOUT.maxSceneHeight - DONATION_LAYOUT.minBuildingHeight));
+          bandHeight(
+            donations[donIdx].value, 0, towerCount - 1,
+            baseMaxHeight, DONATION_LAYOUT.maxSceneHeight,
+          );
         const id = donations[donIdx].id;
         dummy.position.set(blockCenterX + ox, height / 2, blockCenterZ + oz);
         dummy.scale.set(
@@ -1986,10 +2023,14 @@ export function createDonationManager({
       for (let s = 0; s < block.base.length; s++) {
         const donIdx = block.base[s];
         const [ox, oz] = shuffledBaseSlots[s];
-        const ratio = maxBaseValue > 0 ? donations[donIdx].value / maxBaseValue : 0;
-        const height =
-          DONATION_LAYOUT.minBuildingHeight +
-          Math.min(ratio, 1) * (baseCeiling - DONATION_LAYOUT.minBuildingHeight);
+        const height = centerTallest
+          ? centeredHeight(donations[donIdx].value)
+          : donIdx < midEnd
+            ? bandHeight(donations[donIdx].value, towerCount, midEnd - 1, midFloorHeight, baseMaxHeight)
+            : bandHeight(
+                donations[donIdx].value, midEnd, donations.length - 1,
+                DONATION_LAYOUT.minBuildingHeight, midFloorHeight,
+              );
         const id = donations[donIdx].id;
         dummy.position.set(blockCenterX + ox, height / 2, blockCenterZ + oz);
         dummy.scale.set(1.0 + seeded(id, 1) * 1.6, height, 1.0 + seeded(id, 2) * 1.6);
