@@ -149,10 +149,11 @@ Valores padrão do layout de quadras:
 
 | Campo | Padrão | Descrição |
 |---|---|---|
-| `blockSize` | `3` | Prédios por lado (3×3 = 9 slots por quadra) |
+| `blockSize` | `8` | Prédios por lado (8×8 = 64 slots por quadra; a central é 7×7 = 49) |
 | `streetWidth` | `6.0` | Largura das ruas entre quadras em unidades world |
-| `towerRatio` | `0.12` | Fração de doações que são torres (12%) |
-| `baseHeightCap` | `0.30` | Teto de altura da base urbana (30% de maxSceneHeight) |
+| `towerRatio` | `0.33` | Fração da camada de topo (33%). Metade do que sobra vira camada do meio |
+| `towersPerBlock` | `14` | Quantos do topo por quadra. Baixo demais espalha a cidade e deixa vazada |
+| `baseHeightCap` | `0.70` | Onde começa a faixa do topo e termina a do meio (70% de maxSceneHeight) |
 | `lotColor` | `#5b5048` | Cor dos lotes vazios das quadras (editável na aba **geral** do painel) |
 | `sidewalkColor` | `#9a9da3` | Cor do topo da calçada/meio-fio (editável na aba **geral** → seção Calçada) |
 | `sidewalkSideColor` | `#55575c` | Cor das laterais da calçada (mais escura, efeito de sombra; aba **geral** → seção Calçada) |
