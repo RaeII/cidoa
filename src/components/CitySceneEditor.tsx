@@ -326,7 +326,7 @@ export function CitySceneEditor() {
           onNightChange={(night) => setEnvironmentSettings((prev) => ({ ...prev, night }))}
         />
       </div>
-      {loadState.status === "ready" && (
+      {loadState.status === "ready" && uiVisibility.donationFilter && (
         <DonationFilterBar
           cities={cities}
           ongs={ongs}

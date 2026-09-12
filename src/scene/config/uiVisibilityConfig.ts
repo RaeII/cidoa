@@ -8,6 +8,7 @@ export function createDefaultUIVisibilitySettings(): UIVisibilitySettings {
     donationInput: true,
     bulkInput: true,
     blockLayoutInput: true,
+    donationFilter: true,
   };
 }
 
@@ -28,6 +29,8 @@ export function loadUIVisibilitySettings(): UIVisibilitySettings {
         typeof parsed.blockLayoutInput === "boolean"
           ? parsed.blockLayoutInput
           : defaults.blockLayoutInput,
+      donationFilter:
+        typeof parsed.donationFilter === "boolean" ? parsed.donationFilter : defaults.donationFilter,
     };
   } catch {
     return defaults;
