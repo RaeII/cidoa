@@ -1723,7 +1723,8 @@ export function createDonationManager({
       logicalInstanceColorArray = new Float32Array(capacity * 3);
     }
 
-    const { blockSize, streetWidth, towerRatio, towersPerBlock, baseHeightCap } = currentBlockLayout;
+    const { blockSize, streetWidth, towerRatio, towersPerBlock, baseHeightCap, centerTallest } =
+      currentBlockLayout;
     const buildingsPerBlock = blockSize * blockSize;
     const blockFootprint = (blockSize - 1) * DONATION_LAYOUT.slotSize;
     const blockSpacing = blockFootprint + streetWidth;
@@ -1748,7 +1749,9 @@ export function createDonationManager({
     // mesmo com poucas/zero doações. Com 0 doação, só renderiza o loteamento vazio.
     const hasDonations = donations.length > 0;
     const maxValue = hasDonations ? donations[0].value : 1;
-    const towerCount = hasDonations ? Math.max(1, Math.round(donations.length * towerRatio)) : 0;
+    // Modo "mais alto no centro" ignora a divisão torre/base: uma curva de altura só.
+    const towerCount =
+      hasDonations && !centerTallest ? Math.max(1, Math.round(donations.length * towerRatio)) : 0;
     const baseMaxHeight = DONATION_LAYOUT.maxSceneHeight * baseHeightCap;
 
     // Mínimo de quadras necessárias para acomodar torres e base
@@ -1759,7 +1762,10 @@ export function createDonationManager({
     const centralDeficit = buildingsPerBlock - centralCapacity;
     const baseBlocksNeeded =
       baseSlotsPerBlock > 0 ? Math.ceil((baseCount + centralDeficit) / baseSlotsPerBlock) : 0;
-    const totalBlocksMin = Math.max(towerBlockCount, baseBlocksNeeded);
+    // Centralizado preenche slot a slot do centro pra fora, então basta caber o total.
+    const totalBlocksMin = centerTallest
+      ? Math.ceil((donations.length + centralDeficit) / buildingsPerBlock)
+      : Math.max(towerBlockCount, baseBlocksNeeded);
 
     // Expandir para o próximo anel completo: (2R+1)² garante formato quadrado.
     // Sem isso, blocos parcialmente preenchidos no anel externo criam assimetria visual.
@@ -1797,44 +1803,64 @@ export function createDonationManager({
       () => ({ towers: [], base: [] }),
     );
 
-    // Distribuir torres: tpb por quadra; anel interno em ordem espiral, externo por outerRingOrder
-    for (let t = 0; t < towerCount; t++) {
-      const linearBlock = Math.floor(t / tpb);
-      const b = linearBlock < innerBlocks
-        ? linearBlock
-        : outerRingOrder[linearBlock - innerBlocks];
-      if (b !== undefined) blocks[b].towers.push(t);
-    }
-
-    // Shuffle determinístico da base (Fisher-Yates com seeded random)
-    const baseIndices: number[] = [];
-    for (let i = towerCount; i < donations.length; i++) baseIndices.push(i);
-    for (let i = baseIndices.length - 1; i > 0; i--) {
-      const j = Math.floor(seeded(i, baseIndices.length, 42) * (i + 1));
-      const tmp = baseIndices[i]; baseIndices[i] = baseIndices[j]; baseIndices[j] = tmp;
-    }
-
-    // Etapa A: preencher anel interno até a capacidade normal
-    let basePtr = 0;
-    for (let b = 0; b < innerBlocks && basePtr < baseIndices.length; b++) {
-      const slotsAvailable = capacityOf(b) - blocks[b].towers.length;
-      for (let s = 0; s < slotsAvailable && basePtr < baseIndices.length; s++) {
-        blocks[b].base.push(baseIndices[basePtr++]);
+    if (centerTallest) {
+      // Gradiente global: todos os slots da cidade ordenados por distância da origem.
+      // `donations` já vem por valor decrescente, então o maior cai no slot central da
+      // quadra central e a altura decresce para fora, sem agrupar torre por quadra.
+      const allSlots: Array<{ b: number; d2: number }> = [];
+      for (let b = 0; b < expandedBlocks; b++) {
+        const [bx, bz] = spiralPositions[b];
+        const cx = bx * blockSpacing;
+        const cz = bz * blockSpacing;
+        for (const [ox, oz] of slotsOf(b)) {
+          allSlots.push({ b, d2: (cx + ox) ** 2 + (cz + oz) ** 2 });
+        }
       }
-    }
+      // Sort estável: dentro de uma quadra a ordem de empate bate com a de
+      // `slotsByOriginDist` (mesmo comparador, mesma origem), que é a usada na colocação.
+      allSlots.sort((a, b) => a.d2 - b.d2);
+      const take = Math.min(donations.length, allSlots.length);
+      for (let i = 0; i < take; i++) blocks[allSlots[i].b].base.push(i);
+    } else {
+      // Distribuir torres: tpb por quadra; anel interno em ordem espiral, externo por outerRingOrder
+      for (let t = 0; t < towerCount; t++) {
+        const linearBlock = Math.floor(t / tpb);
+        const b = linearBlock < innerBlocks
+          ? linearBlock
+          : outerRingOrder[linearBlock - innerBlocks];
+        if (b !== undefined) blocks[b].towers.push(t);
+      }
 
-    // Etapa B: distribuir base restante uniformemente pelo anel externo.
-    // Cada posição do anel recebe floor(remaining/outerRingSize) prédios,
-    // com o restante (remainder) distribuído às primeiras posições (+1 cada).
-    const baseForOuter = baseIndices.length - basePtr;
-    if (outerRingSize > 0 && baseForOuter > 0) {
-      const perBlock = Math.floor(baseForOuter / outerRingSize);
-      const remainder = baseForOuter % outerRingSize;
-      for (let i = 0; i < outerRingOrder.length && basePtr < baseIndices.length; i++) {
-        const b = outerRingOrder[i];
-        const count = perBlock + (i < remainder ? 1 : 0);
-        for (let s = 0; s < count && basePtr < baseIndices.length; s++) {
+      // Shuffle determinístico da base (Fisher-Yates com seeded random)
+      const baseIndices: number[] = [];
+      for (let i = towerCount; i < donations.length; i++) baseIndices.push(i);
+      for (let i = baseIndices.length - 1; i > 0; i--) {
+        const j = Math.floor(seeded(i, baseIndices.length, 42) * (i + 1));
+        const tmp = baseIndices[i]; baseIndices[i] = baseIndices[j]; baseIndices[j] = tmp;
+      }
+
+      // Etapa A: preencher anel interno até a capacidade normal
+      let basePtr = 0;
+      for (let b = 0; b < innerBlocks && basePtr < baseIndices.length; b++) {
+        const slotsAvailable = capacityOf(b) - blocks[b].towers.length;
+        for (let s = 0; s < slotsAvailable && basePtr < baseIndices.length; s++) {
           blocks[b].base.push(baseIndices[basePtr++]);
+        }
+      }
+
+      // Etapa B: distribuir base restante uniformemente pelo anel externo.
+      // Cada posição do anel recebe floor(remaining/outerRingSize) prédios,
+      // com o restante (remainder) distribuído às primeiras posições (+1 cada).
+      const baseForOuter = baseIndices.length - basePtr;
+      if (outerRingSize > 0 && baseForOuter > 0) {
+        const perBlock = Math.floor(baseForOuter / outerRingSize);
+        const remainder = baseForOuter % outerRingSize;
+        for (let i = 0; i < outerRingOrder.length && basePtr < baseIndices.length; i++) {
+          const b = outerRingOrder[i];
+          const count = perBlock + (i < remainder ? 1 : 0);
+          for (let s = 0; s < count && basePtr < baseIndices.length; s++) {
+            blocks[b].base.push(baseIndices[basePtr++]);
+          }
         }
       }
     }
@@ -1842,6 +1868,9 @@ export function createDonationManager({
     // --- Posicionar instâncias ---
     let instanceIdx = 0;
     const maxBaseValue = donations[towerCount]?.value ?? maxValue;
+    // Centralizado não tem base urbana rebaixada: todo prédio usa o range completo,
+    // então a altura vira função direta do valor e cai suave do centro pra borda.
+    const baseCeiling = centerTallest ? DONATION_LAYOUT.maxSceneHeight : baseMaxHeight;
     // Slots de quadra sem edifício → coletados como lotes demarcados (loteamento esperando).
     const emptyLots: Array<[number, number]> = [];
 
@@ -1886,7 +1915,18 @@ export function createDonationManager({
       let shuffledBaseSlots: Array<[number, number]>;
       let orderedSlots: ReadonlyArray<[number, number]>;
 
-      if (isCentralBlock && block.towers.length > 0) {
+      if (centerTallest) {
+        // Slots da quadra na mesma ordem (distância da origem) usada na distribuição
+        // global acima — block.base[s] cai exatamente no slot s dessa lista.
+        const byOriginDist = [...slotsOf(b)].sort(
+          (a, bSlot) =>
+            (blockCenterX + a[0]) ** 2 + (blockCenterZ + a[1]) ** 2 -
+            ((blockCenterX + bSlot[0]) ** 2 + (blockCenterZ + bSlot[1]) ** 2),
+        );
+        towerSlots = [];
+        shuffledBaseSlots = byOriginDist;
+        orderedSlots = byOriginDist;
+      } else if (isCentralBlock && block.towers.length > 0) {
         // Maior doação da cena = torre 0 da quadra central → slot exato no centro
         // (centralSlotOffsets vem ordenado do centro pra fora, índice 0 = [0, 0]).
         const [centerSlot, ...restSlots] = centralSlotOffsets;
@@ -1949,7 +1989,7 @@ export function createDonationManager({
         const ratio = maxBaseValue > 0 ? donations[donIdx].value / maxBaseValue : 0;
         const height =
           DONATION_LAYOUT.minBuildingHeight +
-          Math.min(ratio, 1) * (baseMaxHeight - DONATION_LAYOUT.minBuildingHeight);
+          Math.min(ratio, 1) * (baseCeiling - DONATION_LAYOUT.minBuildingHeight);
         const id = donations[donIdx].id;
         dummy.position.set(blockCenterX + ox, height / 2, blockCenterZ + oz);
         dummy.scale.set(1.0 + seeded(id, 1) * 1.6, height, 1.0 + seeded(id, 2) * 1.6);
@@ -2659,7 +2699,8 @@ export function createDonationManager({
         settings.streetWidth !== currentBlockLayout.streetWidth ||
         settings.towerRatio !== currentBlockLayout.towerRatio ||
         settings.towersPerBlock !== currentBlockLayout.towersPerBlock ||
-        settings.baseHeightCap !== currentBlockLayout.baseHeightCap;
+        settings.baseHeightCap !== currentBlockLayout.baseHeightCap ||
+        settings.centerTallest !== currentBlockLayout.centerTallest;
       // Altura da calçada só reposiciona as tiras de calçada — rebuild localizado, sem mexer nos prédios.
       const sidewalkHeightChanged = settings.sidewalkHeight !== currentBlockLayout.sidewalkHeight;
       currentBlockLayout = { ...settings };

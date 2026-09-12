@@ -247,6 +247,13 @@ export type BlockLayoutSettings = {
   sidewalkColor: string;  // cor do topo da calçada (meio-fio em volta das quadras)
   sidewalkSideColor: string; // cor das faces laterais da calçada (mais escura = efeito de sombra/altura)
   sidewalkHeight: number; // altura do topo da calçada (degrau acima do chão), em unidades de mundo
+  /**
+   * `false` (padrão): layout por quadra — torres agrupadas nos slots centrais de cada
+   * quadra, base urbana embaralhada nos slots restantes.
+   * `true`: gradiente global — a doação mais alta fica no centro exato da cena e a
+   * altura decresce conforme o slot se afasta da origem, sem agrupar torre por quadra.
+   */
+  centerTallest: boolean;
 };
 
 export type SceneStats = {

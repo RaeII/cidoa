@@ -133,6 +133,45 @@ export function CityControlPanel({
             <PanelIntro sceneStats={sceneStats} solarIntensity={lightMetrics.solarIntensity} />
             <BuildingControls value={buildingSettings} onChange={onBuildingSettingsChange} />
             <PanelSection
+              title="Organização dos edifícios"
+              description="Como as doações ocupam os slots das quadras. O sistema de quadras/ruas é o mesmo nos dois modos — só a posição dos edifícios muda."
+            >
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  {
+                    mode: false,
+                    label: "Por quadra",
+                    hint: "Modo atual: torres agrupadas nos slots centrais de cada quadra, prédios menores embaralhados no meio delas.",
+                  },
+                  {
+                    mode: true,
+                    label: "Mais alto no centro",
+                    hint: "Primeira ideia: a maior doação no centro exato da cena e a altura caindo conforme afasta da origem.",
+                  },
+                ] as const).map(({ mode, label, hint }) => (
+                  <button
+                    key={label}
+                    onClick={() =>
+                      onBlockLayoutSettingsChange({ ...blockLayoutSettings, centerTallest: mode })
+                    }
+                    title={hint}
+                    className={`rounded-xl border px-3 py-3 text-xs font-medium transition-colors ${
+                      blockLayoutSettings.centerTallest === mode
+                        ? "border-white/60 bg-white/15 text-white"
+                        : "border-white/10 bg-white/5 text-white/50 hover:text-white/80"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] leading-relaxed text-white/40">
+                {blockLayoutSettings.centerTallest
+                  ? "Gradiente global: maior doação no centro, altura decrescente para fora."
+                  : "Torres por quadra + base urbana embaralhada nos slots restantes."}
+              </p>
+            </PanelSection>
+            <PanelSection
               title="Quadras"
               description="Cor dos lotes vazios do loteamento (quadras esperando edifício)."
             >

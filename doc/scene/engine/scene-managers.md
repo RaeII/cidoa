@@ -35,7 +35,16 @@ Manager principal da cena atual. Gerencia os prédios como representações visu
 - Atualizar materiais em tempo real
 - Gerenciar envMap dinâmico via cube camera
 
-#### Layout dos Prédios — Sistema de 2 Camadas
+#### Layout dos Prédios — 2 Modos
+
+`blockLayoutSettings.centerTallest` escolhe como as doações ocupam os slots. Quadras, ruas, calçadas e lotes vazios são **idênticos** nos dois modos — só a posição e a altura dos edifícios mudam.
+
+| Modo | `centerTallest` | Posição |
+|---|---|---|
+| **Por quadra** (padrão) | `false` | Torres agrupadas nos slots centrais de cada quadra, base urbana embaralhada no meio delas |
+| **Mais alto no centro** | `true` | Gradiente global: maior doação no slot central exato da cena, altura decrescendo pra borda |
+
+##### Modo por quadra — Sistema de 2 Camadas
 
 Os prédios são separados em **torres** e **base urbana**:
 
@@ -66,6 +75,29 @@ blockSpacing   = blockFootprint + streetWidth
 - `towerRatio` — fração de torres (padrão: 0.12 = 12%)
 - `baseHeightCap` — teto da base como fração de maxSceneHeight (padrão: 0.30 = 30%)
 
+##### Modo mais alto no centro
+
+Primeira ideia do projeto, mantida como opção pra comparação. Sem camadas, sem shuffle, sem boost por anel de quadra.
+
+1. Junta todos os slots das quadras expandidas numa lista única, cada um com `d²` até a origem da cena.
+2. Ordena por `d²` crescente (sort estável — empate dentro da quadra bate com a ordem de colocação).
+3. `donations` já vem por valor decrescente → doação `i` vai pro slot `i` dessa lista.
+4. Altura = range completo pra todo mundo: `minBuildingHeight + (value / maxValue) × (maxSceneHeight − minBuildingHeight)`.
+
+Como a quadra central usa grade **ímpar** (ver [[#Destaque da Quadra Central]]), existe slot exato em `[0, 0]` — a maior doação da cena cai nele. Altura vira função direta do valor e valor decresce com a distância → nenhum prédio baixo no meio dos altos.
+
+`towerRatio`, `towersPerBlock`, `baseHeightCap` e os boosts de torre (`CENTRAL_BLOCK_TOWER_*`, `INNER_RING_TOWER_HEIGHT_BOOST`) não têm efeito nesse modo. Quantidade de quadras vem de `ceil((donations.length + centralDeficit) / buildingsPerBlock)`, arredondada pro próximo anel completo.
+
+```
+        ▪ ▪ ▪ ▪ ▪          ▪ = mais baixo (borda)
+      ▪ ▫ ▫ ▫ ▫ ▫ ▪
+      ▪ ▫ ▄ ▄ ▄ ▫ ▪        ▄ = médio
+      ▪ ▫ ▄ █ ▄ ▫ ▪        █ = maior doação, centro exato
+      ▪ ▫ ▄ ▄ ▄ ▫ ▪
+      ▪ ▫ ▫ ▫ ▫ ▫ ▪
+        ▪ ▪ ▪ ▪ ▪
+```
+
 A cada nova doação ou mudança de layout, a lista é reordenada e **todas as instâncias são reconstruídas**.
 
 #### Fórmula de Altura
@@ -86,7 +118,7 @@ height = boostDaQuadra × (minBuildingHeight + (valor / maxValor) × (maxSceneHe
 
 #### Destaque da Quadra Central
 
-Quadra do índice 0 da espiral (`bx = bz = 0`) é a vitrine da cena. Só **torres** mudam — base urbana igual em toda cidade.
+Quadra do índice 0 da espiral (`bx = bz = 0`) é a vitrine da cena. Só **torres** mudam — base urbana igual em toda cidade. Boosts de altura/largura valem só no modo **por quadra**; no modo **mais alto no centro** a grade ímpar continua (garante slot em `[0, 0]`), mas sem boost.
 
 **Grade ímpar na mesma pegada.** `getBlockSlotOffsets(size, slotSize?)` aceita espaçamento próprio. Quadra central usa `blockSize - 1` quando `blockSize` é par (8 → 7), com `slotSize = blockFootprint / (centralSize - 1)` (3.2 → 3.733). Resultado:
 
@@ -201,7 +233,7 @@ Cena nunca fica vazia: o manager sempre desenha um **loteamento** (grade de quad
 - **Coleta de lotes:** no loop de posicionamento, cada bloco guarda `orderedSlots` (ordem usada: ocupados primeiro). Slots além de `occupiedSlots` viram lote vazio — coletados em `emptyLots` (posição world x,z), **mas só nos blocos dentro do piso mínimo** (`|bx| ≤ MIN_LOTEAMENTO_RADIUS && |bz| ≤ MIN_LOTEAMENTO_RADIUS`). Blocos do anel externo não semeiam lote vazio → loteamento não cresce junto com a cidade.
 - **`rebuildLots(positions)`:** desenha um único `InstancedMesh` (`lotMesh`) de tiles de chão, 1 draw call pra todos os lotes. Cresce a capacidade sob demanda (mesmo padrão do prédio); `count = 0` quando o loteamento está cheio.
 - **Tile:** `PlaneGeometry(slotSize − 0.5)` deitado (`rotateX`), em `LOT_Y = -0.012`. O gap de 0.5 entre tiles + a borda do shader = demarcação dos lotes.
-- **Cor configurável:** `lotColor`, `sidewalkColor` (topo) e `sidewalkSideColor` (laterais) vêm de `blockLayoutSettings`. `updateBlockLayout` aplica direto em `lotMaterial.color` / `sidewalkTopMaterial.color` / `sidewalkSideMaterial.color` (materiais compartilhados → tudo de uma vez) e **só reconstrói** as instâncias quando muda um campo de geometria (`blockSize`, `streetWidth`, `towerRatio`, `towersPerBlock`, `baseHeightCap`) — trocar só a cor não dispara rebuild.
+- **Cor configurável:** `lotColor`, `sidewalkColor` (topo) e `sidewalkSideColor` (laterais) vêm de `blockLayoutSettings`. `updateBlockLayout` aplica direto em `lotMaterial.color` / `sidewalkTopMaterial.color` / `sidewalkSideMaterial.color` (materiais compartilhados → tudo de uma vez) e **só reconstrói** as instâncias quando muda um campo de geometria (`blockSize`, `streetWidth`, `towerRatio`, `towersPerBlock`, `baseHeightCap`, `centerTallest`) — trocar só a cor não dispara rebuild.
 - **Altura da calçada configurável:** `sidewalkHeight` em `blockLayoutSettings`. `updateBlockLayout` faz um **rebuild localizado** só das tiras de calçada (`rebuildSidewalks` com os últimos params de estrada salvos: `lastRoadR`/`lastRoadBlockSpacing`/`lastRoadStreetWidth`) — não mexe nos prédios.
 - **Cleanup:** `dispose()` remove `lotMesh` e libera `lotGeometry`/`lotMaterial`.
 
@@ -476,6 +508,7 @@ Mexa aqui quando o problema for **comportamental**:
 | Alterar cor/material do asfalto | `createDonationManager.ts` → `asphaltMaterial` |
 | Alterar largura do asfalto vs. calçada | `createDonationManager.ts` → `SIDEWALK_RESERVE` |
 | Alterar calçada (cor, altura via UI) | aba **geral** → seção Calçada → `blockLayoutSettings.sidewalkColor` / `sidewalkHeight` |
+| Trocar organização dos edifícios (por quadra ↔ mais alto no centro) | aba **geral** → seção Organização dos edifícios → `blockLayoutSettings.centerTallest` |
 | Alterar geometria/posição da calçada | `createDonationManager.ts` → `rebuildSidewalks` / `SIDEWALK_GAP` / `SIDEWALK_BOTTOM` |
 | Alterar faixa central / tracejado / cruzamentos | `createDonationManager.ts` → `dashFS` (`interHalf`) |
 | Alterar lotes vazios (cor, borda, tamanho) | `createDonationManager.ts` → `lotMaterial` / `rebuildLots` |

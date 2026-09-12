@@ -157,6 +157,7 @@ Valores padrão do layout de quadras:
 | `sidewalkColor` | `#9a9da3` | Cor do topo da calçada/meio-fio (editável na aba **geral** → seção Calçada) |
 | `sidewalkSideColor` | `#55575c` | Cor das laterais da calçada (mais escura, efeito de sombra; aba **geral** → seção Calçada) |
 | `sidewalkHeight` | `0.12` | Altura do topo da calçada (degrau acima do chão), editável na aba **geral** → seção Calçada |
+| `centerTallest` | `false` | `false` = layout por quadra (torres + base); `true` = mais alto no centro. Aba **geral** → seção Organização dos edifícios |
 
 **Funções exportadas:**
 - `createDefaultBlockLayoutSettings()`

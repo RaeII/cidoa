@@ -34,12 +34,15 @@ type BlockLayoutSettings = {
   sidewalkColor: string; // cor do topo da calçada (meio-fio em volta das quadras)
   sidewalkSideColor: string; // cor das laterais da calçada (mais escura = efeito de sombra/altura)
   sidewalkHeight: number;// altura do topo da calçada (degrau acima do chão), em unidades world
+  centerTallest: boolean;// false = layout por quadra (padrão); true = mais alto no centro
 }
 ```
 
 O sistema de 2 camadas separa as doações em **torres** (top N%) que usam o range completo de altura e **base urbana** (restante) com teto reduzido. Isso cria contraste abrupto entre vizinhos — o efeito visual de uma cidade real.
 
-Editável em tempo real via inputs no overlay superior. `lotColor` (seção **Quadras**), `sidewalkColor`, `sidewalkSideColor` e `sidewalkHeight` (seção **Calçada**) são editáveis pela aba **geral** do [[html-components#CityControlPanel.tsx|CityControlPanel]]. Padrões em `blockLayoutConfig.ts`.
+`centerTallest` troca esse esquema pelo modo **mais alto no centro** (primeira ideia do projeto): quadras e ruas ficam iguais, mas nenhuma torre agrupa por quadra. Todos os slots da cidade entram numa lista única ordenada por distância da origem e as doações (já em ordem de valor decrescente) caem nessa ordem. Resultado: maior doação no slot central exato, altura caindo suave pra borda, sem prédio baixo no meio dos altos. `towerRatio`/`towersPerBlock`/`baseHeightCap` ficam inertes nesse modo.
+
+Editável em tempo real via inputs no overlay superior. `centerTallest` (seção **Organização dos edifícios**), `lotColor` (seção **Quadras**), `sidewalkColor`, `sidewalkSideColor` e `sidewalkHeight` (seção **Calçada**) são editáveis pela aba **geral** do [[html-components#CityControlPanel.tsx|CityControlPanel]]. Padrões em `blockLayoutConfig.ts`.
 
 ---
 

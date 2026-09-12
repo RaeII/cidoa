@@ -181,7 +181,7 @@ Componente que monta o painel completo de configuração da cena. **Escondido po
 
 | Aba | Seções |
 |---|---|
-| **Geral** | Intro, prédios, **quadras** (cor dos lotes vazios → [[scene-types#BlockLayoutSettings]]), calçada, ambiente |
+| **Geral** | Intro, prédios, **organização dos edifícios** (por quadra ↔ mais alto no centro), **quadras** (cor dos lotes vazios → [[scene-types#BlockLayoutSettings]]), calçada, ambiente |
 | **Texturas** | Configurações PBR das fachadas |
 | **Reflexo** | Probe do envMap: on/off, intensidade, resolução, posição, céu na captura, o que entra na captura, cadência — ver [[#ReflectionControls.tsx]] |
 | **Luz** | Ambient, hemisphere, directional |
@@ -204,6 +204,7 @@ Aba **Tela** tem duas seções inline (não componentizadas):
 
 Props extras da aba **Geral** (`blockLayoutSettings: BlockLayoutSettings` + `onBlockLayoutSettingsChange`):
 - seção **Quadras**: `ColorField` edita `lotColor` (cor dos lotes vazios).
+- seção **Organização dos edifícios**: par de botões que alterna `centerTallest`. **Por quadra** (`false`, padrão) = torres agrupadas nos slots centrais de cada quadra com os menores embaralhados no meio; **Mais alto no centro** (`true`) = gradiente global, maior doação no centro exato e altura caindo pra borda. Quadras/ruas não mudam — ver [[scene-managers#Layout dos Prédios — 2 Modos]].
 - seção **Calçada**: `ColorField` edita `sidewalkColor` (topo) + `ColorField` edita `sidewalkSideColor` (laterais, sombra) + `RangeField` edita `sidewalkHeight` (0.02–0.4) — altura do meio-fio.
 
 Ver [[scene-types#BlockLayoutSettings]].

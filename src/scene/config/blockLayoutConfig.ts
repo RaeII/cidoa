@@ -11,5 +11,6 @@ export function createDefaultBlockLayoutSettings(): BlockLayoutSettings {
     sidewalkColor: "#454545",
     sidewalkSideColor: "#292929",
     sidewalkHeight: 0.12,
+    centerTallest: false,
   };
 }
