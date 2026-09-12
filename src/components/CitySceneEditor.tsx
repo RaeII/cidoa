@@ -5,6 +5,7 @@ import { BuildingHeightInput } from "./html/BuildingHeightInput";
 import { BuildingCustomizePanel } from "./html/BuildingCustomizePanel";
 import { CityControlPanel } from "./html/CityControlPanel";
 import { KeyboardShortcutsHelp } from "./html/KeyboardShortcutsHelp";
+import { RenderDistanceCard } from "./html/RenderDistanceCard";
 import {
   useKeyboardShortcuts,
   type KeyboardShortcut,
@@ -429,6 +430,14 @@ export function CitySceneEditor() {
           onUIVisibilityChange={setUIVisibility}
           onGrainChange={setGrain}
           onClose={() => setShowControlPanel(false)}
+        />
+      )}
+      {uiVisibility.renderDistanceCard && (
+        <RenderDistanceCard
+          settings={horizonSettings}
+          sceneStats={sceneStats}
+          onChange={setHorizonSettings}
+          onClose={() => setUIVisibility((prev) => ({ ...prev, renderDistanceCard: false }))}
         />
       )}
       {showShortcutsHelp && (

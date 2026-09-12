@@ -250,6 +250,13 @@ export function CityControlPanel({
                   onChange={(bulkInput) => onUIVisibilityChange({ ...uiVisibility, bulkInput })}
                 />
                 <CheckboxField
+                  label="Card flutuante de distância dos edifícios"
+                  checked={uiVisibility.renderDistanceCard}
+                  onChange={(renderDistanceCard) =>
+                    onUIVisibilityChange({ ...uiVisibility, renderDistanceCard })
+                  }
+                />
+                <CheckboxField
                   label="Input de configuração de quadras"
                   checked={uiVisibility.blockLayoutInput}
                   onChange={(blockLayoutInput) =>

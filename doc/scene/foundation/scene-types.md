@@ -290,6 +290,7 @@ type UIVisibilitySettings = {
   donationInput: boolean;    // input de doação individual
   bulkInput: boolean;        // input de geração em lote (mín/máx/qtd)
   blockLayoutInput: boolean; // input de configuração de quadras
+  renderDistanceCard: boolean; // card flutuante de distância dos edifícios (padrão false)
 }
 ```
 

@@ -107,6 +107,7 @@ src/
       ReflectionControls.tsx         ← aba reflexo: probe do envMap dos prédios
       GroundControls.tsx
       HorizonControls.tsx          ← modos do final do chão, distâncias e névoa
+      RenderDistanceCard.tsx       ← card flutuante (arrasta/redimensiona) das distâncias dos edifícios
       TerrainControls.tsx
       SceneLightControls.tsx
       EnvironmentControls.tsx
@@ -348,6 +349,7 @@ flowchart LR
 | Postes de luz nas ruas (quantidade, altura, luz) | [[scene-managers#Postes de Luz (rebuildStreetLamps)]] |
 | Adicionar/alterar atalho de teclado              | [[html-components#Atalhos de teclado]]            |
 | Mostrar/esconder componentes HTML da tela        | aba **Tela** → [[scene-config#uiVisibilityConfig.ts]] |
+| Card flutuante de distância (gravação de tela)   | [[html-components#RenderDistanceCard.tsx]]        |
 | Alterar a UI de personalização de edifício       | [[html-components#BuildingCustomizePanel.tsx]]    |
 | Entender de onde vêm as opções de personalização | [[customization-api]]                             |
 | Cadastrar/ativar cores e opções (admin)          | [[personalizacoes]]                               |

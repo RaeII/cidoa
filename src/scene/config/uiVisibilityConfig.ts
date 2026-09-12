@@ -8,6 +8,7 @@ export function createDefaultUIVisibilitySettings(): UIVisibilitySettings {
     donationInput: true,
     bulkInput: true,
     blockLayoutInput: true,
+    renderDistanceCard: false,
   };
 }
 
@@ -28,6 +29,10 @@ export function loadUIVisibilitySettings(): UIVisibilitySettings {
         typeof parsed.blockLayoutInput === "boolean"
           ? parsed.blockLayoutInput
           : defaults.blockLayoutInput,
+      renderDistanceCard:
+        typeof parsed.renderDistanceCard === "boolean"
+          ? parsed.renderDistanceCard
+          : defaults.renderDistanceCard,
     };
   } catch {
     return defaults;

@@ -186,7 +186,7 @@ Componente que monta o painel completo de configuração da cena. **Escondido po
 | **Luz** | Ambient, hemisphere, directional |
 | **Horizonte** | Modo do final do chão (reta/circular/quadrado), alcance do horizonte/chão/edifícios, névoa e material do chão ([[#GroundControls.tsx]]). Ver [[#HorizonControls.tsx]]. |
 | **Terreno** | Relevo procedural ao redor da cidade — ver [[#TerrainControls.tsx]] |
-| **Tela** | Checkbox por componente HTML sobreposto (log de câmera + 3 inputs de geração/posição). Liga/desliga visibilidade; preferência persistida em `localStorage` via [[scene-config#uiVisibilityConfig.ts]] |
+| **Tela** | Checkbox por componente HTML sobreposto (log de câmera + 3 inputs de geração/posição + card flutuante de distância). Liga/desliga visibilidade; preferência persistida em `localStorage` via [[scene-config#uiVisibilityConfig.ts]] |
 
 Tipo da aba ativa: `"geral" | "texturas" | "reflexo" | "luz" | "horizonte" | "terreno" | "tela"`. Sete abas → rótulo em `text-xs` pra caber nos 360px do painel.
 
@@ -196,7 +196,7 @@ Aba **Tela** tem duas seções inline (não componentizadas):
 
 | Seção | Controla |
 |---|---|
-| Componentes da tela | Checkboxes de `uiVisibility`, persistidos em localStorage |
+| Componentes da tela | Checkboxes de `uiVisibility`, persistidos em localStorage. Inclui o toggle do [[#RenderDistanceCard.tsx]] |
 | Granulado | `RangeField` 0–1 (passo 0.05) do granulado de renderização. **Padrão `0`** = resolução nativa travada, rótulo "desligado". Acima disso o runtime troca nitidez por FPS sob carga — ver `setGrain` em [[scene-runtime]] |
 
 `CitySceneEditor` só encaminha `onCameraDebugChange` ao canvas quando `cameraLog` está visível. Com o log desligado, as amostras de câmera a cada 200ms não atualizam estado React. Estatísticas iguais também são ignoradas pelo runtime.
@@ -403,6 +403,8 @@ Controles da aba **Horizonte**. Três seções:
 - `backDistance` — alcance dos edifícios atrás da câmera (10–600)
 - prop `culledCount` (de `sceneStats.culled`) — mostra readout embaixo do slider
 
+Mesmos dois sliders existem soltos no [[#RenderDistanceCard.tsx]], sobre o mesmo `horizonSettings` — mexer num reflete no outro.
+
 > [!note] Distância só dos edifícios
 > Sliders usam cull do manager: compactam buffer, reduzem `mesh.count` e ocultam formatos customizados/acessórios. Não alteram `camera.far`, chão ou montanhas. Probe fixo recompõe cidade durante captura; culling da câmera principal não muda conteúdo compartilhado do reflexo.
 
@@ -412,6 +414,25 @@ Controles da aba **Horizonte**. Três seções:
 
 > [!note]
 > A névoa é global — afeta toda a cena, não só o horizonte. Aumentar `fogDensity` também dissolve os prédios da cidade em distâncias maiores.
+
+---
+
+### `RenderDistanceCard.tsx`
+
+Card flutuante para **gravação de tela**: só os dois sliders de distância dos edifícios, sem texto explicativo (narração vai no vídeo).
+
+| Prop | Tipo | Uso |
+|---|---|---|
+| `settings` | `HorizonSettings` | mesmo estado dos sliders da aba Horizonte |
+| `sceneStats` | `SceneStats` | contador na tela / total |
+| `onChange` | `(s: HorizonSettings) => void` | `setHorizonSettings` do editor |
+| `onClose` | `() => void` | desliga `uiVisibility.renderDistanceCard` |
+
+- Sliders: "Frente da câmera" (`distance`, 100–600) e "Atrás da câmera" (`backDistance`, 10–600), passo 0.1 — mesmos limites do [[#HorizonControls.tsx]]
+- Rodapé: `buildings - culled` **/** `buildings` = edifícios na tela / total
+- **Mover**: arrastar pelo cabeçalho. Pointer Events + `setPointerCapture`, posição em `useState` (não persiste — recomeça em `left: 24 / top: 96`)
+- **Redimensionar**: `resize` do CSS no canto inferior direito (nativo, sem JS). Mínimo 260×220
+- Ligado/desligado pela aba **Tela** do [[#CityControlPanel.tsx]]; `uiVisibility.renderDistanceCard` persiste em `localStorage` ([[scene-config#uiVisibilityConfig.ts]]). Renderizado por `CitySceneEditor`, então continua visível com o painel fechado
 
 ---
 
