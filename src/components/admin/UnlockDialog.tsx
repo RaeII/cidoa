@@ -58,6 +58,7 @@ export function UnlockDialog({
   const [referral, setReferral] = useState(
     target.unlock?.referralMin != null ? String(target.unlock.referralMin) : "",
   );
+  const [mode, setMode] = useState<"all" | "any">(target.unlock?.mode ?? "all");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,15 +66,16 @@ export function UnlockDialog({
   const referralMin = requireReferral ? parseCount(referral) : null;
   const incomplete =
     (requireDonation && donationMin === null) || (requireReferral && referralMin === null);
+  const unlockMode = requireDonation && requireReferral ? mode : "all";
   const preview: UnlockRule =
-    donationMin == null && referralMin == null ? null : { donationMin, referralMin };
+    donationMin == null && referralMin == null ? null : { donationMin, referralMin, mode: unlockMode };
 
   async function handleSave() {
     setSaving(true);
     setError(null);
     // Manda os dois eixos sempre: este diálogo é dono da regra inteira, então
     // null aqui significa "limpa", não "não mexe".
-    const payload = { unlockDonationMin: donationMin, unlockReferralMin: referralMin };
+    const payload = { unlockDonationMin: donationMin, unlockReferralMin: referralMin, unlockMode };
     try {
       if (target.kind === "option") await updateCustomizationOption(target.id, payload);
       else await updateCustomizationCategory(target.id, payload);
@@ -150,6 +152,20 @@ export function UnlockDialog({
               />
             )}
           </div>
+
+          {requireDonation && requireReferral && (
+            <fieldset className="space-y-2 rounded-lg border p-3">
+              <legend className="px-1 text-sm font-medium">Como liberar</legend>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="radio" name="unlock-mode" value="all" checked={mode === "all"} onChange={() => setMode("all")} />
+                Doação + indicação (cumprir as duas metas)
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="radio" name="unlock-mode" value="any" checked={mode === "any"} onChange={() => setMode("any")} />
+                Doação ou indicação (cumprir uma das metas)
+              </label>
+            </fieldset>
+          )}
 
           <div className="rounded-lg bg-muted/50 p-3">
             <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">

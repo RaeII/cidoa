@@ -16,14 +16,27 @@ export type PassReward = {
   optionKey?: string;
   value?: string | null;
   unlock: UnlockRule;
-  isActive?: boolean;
 };
 
-/** Grátis → menor doação → menos indicações. Empates mantêm a ordem do catálogo. */
+/** Peso editorial: R$ 40 ou 2 indicações por unidade de esforço estimado.
+ * Não representa valor financeiro de uma indicação. Ver passe-balanceamento.
+ */
+function rewardEffort({ unlock }: PassReward): number {
+  if (!unlock) return 0;
+  const efforts = [
+    unlock.donationMin == null ? null : unlock.donationMin / 40,
+    unlock.referralMin == null ? null : unlock.referralMin / 2,
+  ].filter((effort): effort is number => effort !== null);
+  if (!efforts.length) return 0;
+  return unlock.mode === "any"
+    ? Math.min(...efforts)
+    : efforts.reduce((total, effort) => total + effort, 0);
+}
+
+/** Grátis → esforço estimado. AND soma metas; OR usa alternativa mais fácil. */
 export function sortPassRewards<T extends PassReward>(rewards: readonly T[]): T[] {
   return [...rewards].sort((a, b) =>
     Number(a.unlock !== null) - Number(b.unlock !== null) ||
-    (a.unlock?.donationMin ?? 0) - (b.unlock?.donationMin ?? 0) ||
-    (a.unlock?.referralMin ?? 0) - (b.unlock?.referralMin ?? 0),
+    rewardEffort(a) - rewardEffort(b),
   );
 }

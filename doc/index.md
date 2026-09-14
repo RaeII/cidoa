@@ -113,7 +113,7 @@ src/
       PointLightControls.tsx
   lib/
     image.ts                       ← valida e reduz imagens proporcionalmente para até 400 px
-    pass.ts                        ← contrato visual e ordenação das recompensas
+    pass.ts                        ← contrato visual e ordenação por esforço estimado
     adminUnlock.ts                 ← alvos de edição por opção/feature
     unlock.ts                      ← fonte única: requisito do passe → texto (badge, frase, o que falta)
       PanelIntro.tsx
@@ -454,3 +454,11 @@ hooks    → ponte React ↔ runtime
 - [[primeiros-inscritos]] — página própria `/dale/primeiros-inscritos`; combo, quantidade, ativação e contagem histórica.
 - `src/pages/admin/EarlySignups.tsx` — gestão; `src/api/admin/admin.routes.ts` + `admin.types.ts` — contrato.
 - `scripts/check-customization-access.mjs` — verifica presente permanente, requisitos e sessão ausente.
+
+## Passe: doação ou indicação
+
+Quatro modalidades: doação, indicação, doação + indicação (`all`) e doação ou indicação (`any`). Editor compartilhado, cartões e textos seguem o modo. Ver [[passe-admin-ui]] e [[passe-formatacao]].
+
+## Balanceamento inicial do Passe
+
+[[passe-balanceamento]] — regras aplicadas, faixas editoriais e ordenação por esforço: doação, indicação, AND e OR.

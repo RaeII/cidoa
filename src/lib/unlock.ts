@@ -10,6 +10,8 @@
 export type UnlockRule = {
   donationMin: number | null;
   referralMin: number | null;
+  /** Ausente = regra antiga: exige todos os eixos configurados. */
+  mode?: "all" | "any";
 } | null;
 
 /** Progresso do usuário, de GET /customization/me. */
@@ -49,7 +51,7 @@ export function formatUnlockRequirement(rule: UnlockRule): string {
   const list = parts(rule);
   // Regra "vazia" não deveria existir (o backend serializa grátis como null),
   // mas se vier, tratar como grátis é melhor que renderizar string vazia.
-  return list.length ? list.join(" + ") : "Grátis";
+  return list.length ? list.join(rule.mode === "any" ? " ou " : " + ") : "Grátis";
 }
 
 /** Frase para o usuário final: "Doe R$ 50 e faça 3 indicações para liberar". */
@@ -59,12 +61,18 @@ export function formatUnlockCta(rule: UnlockRule): string {
   if (rule.donationMin != null) actions.push(`doe ${formatBRL(rule.donationMin)}`);
   if (rule.referralMin != null) actions.push(`faça ${formatReferrals(rule.referralMin)}`);
   if (!actions.length) return "Disponível para todos";
-  const sentence = actions.join(" e ");
+  const sentence = actions.join(rule.mode === "any" ? " ou " : " e ");
   return `${sentence[0].toUpperCase()}${sentence.slice(1)} para liberar`;
 }
 
 export function meetsUnlock(rule: UnlockRule, progress: UnlockProgress): boolean {
   if (!rule) return true;
+  if (rule.mode === "any") {
+    return (
+      (rule.donationMin != null && progress.donated >= rule.donationMin) ||
+      (rule.referralMin != null && progress.referrals >= rule.referralMin)
+    );
+  }
   return (
     progress.donated >= (rule.donationMin ?? 0) &&
     progress.referrals >= (rule.referralMin ?? 0)
@@ -95,5 +103,5 @@ export function formatUnlockRemaining(
   if (rule?.referralMin != null && progress.referrals < rule.referralMin) {
     missing.push(formatReferrals(rule.referralMin - progress.referrals));
   }
-  return missing.length ? `Faltam ${missing.join(" e ")}` : null;
+  return missing.length ? `Faltam ${missing.join(rule?.mode === "any" ? " ou " : " e ")}` : null;
 }

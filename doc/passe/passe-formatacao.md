@@ -35,14 +35,14 @@ function parts(rule: NonNullable<UnlockRule>): string[] {
 
 Eixo `null` nunca entra na lista → nunca chega na tela. Regra vira estrutura de dados, não `if` espalhado.
 
-Mesmo princípio em `formatUnlockRemaining`: eixo **já cumprido** também some. Só o que falta é informação.
+Mesmo princípio em `formatUnlockRemaining`: eixo **já cumprido** também some. Só o que falta é informação. Em `mode: "any"`, atingir uma meta já devolve `null`; antes disso, alternativas aparecem ligadas por `ou`.
 
 ## API
 
 | Função | Devolve |
 | --- | --- |
-| `formatUnlockRequirement(rule)` | Badge curto: `Grátis` · `R$ 50` · `3 indicações` · `R$ 50 + 3 indicações` |
-| `formatUnlockCta(rule)` | Frase do usuário: `Doe R$ 50 e faça 3 indicações para liberar` |
+| `formatUnlockRequirement(rule)` | Badge curto: `Grátis` · `R$ 50` · `3 indicações` · `R$ 50 + 3 indicações` · `R$ 50 ou 3 indicações` |
+| `formatUnlockCta(rule)` | Frase do usuário: `Doe R$ 50 e faça 3 indicações para liberar` · variante `ou` em `any` |
 | `meetsUnlock(rule, progress)` | Progresso já satisfaz? |
 | `formatUnlockRemaining(rule, progress)` | `Faltam R$ 20 e 1 indicação` · `null` quando já bate |
 | `formatBRL(v)` | `R$ 50` (inteiro) · `R$ 49,90` (com centavo) |

@@ -60,6 +60,7 @@ export interface IbgeStatus extends IbgeCounts {
 export interface UnlockInput {
   unlockDonationMin?: number | null;
   unlockReferralMin?: number | null;
+  unlockMode?: "all" | "any";
 }
 
 /** Alvo com requisito e contagem de quem já conquistou. */

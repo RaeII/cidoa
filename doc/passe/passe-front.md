@@ -43,7 +43,7 @@ GET /customization/me       → quanto eu tenho + o que ganhei (por usuário, se
 ## Contrato do requisito
 
 ```ts
-type UnlockRule = { donationMin: number | null; referralMin: number | null } | null;
+type UnlockRule = { donationMin: number | null; referralMin: number | null; mode?: "all" | "any" } | null;
 ```
 
 | Valor | Lê-se |
@@ -51,7 +51,10 @@ type UnlockRule = { donationMin: number | null; referralMin: number | null } | n
 | `null` | **grátis** — disponível pra todos |
 | `{ donationMin: 30, referralMin: null }` | exige R$ 30 |
 | `{ donationMin: null, referralMin: 3 }` | exige 3 indicações |
-| `{ donationMin: 50, referralMin: 3 }` | exige **as duas** (AND) |
+| `{ donationMin: 50, referralMin: 3, mode: "all" }` | exige **as duas** (AND) |
+| `{ donationMin: 50, referralMin: 3, mode: "any" }` | exige **uma ou outra** (OR) |
+
+Backend envia `mode`; ausente no catálogo antigo = `all`. Regras grátis continuam `null`.
 
 > [!important] Zero não existe
 > Backend recusa zero — "não exige" tem representação única (`null`). Nenhuma tela do front precisa tratar `0`. É isso que torna "R$ 30 de doação e 0 indicações" impossível de renderizar.

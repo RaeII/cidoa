@@ -23,17 +23,17 @@ function buildRewards(categories: CustomizationCategory[]): AdminReward[] {
     const parent = category.parentId === null ? undefined : byId.get(category.parentId);
     return category.isActive && (!parent || isActive(parent));
   }
-  return categories.flatMap((category) => {
-    const common = { categoryKey: category.key, categoryLabel: category.label, isActive: isActive(category) };
+  return categories.filter(isActive).flatMap((category) => {
+    const common = { categoryKey: category.key, categoryLabel: category.label };
     if (category.kind === "feature") return [{
       ...common, key: `category-${category.id}`, label: category.label,
       unlock: category.unlock, target: categoryTarget(category),
     }];
-    return category.options.filter((option) => option.key !== "default" && option.key !== "none")
+    return category.options
+      .filter((option) => option.isActive && option.key !== "default" && option.key !== "none")
       .map((option) => ({
         ...common, key: `option-${option.id}`, label: option.label, optionKey: option.key,
-        value: option.value, unlock: option.unlock, isActive: common.isActive && option.isActive,
-        target: optionTarget(option, category),
+        value: option.value, unlock: option.unlock, target: optionTarget(option, category),
       }));
   });
 }
@@ -59,8 +59,7 @@ export default function Pass() {
   }, [reloadKey]);
 
   const rewards = buildRewards(categories ?? []);
-  const visible = userPreview ? rewards.filter((reward) => reward.isActive) : rewards;
-  const freeCount = visible.filter((reward) => !reward.unlock).length;
+  const freeCount = rewards.filter((reward) => !reward.unlock).length;
 
   return (
     <SidebarProvider className="h-svh">
@@ -100,18 +99,18 @@ export default function Pass() {
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-2"><Gift className="size-4" /><strong className="text-foreground">{freeCount}</strong> grátis</span>
-                    <span className="flex items-center gap-2"><Trophy className="size-4" /><strong className="text-foreground">{visible.length - freeCount}</strong> para conquistar</span>
+                    <span className="flex items-center gap-2"><Trophy className="size-4" /><strong className="text-foreground">{rewards.length - freeCount}</strong> para conquistar</span>
                   </div>
                   <label className="flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm">
                     Prévia do usuário
                     <Switch checked={userPreview} onCheckedChange={setUserPreview} aria-label="Prévia do usuário" />
                   </label>
                 </div>
-                <PassTrack rewards={visible} onConfigure={userPreview ? undefined : (reward) => setTarget(reward.target)} />
+                <PassTrack rewards={rewards} onConfigure={userPreview ? undefined : (reward) => setTarget(reward.target)} />
                 <p className="text-xs leading-5 text-muted-foreground">
                   {userPreview
-                    ? "Prévia das recompensas ativas. O progresso individual não é exibido nesta visualização."
-                    : "Grátis primeiro, depois menor doação e menos indicações no desempate. Configure os requisitos em cada cartão; conquistas anteriores são preservadas."}
+                    ? "Prévia da trilha como o usuário vê. O progresso individual não é exibido nesta visualização."
+                    : "Só personalizações ativas entram. Grátis primeiro, depois dificuldade estimada das metas; conquistas anteriores são preservadas."}
                 </p>
               </>
             )}

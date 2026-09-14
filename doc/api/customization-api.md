@@ -87,3 +87,7 @@ flowchart LR
 ## Modelo Yachthouse
 
 Key `yachthouse`, label **Yachthouse (torres gêmeas)**. Migration backend `0012_yachthouse_building.sql` inclui opção em `shape`, ordem 11, presa a código. Painel e preview reutilizam catálogo existente; aplicar migration e aguardar cache público (até 60 s) para disponibilizar opção. Builder em [[scene-builders#createYachthouseBuildingMesh.ts]].
+
+## Combinação dos requisitos
+
+`unlock.mode`: `all` exige todos os eixos preenchidos; `any` libera ao atingir um deles. Eixo `null` não conta como alternativa cumprida. Catálogo antigo sem `mode` usa `all` no front. Migration backend `0013_customization_unlock_mode.sql` adiciona modo sem alterar conquistas existentes. Ver [[passe-front]].

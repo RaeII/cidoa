@@ -37,7 +37,7 @@ export function PassTrack<T extends PassReward>({ rewards, onConfigure }: {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Trilha de recompensas</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Da mais fácil à mais difícil. Explore para o lado.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Por dificuldade estimada, da mais fácil à mais difícil. Explore para o lado.</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="mr-2 text-xs tabular-nums text-muted-foreground">{ordered.length} recompensas</span>
@@ -63,7 +63,6 @@ export function PassTrack<T extends PassReward>({ rewards, onConfigure }: {
                     <Badge variant="outline" className="bg-background/90">
                       {reward.unlock ? <Trophy /> : <Gift />}{reward.unlock ? "Conquista" : "Grátis"}
                     </Badge>
-                    {reward.isActive === false && <Badge variant="secondary">Inativa</Badge>}
                   </div>
                   <div className="h-52 p-5 pt-12">
                     <CustomizationImage categoryKey={reward.categoryKey} optionKey={reward.optionKey} value={reward.value} />
@@ -75,7 +74,7 @@ export function PassTrack<T extends PassReward>({ rewards, onConfigure }: {
                   <div className="mt-4 flex-1 space-y-2 border-t pt-4 text-sm">
                     {!reward.unlock && <p className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400"><Gift className="size-4 shrink-0" />Disponível para todos</p>}
                     {reward.unlock?.donationMin != null && <p className="flex items-start gap-2"><HandCoins className="mt-0.5 size-4 shrink-0 text-muted-foreground" /><span><strong className="font-semibold">{formatBRL(reward.unlock.donationMin)}</strong><span className="block text-xs text-muted-foreground">em doações acumuladas</span></span></p>}
-                    {reward.unlock?.referralMin != null && <p className="flex items-center gap-2"><Users className="size-4 shrink-0 text-muted-foreground" /><span>{reward.unlock.donationMin != null && "+ "}{formatReferrals(reward.unlock.referralMin)}</span></p>}
+                    {reward.unlock?.referralMin != null && <p className="flex items-center gap-2"><Users className="size-4 shrink-0 text-muted-foreground" /><span>{reward.unlock.donationMin != null && (reward.unlock.mode === "any" ? "ou " : "+ ")}{formatReferrals(reward.unlock.referralMin)}</span></p>}
                   </div>
                   {onConfigure && <Button variant="outline" size="sm" className="mt-5 w-full" aria-label={`Configurar liberação de ${reward.label}`} onClick={() => onConfigure(reward)}><Pencil />Configurar</Button>}
                 </div>
