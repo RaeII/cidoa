@@ -28,10 +28,12 @@ export const CITY_SCENE_CONFIG: CitySceneConfig = {
   sceneFogDensity: 0.007,
   cameraFov: 58,
   cameraNear: 0.1,
+  // Torres do bloco central chegam a ~30 u (maxSceneHeight 16 x boost 1.9) e o anel
+  // interno a ~18 u: a câmera recua pelo mesmo eixo de visão até sair do meio delas.
   initialCameraPosition: {
-    x: -12.91,
-    y: 19.12,
-    z: -14.70,
+    x: -22.10,
+    y: 26.14,
+    z: -25.10,
   },
   controlTarget: {
     x: 0.19,

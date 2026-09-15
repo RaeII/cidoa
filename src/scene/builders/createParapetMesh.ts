@@ -160,6 +160,10 @@ export function createBuildingParapets(scene: THREE.Scene) {
       }
       refresh();
     },
+    removeBuildings(ids: ReadonlySet<number>) {
+      for (const batch of batches) batch.entries = batch.entries.filter((entry) => !ids.has(entry.id));
+      refresh();
+    },
     updateVisibility(isVisible: (position: THREE.Vector3) => boolean) {
       let changed = false;
       for (const { entries } of batches) {

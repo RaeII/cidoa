@@ -10,6 +10,7 @@ import type {
   LightSettings,
   ReflectionSettings,
   SceneStats,
+  SpiritFlightState,
   TerrainSettings,
   TextureSettings,
   HorizonSettings,
@@ -22,6 +23,8 @@ export type CitySceneCanvasHandle = {
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
   focusOnDonation: (donationId: number) => void;
   clearFocus: () => void;
+  startSpiritFlight: () => void;
+  stopSpiritFlight: () => void;
 };
 
 export type CitySceneCanvasProps = {
@@ -42,6 +45,7 @@ export type CitySceneCanvasProps = {
   onCameraDebugChange?: (cameraInfo: CameraDebugInfo) => void;
   onHoverChange?: (value: number | null, x: number, y: number) => void;
   onBuildingClick?: (donationId: number | null) => void;
+  onSpiritFlightChange?: (state: SpiritFlightState) => void;
 };
 
 export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvasProps>(
@@ -62,12 +66,13 @@ export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvas
       onCameraDebugChange,
       onHoverChange,
       onBuildingClick,
+      onSpiritFlightChange,
     },
     ref,
   ) {
     const mountRef = useRef<HTMLDivElement | null>(null);
 
-    const { addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus } = useCityScene({
+    const { addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus, startSpiritFlight, stopSpiritFlight } = useCityScene({
       mountRef,
       buildingSettings,
       textureSettings,
@@ -84,12 +89,13 @@ export const CitySceneCanvas = forwardRef<CitySceneCanvasHandle, CitySceneCanvas
       onCameraDebugChange,
       onHoverChange,
       onBuildingClick,
+      onSpiritFlightChange,
     });
 
     useImperativeHandle(
       ref,
-      () => ({ addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus }),
-      [addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus],
+      () => ({ addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus, startSpiritFlight, stopSpiritFlight }),
+      [addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus, startSpiritFlight, stopSpiritFlight],
     );
 
     return <div ref={mountRef} className="h-full w-full cursor-grab active:cursor-grabbing" />;

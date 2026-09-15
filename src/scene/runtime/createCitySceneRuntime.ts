@@ -8,6 +8,7 @@ import { CITY_SCENE_CONFIG, DEFAULT_SCENE_STATS } from "../config/citySceneConfi
 import { NIGHT_PRESET } from "../config/environmentConfig";
 import { TERRAIN_MAX_BUILDINGS } from "../config/terrainConfig";
 import { createDonationManager } from "../managers/createDonationManager";
+import { createSpiritFlight } from "../managers/createSpiritFlight";
 import type {
   BlockLayoutSettings,
   BuildingCustomization,
@@ -19,6 +20,7 @@ import type {
   HorizonSettings,
   ReflectionSettings,
   SceneStats,
+  SpiritFlightState,
   TerrainSettings,
   TextureSettings,
 } from "../types";
@@ -47,6 +49,7 @@ type CitySceneRuntimeOptions = {
   onCameraDebugChange?: (cameraInfo: CameraDebugInfo) => void;
   onHoverChange?: (value: number | null, x: number, y: number) => void;
   onBuildingClick?: (donationId: number | null) => void;
+  onSpiritFlightChange?: (state: SpiritFlightState) => void;
 };
 
 export type CitySceneRuntime = {
@@ -69,6 +72,8 @@ export type CitySceneRuntime = {
   setFacadeTexturePool: (keys: readonly string[]) => void;
   focusOnDonation: (donationId: number) => void;
   clearFocus: () => void;
+  startSpiritFlight: () => void;
+  stopSpiritFlight: () => void;
   dispose: () => void;
 };
 
@@ -87,6 +92,7 @@ export function createCitySceneRuntime({
   onCameraDebugChange,
   onHoverChange,
   onBuildingClick,
+  onSpiritFlightChange,
 }: CitySceneRuntimeOptions): CitySceneRuntime {
   runDevAssertionsOnce();
 
@@ -155,6 +161,23 @@ export function createCitySceneRuntime({
     CITY_SCENE_CONFIG.controlTarget.z,
   );
   controls.update();
+
+  const spiritFlight = createSpiritFlight({
+    scene, camera, controls, onChange: onSpiritFlightChange,
+    onStartRequest: () => startSpiritFlight(),
+    combatWorld: {
+      traceBuilding: (from, to) => donationManager.traceBuilding(from, to),
+      getBuildingsInRadius: (center, radius) => donationManager.getBuildingsInRadius(center, radius),
+      destroyBuildings: (ids) => {
+        const centers = donationManager.destroyBuildings(ids);
+        if (centers.length) {
+          emitStatsPatch({ buildings: donationManager.getDonationCount() });
+          markCubeDirty();
+        }
+        return centers;
+      },
+    },
+  });
 
   let loadedEnvMap: THREE.Texture | null = null;
   let loadedBgTexture: THREE.Texture | null = null;
@@ -292,10 +315,11 @@ export function createCitySceneRuntime({
   let hoverRafId: number | null = null;
   const handleMouseMove = onHoverChange
     ? (event: MouseEvent) => {
+        if (spiritFlight.isActive()) return;
         pendingHoverEvent = event;
         if (hoverRafId === null) {
           hoverRafId = requestAnimationFrame(() => {
-            if (pendingHoverEvent) {
+            if (pendingHoverEvent && !spiritFlight.isActive()) {
               const value = donationManager.getHoveredValue(
                 pendingHoverEvent,
                 camera,
@@ -321,11 +345,12 @@ export function createCitySceneRuntime({
   // Clique: detectar edifício clicado (só dispara se não houve drag)
   let pointerDownPos: { x: number; y: number } | null = null;
   const handlePointerDown = (event: PointerEvent) => {
+    if (spiritFlight.isActive()) return;
     pointerDownPos = { x: event.clientX, y: event.clientY };
   };
   const handlePointerUp = onBuildingClick
     ? (event: PointerEvent) => {
-        if (!pointerDownPos) return;
+        if (spiritFlight.isActive() || !pointerDownPos) return;
         const dx = event.clientX - pointerDownPos.x;
         const dy = event.clientY - pointerDownPos.y;
         // Ignorar se moveu mais de 5px (drag da câmera)
@@ -356,6 +381,17 @@ export function createCitySceneRuntime({
   // Salvar posição da câmera antes do foco para restaurar
   let savedCameraPos: THREE.Vector3 | null = null;
   let savedCameraTarget: THREE.Vector3 | null = null;
+
+  const startSpiritFlight = () => {
+    if (spiritFlight.isActive()) return;
+    cameraAnim = null;
+    savedCameraPos = savedCameraTarget = null;
+    donationManager.setFocusedDonation(null);
+    pendingHoverEvent = null;
+    pointerDownPos = null;
+    onHoverChange?.(null, 0, 0);
+    spiritFlight.start();
+  };
 
   let animationId = 0;
   let lastTime = performance.now();
@@ -389,10 +425,14 @@ export function createCitySceneRuntime({
     const delta = Math.min((time - lastTime) / 1000, 0.05);
     lastTime = time;
 
-    controls.update();
+    // Poll também em idle: Menu do Xbox inicia pela mesma rotina do botão HTML.
+    spiritFlight.update(delta);
+    if (!spiritFlight.isActive()) {
+      controls.update();
+    }
 
     // Interpolar câmera durante animação de foco
-    if (cameraAnim) {
+    if (cameraAnim && !spiritFlight.isActive()) {
       cameraAnim.progress = Math.min(1, cameraAnim.progress + delta / cameraAnim.duration);
       // Ease-out cubic
       const t = 1 - Math.pow(1 - cameraAnim.progress, 3);
@@ -671,6 +711,7 @@ export function createCitySceneRuntime({
       markCubeDirty();
     },
     focusOnDonation(donationId) {
+      if (spiritFlight.isActive()) return;
       const worldPos = donationManager.getDonationWorldPosition(donationId);
       if (!worldPos) return;
 
@@ -717,6 +758,10 @@ export function createCitySceneRuntime({
         savedCameraTarget = null;
       }
     },
+    startSpiritFlight,
+    stopSpiritFlight() {
+      spiritFlight.stop();
+    },
     dispose() {
       if (handleMouseMove) renderer.domElement.removeEventListener("mousemove", handleMouseMove);
       if (handleMouseLeave) renderer.domElement.removeEventListener("mouseleave", handleMouseLeave);
@@ -726,6 +771,7 @@ export function createCitySceneRuntime({
       cancelAnimationFrame(animationId);
       window.removeEventListener("resize", handleResize);
       THREE.DefaultLoadingManager.onLoad = () => {};
+      spiritFlight.dispose();
       controls.dispose();
       donationManager.dispose();
       groundPlane.dispose();

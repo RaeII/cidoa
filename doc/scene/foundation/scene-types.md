@@ -13,6 +13,26 @@ aliases:
 
 # Scene Types
 
+## SpiritFlightState
+
+Estado público do [[scene-managers#createSpiritFlight.ts|voo do Spirit]]:
+
+```typescript
+type SpiritFlightState = {
+  phase: "idle" | "loading" | "entering" | "flying" | "returning" | "error";
+  boosted: boolean;
+  score: number;
+  rings: number;
+  hits: number;
+  feedback: "ring" | "hit" | "miss" | "target" | "destroyed" | null;
+  buildingsDestroyed: number;
+  targetsDestroyed: number;
+  gamepad: "connected" | "disconnected" | "unsupported" | "unavailable";
+};
+```
+
+Callback `onSpiritFlightChange` atravessa runtime → hook → canvas → editor. `boosted` indica turbo pedido; velocidade/FOV transitam suavemente dentro do manager. `score`/`rings`/`hits` representam rodada local, zerada ao iniciar; `feedback` expira em 1,4 s; `gamepad` informa conexão/suporte. Atualizações por evento, sem posição/eixos React por frame. UI em [[html-components#SpiritControls.tsx]].
+
 Contratos TypeScript centralizados em `src/scene/types.ts`.
 
 > [!abstract] Objetivo

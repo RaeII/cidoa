@@ -275,7 +275,7 @@ Configuração mais global da cena. Define a estrutura completa de `CitySceneCon
 | ~~`groundSize`~~ | **removido**. Extensão do chão depende de `HorizonSettings.groundDistance`, `groundEdgeMode` e frustum (padrão `far * 1.1` em [[#horizonConfig.ts]]) |
 | `cameraFov` | Campo de visão da câmera |
 | `cameraNear` | Near plane |
-| `initialCameraPosition` | Posição inicial `{x, y, z}` |
+| `initialCameraPosition` | Posição inicial `{x, y, z}`. Recuada pelo eixo de visão até 26 u de altura: torres do bloco central chegam a ~30 u e anel interno a ~18 u, então altura menor nascia dentro de edifício |
 | `controlTarget` | Target inicial do OrbitControls |
 | `controls.*` | Damping, velocidades, limites de zoom/pan/rotate |
 

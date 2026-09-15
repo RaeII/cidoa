@@ -12,6 +12,10 @@ aliases:
 
 # Three Components
 
+## Controle do Spirit
+
+`CitySceneCanvasHandle`: `startSpiritFlight()` e `stopSpiritFlight()` delegam ao [[scene-hooks|hook]]. Prop `onSpiritFlightChange?: (state: SpiritFlightState) => void` leva estado ao editor/HUD, sem recriar cena. Contrato em [[scene-types#SpiritFlightState]].
+
 Componentes React responsáveis por montar a cena 3D.
 
 ## Objetivo da Camada

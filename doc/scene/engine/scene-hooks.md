@@ -13,6 +13,10 @@ aliases:
 
 # Scene Hooks
 
+## Controle do Spirit
+
+`useCityScene` expõe callbacks estáveis `startSpiritFlight`/`stopSpiritFlight`; ambos acessam runtime atual via ref. `onSpiritFlightChange` passa por `useEffectEvent`: HUD recebe fase/turbo, placar, feedback e conexão Xbox sem reinstanciar renderer. Dispose continua único, no cleanup do runtime. Ver [[scene-runtime#Voo do Spirit]].
+
 A ponte entre React e Three.js: `src/scene/hooks/useCityScene.ts`.
 
 ## Objetivo do Hook

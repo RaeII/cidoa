@@ -207,6 +207,9 @@ export type DonationManager = {
   getHoveredValue: (event: MouseEvent, camera: THREE.Camera, domElement: HTMLElement) => number | null;
   getClickedDonationId: (event: MouseEvent, camera: THREE.Camera, domElement: HTMLElement) => number | null;
   getDonationWorldPosition: (donationId: number) => THREE.Vector3 | null;
+  traceBuilding: (from: THREE.Vector3, to: THREE.Vector3) => { donationId: number; point: THREE.Vector3 } | null;
+  destroyBuildings: (ids: readonly number[]) => THREE.Vector3[];
+  getBuildingsInRadius: (center: THREE.Vector3, radius: number) => number[];
   setFocusedDonation: (donationId: number | null) => void;
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
   /**
@@ -1178,6 +1181,9 @@ export function createDonationManager({
   };
 
   const donations: DonationEntry[] = [];
+  // Destruição local da sessão: mantém IDs/slots para não reorganizar a cidade.
+  const destroyedDonationIds = new Set<number>();
+  let instanceDestroyed = new Uint8Array(0);
   let nextId = 0;
   // Meio-extensão (mundo) da cidade construída. Consumido pelo relevo para abrir a zona plana.
   let cityHalfExtent = 0;
@@ -1246,6 +1252,7 @@ export function createDonationManager({
   const compactVisibleInstances = (includeCulled = false) => {
     for (const group of facadeGroups) group.renderCount = 0;
     for (let logicalIndex = 0; logicalIndex < logicalInstanceCount; logicalIndex++) {
+      if (instanceDestroyed[logicalIndex]) continue;
       if (!includeCulled && instanceHidden[logicalIndex]) continue;
       const group = facadeGroups[instanceGroup[logicalIndex]] ?? facadeGroups[0];
       const renderIndex = group.renderCount;
@@ -1342,30 +1349,21 @@ export function createDonationManager({
   const pickBox = new THREE.Box3();
   const pickPoint = new THREE.Vector3();
 
-  const pickAt = (
-    event: MouseEvent,
-    camera: THREE.Camera,
-    domElement: HTMLElement,
-  ): { donationId: number; value: number } | null => {
-    const rect = domElement.getBoundingClientRect();
-    mouseVec.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    mouseVec.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-    raycaster.setFromCamera(mouseVec, camera);
-    const ray = raycaster.ray;
-
+  const pickRay = (ray: THREE.Ray, maxDistance = Infinity, includeCulled = false) => {
     let bestIndex = -1;
-    let bestDist = Infinity;
+    let bestDist = maxDistance;
     for (const blk of pickBlocks) {
       pickBox.min.set(blk.minX, 0, blk.minZ);
       pickBox.max.set(blk.maxX, blk.maxY, blk.maxZ);
-      if (!ray.intersectsBox(pickBox)) continue;
+      if (!pickBox.containsPoint(ray.origin) &&
+          (!ray.intersectBox(pickBox, pickPoint) || pickPoint.distanceTo(ray.origin) > maxDistance)) continue;
       for (let i = blk.start; i < blk.end; i++) {
-        if (instanceHidden[i]) continue; // culled = invisível = não pickável
+        if (instanceDestroyed[i] || (!includeCulled && instanceHidden[i])) continue;
         pickBox.min.set(instPosX[i] - instHalfX[i], instPosY[i] - instHalfY[i], instPosZ[i] - instHalfZ[i]);
         pickBox.max.set(instPosX[i] + instHalfX[i], instPosY[i] + instHalfY[i], instPosZ[i] + instHalfZ[i]);
         if (!ray.intersectBox(pickBox, pickPoint)) continue;
         const dist = pickPoint.distanceTo(ray.origin);
-        if (dist < bestDist) {
+        if (dist <= bestDist) {
           bestDist = dist;
           bestIndex = i;
         }
@@ -1376,21 +1374,37 @@ export function createDonationManager({
     let customHit: THREE.Intersection | null = null;
     if (customShapeMeshes.size > 0) {
       const targets: THREE.Object3D[] = [];
-      for (const entry of customShapeMeshes.values()) targets.push(entry.mesh);
-      const hits = raycaster.intersectObjects(targets, false);
+      for (const entry of customShapeMeshes.values()) {
+        if (!includeCulled && !entry.mesh.visible) continue;
+        entry.mesh.updateMatrixWorld(true);
+        targets.push(entry.mesh);
+      }
+      raycaster.ray.copy(ray);
+      raycaster.far = maxDistance;
+      const hits = raycaster.intersectObjects(targets, true);
       if (hits.length > 0) customHit = hits[0];
     }
 
     if (bestIndex >= 0 && (!customHit || bestDist <= customHit.distance)) {
-      return { donationId: instanceToDonationId[bestIndex], value: instanceToValue[bestIndex] };
+      return { donationId: instanceToDonationId[bestIndex], value: instanceToValue[bestIndex], point: ray.at(bestDist, new THREE.Vector3()) };
     }
     if (customHit) {
-      const id = customHit.object.userData.donationId;
-      const value = customHit.object.userData.donationValue;
-      if (typeof id === "number" && typeof value === "number") return { donationId: id, value };
+      let object: THREE.Object3D | null = customHit.object;
+      while (object && typeof object.userData.donationId !== "number") object = object.parent;
+      const id = object?.userData.donationId;
+      const value = object?.userData.donationValue;
+      if (typeof id === "number" && typeof value === "number") return { donationId: id, value, point: customHit.point.clone() };
     }
     return null;
   };
+
+  const pickAt = (event: MouseEvent, camera: THREE.Camera, domElement: HTMLElement) => {
+    const rect = domElement.getBoundingClientRect();
+    mouseVec.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+    raycaster.setFromCamera(mouseVec, camera);
+    return pickRay(raycaster.ray);
+  };
+  const combatRay = new THREE.Ray();
 
   const getAllFacadeMaterials = (): THREE.MeshPhysicalMaterial[] => {
     const list: THREE.MeshPhysicalMaterial[] = [focusFacadeMaterial];
@@ -1996,7 +2010,8 @@ export function createDonationManager({
             donations[donIdx].value, 0, towerCount - 1,
             baseMaxHeight, DONATION_LAYOUT.maxSceneHeight,
           );
-        const id = donations[donIdx].id;
+    const id = donations[donIdx].id;
+        if (destroyedDonationIds.has(id)) continue;
         dummy.position.set(blockCenterX + ox, height / 2, blockCenterZ + oz);
         dummy.scale.set(
           (1.0 + seeded(id, 1) * 1.6) * towerWidthBoost,
@@ -2032,6 +2047,7 @@ export function createDonationManager({
                 DONATION_LAYOUT.minBuildingHeight, midFloorHeight,
               );
         const id = donations[donIdx].id;
+        if (destroyedDonationIds.has(id)) continue;
         dummy.position.set(blockCenterX + ox, height / 2, blockCenterZ + oz);
         dummy.scale.set(1.0 + seeded(id, 1) * 1.6, height, 1.0 + seeded(id, 2) * 1.6);
         dummy.updateMatrix();
@@ -2078,6 +2094,8 @@ export function createDonationManager({
     }
 
     logicalInstanceCount = instanceIdx;
+    if (instanceDestroyed.length < capacity) instanceDestroyed = new Uint8Array(capacity);
+    else instanceDestroyed.fill(0);
 
     // Layout reescreveu todas as matrizes → todas visíveis; próximo passe de cull re-esconde.
     if (instanceHidden.length < capacity) instanceHidden = new Uint8Array(capacity);
@@ -2094,7 +2112,7 @@ export function createDonationManager({
     // Reposicionar/criar prédios com formato customizado (twisted)
     syncCustomShapes();
 
-    parapets.rebuild(donations.map((donation) => ({
+    parapets.rebuild(donations.filter((donation) => donationTransforms.has(donation.id)).map((donation) => ({
       id: donation.id,
       shape: donation.customization?.buildingShape ?? "default",
       ...donationTransforms.get(donation.id)!,
@@ -2856,7 +2874,51 @@ export function createDonationManager({
       cullGroundInstances();
     },
     getDonationCount() {
-      return donations.length;
+      return donationTransforms.size;
+    },
+    traceBuilding(from, to) {
+      const distance = from.distanceTo(to);
+      if (distance < 1e-8) return null;
+      combatRay.origin.copy(from);
+      combatRay.direction.subVectors(to, from).normalize();
+      return pickRay(combatRay, distance, true);
+    },
+    getBuildingsInRadius(center, radius) {
+      const ids: number[] = [];
+      for (const [id, transform] of donationTransforms) {
+        pickBox.min.copy(transform.position).addScaledVector(transform.scale, -0.5);
+        pickBox.max.copy(transform.position).addScaledVector(transform.scale, 0.5);
+        if (pickBox.distanceToPoint(center) <= radius) ids.push(id);
+      }
+      return ids;
+    },
+    destroyBuildings(ids) {
+      const removed = new Set<number>();
+      const centers: THREE.Vector3[] = [];
+      for (const id of ids) {
+        const transform = donationTransforms.get(id);
+        if (!transform || destroyedDonationIds.has(id)) continue;
+        centers.push(transform.position.clone());
+        destroyedDonationIds.add(id);
+        removed.add(id);
+        donationTransforms.delete(id);
+        const index = donationIdToInstanceIndex.get(id);
+        if (index !== undefined) instanceDestroyed[index] = instanceHidden[index] = 1;
+        const custom = customShapeMeshes.get(id);
+        if (custom) { disposeCustomShapeEntry(custom); customShapeMeshes.delete(id); }
+        setRooftop(id, "none");
+        setSign(id, "", 1);
+        setEdgeLight(id, "none");
+        setHologram(id, null, DEFAULT_HOLOGRAM_COLOR, DEFAULT_HOLOGRAM_OPACITY);
+      }
+      if (removed.size) {
+        if (focusedDonationId !== null && removed.has(focusedDonationId)) applyFocus(null);
+        parapets.removeBuildings(removed);
+        compactVisibleInstances();
+        // Elimina também o brilho residual dos LEDs removidos até próximo cull.
+        for (const light of spillLights) light.intensity = 0;
+      }
+      return centers;
     },
     getCityRadius() {
       return cityHalfExtent;
@@ -2878,6 +2940,7 @@ export function createDonationManager({
       applyFocus(donationId);
     },
     updateDonationCustomization(donationId: number, customization: BuildingCustomization) {
+      if (destroyedDonationIds.has(donationId)) return;
       const donation = donations.find((d) => d.id === donationId);
       if (!donation) return;
 
@@ -3093,6 +3156,7 @@ export function createDonationManager({
       // Arrays lógicos continuam estáveis para picking/metadados.
       let changed = false;
       for (let i = 0; i < logicalInstanceCount; i++) {
+        if (instanceDestroyed[i]) continue;
         const dx = instPosX[i] - cameraPos.x;
         const dz = instPosZ[i] - cameraPos.z;
         const d = dx * dx + dz * dz;

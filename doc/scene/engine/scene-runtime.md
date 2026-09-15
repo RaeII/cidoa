@@ -12,6 +12,16 @@ aliases:
 
 # Scene Runtime
 
+## Voo do Spirit
+
+`combatWorld` conecta armas ao DonationManager: `traceBuilding`, `getBuildingsInRadius`, `destroyBuildings`. Remoção atualiza estatística de prédios e invalida captura de reflexo; layout/raio da cidade preservados. Armas/efeitos/alvos compartilham camada 1 do voo; sair cancela combate. Sem chamadas de exclusão ao backend.
+
+Runtime cria [[scene-managers#createSpiritFlight.ts]] com scene, camera, OrbitControls e callback `onSpiritFlightChange`. `startSpiritFlight()` cancela foco pendente, limpa seleção/hover e entrega câmera ao voo. Callback `onStartRequest` passa pelo mesmo método para início via Xbox. `stopSpiritFlight()` inicia retorno.
+
+Loop chama `spiritFlight.update(delta)` sempre, incluindo idle (poll do Xbox). Enquanto voo ativo, suspende `controls.update()` e animação de foco. Raycast de hover/clique e novos pedidos de foco ficam suspensos. Manager restaura posição, rotação, alvo, FOV e estado de controles ao sair; runtime segue atualizando chão, céu e culling conforme câmera de voo.
+
+Modelo/rastros/anéis/obstáculos na camada 1, habilitada só na câmera principal durante voo; CubeCamera mantém camada 0, evitando avião congelado no reflexo estático. Dispose do manager precede controles/renderer e inclui percurso. [[scene-types#SpiritFlightState]] publica mudanças de fase, turbo, pontuação, feedback e conexão do controle; sem estado React por frame.
+
 O orquestrador da cena 3D: `src/scene/runtime/createCitySceneRuntime.ts`.
 
 > [!abstract] Analogia

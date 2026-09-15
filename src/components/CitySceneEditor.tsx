@@ -5,6 +5,7 @@ import { BuildingHeightInput } from "./html/BuildingHeightInput";
 import { BuildingCustomizePanel } from "./html/BuildingCustomizePanel";
 import { CityControlPanel } from "./html/CityControlPanel";
 import { KeyboardShortcutsHelp } from "./html/KeyboardShortcutsHelp";
+import { SpiritControls } from "./html/SpiritControls";
 import {
   useKeyboardShortcuts,
   type KeyboardShortcut,
@@ -34,6 +35,7 @@ import type {
   EdgeLightType,
   RooftopType,
   SceneStats,
+  SpiritFlightState,
 } from "../scene/types";
 import {
   DEFAULT_BUILDING_TEXTURE_TRANSFORM,
@@ -61,6 +63,11 @@ export function CitySceneEditor() {
   const [hoverInfo, setHoverInfo] = useState<{ value: number; x: number; y: number } | null>(null);
   const [showControlPanel, setShowControlPanel] = useState(false);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+  const [spiritFlight, setSpiritFlight] = useState<SpiritFlightState>({
+    phase: "idle", boosted: false, score: 0, rings: 0, hits: 0, feedback: null, gamepad: "disconnected",
+    buildingsDestroyed: 0, targetsDestroyed: 0,
+  });
+  const spiritActive = spiritFlight.phase !== "idle" && spiritFlight.phase !== "error";
   const [uiVisibility, setUIVisibility] = useState(loadUIVisibilitySettings);
   // Granulado de renderização zerado por padrão: cena sempre abre na resolução nativa.
   const [grain, setGrain] = useState(0);
@@ -297,7 +304,7 @@ export function CitySceneEditor() {
     },
   ];
 
-  useKeyboardShortcuts(shortcuts);
+  useKeyboardShortcuts(spiritActive ? [] : shortcuts);
 
   return (
     <div className="relative h-screen w-full overflow-hidden bg-[#05070a]">
@@ -318,7 +325,21 @@ export function CitySceneEditor() {
         onCameraDebugChange={uiVisibility.cameraLog ? setCameraDebugInfo : undefined}
         onHoverChange={handleHoverChange}
         onBuildingClick={handleBuildingClick}
+        onSpiritFlightChange={(state) => {
+          setSpiritFlight(state);
+          if (state.phase === "loading") {
+            setSelectedBuildingId(null);
+            setShowControlPanel(false);
+            setShowShortcutsHelp(false);
+          }
+        }}
       />
+      <SpiritControls
+        state={spiritFlight}
+        onStart={() => canvasRef.current?.startSpiritFlight()}
+        onStop={() => canvasRef.current?.stopSpiritFlight()}
+      />
+      <div hidden={spiritActive}>
       <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to from-black/35 to-transparent" />
       <div className="absolute right-4 top-4 z-20">
         <AuthMenu
@@ -454,6 +475,7 @@ export function CitySceneEditor() {
           </svg>
         </button>
       )}
+      </div>
     </div>
   );
 }

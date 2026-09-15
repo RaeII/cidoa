@@ -32,6 +32,9 @@ const mocks = {
       updateSettings() {}, updatePosition() {}, setRadius() {}, setStarsVisible() {}, dispose() {}
     });
   `,
+  createSpiritFlight: `
+    export const createSpiritFlight = () => ({ isActive: () => false, start() {}, stop() {}, update() {}, dispose() {} });
+  `,
   facadeTextureLoader: `
     export const initFacadeTextureLoader = () => {};
     export const peekFacadeTextureSet = () => null;
@@ -57,7 +60,7 @@ const bundle = await build({
   plugins: [{
     name: "headless-io",
     setup(builder) {
-      builder.onResolve({ filter: /three$|OrbitControls|loadEnvironment|facadeTexture(Loader|Manifest)/ }, ({ path }) => {
+      builder.onResolve({ filter: /three$|OrbitControls|loadEnvironment|createSpiritFlight|facadeTexture(Loader|Manifest)/ }, ({ path }) => {
         const key = path === "three" ? path : path.split("/").at(-1).replace(/\.js$/, "");
         return key in mocks ? { path: key, namespace: "headless" } : undefined;
       });

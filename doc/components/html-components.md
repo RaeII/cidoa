@@ -12,6 +12,23 @@ aliases:
 
 # HTML Components
 
+## SpiritControls.tsx
+
+Combate: legendas **RT** tiro contínuo, **LT** bomba, **LB/RB** esquiva; teclado **F/G/Q/E**. HUD mostra `targetsDestroyed`, `buildingsDestroyed`, feedback de alvo/edifício destruído e resumo ao sair. Mira amarela 3D aponta pelo nariz, independente da câmera no analógico direito. Alvos rosas diferenciam-se dos anéis azuis e obstáculos laranjas.
+
+`src/components/html/SpiritControls.tsx`: UI presentacional, sem Three.js. Recebe `state: SpiritFlightState`, `onStart`, `onStop`.
+
+- **Controlar Spirit**: inicia carregamento sob demanda; erro exibe mensagem e permite tentar novamente.
+- HUD: carregamento, aproximação, cruzeiro, turbo ou retorno. **Fechar** disponível inclusive durante download; **Esc** capturado pelo manager.
+- **W/S** sobe/desce; **A/D** vira; **Espaço** alterna turbo. Entrada termina antes de liberar manobras.
+- **Xbox**: analógico esquerdo vira e funciona como manche invertido (frente desce, trás sobe); analógico direito move câmera; **A** inicia e alterna turbo; **B** sair; **Menu** também inicia. HUD troca legendas quando conectado, mantendo teclado disponível; informa controle desconectado, incompatível ou API indisponível.
+- Placar por voo: pontos, anéis, colisões e feedback temporário. Anel azul **+100**; obstáculo laranja **−50** com piso zero, moldura de impacto e perda de velocidade. Após sair, exibe resumo do último voo.
+- `CitySceneEditor` guarda estado publicado pelo runtime. Durante voo, esconde UI normal preservando formulários montados; suspende atalhos do editor e fecha painéis de foco/configuração.
+- Callback de fase `loading` fecha painéis também quando início vem do Xbox.
+- Crédito do modelo e licença fornecidos no GLB ficam no HUD.
+
+Fluxo: [[three-components#Controle do Spirit]] → [[scene-managers#createSpiritFlight.ts]].
+
 Componentes React DOM do painel lateral do Cidoa.
 
 > [!info] O que é "HTML" aqui

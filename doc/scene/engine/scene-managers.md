@@ -22,6 +22,83 @@ Managers cuidam de partes da cena que têm **estado interno** e **comportamento 
 
 ## Arquivos
 
+### createSpiritCombat.ts
+
+Combate arcade: `start`, `stop`, `update`, `dispose`. `SpiritCombatWorld` fornece somente consultas/remoções locais da cidade, através do runtime.
+
+- **RT/F**: projéteis pelo nariz a 140 u/s, intervalo 0,12 s, vida 3 s. Segurar mantém disparos. Mira amarela fica 45 u à frente do nariz, independente da câmera de observação.
+- **LT/G**: bomba por pressão, intervalo mínimo 0,9 s, gravidade 26 u/s² e parte da velocidade horizontal do jato. Impacto em prédio/chão gera explosão de raio 9 u; remove edifícios cujas caixas intersectam esfera.
+- Interseção contínua entre posições anterior/atual: evita atravessar alvos entre frames. Vence impacto mais próximo entre edifício, chão e alvo aéreo.
+- Oito alvos rosas, reposicionados à frente quando distantes/atrás; abatidos reaparecem após 3 s. Contador próprio, sem alterar pontos de anéis.
+- Pools fixos: 32 tiros, 6 bombas, 16 explosões. Explosão expande esfera de fogo, esmaece e espalha 12 fragmentos instanciados. Geometrias compartilhadas; materiais/instâncias descartados no cleanup.
+- Sair oculta combate; novo voo limpa projéteis/efeitos/contadores. Prédios já destruídos continuam removidos durante sessão.
+
+### Esquiva do Spirit
+
+`createSpiritFlight`: **LB/RB** ou **Q/E** deslocam 8 u à esquerda/direita em 0,45 s; inclinação lateral acompanha impulso e retorna suavemente. Intervalo mínimo 0,85 s, uma ativação por pressão. Direção lateral capturada no início; curso da cidade segue independente. Segmento da esquiva participa das colisões do percurso; não concede invulnerabilidade.
+
+`createSpiritGamepad`: índices standard 4/5 = LB/RB, 6 = LT, 7 = RT. LT usa borda de pressão; RT usa estado mantido (valor >0,25 ou `pressed`). Foco/campos editáveis desativam entrada. Manche invertido, câmera no analógico direito e A para iniciar/turbo preservados.
+
+### Destruição local de edifícios
+
+`createDonationManager` preserva lista/IDs/slots das doações; `destroyedDonationIds` registra remoções locais. `destroyBuildings(ids)` retorna centros realmente removidos (sem duplicar), exclui transforms e objetos customizados, descarta telhados/letreiros/LEDs/hologramas, remove platibandas e compacta fachada uma vez por lote. Vizinhos não mudam de posição/altura por destruição.
+
+`instanceDestroyed` impede retorno durante culling e captura completa do reflexo. Rebuilds ignoram IDs destruídos sem fechar os espaços da distribuição original. Snapshots/filtros conservam destruição por ID até descarregar runtime; sem alteração de dados remotos. `getDonationCount()` passa a contar transforms de prédios sobreviventes.
+
+`traceBuilding(from, to)` reutiliza índice de quadras/AABBs do picking, limitado ao segmento; formatos customizados usam raycast recursivo real. Combate consulta inclusive prédios fora do cull visual. `getBuildingsInRadius` verifica distância até caixa de cada edifício para dano em área.
+
+Verificações: `node scripts/check-spirit-combat.mjs` cobre cidade e combate reais sem GPU, com texturas externas substituídas; `node scripts/check-spirit.mjs` cobre RT/LT, LB/RB, teclado, foco, voo e descarte. `node scripts/check-horizon.mjs` mantém regressão de horizonte/reflexos. Sem servidor/navegador; controle físico não testado.
+
+### createSpiritFlight.ts
+
+`src/scene/managers/createSpiritFlight.ts`: voo arcade do `src/assets/plane/b2-spirit.glb`, integrado ao [[scene-runtime#Voo do Spirit]]. API: `start()`, `stop()`, `update(delta)`, `isActive()`, `dispose()`.
+
+| Fase | Comportamento |
+|---|---|
+| `idle` | Modelo oculto; cidade recebe controles |
+| `loading` | GLTFLoader sob demanda; permite cancelar ou tentar novamente após erro |
+| `entering` | Bézier de 2,6 s começa atrás da câmera; desacelera até posição de controle |
+| `flying` | Avanço automático; WASD/Xbox, percurso, pontos, câmera de perseguição e turbo |
+| `returning` | Oculta jato/efeito; interpola câmera original em 0,85 s |
+| `error` | Restaura câmera/controles; UI oferece nova tentativa |
+
+- Asset original: frente +X, asas Z. Rotação Y de π/2 alinha frente -Z; envergadura normalizada em 6,8 unidades. `LG*`/`LandingOn` ocultos; tampa `landingOff` preservada. GLB sem clips: animação procedural.
+- W/S controla altitude; A/D controla curva com inclinação das asas. Resposta vertical ampliada: pitch até ±60°, velocidade vertical `sin(pitch) × velocidade × 1,8`; avanço horizontal reduz conforme inclinação. Cruzeiro 12 u/s; turbo 38 u/s. Altitude 3,5–400; câmera acompanha subida/descida mais rápido. Colisão apenas com obstáculos do percurso; edifícios/relevo continuam cenário.
+- `MathUtils.damp`, lerp exponencial e delta limitado a 50 ms suavizam entrada, manobra, velocidade e câmera. Distância da câmera considera aspecto da tela.
+- Analógico direito orbita câmera ao redor do jato: yaw até ±2,4 rad, pitch até ±0,9 rad, ambos amortecidos e autocentrantes ao soltar. Mira sai da dianteira e volta ao próprio jato conforme o desvio cresce; altura mínima 1,5 u impede câmera enterrada. Rumo do jato não muda.
+- Espaço alterna turbo uma vez por pressão; repetição automática ignorada. Turbo abre FOV em até 16° e exibe 64 rastros num `LineSegments`, sem pós-processamento.
+- Esc funciona em qualquer fase ativa, inclusive download. Campos editáveis, botões e atalhos com modificadores não acionam manobras. Blur/troca de aba limpa teclas.
+- [[scene-managers#createSpiritGamepad.ts]] fornece analógico esquerdo (manche invertido), analógico direito (câmera), A (iniciar parado / turbo em voo), B (sair), Menu (iniciar). `update` recebe ticks mesmo em idle para detectar controle/início; estado só publicado quando muda.
+- [[scene-managers#createSpiritCourse.ts]] começa após chegada. Novo voo zera pontos/anéis/colisões; sair conserva resumo até próximo início. Colisão reduz velocidade instantânea a 35%; aceleração recupera cruzeiro/turbo. Feedback dura 1,4 s.
+- Download único por instância; reabrir reutiliza GLB. Resultado tardio nunca reativa voo cancelado; desmontagem descarta também resultado que chega depois.
+- Dispose remove eventos, geometrias, materiais, texturas e fecha ImageBitmaps compartilhados uma única vez. Modelo/rastros excluídos do probe por camada.
+
+Verificação: `node scripts/check-spirit.mjs` usa GLB real e matemática Three.js; substitui download/decodificação de imagens, sem servidor/navegador/GPU. Cobre orientação, entrada, teclas, turbo, restauração, cancelamento, erro/retry, 30/60/120 FPS, aspecto vertical, pontuação, colisão contínua, pool, Xbox simulado (manche invertido, órbita da câmera, A inicia sem ligar turbo) e descarte. Controle físico não validado por esse script.
+
+Referências: [GLTFLoader](https://threejs.org/docs/pages/GLTFLoader.html) e [MathUtils.damp](https://threejs.org/docs/pages/MathUtils.html). Asset: [Northrop Grumman B-2 Spirit — bohmerang](https://sketchfab.com/3d-models/northrop-grumman-b-2-spirit-free-9cd6b00813c04401a5427ae71b7a0cdc), licença [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) registrada nos metadados do GLB. Arquivo original preservado; orientação/escala/trem ajustados em runtime.
+
+### createSpiritCourse.ts
+
+Percurso procedural: pool fixo de **6 anéis + 6 obstáculos**, duas geometrias e dois materiais compartilhados. Torus azul de raio 8; passagem útil considera tubo e envergadura. Travessia correta dá **100 pontos**, uma vez por anel; passar por fora/voltar pelo mesmo anel não pontua.
+
+Barreiras laranjas alternam pilares e barras horizontais com oscilação vertical. Colisão tira até **50 pontos** (piso zero), conta um impacto e remove barreira até reciclagem. Interseção segmento/plano nos anéis; segmento/caixa expandida nos obstáculos, incluindo deslocamento relativo da barra móvel. Evita atravessar sem detecção durante turbo ou FPS baixo.
+
+Portões espaçados em 48 u; deslocamentos laterais/verticais variam por sequência. Primeiro obstáculo lateral deixa entrada livre. Estágios atrás do avião ou além de 350 u reaparecem à frente do rumo atual; número de objetos constante. Camada 1 exclui percurso do reflexo. `start` reseta rodada; `stop` oculta; `dispose` remove root e descarta recursos compartilhados.
+
+### createSpiritGamepad.ts
+
+Leitor de entrada com estado. `read()` consulta `navigator.getGamepads()` e escolhe primeiro controle conectado com `mapping === "standard"`; aceita posições nulas na lista. Analógico esquerdo: eixo 0 vira, eixo 1 sobe/desce (cima = subir). Zona morta 0,16, restante reescalado progressivamente.
+
+| Botão Xbox | Índice standard | Ação |
+|---|---|---|
+| A | 0 | Alternar turbo |
+| B | 1 | Fechar inclusive durante carregamento/entrada |
+| Menu | 9 | Iniciar voo pelo mesmo caminho do botão HTML |
+
+Detecta borda de pressão; botão segurado não repete. Ao conectar/reconectar ou voltar à aba, sincroniza botões antes de aceitar nova pressão. Perda de foco/campo editável zera entrada; desconexão devolve WASD sem deixar eixo preso. Status: `connected`, `disconnected`, `unsupported`, `unavailable`. API ausente/bloqueada não interrompe cena.
+
+Conectar controle ao sistema por USB/Bluetooth, pressionar um botão para navegador reconhecer, soltar e pressionar **Menu**. API depende do navegador e contexto seguro (HTTPS/localhost). Referências: [Gamepad API — W3C](https://www.w3.org/TR/gamepad/) e [getGamepads — MDN](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/getGamepads).
+
 ### `createDonationManager.ts` ⭐ (Manager Principal)
 
 Manager principal da cena atual. Gerencia os prédios como representações visuais de doações.

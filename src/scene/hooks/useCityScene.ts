@@ -10,6 +10,7 @@ import type {
   LightSettings,
   ReflectionSettings,
   SceneStats,
+  SpiritFlightState,
   TerrainSettings,
   TextureSettings,
   HorizonSettings,
@@ -34,6 +35,7 @@ type UseCitySceneOptions = {
   onCameraDebugChange?: (cameraInfo: CameraDebugInfo) => void;
   onHoverChange?: (value: number | null, x: number, y: number) => void;
   onBuildingClick?: (donationId: number | null) => void;
+  onSpiritFlightChange?: (state: SpiritFlightState) => void;
 };
 
 export function useCityScene({
@@ -53,6 +55,7 @@ export function useCityScene({
   onCameraDebugChange,
   onHoverChange,
   onBuildingClick,
+  onSpiritFlightChange,
 }: UseCitySceneOptions) {
   const runtimeRef = useRef<CitySceneRuntime | null>(null);
   const initialSettingsRef = useRef<
@@ -89,6 +92,10 @@ export function useCityScene({
     },
   );
 
+  const handleSpiritFlightChange = useEffectEvent((state: SpiritFlightState) => {
+    onSpiritFlightChange?.(state);
+  });
+
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) {
@@ -102,6 +109,7 @@ export function useCityScene({
       onCameraDebugChange: (cameraInfo) => handleCameraDebugChange(cameraInfo),
       onHoverChange: (value, x, y) => handleHoverChange(value, x, y),
       onBuildingClick: (donationId) => handleBuildingClick(donationId),
+      onSpiritFlightChange: (state) => handleSpiritFlightChange(state),
     });
     runtimeRef.current = runtime;
 
@@ -187,5 +195,13 @@ export function useCityScene({
     runtimeRef.current?.clearFocus();
   }, []);
 
-  return { addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus };
+  const startSpiritFlight = useCallback(() => {
+    runtimeRef.current?.startSpiritFlight();
+  }, []);
+
+  const stopSpiritFlight = useCallback(() => {
+    runtimeRef.current?.stopSpiritFlight();
+  }, []);
+
+  return { addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus, startSpiritFlight, stopSpiritFlight };
 }

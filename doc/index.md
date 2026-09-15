@@ -98,6 +98,7 @@ src/
     CitySceneEditor.tsx
     html/
       CityControlPanel.tsx
+      SpiritControls.tsx          ← ativação, saída e HUD de voo
       BuildingHeightInput.tsx
       DonationLoadOverlay.tsx
       DonationFilterBar.tsx
@@ -169,6 +170,10 @@ src/
       loadEnvironment.ts
     managers/
       createDonationManager.ts
+      createSpiritFlight.ts       ← GLB, chegada, WASD, turbo e câmera de perseguição/órbita
+      createSpiritCourse.ts       ← anéis, pontuação e obstáculos móveis
+      createSpiritCombat.ts       ← tiros, bombas, alvos e explosões
+      createSpiritGamepad.ts      ← Xbox, analógicos e botões por pressão
       createChunkManager.ts   ← referência arquitetural
     textures/
       facadeTextureManifest.ts  ← descobre pastas de textura (glob, sem THREE). PNG/JPG > KTX2
@@ -271,6 +276,16 @@ Também gerencia:
 
 Aba **Horizonte** → **Final do chão**: **Linha reta** (padrão), **Circular** ou **Quadrado (original)**. `groundEdgeMode` escolhe formato; `groundDistance` (20–2200, padrão 660) define distância à frente, raio ou meio lado. Reta acompanha direção da câmera e dimensiona laterais pelo frustum completo, evitando quinas mesmo em ultrawide ou distância curta. Névoa suaviza transição. `renderDistance` continua controlando câmera/céu; edifícios e montanhas preservam controles próprios. Pesquisa e limites em [[scene-builders#createGroundPlane.ts]]; integração em [[scene-runtime#Alcance visual e distância dos edifícios]].
 
+## Voo do B-2 Spirit
+
+Combate arcade: **RT/F** atira pelo nariz; **LT/G** solta bomba com gravidade e explosão em área; **LB/RB** ou **Q/E** esquivam lateralmente. Alvos rosas no céu; mira amarela acompanha direção do tiro. Prédio atingido desaparece com acessórios, deixando posição vazia. Destruição local dura até recarregar cena, sem excluir doações no backend. Ver [[scene-managers#createSpiritCombat.ts]] e [[scene-managers#Destruição local de edifícios]].
+
+Botão **Controlar Spirit** → entrada atrás da câmera → voo acompanhado em terceira pessoa. **W/S** sobe/desce; **A/D** vira; **Espaço** alterna turbo; **Fechar/Esc** devolve câmera à cidade.
+
+Desafio contínuo: anéis azuis **+100**, barreiras laranjas/móveis **−50** e desaceleração. Subida/descida até ±60°, faixa 3,5–400 u. Xbox: analógico esquerdo é manche invertido (frente desce, trás sobe) e vira; analógico direito orbita câmera; **A** inicia parado e alterna turbo em voo; **B** sair; **Menu** também inicia. Conecte por USB/Bluetooth, pressione e solte um botão para reconhecimento; depois A. Placar local por voo, sem backend.
+
+[[html-components#SpiritControls.tsx]] → [[three-components#Controle do Spirit]] → [[scene-hooks#Controle do Spirit]] → [[scene-runtime#Voo do Spirit]] → [[scene-managers#createSpiritFlight.ts]]. Contrato: [[scene-types#SpiritFlightState]]. Verificação: `node scripts/check-spirit.mjs`.
+
 ## Diagrama de Fluxo
 
 ```mermaid
@@ -288,6 +303,11 @@ flowchart TD
     H --> TR[createTerrain]
     H --> L[loadEnvironment]
     H --> M[createDonationManager]
+    H --> SF[createSpiritFlight]
+    SF --> SC[createSpiritCourse]
+    SF --> SW[createSpiritCombat]
+    SW --> M
+    SF --> SG[createSpiritGamepad]
     M --> N[createRooftopMesh]
     M --> O[createSignMesh]
     M --> Q[createEdgeLightMesh]

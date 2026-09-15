@@ -335,3 +335,15 @@ export type CitySceneConfig = {
     maxPolarAngle: number;
   };
 };
+
+export type SpiritFlightState = {
+  phase: "idle" | "loading" | "entering" | "flying" | "returning" | "error";
+  boosted: boolean;
+  score: number;
+  rings: number;
+  hits: number;
+  feedback: "ring" | "hit" | "miss" | "target" | "destroyed" | null;
+  buildingsDestroyed: number;
+  targetsDestroyed: number;
+  gamepad: "connected" | "disconnected" | "unsupported" | "unavailable";
+};

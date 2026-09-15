@@ -12,6 +12,10 @@ aliases:
 
 # Scene Builders
 
+## Remoção de platibandas no combate
+
+`createBuildingParapets` em `createParapetMesh.ts` expõe `removeBuildings(ids: ReadonlySet<number>)`. Remove entradas dos lotes instanciados e recompacta matrizes, preservando geometrias/materiais compartilhados. Destruição não deixa platibanda flutuando; culling e foco não restauram entradas removidas. Integração em [[scene-managers#Destruição local de edifícios]].
+
 Factory functions que criam partes isoladas da cena 3D em `src/scene/builders/`.
 
 ## Objetivo da Pasta
