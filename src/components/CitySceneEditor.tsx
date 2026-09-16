@@ -3,6 +3,7 @@ import { CitySceneCanvas, type CitySceneCanvasHandle } from "./three/CitySceneCa
 import { AuthMenu } from "./AuthMenu";
 import { BuildingHeightInput } from "./html/BuildingHeightInput";
 import { BuildingCustomizePanel } from "./html/BuildingCustomizePanel";
+import { BuildingLayoutCard } from "./html/BuildingLayoutCard";
 import { CityControlPanel } from "./html/CityControlPanel";
 import { KeyboardShortcutsHelp } from "./html/KeyboardShortcutsHelp";
 import {
@@ -74,6 +75,15 @@ export function CitySceneEditor() {
   const { loadState, donations, cities, ongs, filter, setFilter, retry } = useDonations();
   const customizationCatalog = useCustomizationCatalog();
   const [donationsApplied, setDonationsApplied] = useState(false);
+  // Teto de edifícios na cena (null = todos). Corta as doações de menor valor.
+  const [visibleLimit, setVisibleLimit] = useState<number | null>(null);
+
+  const visibleDonations = useMemo(() => {
+    if (visibleLimit === null || visibleLimit >= donations.length) return donations;
+    // O manager já ordena por valor desc; ordenar aqui garante que o corte
+    // pegue as MAIORES doações, não as primeiras do dataset.
+    return [...donations].sort((a, b) => b.value - a.value).slice(0, visibleLimit);
+  }, [donations, visibleLimit]);
 
   useEffect(() => {
     if (loadState.status !== "ready") return;
@@ -91,7 +101,7 @@ export function CitySceneEditor() {
     let rafInner = 0;
     const rafOuter = requestAnimationFrame(() => {
       rafInner = requestAnimationFrame(() => {
-        canvasRef.current?.setDonations(donations);
+        canvasRef.current?.setDonations(visibleDonations);
         setDonationsApplied(true);
       });
     });
@@ -99,7 +109,7 @@ export function CitySceneEditor() {
       cancelAnimationFrame(rafOuter);
       cancelAnimationFrame(rafInner);
     };
-  }, [donations, loadState.status]);
+  }, [visibleDonations, loadState.status]);
 
   // Pool de sorteio de textura por edifício: todas as texturas ATIVAS do
   // catálogo. Desligado o sorteio, a lista vai vazia e a cidade inteira usa
@@ -362,6 +372,18 @@ export function CitySceneEditor() {
             maximumFractionDigits: 2,
           })}
         </div>
+      )}
+      {loadState.status === "ready" && uiVisibility.buildingLayoutCard && (
+        <BuildingLayoutCard
+          settings={blockLayoutSettings}
+          onChange={setBlockLayoutSettings}
+          visibleLimit={visibleLimit}
+          onVisibleLimitChange={setVisibleLimit}
+          total={donations.length}
+          onClose={() =>
+            setUIVisibility((prev) => ({ ...prev, buildingLayoutCard: false }))
+          }
+        />
       )}
       <BuildingHeightInput
         onSubmit={handleDonation}

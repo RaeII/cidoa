@@ -9,6 +9,7 @@ export function createDefaultUIVisibilitySettings(): UIVisibilitySettings {
     bulkInput: true,
     blockLayoutInput: true,
     donationFilter: true,
+    buildingLayoutCard: true,
   };
 }
 
@@ -20,18 +21,11 @@ export function loadUIVisibilitySettings(): UIVisibilitySettings {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaults;
     const parsed = JSON.parse(raw) as Partial<UIVisibilitySettings>;
-    return {
-      cameraLog: typeof parsed.cameraLog === "boolean" ? parsed.cameraLog : defaults.cameraLog,
-      donationInput:
-        typeof parsed.donationInput === "boolean" ? parsed.donationInput : defaults.donationInput,
-      bulkInput: typeof parsed.bulkInput === "boolean" ? parsed.bulkInput : defaults.bulkInput,
-      blockLayoutInput:
-        typeof parsed.blockLayoutInput === "boolean"
-          ? parsed.blockLayoutInput
-          : defaults.blockLayoutInput,
-      donationFilter:
-        typeof parsed.donationFilter === "boolean" ? parsed.donationFilter : defaults.donationFilter,
-    };
+    const merged = { ...defaults };
+    for (const key of Object.keys(defaults) as (keyof UIVisibilitySettings)[]) {
+      if (typeof parsed[key] === "boolean") merged[key] = parsed[key];
+    }
+    return merged;
   } catch {
     return defaults;
   }

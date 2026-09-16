@@ -43,7 +43,7 @@ O sistema de 3 camadas corta as doações em topo (`towerRatio`, padrão 33%), m
 
 `centerTallest` troca esse esquema pelo modo **mais alto no centro** (primeira ideia do projeto): quadras e ruas ficam iguais, mas nenhuma torre agrupa por quadra. Todos os slots da cidade entram numa lista única ordenada por distância da origem e as doações (já em ordem de valor decrescente) caem nessa ordem. Resultado: maior doação no slot central exato, altura caindo suave pra borda, sem prédio baixo no meio dos altos. `towerRatio`/`towersPerBlock`/`baseHeightCap` ficam inertes nesse modo.
 
-Editável em tempo real via inputs no overlay superior. `centerTallest` (seção **Organização dos edifícios**), `lotColor` (seção **Quadras**), `sidewalkColor`, `sidewalkSideColor` e `sidewalkHeight` (seção **Calçada**) são editáveis pela aba **geral** do [[html-components#CityControlPanel.tsx|CityControlPanel]]. Padrões em `blockLayoutConfig.ts`.
+Editável em tempo real via inputs no overlay superior. `centerTallest` fica no card flutuante [[html-components#BuildingLayoutCard.tsx|BuildingLayoutCard]], fora do painel. `lotColor` (seção **Quadras**), `sidewalkColor`, `sidewalkSideColor` e `sidewalkHeight` (seção **Calçada**) são editáveis pela aba **geral** do [[html-components#CityControlPanel.tsx|CityControlPanel]]. Padrões em `blockLayoutConfig.ts`.
 
 ---
 
@@ -295,6 +295,7 @@ type UIVisibilitySettings = {
   bulkInput: boolean;        // input de geração em lote (mín/máx/qtd)
   blockLayoutInput: boolean; // input de configuração de quadras
   donationFilter: boolean;   // barra de filtros das doações (região/UF/cidade/ONG)
+  buildingLayoutCard: boolean; // card flutuante de organização/quantidade dos edifícios
 }
 ```
 

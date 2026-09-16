@@ -61,6 +61,32 @@ Overlay fixo no centro superior da página — é o input de doação. Monta 3 s
 
 ---
 
+### `BuildingLayoutCard.tsx`
+
+Card flutuante no canto superior esquerdo. Tira do painel os dois controles que mais se mexe ao compor a cidade: **modo de layout** e **quantos edifícios entram na cena**. Botão `×` no cabeçalho remove o card da tela (escreve `buildingLayoutCard: false`); aba **Tela** do painel devolve.
+
+**Responsabilidades:**
+- Par de botões que alterna `centerTallest` — **Por quadra** (`false`, padrão) = torres agrupadas nos slots centrais de cada quadra, menores embaralhados no meio; **Mais alto no centro** (`true`) = gradiente global, maior doação no centro exato e altura caindo pra borda. Quadras/ruas idênticas nos dois — ver [[scene-managers#Layout dos Prédios — 2 Modos]]
+- Teto de edifícios na cena: input numérico + **aplicar** (ou Enter) + **tudo** (volta a `null` = sem teto)
+- Rodapé conta `N de TOTAL doações` — total já é o pós-filtro do [[#DonationFilterBar.tsx]]
+- Commit só no aplicar/Enter, nunca por tecla: cada mudança dispara replace-all na cena (`rebuildInstances` trava o frame ~0,5s com 100k)
+- Sem estado global nem Three.js
+
+**Props:**
+| Prop | Tipo | Descrição |
+|---|---|---|
+| `settings` | `BlockLayoutSettings` | Só lê/escreve `centerTallest` |
+| `onChange` | `(s: BlockLayoutSettings) => void` | Troca de modo |
+| `visibleLimit` | `number \| null` | Teto atual, `null` = todos |
+| `onVisibleLimitChange` | `(limit: number \| null) => void` | Novo teto |
+| `total` | `number` | Doações disponíveis após o filtro |
+| `onClose` | `() => void` | Remove o card da tela |
+
+> [!note] Corte é por valor, não por ordem do dataset
+> `CitySceneEditor` ordena por valor desc antes de cortar (`visibleDonations`), então o teto mantém as **maiores** doações. Lista completa passa direto, sem cópia nem sort.
+
+---
+
 ### `DonationLoadOverlay.tsx`
 
 Overlay de carregamento do snapshot de doações do backend ([[donation-api]]). Card central sobre o canvas enquanto o dataset carrega.
@@ -187,7 +213,7 @@ Componente que monta o painel completo de configuração da cena. **Escondido po
 | **Luz** | Ambient, hemisphere, directional |
 | **Horizonte** | Modo do final do chão (reta/circular/quadrado), alcance do horizonte/chão/edifícios, névoa e material do chão ([[#GroundControls.tsx]]). Ver [[#HorizonControls.tsx]]. |
 | **Terreno** | Relevo procedural ao redor da cidade — ver [[#TerrainControls.tsx]] |
-| **Tela** | Checkbox por componente HTML sobreposto (log de câmera + 3 inputs de geração/posição). Liga/desliga visibilidade; preferência persistida em `localStorage` via [[scene-config#uiVisibilityConfig.ts]] |
+| **Tela** | Checkbox por componente HTML sobreposto (log de câmera + 3 inputs de geração/posição + filtros + card de organização). Liga/desliga visibilidade; preferência persistida em `localStorage` via [[scene-config#uiVisibilityConfig.ts]] |
 
 Tipo da aba ativa: `"geral" | "texturas" | "reflexo" | "luz" | "horizonte" | "terreno" | "tela"`. Sete abas → rótulo em `text-xs` pra caber nos 360px do painel.
 
@@ -204,7 +230,7 @@ Aba **Tela** tem duas seções inline (não componentizadas):
 
 Props extras da aba **Geral** (`blockLayoutSettings: BlockLayoutSettings` + `onBlockLayoutSettingsChange`):
 - seção **Quadras**: `ColorField` edita `lotColor` (cor dos lotes vazios).
-- seção **Organização dos edifícios**: par de botões que alterna `centerTallest`. **Por quadra** (`false`, padrão) = torres agrupadas nos slots centrais de cada quadra com os menores embaralhados no meio; **Mais alto no centro** (`true`) = gradiente global, maior doação no centro exato e altura caindo pra borda. Quadras/ruas não mudam — ver [[scene-managers#Layout dos Prédios — 2 Modos]].
+- `centerTallest` **não** fica mais aqui: migrou pro card flutuante [[#BuildingLayoutCard.tsx]].
 - seção **Calçada**: `ColorField` edita `sidewalkColor` (topo) + `ColorField` edita `sidewalkSideColor` (laterais, sombra) + `RangeField` edita `sidewalkHeight` (0.02–0.4) — altura do meio-fio.
 
 Ver [[scene-types#BlockLayoutSettings]].

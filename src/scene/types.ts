@@ -291,6 +291,7 @@ export type UIVisibilitySettings = {
   bulkInput: boolean;       // input de geração em lote (mín/máx/qtd)
   blockLayoutInput: boolean; // input de configuração de quadras
   donationFilter: boolean;  // barra de filtros das doações (região/UF/cidade/ONG)
+  buildingLayoutCard: boolean; // card flutuante de organização/quantidade dos edifícios
 };
 
 export type CitySceneConfig = {
