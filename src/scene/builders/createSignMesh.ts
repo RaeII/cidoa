@@ -23,6 +23,8 @@ const PADDING = 0.12;
 const CANVAS_HEIGHT = 128;
 // Proporção altura da placa / largura do edifício
 const SIGN_HEIGHT_RATIO = 0.22;
+// Mantém a textura à frente do backing para evitar z-fighting ao mover a câmera.
+const SIGN_FACE_GAP = 0.002;
 // Hastes visuais que conectam o letreiro afastado ao prédio torcido.
 const TWISTED_SUPPORT_THICKNESS = 0.035;
 const TWISTED_SUPPORT_FACE_OVERLAP = 0.006;
@@ -313,6 +315,7 @@ export function createSignMesh(
 
     signPlane.position.set(px, yOffset, pz);
     signPlane.rotation.y = planeRotY;
+    signPlane.translateZ(SIGN_FACE_GAP);
 
     backing.position.set(backX, yOffset, backZ);
     backing.rotation.y = planeRotY;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Gift, Trophy } from "lucide-react";
+import { GalleryHorizontal, Gift, LayoutGrid, Trophy } from "lucide-react";
 import { getCustomizationTree } from "@/api/admin/admin.routes";
 import type { CustomizationCategory } from "@/api/admin/admin.types";
 import { ApiError } from "@/api/http";
@@ -44,6 +44,7 @@ export default function Pass() {
   const [target, setTarget] = useState<UnlockTarget | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [userPreview, setUserPreview] = useState(false);
+  const [gridView, setGridView] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -88,15 +89,21 @@ export default function Pass() {
                     <span className="flex items-center gap-2"><Gift className="size-4" /><strong className="text-foreground">{freeCount}</strong> grátis</span>
                     <span className="flex items-center gap-2"><Trophy className="size-4" /><strong className="text-foreground">{rewards.length - freeCount}</strong> para conquistar</span>
                   </div>
-                  <label className="flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm">
-                    Prévia do usuário
-                    <Switch checked={userPreview} onCheckedChange={setUserPreview} aria-label="Prévia do usuário" />
-                  </label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button variant="outline" onClick={() => setGridView((current) => !current)} aria-pressed={gridView}>
+                      {gridView ? <GalleryHorizontal /> : <LayoutGrid />}
+                      {gridView ? "Ver em trilha" : "Ver em grade"}
+                    </Button>
+                    <label className="flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm">
+                      Prévia do usuário
+                      <Switch checked={userPreview} onCheckedChange={setUserPreview} aria-label="Prévia do usuário" />
+                    </label>
+                  </div>
                 </div>
-                <PassTrack rewards={rewards} onConfigure={userPreview ? undefined : (reward) => setTarget(reward.target)} />
+                <PassTrack layout={gridView ? "grid" : "track"} rewards={rewards} onConfigure={userPreview ? undefined : (reward) => setTarget(reward.target)} />
                 <p className="text-xs leading-5 text-muted-foreground">
                   {userPreview
-                    ? "Prévia da trilha como o usuário vê. O progresso individual não é exibido nesta visualização."
+                    ? "Prévia do passe como o usuário vê. O progresso individual não é exibido nesta visualização."
                     : "Só personalizações ativas entram. Grátis primeiro, depois dificuldade estimada das metas; conquistas anteriores são preservadas."}
                 </p>
               </>

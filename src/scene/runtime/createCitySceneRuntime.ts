@@ -691,14 +691,17 @@ export function createCitySceneRuntime({
       // Aplicar transparência nos outros prédios
       donationManager.setFocusedDonation(donationId);
 
-      // Aproximar a partir da direção atual da câmera (só dolly, sem girar em volta)
+      // Manter o lado atual e subir acima do topo para deixar a cobertura visível
       const targetPos = worldPos.clone();
-      const FOCUS_DISTANCE = 12;
+      targetPos.y = Math.max(0, worldPos.y - 5);
+      const FOCUS_DISTANCE = 8;
       const dir = camera.position.clone().sub(targetPos);
-      // Fallback se câmera coincidir com o alvo (direção degenerada)
-      if (dir.lengthSq() < 1e-6) dir.set(6, 5, 6);
+      dir.y = 0;
+      // Fallback se câmera estiver exatamente acima do alvo (direção horizontal degenerada)
+      if (dir.lengthSq() < 1e-6) dir.set(1, 0, 1);
       dir.normalize();
       const endCamPos = targetPos.clone().add(dir.multiplyScalar(FOCUS_DISTANCE));
+      endCamPos.y = worldPos.y + 4.3;
 
       cameraAnim = {
         startPos: camera.position.clone(),

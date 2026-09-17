@@ -127,7 +127,7 @@ type CitySceneRuntime = {
 > [!note] Sistema de foco
 > `focusOnDonation` delega para `donationManager.setFocusedDonation(id)`, que deixa toda a cidade semitransparente e cria um mesh isolado do edifício selecionado. `clearFocus` restaura a opacidade original.
 >
-> Zoom aproxima **a partir da direção atual da câmera** — dolly ao longo da linha de visão até `FOCUS_DISTANCE` do topo do prédio, sem girar em volta. Antes usava offset fixo `(6,5,6)`, que fazia a câmera saltar sempre pro mesmo lado (movimento estranho quando vinha do lado oposto). `cameraAnim` interpola pos+target com ease-out cubic em `0.8s`. `clearFocus` restaura pos/target salvos.
+> Zoom preserva o **lado atual da câmera**, com distância horizontal de 8 unidades. A câmera termina 4,3 unidades acima do topo e mira 5 unidades abaixo dele (mínimo `y = 0`), mostrando a cobertura de cima. O limite polar normal permanece ativo. `cameraAnim` interpola pos+target com ease-out cubic em `0.8s`. `clearFocus` restaura pos/target salvos.
 
 > [!note] Sem sombras
 > Cena não tem luz direcional — iluminação é ambiente + IBL do HDRI. Sistema de sombras (settings, UI, flags `castShadow`) foi removido por ser código morto. Pra reintroduzir: criar `DirectionalLight` com shadow camera antes de qualquer flag.

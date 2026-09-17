@@ -17,7 +17,7 @@ Página própria: `/dale/passe`. Entrada **Passe** na sidebar e navegação mobi
 | Arquivo | Responsabilidade |
 | --- | --- |
 | `src/pages/admin/Pass.tsx` | Carregar árvore admin, montar recompensas, prévia pública, abrir edição |
-| `src/components/pass/PassTrack.tsx` | Trilha horizontal reutilizável; uma recompensa por cartão |
+| `src/components/pass/PassTrack.tsx` | Trilha horizontal ou grade responsiva; uma recompensa por cartão |
 | `src/components/customization/CustomizationImage.tsx` | Miniatura compartilhada entre catálogo e passe |
 | `src/components/admin/UnlockDialog.tsx` | Editar requisito; usado nas duas páginas |
 | `src/lib/pass.ts` | Contrato visual `PassReward`, ordenação e mapa de preview |
@@ -27,9 +27,13 @@ Página própria: `/dale/passe`. Entrada **Passe** na sidebar e navegação mobi
 
 Cartões lado a lado, imagem grande, categoria, nome e requisito. Linha conecta posições numeradas. Requisitos iguais mantêm cartões separados.
 
+Cartões não exibem badges no topo. Recompensas gratuitas mostram apenas um indicador verde de desbloqueado, sem o texto **Grátis** ou **Disponível para todos**; conquistas não exibem o antigo badge com troféu.
+
 Ordenação: **grátis primeiro → esforço estimado**. Doação pesa `D/40`; indicação pesa `R/2`. AND soma os esforços; OR usa a alternativa mais fácil. Empates preservam ordem do catálogo. Peso editorial e balanceamento em [[passe-balanceamento]]. Posição representa ordenação visual; não exige conquistar cartão anterior.
 
-Rolagem horizontal nativa, snap, botões anterior/próximo, região focável por teclado. Movimento dos botões respeita `prefers-reduced-motion`. Layout claro/escuro pelos tokens existentes.
+O botão no topo alterna entre a trilha horizontal e a grade. A grade mostra quatro personalizações por linha no desktop, duas em telas médias e uma em telas pequenas. Na trilha, há rolagem horizontal nativa, snap, botões anterior/próximo e região focável por teclado; o movimento respeita `prefers-reduced-motion`. Layout claro/escuro pelos tokens existentes.
+
+Clique, Enter ou Espaço em qualquer cartão abre um modal amplo com nome, categoria, preview completo ampliado e metas em linhas verticais limpas, sem caixa: doação com `HandCoins`, indicação com `Users` e divisor **e/ou** quando ambas existem. O botão **Configurar** continua abrindo somente o editor administrativo.
 
 | Personalização | Visual |
 | --- | --- |
@@ -47,7 +51,7 @@ Trilha só monta personalização **ativa** — opção inativa, categoria inati
 
 Switch **Prévia do usuário** remove botões de edição; resto do cartão é igual.
 
-`PassTrack` recebe `rewards: readonly PassReward[]` e callback opcional `onConfigure`. Sem callback, somente leitura. Sem import de API/admin/auth. Outro consumidor pode fornecer recompensas do catálogo público. Prévia não carrega progresso individual; integração com conquistas continua em [[passe-cena]].
+`PassTrack` recebe `rewards: readonly PassReward[]`, `layout: "track" | "grid"` e callback opcional `onConfigure`. Sem callback, somente leitura. Sem import de API/admin/auth. Outro consumidor pode fornecer recompensas do catálogo público. Prévia não carrega progresso individual; integração com conquistas continua em [[passe-cena]].
 
 ## Dialog de liberação
 

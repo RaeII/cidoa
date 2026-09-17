@@ -24,7 +24,7 @@ Antes: prédios nasciam no front (`INITIAL_TEST_DONATIONS`, 10 valores hardcoded
 | Arquivo | Papel |
 | --- | --- |
 | `src/api/http.ts` | Instância axios. `baseURL = VITE_API_URL ?? "/api"`. Normaliza erro → `ApiError {status, message}`. |
-| `src/api/donationApi.ts` | `fetchDonationSnapshot()` — 1 GET, mapeia tuplas → objetos. `saveDonationCustomization()` — PUT da personalização. Tipos `DonationRecord`/`City`/`Ong`/`DonationDataset`. |
+| `src/api/donationApi.ts` | `fetchDonationSnapshot()` — busca snapshot + personalizações atuais em paralelo, mapeia tuplas → objetos. `saveDonationCustomization()` — PUT da personalização. Tipos `DonationRecord`/`City`/`Ong`/`DonationDataset`. |
 | `src/api/regions.ts` | `UF_REGION` (27 UFs → 5 regiões) + `REGIONS`. Região é função fixa da UF — não vem do backend. |
 | `src/components/hooks/useDonations.ts` | Hook. Carrega snapshot, guarda dataset, aplica filtro (`useMemo`), expõe `loadState`/`donations`/`cities`/`ongs`/`savedCustomizations`/`filter`/`setFilter`/`retry`. |
 
@@ -42,7 +42,9 @@ Antes: prédios nasciam no front (`INITIAL_TEST_DONATIONS`, 10 valores hardcoded
 
 `data`: `[id, value, cityId, ongId]`. `fetchDonationSnapshot` desdobra em objetos `DonationRecord`.
 
-`custom`: `[donationId, BuildingCustomization]`, **só** dos edifícios personalizados — vira `DonationDataset.customizations` (Map). Fora da tupla de doação de propósito: personalização é minoria absoluta e um 5º campo `null` em 100k tuplas engordaria o payload de todo visitante.
+`custom`: cópia cacheada mantida no snapshot por compatibilidade. Não é mais fonte da hidratação porque pode ficar desatualizada por até 30s.
+
+`GET /donation/customizations`: `[donationId, BuildingCustomization][]`, só dos edifícios personalizados. Resposta `Cache-Control: no-store`, lida direto do banco em cada carga. `fetchDonationSnapshot` dispara as duas requisições em paralelo e usa esta resposta para montar `DonationDataset.customizations` (Map).
 
 ## Gotcha: barra de progresso com gzip
 
@@ -67,8 +69,10 @@ Sem filtro → retorna array original (mesma referência, evita rebuild à toa).
 ```mermaid
 flowchart LR
     Hook[useDonations] --> Fetch[fetchDonationSnapshot]
-    Fetch --> HTTP[http axios GET /donation/snapshot]
-    HTTP --> DS[DonationDataset completo]
+    Fetch --> Snapshot[GET /donation/snapshot cacheado]
+    Fetch --> Current[GET /donation/customizations no-store]
+    Snapshot --> DS[DonationDataset completo]
+    Current --> DS
     DS --> Filter[useMemo filtro AND]
     Filter --> Editor[CitySceneEditor]
     Editor --> Canvas[canvasRef.setDonations]
@@ -80,7 +84,7 @@ Editor chama `setDonations(donations)` a cada mudança de `donations` (load inic
 
 Antes: painel mexia só no state do React — recarregou a página, sumiu. Agora vai pro banco (`donation.customization`).
 
-**Leitura** — vem no `custom` do snapshot. `useDonations` expõe `savedCustomizations`; o editor semeia `buildingCustomizations` com ele e reaplica na cena logo depois de cada `setDonations` (replace-all só preserva o que já estava na cena, então o que veio do banco — e o que voltou pelo filtro — precisa ser reaplicado).
+**Leitura** — vem de `/donation/customizations`, sem cache, em paralelo ao snapshot pesado. `useDonations` só fica `ready` quando ambas terminam e expõe `savedCustomizations`. O editor atualiza state + ref no mesmo efeito e reaplica na cena logo depois de cada `setDonations` (replace-all só preserva o que já estava na cena, então o que veio do banco — e o que voltou pelo filtro — precisa ser reaplicado).
 
 **Escrita** — `updateCustomization` do editor é o ponto único: aplica na cena, guarda no state e agenda `saveDonationCustomization`. Debounce de 500ms **por edifício** (`pendingSaves`): cor e opacidade disparam a cada frame de arrasto; sem isso um slider vira dezenas de PUTs. Um timer por `donationId` — editar A e depois B não pode cancelar o save de A. Desmontar dentro da janela do debounce dispara os pendentes em vez de descartá-los.
 
@@ -97,7 +101,7 @@ Contrato da rota, autorização e cobrança de liberação: `doc/modulos/persona
 
 ## Segurança
 
-- Endpoint aceita **zero input** (sem body/params/query) — superfície de injeção nula.
+- Endpoints de leitura aceitam **zero input** (sem body/params/query) — superfície de injeção nula.
 - Proxy Vite = DX de dev (mata CORS local), **não** é segurança. Produção: reverse proxy same-origin ou `VITE_API_URL` + `CORS_ORIGINS` estrito no back.
 - Nunca confiar no front pra esconder dado: se algo deixar de ser público, sai do snapshot no backend — não se filtra pra esconder.
 

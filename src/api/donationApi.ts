@@ -35,8 +35,10 @@ type SnapshotPayload = {
   custom?: [number, BuildingCustomization][];
 };
 
+type CustomizationsPayload = [number, BuildingCustomization][];
+
 /**
- * Busca o snapshot completo de doações (1 GET, servido de cache no back).
+ * Busca o snapshot cacheado e, em paralelo, as personalizações atuais sem cache.
  *
  * Progresso: com Content-Encoding gzip o browser zera ProgressEvent.total e
  * `loaded` conta bytes DESCOMPRIMIDOS — o denominador certo é o header
@@ -48,24 +50,29 @@ export async function fetchDonationSnapshot(
     onProgress?: (p: DonationLoadProgress) => void;
   } = {},
 ): Promise<DonationDataset> {
-  const response = await http.get<SnapshotPayload>("/donation/snapshot", {
-    signal: opts.signal,
-    onDownloadProgress: (event) => {
-      if (!opts.onProgress) return;
-      const xhr = event.event?.target as XMLHttpRequest | undefined;
-      const headerBytes = Number(xhr?.getResponseHeader?.("X-Snapshot-Bytes"));
-      const totalBytes =
-        Number.isFinite(headerBytes) && headerBytes > 0
-          ? headerBytes
-          : event.total ?? null;
-      opts.onProgress({ loadedBytes: event.loaded, totalBytes });
-    },
-  });
+  const [response, customizationsResponse] = await Promise.all([
+    http.get<SnapshotPayload>("/donation/snapshot", {
+      signal: opts.signal,
+      onDownloadProgress: (event) => {
+        if (!opts.onProgress) return;
+        const xhr = event.event?.target as XMLHttpRequest | undefined;
+        const headerBytes = Number(xhr?.getResponseHeader?.("X-Snapshot-Bytes"));
+        const totalBytes =
+          Number.isFinite(headerBytes) && headerBytes > 0
+            ? headerBytes
+            : event.total ?? null;
+        opts.onProgress({ loadedBytes: event.loaded, totalBytes });
+      },
+    }),
+    http.get<CustomizationsPayload>("/donation/customizations", {
+      signal: opts.signal,
+    }),
+  ]);
 
   const payload = response.data;
   return {
     total: payload.total,
-    customizations: new Map(payload.custom ?? []),
+    customizations: new Map(customizationsResponse.data),
     cities: payload.cities.map(([id, name, uf]) => ({ id, name, uf })),
     ongs: payload.ongs.map(([id, name]) => ({ id, name })),
     donations: payload.data.map(([id, value, cityId, ongId]) => ({

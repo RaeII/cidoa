@@ -84,8 +84,8 @@ export function CitySceneEditor() {
     new Map<number, { timer: ReturnType<typeof setTimeout>; customization: BuildingCustomization }>(),
   );
 
-  // Doações vêm do backend (snapshot cacheado) + filtro client-side por
-  // região/UF/cidade/ONG. Replace-all na cena a cada mudança de `donations`.
+  // Doações vêm do snapshot cacheado; personalizações, da leitura no-store.
+  // Filtro client-side por região/UF/cidade/ONG; replace-all na cena a cada mudança.
   const { loadState, donations, cities, ongs, savedCustomizations, filter, setFilter, retry } =
     useDonations();
   const customizationCatalog = useCustomizationCatalog();
@@ -97,8 +97,10 @@ export function CitySceneEditor() {
   // quando o dataset chega (load/retry) — que é justamente quando descartar
   // edições locais é o certo.
   useEffect(() => {
+    const saved = new Map(savedCustomizations);
+    customizationsRef.current = saved;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setBuildingCustomizations(new Map(savedCustomizations));
+    setBuildingCustomizations(saved);
   }, [savedCustomizations]);
 
   useEffect(() => {

@@ -246,6 +246,7 @@ Factory para letreiros de fachada nos edifícios. Renderiza texto via `CanvasTex
 | **Glow LED** | `shadowBlur: 12`, cor `rgba(200,220,255,0.6)` — simula sinalização LED retroiluminada |
 | **Material da placa** | `MeshStandardMaterial` com `emissiveIntensity: 0.4`, `roughness: 0.35`, `metalness: 0.6` |
 | **Backing plate** | `BoxGeometry` metálico escuro `#1a1c22` (`roughness: 0.7`, `metalness: 0.5`) |
+| **Separação do texto** | O plano da `CanvasTexture` fica `0.002` à frente do backing para evitar z-fighting e cintilação ao mover a câmera |
 | **Posição Y** | `buildingH * 0.45` acima do centro = ~95% da altura do edifício (bem perto do topo) |
 
 **Lados (parâmetro `sides` 1–4):**

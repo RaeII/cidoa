@@ -74,14 +74,14 @@ src/
       user.routes.ts              ← perfil próprio + listagem/promoção admin
       user.types.ts               ← usuário público, incluindo imagem de perfil base64
     customizationApi.ts             ← catálogo de personalizações + conquistas do usuário
-    donationApi.ts                  ← snapshot de doações + PUT da personalização do edifício
+    donationApi.ts                  ← snapshot + personalizações atuais + PUT da personalização
     regions.ts
   pages/admin/
     Pass.tsx                    ← página dedicada /dale/passe
     Users.tsx                   ← /dale/usuarios: busca usuário, liga/desliga admin
   components/
     pass/
-      PassTrack.tsx             ← trilha horizontal reutilizável, um cartão por recompensa
+      PassTrack.tsx             ← trilha/grade reutilizável, um cartão por recompensa
     customization/
       CustomizationImage.tsx    ← miniatura compartilhada com catálogo
     admin/
@@ -254,7 +254,7 @@ E entrega para:
 
 Também gerencia:
 
-- Doações do backend via `useDonations` (snapshot cacheado, não mais `INITIAL_TEST_DONATIONS`) → `canvasRef.setDonations(donations)` quando `loadState.status === "ready"`. Ver [[donation-api]]
+- Doações do backend via `useDonations` (snapshot cacheado + personalizações `no-store`) → `canvasRef.setDonations(donations)` quando `loadState.status === "ready"`. Ver [[donation-api]]
 - Teto de edifícios na cena (`visibleLimit`, padrão `null` = todos): ordena por valor desc e corta antes do `setDonations`, então o corte fica com as maiores doações. Controlado pelo [[html-components#BuildingLayoutCard.tsx|BuildingLayoutCard]]
 - Doações manuais via `canvasRef.addDonation(value)` e `canvasRef.addDonations(values)`
 - Foco em edifício via `canvasRef.focusOnDonation(id)` e `canvasRef.clearFocus()`

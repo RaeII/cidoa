@@ -27,7 +27,7 @@ const EMPTY_ONGS: Ong[] = [];
 const EMPTY_CUSTOMIZATIONS = new Map<number, BuildingCustomization>();
 
 /**
- * Carrega o snapshot de doações do backend e aplica o filtro client-side.
+ * Carrega doações + personalizações atuais do backend e aplica o filtro client-side.
  *
  * O dataset completo já é público (id, valor, cidade, ONG — sem dado de doador),
  * então filtrar no front não delega nenhuma decisão de segurança ao cliente:
