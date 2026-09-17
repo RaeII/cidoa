@@ -1,4 +1,5 @@
 import { http } from "./http";
+import type { BuildingCustomization } from "../scene/types";
 
 export type DonationRecord = {
   id: number;
@@ -15,6 +16,8 @@ export type DonationDataset = {
   cities: City[];
   ongs: Ong[];
   total: number;
+  /** Personalizações salvas, só dos edifícios que têm uma. */
+  customizations: Map<number, BuildingCustomization>;
 };
 
 export type DonationLoadProgress = {
@@ -29,6 +32,7 @@ type SnapshotPayload = {
   cities: [number, string, string][];
   ongs: [number, string][];
   data: [number, number, number, number][];
+  custom?: [number, BuildingCustomization][];
 };
 
 /**
@@ -61,6 +65,7 @@ export async function fetchDonationSnapshot(
   const payload = response.data;
   return {
     total: payload.total,
+    customizations: new Map(payload.custom ?? []),
     cities: payload.cities.map(([id, name, uf]) => ({ id, name, uf })),
     ongs: payload.ongs.map(([id, name]) => ({ id, name })),
     donations: payload.data.map(([id, value, cityId, ongId]) => ({
@@ -70,4 +75,15 @@ export async function fetchDonationSnapshot(
       ongId,
     })),
   };
+}
+
+/**
+ * Persiste a personalização de UM edifício. Exige sessão: o back só aceita do
+ * dono da doação (ou admin) e responde 404 no resto — ver donation.controller.
+ */
+export async function saveDonationCustomization(
+  donationId: number,
+  customization: BuildingCustomization,
+): Promise<void> {
+  await http.put(`/donation/${donationId}/customization`, customization);
 }

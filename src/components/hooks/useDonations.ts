@@ -8,6 +8,7 @@ import {
   type Ong,
 } from "../../api/donationApi";
 import { UF_REGION, type Region } from "../../api/regions";
+import type { BuildingCustomization } from "../../scene/types";
 
 export type DonationFilter = {
   region?: Region;
@@ -23,6 +24,7 @@ export type DonationsLoadState =
 
 const EMPTY_CITIES: City[] = [];
 const EMPTY_ONGS: Ong[] = [];
+const EMPTY_CUSTOMIZATIONS = new Map<number, BuildingCustomization>();
 
 /**
  * Carrega o snapshot de doações do backend e aplica o filtro client-side.
@@ -102,6 +104,7 @@ export function useDonations() {
     donations,
     cities: dataset?.cities ?? EMPTY_CITIES,
     ongs: dataset?.ongs ?? EMPTY_ONGS,
+    savedCustomizations: dataset?.customizations ?? EMPTY_CUSTOMIZATIONS,
     filter,
     setFilter,
     retry,

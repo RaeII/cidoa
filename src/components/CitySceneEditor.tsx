@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import axios from "axios";
 import { CitySceneCanvas, type CitySceneCanvasHandle } from "./three/CitySceneCanvas";
 import { AuthMenu } from "./AuthMenu";
 import { BuildingHeightInput } from "./html/BuildingHeightInput";
@@ -11,6 +12,7 @@ import {
   type KeyboardShortcut,
 } from "./hooks/useKeyboardShortcuts";
 import { useDonations } from "./hooks/useDonations";
+import { saveDonationCustomization } from "../api/donationApi";
 import { useCustomizationCatalog } from "./hooks/useCustomizationCatalog";
 import { DonationLoadOverlay } from "./html/DonationLoadOverlay";
 import { DonationFilterBar } from "./html/DonationFilterBar";
@@ -45,6 +47,10 @@ import { getLightMetrics } from "../scene/utils/lighting";
 
 const formatCameraValue = (value: number) => value.toFixed(2);
 
+// Cor e opacidade disparam a cada frame de arrasto — sem isso um slider vira
+// dezenas de PUTs. Só o estado final de cada edifício chega no banco.
+const SAVE_DEBOUNCE_MS = 500;
+
 export function CitySceneEditor() {
   const canvasRef = useRef<CitySceneCanvasHandle>(null);
 
@@ -69,14 +75,35 @@ export function CitySceneEditor() {
   const [buildingCustomizations, setBuildingCustomizations] = useState<Map<number, BuildingCustomization>>(
     () => new Map(),
   );
+  const [saveError, setSaveError] = useState<string | null>(null);
+  // Espelho do mapa p/ o rAF que reaplica na cena sem virar dependência do
+  // effect de setDonations (senão cada troca de cor reconstruiria a cidade).
+  const customizationsRef = useRef(buildingCustomizations);
+  // donationId → debounce pendente. Guarda o payload junto p/ o flush do unmount.
+  const pendingSaves = useRef(
+    new Map<number, { timer: ReturnType<typeof setTimeout>; customization: BuildingCustomization }>(),
+  );
 
   // Doações vêm do backend (snapshot cacheado) + filtro client-side por
   // região/UF/cidade/ONG. Replace-all na cena a cada mudança de `donations`.
-  const { loadState, donations, cities, ongs, filter, setFilter, retry } = useDonations();
+  const { loadState, donations, cities, ongs, savedCustomizations, filter, setFilter, retry } =
+    useDonations();
   const customizationCatalog = useCustomizationCatalog();
   const [donationsApplied, setDonationsApplied] = useState(false);
   // Teto de edifícios na cena (null = todos). Corta as doações de menor valor.
   const [visibleLimit, setVisibleLimit] = useState<number | null>(null);
+
+  // Personalização salva no banco vira o estado inicial do painel. Só muda
+  // quando o dataset chega (load/retry) — que é justamente quando descartar
+  // edições locais é o certo.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setBuildingCustomizations(new Map(savedCustomizations));
+  }, [savedCustomizations]);
+
+  useEffect(() => {
+    customizationsRef.current = buildingCustomizations;
+  }, [buildingCustomizations]);
 
   const visibleDonations = useMemo(() => {
     if (visibleLimit === null || visibleLimit >= donations.length) return donations;
@@ -102,6 +129,14 @@ export function CitySceneEditor() {
     const rafOuter = requestAnimationFrame(() => {
       rafInner = requestAnimationFrame(() => {
         canvasRef.current?.setDonations(visibleDonations);
+        // setDonations é replace-all: o manager só preserva o que já estava na
+        // cena, então o que veio do banco (e o que voltou pelo filtro) precisa
+        // ser reaplicado aqui.
+        // ponytail: updateDonationCustomization faz find O(n) por chamada — ok
+        // enquanto prédio personalizado for minoria; indexar por id se crescer.
+        for (const [id, customization] of customizationsRef.current) {
+          canvasRef.current?.updateDonationCustomization(id, customization);
+        }
         setDonationsApplied(true);
       });
     });
@@ -181,6 +216,52 @@ export function CitySceneEditor() {
     [buildingCustomizations, buildingSettings.color],
   );
 
+  const flushSave = useCallback((donationId: number, customization: BuildingCustomization) => {
+    pendingSaves.current.delete(donationId);
+    saveDonationCustomization(donationId, customization)
+      .then(() => setSaveError(null))
+      .catch((err: unknown) => {
+        const response = axios.isAxiosError(err) ? err.response : undefined;
+        // 400/403 vêm com a razão exata do backend (opção travada, item
+        // desligado) — repetir a mensagem dele é melhor que genérico.
+        const fromServer =
+          response && (response.status === 400 || response.status === 403)
+            ? (response.data as { message?: string } | undefined)?.message
+            : undefined;
+        setSaveError(
+          fromServer ??
+            (response?.status === 401
+              ? "Entre na sua conta para salvar a personalização."
+              : response?.status === 404
+                ? "Este edifício não é seu — a mudança não foi salva."
+                : "Não foi possível salvar a personalização."),
+        );
+      });
+  }, []);
+
+  // Um debounce por edifício: editar A e depois B não pode cancelar o save de A.
+  const queueSave = useCallback(
+    (donationId: number, customization: BuildingCustomization) => {
+      clearTimeout(pendingSaves.current.get(donationId)?.timer);
+      pendingSaves.current.set(donationId, {
+        customization,
+        timer: setTimeout(() => flushSave(donationId, customization), SAVE_DEBOUNCE_MS),
+      });
+    },
+    [flushSave],
+  );
+
+  // Desmontar dentro da janela do debounce não pode comer a última edição.
+  useEffect(() => {
+    const pending = pendingSaves.current;
+    return () => {
+      for (const [donationId, entry] of pending) {
+        clearTimeout(entry.timer);
+        flushSave(donationId, entry.customization);
+      }
+    };
+  }, [flushSave]);
+
   const updateCustomization = useCallback(
     (donationId: number, patch: Partial<BuildingCustomization>) => {
       setBuildingCustomizations((prev) => {
@@ -203,10 +284,11 @@ export function CitySceneEditor() {
         };
         next.set(donationId, updated);
         canvasRef.current?.updateDonationCustomization(donationId, updated);
+        queueSave(donationId, updated);
         return next;
       });
     },
-    [buildingSettings.color],
+    [buildingSettings.color, queueSave],
   );
 
   const handleBuildingColorChange = useCallback(
@@ -423,6 +505,11 @@ export function CitySceneEditor() {
           />
         );
       })()}
+      {saveError && (
+        <div className="absolute right-4 top-4 z-40 w-72 rounded-xl border border-red-400/30 bg-red-950/90 px-3 py-2 text-xs text-red-100 shadow-lg backdrop-blur-md">
+          {saveError}
+        </div>
+      )}
       {showControlPanel && (
         <CityControlPanel
           buildingSettings={buildingSettings}

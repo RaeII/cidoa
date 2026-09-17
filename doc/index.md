@@ -73,8 +73,8 @@ src/
     user/
       user.routes.ts              ← perfil próprio + listagem/promoção admin
       user.types.ts               ← usuário público, incluindo imagem de perfil base64
-    donationApi.ts
     customizationApi.ts             ← catálogo de personalizações + conquistas do usuário
+    donationApi.ts                  ← snapshot de doações + PUT da personalização do edifício
     regions.ts
   pages/admin/
     Pass.tsx                    ← página dedicada /dale/passe
@@ -241,7 +241,8 @@ Ele guarda todos os estados:
 - `sceneStats`, `hoverInfo`
 - `showControlPanel` — toggle do painel de configuração (escondido por padrão)
 - `selectedBuildingId` — edifício selecionado para personalização
-- `buildingCustomizations` — `Map<donationId, BuildingCustomization>` com cor, formato (default/twisted/octagonal/setback/tapered/chrysler/hearst/empire/taipei/one-trade/yachthouse), acessório de topo (holofotes, heliponto, jardim suspenso ou helicóptero com casco único, vidros integrados e rotores proporcionais), letreiro, LED de arestas e holograma cyberpunk
+- `buildingCustomizations` — `Map<donationId, BuildingCustomization>` com cor, formato (default/twisted/octagonal/setback/tapered/chrysler/hearst/empire/taipei/one-trade/yachthouse), acessório de topo (holofotes, heliponto, jardim suspenso ou helicóptero com casco único, vidros integrados e rotores proporcionais), letreiro, LED de arestas e holograma cyberpunk. **Persistido**: nasce do snapshot, cada mudança grava em `donation.customization` no banco — ver [[donation-api#Personalização persistida]]
+- `saveError` — falha da gravação (sem login, prédio de outro, opção travada). Banner sobre o painel
 
 E entrega para:
 
@@ -358,6 +359,7 @@ flowchart LR
 | Trocar modo de layout (quadra × centro)          | [[html-components#BuildingLayoutCard.tsx]]        |
 | Limitar quantos edifícios aparecem na tela       | [[html-components#BuildingLayoutCard.tsx]] · `visibleLimit` no `CitySceneEditor` |
 | Alterar a UI de personalização de edifício       | [[html-components#BuildingCustomizePanel.tsx]]    |
+| Personalização salvar/carregar do banco          | [[donation-api#Personalização persistida]]        |
 | Entender de onde vêm as opções de personalização | [[customization-api]]                             |
 | Cadastrar/ativar cores e opções (admin)          | [[personalizacoes]]                               |
 | Entender a gamificação inteira                   | [[passe-front]]                                   |

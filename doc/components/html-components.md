@@ -178,7 +178,12 @@ Cada seção renderiza a partir de `catalog` (só se categoria ativa + tem opç�
 | **Holograma** | Upload + cor + opacidade | Feature `catalog.features.hologram`. Cor do holograma segue hex livre (tint cyberpunk, não é cor do prédio) |
 
 > [!note] Fluxo de personalização
-> Clique no edifício → `onBuildingClick(donationId)` → `CitySceneEditor` chama `focusOnDonation` (destaque visual) e abre `BuildingCustomizePanel` → cada mudança chama `updateCustomization` que monta o `BuildingCustomization` completo e envia ao runtime via `canvasRef.updateDonationCustomization(id, {...})`.
+> Clique no edifício → `onBuildingClick(donationId)` → `CitySceneEditor` chama `focusOnDonation` (destaque visual) e abre `BuildingCustomizePanel` → cada mudança chama `updateCustomization` que monta o `BuildingCustomization` completo, envia ao runtime via `canvasRef.updateDonationCustomization(id, {...})` **e agenda a gravação no banco** (debounce 500ms por edifício).
+
+> [!important] Personalização é permanente
+> O painel não mexe só no state: `updateCustomization` grava em `donation.customization` via `PUT /donation/:id/customization`. Recarregou a página, o prédio volta personalizado — o snapshot traz as personalizações salvas e o editor as reaplica na cena. Debounce, flush no unmount, banner de erro e limites de autorização em [[donation-api#Personalização persistida]].
+>
+> Valores iniciais do painel vêm do state do editor, que nasce do banco. Salvar exige login **e** ser dono do edifício; opção travada é recusada pelo servidor, não só escondida pelo botão desabilitado.
 
 > [!tip] Onde cada personalização é aplicada
 > - **Cor** → `InstancedBufferAttribute` (instanceColor) quando o prédio fica no `InstancedMesh`; clone de material quando o prédio vira mesh próprio
