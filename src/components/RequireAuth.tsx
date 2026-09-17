@@ -15,8 +15,10 @@ import { useAuth } from "../hooks/useAuth";
  *   </Route>
  */
 export function RequireAuth() {
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { isAuthenticated, isAdmin, isLoading } = useAuth();
   const location = useLocation();
+
+  if (isLoading) return <p role="status">Carregando sessão…</p>;
 
   if (!isAuthenticated || !isAdmin) {
     return <Navigate to="/dale/login" replace state={{ from: location }} />;

@@ -29,7 +29,8 @@ import { runDevAssertionsOnce } from "../utils/devAssertions";
 // dentro do campo de visão, cortando as colinas numa curva antes da névoa fechar. Amarrado ao
 // horizonte e com folga para o canto do frustum (~1.55*far com FOV 58° em 16:9), o arco nunca
 // entra na imagem: sobra o corte do far plane, que é reto. Também cumpre o que o painel promete
-// nos controles de edifício ("sem cortar o chão ou as montanhas").
+// nos controles de edifício ("sem cortar o chão ou as montanhas"). O chão da cidade (lotes,
+// calçadas, postes, asfalto) usa este mesmo raio pelo mesmo motivo.
 const TERRAIN_CULL_SPAN = 1.8;
 
 type CitySceneRuntimeOptions = {
@@ -268,8 +269,14 @@ export function createCitySceneRuntime({
     reflectionSettings.reflectionDistanceStart,
     reflectionSettings.reflectionDistanceEnd,
   );
-  donationManager.setRenderDistance(horizonSettings.distance, horizonSettings.backDistance);
+  // Chão da cidade (lotes, calçadas, postes, asfalto) usa o mesmo raio do relevo: arco fora
+  // do frustum. Só os EDIFÍCIOS seguem distance/backDistance — ver createDonationManager.
   const terrainCullRadius = () => currentHorizon.renderDistance * TERRAIN_CULL_SPAN;
+  donationManager.setRenderDistance(
+    horizonSettings.distance,
+    horizonSettings.backDistance,
+    terrainCullRadius(),
+  );
   terrainRig.setRenderDistance(terrainCullRadius(), terrainCullRadius());
   // Depois do manager: applyNightMode acende as janelas e ajusta o reflexo da fachada.
   applyNightMode();
@@ -575,7 +582,7 @@ export function createCitySceneRuntime({
     updateHorizonSettings(settings) {
       currentHorizon = settings;
       // Edifícios usam distance/backDistance; o relevo segue o horizonte (arco fora do frustum).
-      donationManager.setRenderDistance(settings.distance, settings.backDistance);
+      donationManager.setRenderDistance(settings.distance, settings.backDistance, terrainCullRadius());
       terrainRig.setRenderDistance(terrainCullRadius(), terrainCullRadius());
       if (scene.fog instanceof THREE.FogExp2) {
         scene.fog.density = settings.fogDensity;

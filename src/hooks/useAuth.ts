@@ -12,6 +12,8 @@ export interface AuthContextValue {
   /** Usuário logado, ou null sem sessão. */
   user: User | null;
   isAuthenticated: boolean;
+  /** Aguarda a confirmação inicial do cookie pelo backend. */
+  isLoading: boolean;
   isAdmin: boolean;
   /** Login por senha (admin). Seta o cookie httpOnly e persiste a sessão local. */
   login: (input: LoginInput) => Promise<User>;

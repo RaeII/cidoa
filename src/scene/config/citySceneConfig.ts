@@ -29,9 +29,9 @@ export const CITY_SCENE_CONFIG: CitySceneConfig = {
   cameraFov: 58,
   cameraNear: 0.1,
   initialCameraPosition: {
-    x: -12.91,
-    y: 19.12,
-    z: -14.70,
+    x: -26.17,
+    y: 23.59,
+    z: 40.84,
   },
   controlTarget: {
     x: 0.19,

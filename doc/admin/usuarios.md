@@ -52,8 +52,11 @@ Paginação só aparece com `totalPages > 1`. Listagem traz só `is_active = TRU
 
 `Switch` por linha → `setUserAdmin(id, next)` → `PUT /user/:id { is_admin }`. Resposta substitui a linha na lista; feedback inline embaixo.
 
-> [!warning] Precisa relogar
-> Claim `admin` é **assinado no JWT no login**. Promover usuário logado não muda o token dele: ele só vira admin de fato depois de sair e entrar de novo. Vale pro próprio painel e pro desbloqueio das personalizações — `isAdmin` no front vem do espelho da sessão em `localStorage`, gravado no login.
+> [!info] Permissão atual no banco
+> Backend consulta conta ativa/admin em cada requisição. Promoção/rebaixamento vale com o token existente. Front consulta `GET /user/me` ao carregar e ao recuperar foco; `localStorage` não restaura autorização. `RequireAuth` aguarda `isLoading` antes de redirecionar. Atualizar página ou voltar à aba sincroniza a UI.
+
+> [!warning] Cena local não é autorização
+> Admin libera todas as opções **ativas** do catálogo. Personalização atual só altera estado React/Three.js no próprio navegador: DevTools pode modificar essa cena. Não concede permissão de API nem grava alterações compartilhadas. Persistência futura exige validar propriedade e conquistas/admin no backend.
 
 > [!danger] Não dá pra se rebaixar
 > Switch da própria linha fica desabilitado (`isSelf`) e o backend recusa com `400`. Tirar o próprio admin fecha a porta por dentro: sem outro admin logado, só `scripts/create-admin.ts` devolve o acesso.
@@ -66,6 +69,7 @@ Paginação só aparece com `totalPages > 1`. Listagem traz só `is_active = TRU
 
 | Função | Rota | Retorno |
 | --- | --- | --- |
+| `getOwnSession()` | `GET /user/me` | Perfil atual + `expiresIn`; resposta `no-store` |
 | `listUsers({ search?, page?, limit? })` | `GET /user` | `UserPage` — `{ data: User[], pagination }` |
 | `setUserAdmin(id, isAdmin)` | `PUT /user/:id` | `User` atualizado |
 | `updateOwnProfile(input)` | `PUT /user/me` | `User` atualizado (perfil próprio, não-admin) |

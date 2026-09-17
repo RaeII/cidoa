@@ -215,7 +215,8 @@ export type DonationManager = {
    */
   setFacadeTexturePool: (keys: readonly string[]) => void;
   tickAnimations: (elapsedSeconds: number, deltaMs: number) => void;
-  setRenderDistance: (distance: number, backDistance: number) => void;
+  /** `groundDistance`: raio do chão da cidade (horizonte), independente dos prédios. */
+  setRenderDistance: (distance: number, backDistance: number, groundDistance: number) => void;
   /** Retorna quantos prédios ficaram ocultos pelo cull de distância (frontal + traseiro). */
   updateDistanceCulling: (cameraPos: THREE.Vector3, cameraForward: THREE.Vector3) => number;
   dispose: () => void;
@@ -596,37 +597,28 @@ export function createDonationManager({
   let randomGroupIndices: number[] = [];
 
   // --- Cull de distância do chão da cidade ---
-  // Lotes, calçadas, postes e asfalto seguem o MESMO critério dos prédios (frontal /
-  // traseiro). Sem isso, o loteamento continuava desenhado além do alcance onde os
-  // prédios já sumiram — ruas vazias flutuando na névoa.
+  // Lotes, calçadas, postes e asfalto somem pelo alcance do HORIZONTE, não pelo dos
+  // EDIFÍCIOS. O teste é RADIAL: a borda que ele desenha é um ARCO e, com o raio dos
+  // prédios (208 padrão), esse arco caía DENTRO do frustum (o canto vai a ~1.55*far) —
+  // o loteamento aparecia cortado numa curva que escorregava junto com a câmera. O limite
+  // traseiro (46 padrão) fazia o mesmo pela base da imagem com a câmera inclinada.
+  // Mesmo critério do relevo — ver TERRAIN_CULL_SPAN em createCitySceneRuntime.
   let lotCull: InstanceCullGroup | null = null;
   let sidewalkCull: InstanceCullGroup | null = null;
   let lampCull: InstanceCullGroup | null = null;
   let roadCull: InstanceCullGroup | null = null;
+  let groundCullSq = Infinity;
   // Última câmera vista pelo cull. Rebuild refaz o cull na hora — senão o chão
   // reaparece inteiro até o próximo passe (throttle de 0.25 s no runtime).
   const lastCullPos = new THREE.Vector3();
-  const lastCullForward = new THREE.Vector3();
   let hasCullView = false;
 
   const cullGroundInstances = () => {
     if (!hasCullView) return;
-    let fx = lastCullForward.x;
-    let fz = lastCullForward.z;
-    const fLen = Math.hypot(fx, fz);
-    const hasDirection = fLen > 1e-3;
-    if (hasDirection) {
-      fx /= fLen;
-      fz /= fLen;
-    }
-    const fallbackSq = Math.min(renderDistanceSq, backDistanceSq);
     const visible = (x: number, z: number) => {
       const dx = x - lastCullPos.x;
       const dz = z - lastCullPos.z;
-      const limit = hasDirection
-        ? (dx * fx + dz * fz < 0 ? backDistanceSq : renderDistanceSq)
-        : fallbackSq;
-      return dx * dx + dz * dz <= limit;
+      return dx * dx + dz * dz <= groundCullSq;
     };
     cullInstances(lotCull, visible);
     cullInstances(sidewalkCull, visible);
@@ -3004,10 +2996,11 @@ export function createDonationManager({
         if (entry.group.visible) tickHologram(entry, elapsedSeconds, deltaMs);
       }
     },
-    setRenderDistance(distance, backDistance) {
+    setRenderDistance(distance, backDistance, groundDistance) {
       // Aplicado no próximo passe de updateDistanceCulling (throttle de 0.25s no runtime).
       renderDistanceSq = distance * distance;
       backDistanceSq = backDistance * backDistance;
+      groundCullSq = groundDistance * groundDistance;
     },
     // LOD barato: acessórios de detalhe (topo, letreiro, LED, holograma) somem além
     // da distância onde o fog já os apaga — o prédio (silhueta) continua visível.
@@ -3015,7 +3008,6 @@ export function createDonationManager({
     // junto com o chão da cidade (lotes, calçadas, postes, asfalto).
     updateDistanceCulling(cameraPos, cameraForward) {
       lastCullPos.copy(cameraPos);
-      lastCullForward.copy(cameraForward);
       hasCullView = true;
       cullGroundInstances();
       // Forward projetado no plano XZ; olhando reto pra baixo não há "atrás" definido

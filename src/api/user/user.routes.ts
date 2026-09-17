@@ -1,6 +1,11 @@
 import { http } from "../http";
 import type { UpdateOwnProfileInput, User, UserPage } from "./user.types";
 
+export async function getOwnSession() {
+  const { data } = await http.get<{ data: User; expiresIn: number }>("/user/me");
+  return data;
+}
+
 export async function updateOwnProfile(input: UpdateOwnProfileInput) {
   const { data } = await http.put<{ data: User }>("/user/me", input);
   return data.data;
@@ -23,8 +28,7 @@ export async function listUsers(
 /**
  * Liga/desliga o acesso de administrador de um usuário (JWT + admin).
  *
- * O claim `admin` é assinado no JWT no login: quem já estava logado só passa a
- * ser admin de fato depois de sair e entrar de novo.
+ * O backend consulta a permissão atual no banco em cada requisição.
  */
 export async function setUserAdmin(id: number, isAdmin: boolean) {
   const { data } = await http.put<{ data: User }>(`/user/${id}`, { is_admin: isAdmin });

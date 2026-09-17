@@ -249,13 +249,16 @@ Cena nunca fica vazia: o manager sempre desenha um **loteamento** (grade de quad
 
 #### Cull do chão da cidade
 
-Lotes, calçadas, postes e asfalto seguem o **mesmo critério dos prédios** (`setRenderDistance`: limite frontal `distance`, traseiro `backDistance`). Antes o loteamento continuava desenhado além do alcance onde os prédios já sumiram — ruas vazias flutuando na névoa.
+Lotes, calçadas, postes e asfalto somem pelo **alcance do horizonte** (`setRenderDistance(distance, backDistance, groundDistance)` — o runtime passa `renderDistance * TERRAIN_CULL_SPAN`, mesmo raio do relevo), **não** pelo alcance dos prédios.
 
 - **Grupos:** `lotCull`, `sidewalkCull`, `lampCull`, `roadCull` — cada um é um `InstanceCullGroup` de [[scene-utils#`instanceCulling.ts`]]. Cada `rebuild*` tira o snapshot das matrizes no fim (`snapshotInstances`), ou zera o grupo (`null`) quando não há o que desenhar.
 - **Índice compartilhado:** poste + luminária + mancha de luz num grupo só (somem juntos); asfalto + tracejado idem.
-- **Passe:** `cullGroundInstances()` roda dentro de `updateDistanceCulling` (0.25s, guarda a câmera em `lastCullPos`/`lastCullForward`) e **também no fim de cada rebuild** — senão o chão reaparece inteiro até o próximo passe.
-- **Direcional:** mesma regra dos prédios — `dot(delta, forward) < 0` → `backDistanceSq`; câmera reta pra baixo (sem forward em XZ) → limite radial pelo menor dos dois.
+- **Passe:** `cullGroundInstances()` roda dentro de `updateDistanceCulling` (0.25s, guarda a câmera em `lastCullPos`) e **também no fim de cada rebuild** — senão o chão reaparece inteiro até o próximo passe.
+- **Radial, sem frente/trás:** só `dx² + dz² <= groundCullSq`. Direção da câmera não entra.
 - **Probe de reflexo:** `beginEnvCapture` chama `restoreInstances` nos quatro grupos (probe é fixo, captura a cidade inteira); `endEnvCapture` refaz o cull.
+
+> [!bug] Chão escorregando junto com a câmera
+> O cull é RADIAL: a borda que ele desenha é um **arco**. Com o raio dos prédios (208 padrão) esse arco caía **dentro** do frustum — o canto vai a ~1.55·`far` — e o loteamento aparecia cortado numa curva que escorregava a cada 0.25s junto com a câmera. O limite traseiro (46 padrão) fazia o mesmo pela base da imagem com a câmera inclinada, e a pino (sem forward em XZ) o chão virava um disco de 46u. Raio do horizonte (1.8·`far`) põe o arco fora da imagem; prédios continuam com `distance`/`backDistance`. Mesma correção já aplicada ao relevo — ver [[scene-runtime#Alcance visual e distância dos edifícios]].
 
 > [!note] Por que shader triplanar?
 > Prédios dentro do mesmo `InstancedMesh` têm alturas diferentes. O shader triplanar garante que a textura de fachada seja aplicada corretamente sem distorção, independente da escala de cada instância.

@@ -117,8 +117,10 @@ for (const distance of [600, 100, 600]) {
   });
 }
 assert(counts[1].culled > counts[0].culled, "Distância não ocultou prédios");
-assert(counts[0].instances - counts[1].instances >= counts[1].culled - counts[0].culled,
-  "Culling deve reduzir as instâncias enviadas à GPU");
+// Igualdade, não ">=": o slider dos EDIFÍCIOS só pode tirar prédios. Antes ele levava junto o
+// chão da cidade (lotes, calçadas, postes, asfalto) — com 100 a cidade ficava sem chão nenhum.
+assert.equal(counts[0].instances - counts[1].instances, counts[1].culled - counts[0].culled,
+  "Distância dos edifícios voltou a encolher o chão da cidade");
 assert.deepEqual(counts[2], counts[0], "Prédios não reapareceram ao ampliar a distância");
 
 camera.position.set(0, 30, 0);

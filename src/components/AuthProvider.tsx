@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   login as apiLogin,
   logout as apiLogout,
@@ -14,7 +14,7 @@ import type {
 import { SESSION_EXPIRED_EVENT } from "../api/http";
 import type { User } from "../api/user/user.types";
 import type { UpdateOwnProfileInput } from "../api/user/user.types";
-import { updateOwnProfile as apiUpdateOwnProfile } from "../api/user/user.routes";
+import { getOwnSession, updateOwnProfile as apiUpdateOwnProfile } from "../api/user/user.routes";
 import { AuthContext } from "../hooks/useAuth";
 
 /**
@@ -29,22 +29,6 @@ interface StoredSession {
   user: User;
   /** epoch ms — espelho do expiresIn retornado no login */
   expiresAt: number;
-}
-
-function loadSession(): User | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const session = JSON.parse(raw) as StoredSession;
-    if (!session?.user || Date.now() >= session.expiresAt) {
-      localStorage.removeItem(STORAGE_KEY);
-      return null;
-    }
-    return session.user;
-  } catch {
-    localStorage.removeItem(STORAGE_KEY);
-    return null;
-  }
 }
 
 function saveSession(user: User, expiresIn: number) {
@@ -66,13 +50,43 @@ function replaceStoredUser(user: User) {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(loadSession);
+  // localStorage é editável pelo visitante: nunca restaura autorização dele.
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const sessionVersion = useRef(0);
+
+  useEffect(() => {
+    let active = true;
+    const refresh = async () => {
+      const version = ++sessionVersion.current;
+      try {
+        const { data, expiresIn } = await getOwnSession();
+        if (!active || version !== sessionVersion.current) return;
+        saveSession(data, expiresIn);
+        setUser(data);
+      } catch {
+        if (!active || version !== sessionVersion.current) return;
+        localStorage.removeItem(STORAGE_KEY);
+        setUser(null);
+      } finally {
+        if (active && version === sessionVersion.current) setIsLoading(false);
+      }
+    };
+    void refresh();
+    window.addEventListener("focus", refresh);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
 
   // Ponto único que abre a sessão local — usado pelo login por senha e pelos
   // fluxos passwordless (mesma resposta {data, expiresIn} do backend).
   const establishSession = useCallback((loggedUser: User, expiresIn: number) => {
+    ++sessionVersion.current;
     saveSession(loggedUser, expiresIn);
     setUser(loggedUser);
+    setIsLoading(false);
     return loggedUser;
   }, []);
 
@@ -112,27 +126,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const updateProfile = useCallback(async (input: UpdateOwnProfileInput) => {
+    const version = sessionVersion.current;
     const updated = await apiUpdateOwnProfile(input);
+    if (version !== sessionVersion.current) return updated;
     replaceStoredUser(updated);
     setUser(updated);
     return updated;
   }, []);
 
   const logout = useCallback(async () => {
+    ++sessionVersion.current;
     try {
       await apiLogout();
     } finally {
       // Limpa local mesmo se a request falhar — o cookie expira sozinho.
       localStorage.removeItem(STORAGE_KEY);
       setUser(null);
+      ++sessionVersion.current;
+      setIsLoading(false);
     }
   }, []);
 
   // Interceptor do axios detectou 401 → cookie inválido/expirado.
   useEffect(() => {
     const clearSession = () => {
+      ++sessionVersion.current;
       localStorage.removeItem(STORAGE_KEY);
       setUser(null);
+      setIsLoading(false);
     };
     window.addEventListener(SESSION_EXPIRED_EVENT, clearSession);
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, clearSession);
@@ -142,6 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       isAuthenticated: user !== null,
+      isLoading,
       isAdmin: user?.is_admin ?? false,
       login,
       loginWithCode,
@@ -150,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateProfile,
       logout,
     }),
-    [user, login, loginWithCode, loginWithGoogle, completeRegistration, updateProfile, logout],
+    [user, isLoading, login, loginWithCode, loginWithGoogle, completeRegistration, updateProfile, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

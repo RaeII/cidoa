@@ -274,7 +274,7 @@ Também gerencia:
 
 [[scene-runtime|createCitySceneRuntime.ts]] é o cérebro do Three.js. Orquestra scene, camera, renderer, controls, builders e managers.
 
-Aba **Horizonte** → **Final do chão**: **Linha reta** (padrão), **Circular** ou **Quadrado (original)**. `groundEdgeMode` escolhe formato; `groundDistance` (20–2200, padrão 660) define distância à frente, raio ou meio lado. Reta acompanha direção da câmera e dimensiona laterais pelo frustum completo, evitando quinas mesmo em ultrawide ou distância curta. Névoa suaviza transição. `renderDistance` continua controlando câmera/céu; edifícios e montanhas preservam controles próprios. Pesquisa e limites em [[scene-builders#createGroundPlane.ts]]; integração em [[scene-runtime#Alcance visual e distância dos edifícios]].
+Aba **Horizonte** → **Final do chão**: **Linha reta** (padrão), **Circular** ou **Quadrado (original)**. `groundEdgeMode` escolhe formato; `groundDistance` (20–2200, padrão 660) define distância à frente, raio ou meio lado. Reta acompanha direção da câmera e dimensiona laterais pelo frustum completo, evitando quinas mesmo em ultrawide ou distância curta. Névoa suaviza transição. `renderDistance` continua controlando câmera/céu; edifícios preservam controle próprio. Montanhas e chão da cidade (lotes, calçadas, postes, asfalto) seguem o horizonte (1.8·`far`), não o slider dos edifícios: raio menor desenha arco dentro da imagem e o chão parece encolher quando a câmera mexe. Pesquisa e limites em [[scene-builders#createGroundPlane.ts]]; integração em [[scene-runtime#Alcance visual e distância dos edifícios]].
 
 ## Diagrama de Fluxo
 

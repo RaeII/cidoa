@@ -23,7 +23,7 @@ aliases:
 
 ## Fluxo de autenticação
 
-Token JWT vive em **cookie httpOnly** `token_access` — o JS nunca lê. O front guarda só um **espelho** da sessão (usuário + validade) no `localStorage`, pra UI sobreviver a reload. Autenticação real = sempre o cookie.
+Token JWT vive em **cookie httpOnly** `token_access` — o JS nunca lê. O front guarda só um **espelho** da sessão (usuário + validade) no `localStorage`, como espelho informativo. Ao carregar/recuperar foco, `GET /user/me` confirma cookie e permissões atuais; nunca restaura autorização do `localStorage`. `isLoading` impede redirecionamento prematuro de `/dale`. Autenticação real = sempre o cookie validado pelo backend.
 
 ```mermaid
 flowchart TD
@@ -47,7 +47,9 @@ flowchart TD
 
 `src/components/AuthProvider.tsx` + `src/hooks/useAuth.ts`.
 
-Expõe via Context: `user`, `isAuthenticated`, `isAdmin`, `login()`, `loginWithCode()`, `loginWithGoogle()`, `completeRegistration()`, `updateProfile()`, `logout()`.
+Expõe via Context: `user`, `isAuthenticated`, `isLoading`, `isAdmin`, `login()`, `loginWithCode()`, `loginWithGoogle()`, `completeRegistration()`, `updateProfile()`, `logout()`.
+
+- Mount/foco → `GET /user/me`; confirma sessão e permissões atuais. Falha limpa usuário local. `isLoading` cobre consulta inicial; respostas antigas não sobrescrevem login/logout mais recente.
 
 - `login(input)` → login por **senha** (admin), `POST /auth/login`.
 - `loginWithCode({ challengeId, code })` → passwordless, `POST /auth/login/verify-code`; autentica conta existente ou devolve prova efêmera para conta nova.
@@ -68,6 +70,7 @@ Expõe via Context: `user`, `isAuthenticated`, `isAdmin`, `login()`, `loginWithC
 `src/components/RequireAuth.tsx`. Rota-layout que protege `/dale`.
 
 ```tsx
+if (isLoading) return <p role="status">Carregando sessão…</p>
 if (!isAuthenticated || !isAdmin) {
   return <Navigate to="/dale/login" replace state={{ from: location }} />
 }

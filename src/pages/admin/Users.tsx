@@ -154,7 +154,7 @@ function Users() {
       setFeedback({
         ok: true,
         text: next
-          ? `@${updated.username} agora é admin. Ele precisa sair e entrar de novo para o acesso valer.`
+          ? `@${updated.username} agora é admin. Atualize a página para visualizar o acesso.`
           : `@${updated.username} não é mais admin.`,
       });
     } catch (err) {
@@ -185,8 +185,8 @@ function Users() {
                   Acesso de administrador
                 </CardTitle>
                 <CardDescription>
-                  O claim de admin é assinado no login: quem já está logado só vira admin de
-                  verdade depois de sair e entrar de novo.
+                  As permissões mudam imediatamente. Atualize a página ou volte à aba
+                  para visualizar o acesso atualizado.
                 </CardDescription>
               </CardHeader>
 
