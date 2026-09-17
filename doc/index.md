@@ -70,13 +70,14 @@ src/
       referral.types.ts           ← contratos do sistema de indicação
       referral.logic.ts           ← normalização e decisão do modal
     user/
-      user.routes.ts              ← edição autenticada do próprio perfil
+      user.routes.ts              ← perfil próprio + listagem/promoção admin
       user.types.ts               ← usuário público, incluindo imagem de perfil base64
     donationApi.ts
     customizationApi.ts             ← catálogo de personalizações + conquistas do usuário
     regions.ts
   pages/admin/
     Pass.tsx                    ← página dedicada /dale/passe
+    Users.tsx                   ← /dale/usuarios: busca usuário, liga/desliga admin
   components/
     pass/
       PassTrack.tsx             ← trilha horizontal reutilizável, um cartão por recompensa
@@ -216,6 +217,7 @@ doc/
     edificios-teste.md           ← gerar/excluir edifícios fictícios em massa
     personalizacoes.md           ← CRUD do catálogo de personalizações
     ibge.md                      ← vincular catálogo geográfico do IBGE
+    usuarios.md                  ← dar/tirar admin; o que admin ganha
 ```
 
 ## Fluxo da Aplicação
@@ -417,6 +419,8 @@ flowchart LR
 | Botão de login + modal passwordless na cena | [[area-admin#Login público na cena (passwordless)]] |
 | Gerar/excluir edifícios fictícios em massa (admin) | [[edificios-teste]] |
 | Vincular catálogo do IBGE (regiões/estados/municípios) | [[ibge]] |
+| Colocar um usuário como admin | [[usuarios]] |
+| Entender o que admin libera (personalização sem cadeado) | [[usuarios#O que admin ganha]] · [[passe-cena]] |
 | Adicionar rota ou página no admin | [[componentes-html#Roteamento]] |
 
 ## Ordem de Leitura Recomendada

@@ -17,3 +17,16 @@ export interface UpdateOwnProfileInput {
   username: string;
   profile_image?: string | null;
 }
+
+/** Página da listagem admin (`GET /user`) — espelha `paginatedResponse` do backend. */
+export interface UserPage {
+  data: User[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+}

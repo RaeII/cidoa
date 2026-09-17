@@ -15,6 +15,7 @@ const Customizations = lazy(() => import("./pages/admin/Customizations"));
 const Pass = lazy(() => import("./pages/admin/Pass"));
 const EarlySignups = lazy(() => import("./pages/admin/EarlySignups"));
 const Ibge = lazy(() => import("./pages/admin/Ibge"));
+const Users = lazy(() => import("./pages/admin/Users"));
 
 function PageFallback() {
   return (
@@ -44,6 +45,7 @@ export default function App() {
               <Route path="/dale/passe" element={<Pass />} />
               <Route path="/dale/primeiros-inscritos" element={<EarlySignups />} />
               <Route path="/dale/ibge" element={<Ibge />} />
+              <Route path="/dale/usuarios" element={<Users />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

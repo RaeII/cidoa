@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowUpRight, Gift, Trophy } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Gift, Trophy } from "lucide-react";
 import { getCustomizationTree } from "@/api/admin/admin.routes";
 import type { CustomizationCategory } from "@/api/admin/admin.types";
 import { ApiError } from "@/api/http";
@@ -71,18 +70,6 @@ export default function Pass() {
         </header>
         <div className="min-w-0 flex-1 overflow-y-auto">
           <main className="mx-auto w-full max-w-7xl space-y-8 px-4 pt-6 pb-24 sm:px-8 sm:pt-8 md:pb-10">
-            <div className="relative overflow-hidden rounded-2xl border bg-card p-6 sm:p-8">
-              <Trophy className="pointer-events-none absolute -right-8 -bottom-8 size-60 rotate-12 text-primary/5" strokeWidth={1} aria-hidden />
-              <div className="relative">
-                <span className="text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">Passe de personalizações</span>
-                <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Uma cidade de conquistas.</h1>
-                <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">Cada doação e indicação abre novas possibilidades. Organize as recompensas que dão personalidade à cidade.</p>
-                <Button asChild variant="outline" size="sm" className="mt-5">
-                  <Link to="/dale/personalizacoes">Gerenciar personalizações<ArrowUpRight /></Link>
-                </Button>
-              </div>
-            </div>
-
             {feedback && <p role="status" className="rounded-lg border bg-muted/40 px-4 py-3 text-sm">{feedback}</p>}
 
             {loadError ? (
