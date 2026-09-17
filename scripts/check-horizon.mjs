@@ -91,7 +91,6 @@ const ground = scene.children.find((mesh) => mesh.isMesh && mesh.position.y === 
 const terrain = scene.children.find((mesh) => mesh.isMesh && !mesh.isInstancedMesh && mesh.geometry.attributes.color);
 const terrainPositions = terrain.geometry.attributes.position.array.slice();
 const terrainColors = terrain.geometry.attributes.color.array.slice();
-const projection = camera.projectionMatrix.clone();
 assert.equal(ground.geometry.attributes.position.count, 4, "Chão ganhou vértices");
 assert.equal(ground.geometry.index.count, 6, "Chão deve continuar com dois triângulos");
 assert(ground.position.y < Math.min(...terrainPositions.filter((_, i) => i % 3 === 1)));
@@ -100,8 +99,26 @@ assert(camera.far <= 2000, "Câmera voltou a usar alcance excessivo");
 const probe = scene.children.find((object) => object.type === "CubeCamera");
 assert(probe.children.every((face) => face.far === 260), "Alcance do reflexo foi ampliado");
 
+// As colinas não podem ser recortadas pelo far plane ao orbitar, aproximar ou fazer pan.
+const terrainTransform = terrain.matrix.clone();
+for (const [x, y, z] of [[0, 30, 200], [70, 20, 0], [0, 15, -70], [-60, 40, 60], [450, 80, 250]]) {
+  camera.position.set(x, y, z);
+  advance();
+  camera.updateMatrixWorld(true);
+  terrain.updateMatrixWorld(true);
+  assert(terrain.matrix.equals(terrainTransform), "Câmera moveu o terreno");
+  assert.deepEqual(terrain.geometry.attributes.position.array, terrainPositions, "Câmera deformou as colinas");
+  for (let i = 0; i < terrainPositions.length; i += 3) {
+    const point = new THREE.Vector3().fromArray(terrainPositions, i)
+      .applyMatrix4(terrain.matrixWorld).applyMatrix4(camera.matrixWorldInverse);
+    assert(-point.z < camera.far, "Câmera corta o relevo: montanha encolhe durante o movimento");
+  }
+}
+
 // Encurtar e reabrir a distância só deve mudar os prédios enviados ao render.
 camera.position.set(0, 30, 200);
+advance();
+const projection = camera.projectionMatrix.clone();
 const counts = [];
 for (const distance of [600, 100, 600]) {
   runtime.updateHorizonSettings({ ...settings.horizonSettings, distance, fogDensity: 0 });
@@ -145,7 +162,7 @@ for (const groundEdgeMode of ["circular", "square", "straight", "circular", "str
       assert.equal(ground.geometry, planeGeometry);
     }
     if (groundEdgeMode !== "straight") assert.equal(ground.scale.x, groundDistance * 2);
-    assert.equal(camera.far, settings.horizonSettings.renderDistance, "Modo do chão mexeu no far");
+    assert(camera.far >= settings.horizonSettings.renderDistance, "Far ficou menor que o horizonte");
     assert.deepEqual(terrain.geometry.attributes.position.array, terrainPositions);
     assert(ground.visible);
   }
@@ -160,6 +177,7 @@ for (const aspect of [9 / 16, 16 / 9, 32 / 9]) {
   for (const zoom of [0.75, 1, 2]) {
     camera.aspect = aspect;
     camera.zoom = zoom;
+    camera.updateProjectionMatrix();
     for (const renderDistance of [60, 600, 2000]) {
       for (const groundDistance of [20, 300, 2200]) {
         runtime.updateHorizonSettings({ ...settings.horizonSettings, renderDistance, groundDistance });
@@ -199,30 +217,26 @@ for (const aspect of [9 / 16, 16 / 9, 32 / 9]) {
 assert(checkedRays > 1000, "Amostragem insuficiente do frustum");
 camera.aspect = 16 / 9;
 camera.zoom = 1;
+camera.updateProjectionMatrix();
 runtime.updateHorizonSettings(settings.horizonSettings);
 advance();
-// O cull do relevo é RADIAL: o arco só some se o raio passar do canto do frustum (~1.55*far
-// com FOV 58° em 16:9). Amarrado ao alcance dos EDIFÍCIOS (208), o arco cortava as colinas.
-const terrainCullRadius = () => Math.sqrt(terrain.material.userData.cullUniforms.uCullFrontSq.value);
-const terrainCullBackRadius = () => Math.sqrt(terrain.material.userData.cullUniforms.uCullBackSq.value);
+// Horizonte curto não corta montanhas; slider longo ainda amplia o far.
+assert.equal(terrain.material.userData.cullUniforms, undefined, "Recorte do terreno voltou a seguir a câmera");
 for (const renderDistance of [60, 200, 600, 2000]) {
-  // groundDistance no padrão de fábrica (1.1*horizonte) = chão acompanhando o horizonte.
   runtime.updateHorizonSettings({
     ...settings.horizonSettings,
     renderDistance,
     groundDistance: renderDistance * 1.1,
   });
   advance();
-  assert.equal(camera.far, renderDistance, "camera.far não seguiu o horizonte");
+  const bounds = terrain.geometry.boundingSphere;
+  assert(camera.far >= renderDistance, "Far ficou menor que o horizonte");
+  assert(camera.far > camera.position.distanceTo(bounds.center) + bounds.radius, "Far corta a malha fixa");
   assert(ground.scale.x / 2 > camera.far, "Laterais do chão encolheram");
-  assert(terrainCullRadius() > camera.far * 1.6, `Arco do relevo entrou no frustum (${renderDistance})`);
-  assert(terrainCullBackRadius() > camera.far * 1.6, `Arco traseiro do relevo entrou no frustum (${renderDistance})`);
 }
-// Slider de edifício não pode mais encolher o arco do relevo — o painel promete isso.
 runtime.updateHorizonSettings({ ...settings.horizonSettings, distance: 100, backDistance: 10 });
 advance();
-assert(terrainCullRadius() > camera.far * 1.6, "Distância dos edifícios voltou a cortar o relevo");
-assert(terrainCullBackRadius() > camera.far * 1.6, "Distância traseira voltou a cortar o relevo");
+assert.deepEqual(terrain.geometry.attributes.position.array, terrainPositions);
 runtime.updateHorizonSettings(settings.horizonSettings);
 advance();
 runtime.updateGroundSettings(settings.groundSettings);
@@ -233,6 +247,7 @@ runtime.updateTerrainSettings({ ...settings.terrainSettings, enabled: false });
 await delay(100); // Rebuild do terreno tem debounce de 60ms.
 advance();
 assert(ground.visible && !terrain.visible, "Desligar montanhas removeu o chão");
+assert.equal(camera.far, settings.horizonSettings.renderDistance, "Sem relevo, far não voltou ao horizonte configurado");
 
 // Regressão Float32: triângulos de 1 milhão de unidades deformavam mais que a folga de 0.01u.
 const f = Math.fround;

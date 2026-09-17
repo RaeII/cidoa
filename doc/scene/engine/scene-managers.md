@@ -392,7 +392,8 @@ Um `InstancedMesh` **por textura de fachada em uso** — `facadeGroups`. Draw ca
 - **Capacidade por grupo** vem de `ensureGroupCapacity(group, group.logicalCount)` no fim do `rebuildInstances`, com a contagem real daquela textura. Grupo nasce com 64 — nascer com a capacidade global daria N × total de instâncias alocadas.
 - `rebuildFacadeGroups()` refaz a lista a partir do pool + textura global; roda em `setFacadeTexturePool` e na troca da textura global (a pasta global é sempre o grupo 0), sempre seguido de `rebuildInstances()`.
 - Trocar a textura de **um** prédio instanciado não refaz o layout: remapeia `instanceGroup[i]`, ajusta a capacidade do grupo destino e recompacta.
-- O prédio em destaque (`focusFacadeMaterial`) recebe a pasta do próprio grupo — o realce não volta pra textura global.
+- O prédio em destaque (`focusFacadeMaterial`) recebe a pasta do próprio grupo, inclusive durante troca de textura no formato **Padrão**. Atualiza material do realce junto com instância; seleção automática recupera grupo sorteado. Reusa mesh, geometria e cache PBR, sem reconstruir layout ou adicionar trabalho por frame.
+- Regressão: `node scripts/check-building-textures.mjs` verifica textura salva → escolhida, global, automática, isolamento de outro prédio e reutilização dos meshes/cache; sem servidor, navegador ou GPU.
 
 #### Customizações que exigem Mesh próprio (`needsCustomMesh`)
 

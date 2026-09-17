@@ -24,14 +24,8 @@ import type {
 } from "../types";
 import { runDevAssertionsOnce } from "../utils/devAssertions";
 
-// Raio do cull do relevo, em relação a `camera.far`. O cull do relevo é radial, então a borda
-// que ele desenha é um ARCO — e com o alcance dos EDIFÍCIOS (208 por padrão) esse arco caía bem
-// dentro do campo de visão, cortando as colinas numa curva antes da névoa fechar. Amarrado ao
-// horizonte e com folga para o canto do frustum (~1.55*far com FOV 58° em 16:9), o arco nunca
-// entra na imagem: sobra o corte do far plane, que é reto. Também cumpre o que o painel promete
-// nos controles de edifício ("sem cortar o chão ou as montanhas"). O chão da cidade (lotes,
-// calçadas, postes, asfalto) usa este mesmo raio pelo mesmo motivo.
-const TERRAIN_CULL_SPAN = 1.8;
+// Piso urbano mantém o cull separado dos edifícios. Relevo não usa cull de distância.
+const CITY_FLOOR_CULL_SPAN = 1.8;
 
 type CitySceneRuntimeOptions = {
   mount: HTMLDivElement;
@@ -269,15 +263,13 @@ export function createCitySceneRuntime({
     reflectionSettings.reflectionDistanceStart,
     reflectionSettings.reflectionDistanceEnd,
   );
-  // Chão da cidade (lotes, calçadas, postes, asfalto) usa o mesmo raio do relevo: arco fora
-  // do frustum. Só os EDIFÍCIOS seguem distance/backDistance — ver createDonationManager.
-  const terrainCullRadius = () => currentHorizon.renderDistance * TERRAIN_CULL_SPAN;
+  // Chão da cidade usa alcance próprio; edifícios seguem distance/backDistance.
+  const cityFloorCullRadius = () => currentHorizon.renderDistance * CITY_FLOOR_CULL_SPAN;
   donationManager.setRenderDistance(
     horizonSettings.distance,
     horizonSettings.backDistance,
-    terrainCullRadius(),
+    cityFloorCullRadius(),
   );
-  terrainRig.setRenderDistance(terrainCullRadius(), terrainCullRadius());
   // Depois do manager: applyNightMode acende as janelas e ajusta o reflexo da fachada.
   applyNightMode();
   terrainRig.setCityRadius(donationManager.getCityRadius());
@@ -292,6 +284,19 @@ export function createCitySceneRuntime({
   const syncTerrainToCity = () => {
     terrainRig.setCityRadius(donationManager.getCityRadius());
     terrainRig.mesh.visible = terrainEnabled();
+  };
+
+  // A malha é fixa na origem. O far precisa conter seu bounding sphere inteiro:
+  // um corte curto acompanhando a câmera fazia as colinas parecerem encolher.
+  const updateCameraFar = () => {
+    const bounds = terrainRig.mesh.geometry.boundingSphere;
+    const terrainFar = terrainRig.mesh.visible && bounds
+      ? camera.position.distanceTo(bounds.center) + bounds.radius + 1
+      : 0;
+    const far = Math.max(currentHorizon.renderDistance, terrainFar);
+    if (camera.far === far) return;
+    camera.far = far;
+    camera.updateProjectionMatrix();
   };
 
   // Hover: raycast com throttle por RAF para não impactar o loop de animação
@@ -420,6 +425,7 @@ export function createCitySceneRuntime({
           ) * currentReflection.heightBlur
         : 0,
     );
+    updateCameraFar();
     groundPlane.updateCamera(camera);
     environmentUpdater.updatePosition(camera.position.x, camera.position.y, camera.position.z);
 
@@ -495,7 +501,6 @@ export function createCitySceneRuntime({
       // de baixo do cube livre para o céu (ver skyDrop).
       const terrainWasVisible = terrainRig.mesh.visible;
       const groundWasVisible = groundPlane.mesh.visible;
-      terrainRig.setCullEnabled(false);
       if (!currentReflection.includeGround) {
         terrainRig.mesh.visible = false;
         groundPlane.mesh.visible = false;
@@ -507,7 +512,6 @@ export function createCitySceneRuntime({
       // O custo da captura/PMREM aparece no delta do próximo rAF; não deixar um
       // evento esporádico reduzir permanentemente a resolução principal.
       skipNextFpsSample = true;
-      terrainRig.setCullEnabled(true);
       terrainRig.mesh.visible = terrainWasVisible;
       groundPlane.mesh.visible = groundWasVisible;
       donationManager.endEnvCapture();
@@ -525,7 +529,6 @@ export function createCitySceneRuntime({
         camera.position,
         camera.getWorldDirection(cullForward),
       );
-      terrainRig.updateCulling(camera.position, cullForward);
       // O probe fixo recompõe a cidade completa; cull só atualiza UI/render principal.
       if (culled !== currentStats.culled) {
         emitStatsPatch({ culled });
@@ -581,15 +584,13 @@ export function createCitySceneRuntime({
     },
     updateHorizonSettings(settings) {
       currentHorizon = settings;
-      // Edifícios usam distance/backDistance; o relevo segue o horizonte (arco fora do frustum).
-      donationManager.setRenderDistance(settings.distance, settings.backDistance, terrainCullRadius());
-      terrainRig.setRenderDistance(terrainCullRadius(), terrainCullRadius());
+      // Edifícios e piso urbano mantêm seus alcances; relevo permanece inteiro.
+      donationManager.setRenderDistance(settings.distance, settings.backDistance, cityFloorCullRadius());
       if (scene.fog instanceof THREE.FogExp2) {
         scene.fog.density = settings.fogDensity;
       }
-      // Alcance da câmera + raio do céu HDRI: limite de renderização do horizonte.
-      camera.far = settings.renderDistance;
-      camera.updateProjectionMatrix();
+      // Horizonte é o mínimo do far; colinas visíveis não podem ser truncadas.
+      updateCameraFar();
       environmentUpdater.setRadius(settings.renderDistance);
       // Chão tem alcance próprio (groundDistance): o slider entra por aqui junto do horizonte.
       groundPlane.updateHorizon(settings);

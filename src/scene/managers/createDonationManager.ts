@@ -2931,6 +2931,11 @@ export function createDonationManager({
             ensureGroupCapacity(facadeGroups[nextGroup], facadeGroups[nextGroup].logicalCount);
             compactVisibleInstances();
           }
+          // O destaque tem material próprio sobre a instância: acompanha o grupo
+          // sem recriar o mesh de foco nem reconstruir o layout.
+          if (focusedDonationId === donationId && focusHighlightMesh) {
+            applyFacadeFolder(focusFacadeMaterial, facadeGroups[nextGroup].folder);
+          }
         }
       }
 

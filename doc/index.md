@@ -53,6 +53,7 @@ scripts/
   encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`)
   check-pass.mjs               ← ordenação do passe sem servidor/navegador
   check-building-shapes.mjs    ← checa os 11 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
+  check-building-textures.mjs  ← troca de textura no destaque padrão; reuso de meshes/cache, sem navegador
   check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
 public/
   basis/                       ← transcoder basis do KTX2Loader (js + wasm)

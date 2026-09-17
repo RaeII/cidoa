@@ -101,12 +101,6 @@ export type TerrainRig = {
   setCityRadius: (radius: number) => void;
   // Cor do chão da cidade (zona plana do relevo) — sincroniza com GroundSettings.
   setGroundColor: (color: string) => void;
-  /** Alcance do cull de distância (frontal / traseiro), igual ao dos prédios. */
-  setRenderDistance: (distance: number, backDistance: number) => void;
-  /** Câmera do cull. Chamado no mesmo passe do cull dos prédios. */
-  updateCulling: (cameraPos: THREE.Vector3, cameraForward: THREE.Vector3) => void;
-  /** Probe de reflexo é fixo: captura o relevo inteiro, sem o cull da câmera. */
-  setCullEnabled: (enabled: boolean) => void;
   dispose: () => void;
 };
 
@@ -121,52 +115,6 @@ export function createTerrain(
     metalness: 0,
     wireframe: settings.wireframe,
   });
-
-  // Cull de distância no fragmento (frontal / traseiro) — o relevo é um mesh só, não dá pra
-  // compactar instâncias. O teste é RADIAL (dot(delta, delta) > limite): a borda que ele produz
-  // é um ARCO. Por isso o runtime alimenta esse limite com o alcance do HORIZONTE, não com a
-  // distância dos edifícios: o arco fica fora do frustum e quem corta é o far plane (reta).
-  // Ver TERRAIN_CULL_SPAN em createCitySceneRuntime.
-  const NO_CULL = 1e12; // Infinity em uniform float é terreno de driver
-  const cullUniforms = {
-    uCullOrigin: { value: new THREE.Vector3() },
-    uCullForward: { value: new THREE.Vector2() }, // XZ normalizado; (0,0) = sem direção
-    uCullFrontSq: { value: NO_CULL },
-    uCullBackSq: { value: NO_CULL },
-    uCullEnabled: { value: 1 },
-  };
-  // Exposto pro check headless conferir que o arco fica fora do frustum.
-  material.userData.cullUniforms = cullUniforms;
-  material.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, cullUniforms);
-    shader.vertexShader = shader.vertexShader
-      .replace("#include <common>", "#include <common>\nvarying vec3 vTerrainWorld;")
-      .replace(
-        "#include <begin_vertex>",
-        "#include <begin_vertex>\nvTerrainWorld = (modelMatrix * vec4(position, 1.0)).xyz;",
-      );
-    shader.fragmentShader = shader.fragmentShader
-      .replace(
-        "#include <common>",
-        `#include <common>
-        varying vec3 vTerrainWorld;
-        uniform vec3 uCullOrigin;
-        uniform vec2 uCullForward;
-        uniform float uCullFrontSq;
-        uniform float uCullBackSq;
-        uniform float uCullEnabled;`,
-      )
-      .replace(
-        "#include <clipping_planes_fragment>",
-        `#include <clipping_planes_fragment>
-        vec2 cullDelta = vTerrainWorld.xz - uCullOrigin.xz;
-        // Sem direção (câmera olhando reto pra baixo) o limite vira radial e usa o menor.
-        float cullLimit = dot(uCullForward, uCullForward) > 0.5
-          ? (dot(cullDelta, uCullForward) < 0.0 ? uCullBackSq : uCullFrontSq)
-          : min(uCullFrontSq, uCullBackSq);
-        if (uCullEnabled > 0.5 && dot(cullDelta, cullDelta) > cullLimit) discard;`,
-      );
-  };
 
   const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);
   scene.add(mesh);
@@ -402,19 +350,6 @@ export function createTerrain(
       groundColorHex = color;
       baseColor.set(color);
       applyGeometry(current, true); // só cor — posições/normais intactas
-    },
-    setRenderDistance(distance, backDistance) {
-      cullUniforms.uCullFrontSq.value = distance * distance;
-      cullUniforms.uCullBackSq.value = backDistance * backDistance;
-    },
-    updateCulling(cameraPos, cameraForward) {
-      cullUniforms.uCullOrigin.value.copy(cameraPos);
-      const len = Math.hypot(cameraForward.x, cameraForward.z);
-      if (len > 1e-3) cullUniforms.uCullForward.value.set(cameraForward.x / len, cameraForward.z / len);
-      else cullUniforms.uCullForward.value.set(0, 0);
-    },
-    setCullEnabled(enabled) {
-      cullUniforms.uCullEnabled.value = enabled ? 1 : 0;
     },
     dispose() {
       if (updateTimer !== null) clearTimeout(updateTimer);
