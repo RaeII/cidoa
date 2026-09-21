@@ -28,9 +28,15 @@ Fluxo público de captura, validação, confirmação e compartilhamento de indi
 - Link esperado: `/?ref=A1B2C3D4E5F60718`.
 - Código normalizado com `trim()` + uppercase.
 - Campo no `AuthDialog` fica escondido: aparece só com `?ref=` na URL ou clique em
-  "Tenho um código de indicação" (link sublinhado, último componente do modal).
+  "Tenho um código de indicação" (botão com ícone `Gift` e borda tracejada, último componente do modal).
+- Aberto, vira bloco destacado: borda tracejada `border-primary/40`, fundo `bg-primary/5`, ícone `Gift`,
+  título "Alguém te indicou o Cidoa?" + descrição curta. Label do input só "Código de indicação".
+  Input com fundo sólido (`bg-background`) — label flutuante corta a borda e precisa da mesma cor atrás.
+  `mt-3` no bloco (aberto ou fechado) separa do botão de login; `p-4` + `space-y-4` dão respiro ao input.
 - Código informado precisa ter 16 caracteres hexadecimais e passar por `GET /api/referral/preview/:code`.
 - Preview usa debounce de 350 ms e request cancelável. Código inválido bloqueia e-mail, Google e conclusão do cadastro até correção ou remoção.
+- Erro do código (`"Código inválido."`) só aparece na tentativa de entrar, nunca ao digitar: botões seguem clicáveis,
+  o envio é abortado e o erro revelado. Digitar de novo esconde o erro.
 - Cancelar descarta código pendente e remove somente `ref` da URL, preservando outros parâmetros e hash.
 
 ## Cenários
@@ -52,7 +58,7 @@ flowchart TD
 ```
 
 - Cadastro novo por e-mail envia `referralCode` em `POST /api/auth/register/complete`.
-- Google envia `referralCode` em `POST /api/auth/google`; backend aplica somente se criar conta nova.
+- Cadastro novo por Google envia `referralCode` no mesmo `POST /api/auth/register/complete` (a rota `/auth/google` não recebe mais código).
 - Conta existente, por e-mail ou Google, recebe modal após login e confirma via `POST /api/referral/me`.
 - Prazo e vínculo vêm do resumo backend; front não recalcula elegibilidade pelo relógio local.
 - Autoindicação é detectada pelo código próprio e continua protegida pelo backend.

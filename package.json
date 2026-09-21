@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "ui:add": "sh scripts/ui-add.sh",
     "textures:ktx2": "node scripts/encode-ktx2.mjs",
     "preview": "vite preview"
   },

@@ -1,17 +1,51 @@
 import { useEffect, useState } from "react";
-import { Loader2, Search, ShieldCheck, Users as UsersIcon } from "lucide-react";
-import { listUsers, setUserAdmin } from "@/api/user/user.routes";
+import {
+  Loader2,
+  MoreVertical,
+  Search,
+  Shield,
+  ShieldOff,
+  Trash2,
+  TriangleAlert,
+  Users as UsersIcon,
+} from "lucide-react";
+import { deleteUser, listUsers, setUserAdmin } from "@/api/user/user.routes";
 import type { User } from "@/api/user/user.types";
 import { ApiError } from "@/api/http";
+import { pageWindow } from "@/lib/pagination";
 import { useAuth } from "@/hooks/useAuth";
 import { AppSidebar } from "@/components/AppSidebar";
 import { MobileNav } from "@/components/MobileNav";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 const PAGE_SIZE = 20;
@@ -26,22 +60,24 @@ function initials(name: string) {
   return name.slice(0, 2).toUpperCase();
 }
 
-/** Linha da lista: identidade à esquerda, chave de admin à direita. */
+/** Linha da lista: identidade à esquerda, menu de ações à direita. */
 function UserRow({
   user,
   isSelf,
-  onToggle,
+  onToggleAdmin,
+  onAskDelete,
 }: {
   user: User;
   isSelf: boolean;
-  onToggle: (next: boolean) => Promise<void>;
+  onToggleAdmin: (next: boolean) => Promise<void>;
+  onAskDelete: () => void;
 }) {
   const [saving, setSaving] = useState(false);
 
-  async function handleChange(next: boolean) {
+  async function handleToggle(next: boolean) {
     setSaving(true);
     try {
-      await onToggle(next);
+      await onToggleAdmin(next);
     } finally {
       setSaving(false);
     }
@@ -69,20 +105,39 @@ function UserRow({
         </span>
       </div>
 
+      {user.is_admin && <Badge variant="muted">Admin</Badge>}
+
       <span className="hidden text-xs tabular-nums text-muted-foreground sm:inline">
         #{user.id}
       </span>
 
-      <label className="flex items-center gap-2 text-xs">
-        <span className={user.is_admin ? "text-accent" : "text-muted-foreground"}>Admin</span>
-        <Switch
-          checked={user.is_admin}
-          // Auto-rebaixamento fecha a porta por dentro — o backend também recusa.
-          disabled={saving || isSelf}
-          onCheckedChange={(next) => void handleChange(next)}
-          aria-label={`Acesso de administrador de ${user.username}`}
-        />
-      </label>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            disabled={saving}
+            aria-label={`Ações de ${user.username}`}
+          >
+            {saving ? <Loader2 className="animate-spin" /> : <MoreVertical />}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            // Tirar o próprio admin fecha a porta por dentro — o backend recusa.
+            disabled={isSelf}
+            onSelect={() => void handleToggle(!user.is_admin)}
+          >
+            {user.is_admin ? <ShieldOff /> : <Shield />}
+            {user.is_admin ? "Remover admin" : "Tornar admin"}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onSelect={onAskDelete}>
+            <Trash2 />
+            Excluir usuário
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
@@ -100,6 +155,12 @@ function Users() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [feedback, setFeedback] = useState<Feedback>(null);
+
+  // Alvo da exclusão: null = diálogo fechado. Guarda o usuário inteiro para o
+  // texto de confirmação nomear quem vai embora.
+  const [toDelete, setToDelete] = useState<User | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Fetch só em callback assíncrono — o estado inicial (loading=true) cobre o
   // 1º render e quem muda busca/página liga o loading ANTES de mexer na dep.
@@ -136,6 +197,7 @@ function Users() {
   }
 
   function goToPage(next: number) {
+    if (next === page || next < 1 || next > totalPages) return;
     setLoading(true);
     setPage(next);
   }
@@ -162,6 +224,29 @@ function Users() {
     }
   }
 
+  async function confirmDelete() {
+    if (!toDelete) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteUser(toDelete.id);
+      setFeedback({ ok: true, text: `@${toDelete.username} foi excluído.` });
+      setToDelete(null);
+      // A página encolheu: se era o último da última página, recua uma.
+      const lastOnPage = users.length === 1 && page > 1;
+      setLoading(true);
+      if (lastOnPage) setPage(page - 1);
+      else setReloadKey((k) => k + 1);
+    } catch (err) {
+      // Mantém o diálogo aberto com o motivo (ex.: 403).
+      setDeleteError(errMsg(err, "Falha ao excluir o usuário"));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const deletingSelf = toDelete != null && toDelete.id === me?.id;
+
   return (
     <SidebarProvider className="h-svh">
       <AppSidebar />
@@ -174,19 +259,16 @@ function Users() {
         <div className="flex-1 overflow-y-auto">
           <main className="mx-auto w-full max-w-3xl px-6 pt-8 pb-24 md:pb-10">
             <p className="text-muted-foreground">
-              Dá ou tira acesso de administrador. Admin entra no painel <code>/dale</code> e usa
+              Administra as contas da aplicação. Admin entra no painel <code>/dale</code> e usa
               todas as personalizações da cena sem precisar cumprir o passe.
             </p>
 
             <Card className="mt-8">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ShieldCheck className="size-5" />
-                  Acesso de administrador
-                </CardTitle>
+                <CardTitle>Contas</CardTitle>
                 <CardDescription>
-                  As permissões mudam imediatamente. Atualize a página ou volte à aba
-                  para visualizar o acesso atualizado.
+                  O menu de cada linha dá ou tira acesso de administrador e exclui a conta.
+                  As permissões mudam imediatamente.
                 </CardDescription>
               </CardHeader>
 
@@ -233,7 +315,11 @@ function Users() {
                         key={u.id}
                         user={u}
                         isSelf={u.id === me?.id}
-                        onToggle={(next) => toggleAdmin(u, next)}
+                        onToggleAdmin={(next) => toggleAdmin(u, next)}
+                        onAskDelete={() => {
+                          setDeleteError(null);
+                          setToDelete(u);
+                        }}
                       />
                     ))}
                   </div>
@@ -250,28 +336,41 @@ function Users() {
                 )}
 
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-between gap-3 px-6 pt-4">
-                    <span className="text-xs text-muted-foreground">
-                      Página {page} de {totalPages} · {total} usuários
-                    </span>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page <= 1 || loading}
-                        onClick={() => goToPage(page - 1)}
-                      >
-                        Anterior
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page >= totalPages || loading}
-                        onClick={() => goToPage(page + 1)}
-                      >
-                        Próxima
-                      </Button>
-                    </div>
+                  <div className="flex flex-col items-center gap-2 px-6 pt-4">
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            disabled={page <= 1 || loading}
+                            onClick={() => goToPage(page - 1)}
+                          />
+                        </PaginationItem>
+
+                        {pageWindow(page, totalPages).map((p, i) => (
+                          <PaginationItem key={p === "…" ? `gap-${i}` : p}>
+                            {p === "…" ? (
+                              <PaginationEllipsis />
+                            ) : (
+                              <PaginationLink
+                                isActive={p === page}
+                                disabled={loading}
+                                onClick={() => goToPage(p)}
+                              >
+                                {p}
+                              </PaginationLink>
+                            )}
+                          </PaginationItem>
+                        ))}
+
+                        <PaginationItem>
+                          <PaginationNext
+                            disabled={page >= totalPages || loading}
+                            onClick={() => goToPage(page + 1)}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                    <span className="text-xs text-muted-foreground">{total} usuários</span>
                   </div>
                 )}
               </CardContent>
@@ -281,6 +380,41 @@ function Users() {
 
         <MobileNav />
       </SidebarInset>
+
+      {/* Confirmação da exclusão — irreversível, então nomeia quem vai embora. */}
+      <Dialog open={toDelete != null} onOpenChange={(open) => !open && setToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <TriangleAlert className="size-5" />
+              Excluir @{toDelete?.username}?
+            </DialogTitle>
+            <DialogDescription>
+              Apaga a conta e tudo que é dela: doações, personalizações, indicações e
+              identidades de login. Não dá pra desfazer — o e-mail volta a ficar livre para um
+              novo cadastro.
+            </DialogDescription>
+          </DialogHeader>
+
+          {deletingSelf && (
+            <p className="text-sm text-destructive">
+              Esta é a sua conta. Você perde o acesso ao painel na hora — só
+              <code className="mx-1">scripts/create-admin.ts</code> devolve.
+            </p>
+          )}
+          {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setToDelete(null)} disabled={deleting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={() => void confirmDelete()} disabled={deleting}>
+              {deleting ? <Loader2 className="animate-spin" /> : <Trash2 />}
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 }

@@ -53,7 +53,7 @@ Expõe via Context: `user`, `isAuthenticated`, `isLoading`, `isAdmin`, `login()`
 
 - `login(input)` → login por **senha** (admin), `POST /auth/login`.
 - `loginWithCode({ challengeId, code })` → passwordless, `POST /auth/login/verify-code`; autentica conta existente ou devolve prova efêmera para conta nova.
-- `loginWithGoogle(credential)` → `POST /auth/google` com o ID token do GIS; entra, vincula ou cadastra automaticamente e abre a sessão.
+- `loginWithGoogle(credential)` → `POST /auth/google` com o ID token do GIS; entra ou vincula e abre a sessão. No 1º acesso devolve `registration_required` (e-mail + nome/username sugeridos) sem criar conta.
 - `completeRegistration({ registrationToken, name, username })` → `POST /auth/register/complete`; cria conta só após e-mail confirmado.
 - `updateProfile({ name, username, profile_image? })` → `PUT /user/me`; atualiza backend + espelho local sem alterar validade da sessão.
 - Login por senha, conta existente por código e cadastro concluído passam pelo mesmo `establishSession(user, expiresIn)`: salva o espelho (`cidoa.admin.session`) e seta `user`.
@@ -134,11 +134,11 @@ Nada a ver com o `ThemeToggle`/`useTheme` do admin, que é o tema claro/escuro d
 
 Usuário comum entra/cadastra **na própria cena 3D** (`/`), sem sair para outra página. Fluxo **passwordless**: e-mail → código de 6 dígitos.
 
-- **`src/components/AuthMenu.tsx`** — botão no canto superior direito da cena. Deslogado: toggle de noite (lua/sol) + "Entrar" abre o modal. Logado: botão somente com ícone de compartilhar indicação ao lado do usuário, `username` limitado a 18 caracteres + reticências e dropdown com "Modo noite/dia" + "Perfil" + "Sair". Também coordena código vindo de `?ref=`, preview, resumo e confirmação. Ver [[referral]].
+- **`src/components/AuthMenu.tsx`** — botão no canto superior direito da cena. Deslogado: toggle de noite (lua/sol) + "Entrar" abre o modal. Logado: botão somente com ícone de compartilhar indicação ao lado do usuário, **primeiro nome** da conta (`name`; cai no `username` se vazio) limitado a 18 caracteres + reticências e dropdown com `username` + e-mail, "Modo noite/dia" + "Perfil" + "Sair". Também coordena código vindo de `?ref=`, preview, resumo e confirmação. Ver [[referral]].
 - **`src/components/ProfileDialog.tsx`** — perfil em modal com imagem ou iniciais, nome, username e e-mail confirmado. Mostra código/link próprio; indicador recebido só quando existe; total indicado só quando maior que zero. Um lápis sobre o avatar abre ações de adicionar/trocar e remover imagem. Aceita JPEG, PNG ou WebP de até 10 MB; `src/lib/image.ts` reduz proporcionalmente para no máximo 400×400.
 - **`src/components/AuthDialog.tsx`** — modal único (shadcn `Dialog`): campo opcional de indicação sempre visível + botão **Continuar com Google** + divisor "ou" + e-mail → código. Código de indicação válido mostra nome/imagem; inválido bloqueia login/cadastro até correção ou remoção. Conta nova envia código no cadastro; conta existente confirma depois do login.
-  - **Botão Google (GIS)**: o script `accounts.google.com/gsi/client` (carregado no `index.html`) renderiza o botão via `google.accounts.id`. O popup devolve o `credential` (ID token); o callback chama `loginWithGoogle(credential)` → `POST /auth/google` → mesma sessão do fluxo por código. Entrar e cadastrar são a **mesma ação** (o backend resolve). `GOOGLE_CLIENT_ID` vem de `VITE_GOOGLE_CLIENT_ID` (com default público embutido). Registre a **origem** do front em *Authorized JavaScript origins* no Google Console.
-  - **Perfil depois da confirmação**: `POST /auth/register/complete` recebe `{ registrationToken, name, username }`. E-mail vem da prova assinada, nunca do body. Backend normaliza `username` para minúsculas, valida 3–45 caracteres e retorna `409` se já existir. `name` aceita 2–100 caracteres.
+  - **Botão Google (GIS)**: o script `accounts.google.com/gsi/client` (carregado no `index.html`) renderiza o botão via `google.accounts.id`. O popup devolve o `credential` (ID token); o callback chama `loginWithGoogle(credential)` → `POST /auth/google` → mesma sessão do fluxo por código. Entrar e cadastrar são a **mesma ação** (o backend resolve). No 1º acesso o modal vai para o passo de confirmação em vez de já entrar. `GOOGLE_CLIENT_ID` vem de `VITE_GOOGLE_CLIENT_ID` (com default público embutido). Registre a **origem** do front em *Authorized JavaScript origins* no Google Console.
+  - **Confirmação de dados (passo `profile`)**: fecha os dois cadastros. E-mail aparece em campo **desabilitado** (só confere); nome e nome de usuário vêm preenchidos no 1º acesso por Google (sugestão do backend) e são editáveis. `POST /auth/register/complete` recebe `{ registrationToken, name, username, referralCode? }`. E-mail vem da prova assinada, nunca do body. Backend normaliza `username` para minúsculas, valida 3–45 caracteres e retorna `409` se já existir. `name` aceita 2–100 caracteres.
   - **Mesma sessão do modal**: `registrationToken` fica somente em estado React. Fechar modal, sair da página ou recarregar apaga a prova e exige novo código. Prova também expira no backend em 4 minutos.
   - **Reenvio**: botão com contagem regressiva do `resendAvailableAt` (cooldown do backend).
   - **Código em dev**: quando o backend devolve `debugCode` (só fora de produção, `AUTH_DEBUG_CODE=1`), o modal mostra e **já preenche** o campo. Em produção `debugCode` nunca vem — o código chega por e-mail.
@@ -148,12 +148,13 @@ Usuário comum entra/cadastra **na própria cena 3D** (`/`), sem sair para outra
 flowchart TD
     Btn[AuthMenu 'Entrar'] --> Modal[AuthDialog]
     Modal -->|Google popup: ID token| GG[POST /auth/google]
-    GG -->|entra / vincula / cadastra: cookie + user| AP
+    GG -->|conta existente: cookie + user| AP
+    GG -->|1º acesso: prova + sugestões| Cadastro
     Modal -->|email| RC[POST /auth/login/request-code]
     RC -->|challengeId + resendAt| Code[passo código]
     Code -->|challengeId + code| VC[POST /auth/login/verify-code]
     VC -->|conta existente: cookie + user| AP[AuthProvider.establishSession]
-    VC -->|conta nova: prova efêmera| Cadastro[nome + username]
+    VC -->|conta nova: prova efêmera| Cadastro[confirma e-mail + nome + username]
     Cadastro -->|POST /auth/register/complete| AP
     AP --> Close[fecha modal, AuthMenu mostra usuário]
     Btn -->|usuário logado| Profile[Perfil]

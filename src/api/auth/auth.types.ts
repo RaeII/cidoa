@@ -18,7 +18,6 @@ export interface LoginResponse {
 /** Body do login com Google: o `credential` (ID token) devolvido pelo GIS. */
 export interface GoogleAuthInput {
   credential: string;
-  referralCode?: string;
 }
 
 // ─── Passwordless (código por e-mail) ───────────────────────────
@@ -59,6 +58,22 @@ export interface RegistrationRequiredResult {
   registrationToken: string;
   expiresAt: string;
 }
+
+/** 1º acesso por Google: a conta ainda não existe — sugestões para o usuário confirmar. */
+export interface GoogleRegistrationRequiredResult extends RegistrationRequiredResult {
+  /** E-mail verificado pelo Google — exibido bloqueado, não editável. */
+  email: string;
+  name: string | null;
+  username: string;
+}
+
+export type GoogleAuthResponse =
+  | (LoginResponse & { status: "authenticated" })
+  | GoogleRegistrationRequiredResult;
+
+export type GoogleAuthResult =
+  | { status: "authenticated"; user: User }
+  | GoogleRegistrationRequiredResult;
 
 export type VerifyLoginCodeResponse =
   | (LoginResponse & { status: "authenticated" })

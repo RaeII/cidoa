@@ -34,3 +34,12 @@ export async function setUserAdmin(id: number, isAdmin: boolean) {
   const { data } = await http.put<{ data: User }>(`/user/${id}`, { is_admin: isAdmin });
   return data.data;
 }
+
+/**
+ * Exclui o usuário e todos os dados dele (JWT + admin). Definitivo — leva
+ * doações, personalizações, indicações e identidades de login junto, e libera
+ * o e-mail para um novo cadastro.
+ */
+export async function deleteUser(id: number) {
+  await http.delete(`/user/${id}`);
+}

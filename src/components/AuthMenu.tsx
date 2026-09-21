@@ -55,7 +55,7 @@ export function AuthMenu({ night, onNightChange }: AuthMenuProps) {
   );
   const [referralError, setReferralError] = useState<string | null>(
     initialCode && !REFERRAL_CODE_PATTERN.test(initialCode)
-      ? "Código de indicação deve ter 16 caracteres hexadecimais."
+      ? "Código inválido."
       : null,
   );
   const [summaryState, setSummaryState] = useState<{
@@ -138,7 +138,7 @@ export function AuthMenu({ night, onNightChange }: AuthMenuProps) {
       setReferralError(null);
     } else if (!REFERRAL_CODE_PATTERN.test(code)) {
       setReferralLoading(false);
-      setReferralError("Código de indicação deve ter 16 caracteres hexadecimais.");
+      setReferralError("Código inválido.");
     } else {
       setReferralLoading(true);
       setReferralError(null);
@@ -225,9 +225,9 @@ export function AuthMenu({ night, onNightChange }: AuthMenuProps) {
     (!referralDialogError && !summary && !user?.is_admin);
 
   if (isAuthenticated && user) {
-    const visibleUsername = user.username.length > 18
-      ? `${user.username.slice(0, 18)}…`
-      : user.username;
+    // Tela principal mostra o primeiro nome da conta; username só no menu.
+    const firstName = user.name?.trim().split(/\s+/)[0] || user.username;
+    const visibleName = firstName.length > 18 ? `${firstName.slice(0, 18)}…` : firstName;
     const shareLabel = shareStatus === "error"
       ? "Falha ao compartilhar"
       : "Compartilhar indicação";
@@ -247,14 +247,14 @@ export function AuthMenu({ night, onNightChange }: AuthMenuProps) {
             </button>
           )}
           <DropdownMenu>
-            <DropdownMenuTrigger className={`${overlayButton} max-w-[14rem]`} title={user.username}>
+            <DropdownMenuTrigger className={`${overlayButton} max-w-[14rem]`} title={firstName}>
               <Avatar className="size-6 shrink-0">
                 {user.profile_image && <AvatarImage src={user.profile_image} alt="" className="object-cover" />}
                 <AvatarFallback className="bg-white/10 text-[10px] text-white">
-                  {user.username.slice(0, 2).toUpperCase()}
+                  {firstName.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <span className="truncate">{visibleUsername}</span>
+              <span className="truncate">{visibleName}</span>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">
               <DropdownMenuLabel className="min-w-0">

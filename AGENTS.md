@@ -74,6 +74,12 @@ BuildingHeightInput → canvasRef.addDonation() → CitySceneCanvasHandle → ru
 
 `doc/` uses Obsidian wikilinks (`[[scene-runtime]]`, `[[scene-types#BuildingSettings]]`) to cross-reference files. Maintain these links when renaming files.
 
+## UI copy
+
+Keep interface text lean. The label says what the field is; add a description only when the label
+alone is not enough — one short, direct sentence. No decorative descriptions, no long explanations,
+no repeating in prose what the placeholder or label already shows.
+
 ## TypeScript
 
 Strict mode enabled with `noUnusedLocals` and `noUnusedParameters`. Target ES2022.

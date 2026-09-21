@@ -50,6 +50,7 @@ O projeto é dividido em 3 grandes partes:
 
 ```text
 scripts/
+  ui-add.sh                    ← adiciona primitivo shadcn corrigindo o CLI (`bun run ui:add <nome>`)
   encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`)
   check-pass.mjs               ← ordenação do passe sem servidor/navegador
   check-building-shapes.mjs    ← checa os 11 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
@@ -78,7 +79,7 @@ src/
     regions.ts
   pages/admin/
     Pass.tsx                    ← página dedicada /dale/passe
-    Users.tsx                   ← /dale/usuarios: busca usuário, liga/desliga admin
+    Users.tsx                   ← /dale/usuarios: busca conta, menu ⋮ (admin/excluir), paginação
   components/
     pass/
       PassTrack.tsx             ← trilha/grade reutilizável, um cartão por recompensa
@@ -89,9 +90,10 @@ src/
     ui/
       badge.tsx                     ← Badge shadcn; requisito de liberação no admin
       switch.tsx                    ← Switch shadcn usado nas ativações do admin
+      pagination.tsx                ← Pagination shadcn; botão no lugar de <a> (página é estado, não URL)
       select.tsx                    ← Select shadcn; filtro de personalização no admin
     AuthMenu.tsx                  ← menu do usuário na cena: modo noite, perfil, indicação, sair
-    AuthDialog.tsx                ← login por e-mail; cadastro com nome + username único
+    AuthDialog.tsx                ← login por e-mail ou Google; cadastro confirma nome + username
     AuthProvider.tsx              ← sessão local espelhada do cookie httpOnly
     ProfileDialog.tsx             ← edição de nome, username e imagem de perfil
     referral/
@@ -119,6 +121,7 @@ src/
     pass.ts                        ← contrato visual e ordenação por esforço estimado
     adminUnlock.ts                 ← alvos de edição por opção/feature
     unlock.ts                      ← fonte única: requisito do passe → texto (badge, frase, o que falta)
+    pagination.ts                  ← janela de páginas da barra de paginação (1, atual ± 1, última)
       PanelIntro.tsx
       KeyboardShortcutsHelp.tsx
       controls/
@@ -218,7 +221,7 @@ doc/
     edificios-teste.md           ← gerar/excluir edifícios fictícios em massa
     personalizacoes.md           ← CRUD do catálogo de personalizações
     ibge.md                      ← vincular catálogo geográfico do IBGE
-    usuarios.md                  ← dar/tirar admin; o que admin ganha
+    usuarios.md                  ← listar contas, dar/tirar admin, excluir usuário; o que admin ganha
 ```
 
 ## Fluxo da Aplicação
@@ -227,7 +230,7 @@ doc/
 
 - `src/main.tsx` → renderiza React no `#root`
 - `src/App.tsx` → `BrowserRouter` com rotas lazy: `/` = `CitySceneEditor` (cena), `/dale/login` + `/dale` = área admin (ver [[componentes-html]] e [[area-admin]])
-- Acesso público na cena → `AuthDialog`: e-mail → código; conta existente entra, conta nova informa `name` + `username` somente após confirmar o e-mail. Campo de indicação fica no rodapé do modal, escondido atrás de link sublinhado; `?ref=` já abre preenchido com preview. Ver [[area-admin#Login público na cena (passwordless)]] e [[referral]].
+- Acesso público na cena → `AuthDialog`: e-mail → código, ou Google. Conta existente entra; conta nova confirma `name` + `username` (Google já sugere ambos) com o e-mail bloqueado na tela. Campo de indicação fica no rodapé do modal, escondido atrás de link sublinhado; `?ref=` já abre preenchido com preview. Ver [[area-admin#Login público na cena (passwordless)]] e [[referral]].
 
 ### 2. Container Principal
 
@@ -423,8 +426,10 @@ flowchart LR
 | Gerar/excluir edifícios fictícios em massa (admin) | [[edificios-teste]] |
 | Vincular catálogo do IBGE (regiões/estados/municípios) | [[ibge]] |
 | Colocar um usuário como admin | [[usuarios]] |
+| Excluir um usuário e todos os dados dele | [[usuarios#Excluir usuário]] |
 | Entender o que admin libera (personalização sem cadeado) | [[usuarios#O que admin ganha]] · [[passe-cena]] |
 | Adicionar rota ou página no admin | [[componentes-html#Roteamento]] |
+| Adicionar primitivo shadcn (`bun run ui:add <nome>`) | [[componentes-html#Adicionar primitivo shadcn]] |
 
 ## Ordem de Leitura Recomendada
 
@@ -461,6 +466,8 @@ hooks    → ponte React ↔ runtime
 > - **Dispose explícito** — todo recurso Three.js tem cleanup
 > - **InstancedMesh** para performance nos prédios
 > - **Seeded random** para geração determinística por posição
+> - **Texto de interface enxuto** — label diz o que é; descrição só quando label não basta,
+>   uma frase curta e direta. Sem descrição decorativa nem explicação longa.
 
 ## Benefícios dos primeiros inscritos
 

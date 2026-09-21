@@ -3,6 +3,7 @@ import type {
   AuthChallenge,
   CompleteRegistrationInput,
   GoogleAuthInput,
+  GoogleAuthResponse,
   LoginInput,
   LoginResponse,
   RequestLoginCodeInput,
@@ -23,9 +24,10 @@ export async function logout() {
 }
 
 // Login com Google (GIS). O front recebe o ID token (`credential`) do popup do
-// Google e o envia aqui; o backend entra ou cadastra e seta o mesmo cookie httpOnly.
+// Google e o envia aqui; o backend entra (cookie httpOnly) ou devolve os dados
+// sugeridos para o usuário confirmar antes de criar a conta.
 export async function loginWithGoogle(input: GoogleAuthInput) {
-  const { data } = await http.post<LoginResponse>("/auth/google", input);
+  const { data } = await http.post<GoogleAuthResponse>("/auth/google", input);
   return data;
 }
 

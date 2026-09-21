@@ -44,6 +44,7 @@ src/
     ui/                        ← primitivos shadcn (vendorizados, não editar à toa)
       button.tsx  input.tsx  card.tsx  sidebar.tsx  sheet.tsx  switch.tsx
       dropdown-menu.tsx  avatar.tsx  tooltip.tsx  separator.tsx  skeleton.tsx
+      pagination.tsx
     AuthProvider.tsx           ← sessão global (login/logout)
     RequireAuth.tsx            ← guarda da área /dale (exige admin)
     AppSidebar.tsx             ← sidebar desktop (nav + conta/tema no rodapé)
@@ -68,8 +69,27 @@ src/
     user/                      ← tipo User
 ```
 
-> [!important] Alias `@/`
-> `@/*` aponta pra `src/*`. Configurado em `vite.config.ts` (`resolve.alias`) **e** `tsconfig.app.json` (`paths`). Os dois precisam bater. Imports shadcn usam `@/components/...`, `@/lib/utils`.
+> [!important] Alias `@/` — em **três** lugares
+> `@/*` aponta pra `src/*`. Configurado em `vite.config.ts` (`resolve.alias`), `tsconfig.app.json` (`paths`) e `tsconfig.json` da **raiz** (`paths`, espelhado). Os três precisam bater. Imports shadcn usam `@/components/...`, `@/lib/utils`.
+>
+> O da raiz parece redundante — o build nem o lê (`files: []`). Mas é o **único** tsconfig que o CLI do shadcn abre: ele não segue `references`. Sem `paths` ali, o CLI não resolve o alias e grava os componentes numa pasta literal chamada `@/` na raiz do repo. Não remova.
+
+---
+
+## Adicionar primitivo shadcn
+
+```bash
+bun run ui:add badge          # um ou vários: bun run ui:add badge table
+```
+
+Wrapper em `scripts/ui-add.sh`. Chama `bunx --bun shadcn@latest add` e conserta o que o CLI erra sozinho — ver abaixo. Rodar o CLI cru funciona, mas aí a limpeza é manual.
+
+> [!bug] Dois defeitos conhecidos do `shadcn add`
+> **1. Alias não resolvido** → componentes caem numa pasta literal `@/`. Causa: `tsconfig.json` da raiz sem `paths`. **Já corrigido** no repo (ver callout acima); só volta se alguém tirar o `paths` de lá.
+>
+> **2. Import do `cn` quebrado** → o registry publica `import { cn } from "cn"` e declara `cn` como dependência npm, instalando um pacote de terceiro que não tem nada a ver. Confirmado no payload cru (`curl https://ui.shadcn.com/r/styles/new-york-v4/pagination.json` → `"dependencies": ["cn"]`) e em **todo** item `registry:ui`, no CLI 3 e no 4. É bug do upstream, não tem flag. O wrapper troca o import por `@/lib/utils` e roda `bun remove cn`. Quando o shadcn arrumar, o wrapper pode sumir.
+
+Depois de rodar, confira `git status` de qualquer jeito: o arquivo tem que estar em `src/components/ui/` e `package.json` não pode ganhar dependência nova. O `bun.lock` pode aparecer modificado sem ser dependência nova — o `bun remove cn` do wrapper ressincroniza o lockfile se ele estiver defasado. Confira o diff antes de commitar.
 
 ---
 
@@ -104,7 +124,9 @@ Ficam em `src/components/ui/`. **Vendorizados**: código do shadcn colado no rep
 > [!warning] Lint dos primitivos
 > Arquivos `ui/**` exportam componente + `xxxVariants` (cva). A regra `react-refresh/only-export-components` é **desligada** só pra essa pasta no `eslint.config.js` (igual base_vite). Não replicar esse export duplo fora de `ui/`.
 
-Adicionar primitivo novo: `npx shadcn@latest add <nome>` (config em `components.json`) ou copiar do base_vite.
+Adicionar primitivo novo: `bun run ui:add <nome>` — ver [[#Adicionar primitivo shadcn]]. Config em `components.json`.
+
+Desvio consciente em `pagination.tsx`: `PaginationLink` renderiza `<button type="button">` no lugar do `<a href>` do upstream. A página aqui vive em estado React, não na URL — `<a>` sem `href` perde foco e teclado. Rótulos em português. Uso em [[usuarios#Paginação]].
 
 ---
 

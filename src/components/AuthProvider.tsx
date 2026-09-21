@@ -118,9 +118,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const loginWithGoogle = useCallback(
-    async (credential: string, referralCode?: string) => {
-      const { data, expiresIn } = await apiLoginWithGoogle({ credential, referralCode });
-      return establishSession(data, expiresIn);
+    async (credential: string) => {
+      const result = await apiLoginWithGoogle({ credential });
+      if (result.status === "registration_required") return result;
+
+      const user = establishSession(result.data, result.expiresIn);
+      return { status: "authenticated" as const, user };
     },
     [establishSession],
   );

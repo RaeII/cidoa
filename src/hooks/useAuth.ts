@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 import type {
   CompleteRegistrationInput,
+  GoogleAuthResult,
   LoginInput,
   VerifyCodeInput,
   VerifyCodeResult,
@@ -19,8 +20,8 @@ export interface AuthContextValue {
   login: (input: LoginInput) => Promise<User>;
   /** Valida o e-mail; abre a sessão existente ou libera cadastro em memória. */
   loginWithCode: (input: VerifyCodeInput) => Promise<VerifyCodeResult>;
-  /** Login com Google (GIS); código opcional vale somente para conta nova. */
-  loginWithGoogle: (credential: string, referralCode?: string) => Promise<User>;
+  /** Login com Google (GIS); no 1º acesso devolve os dados a confirmar, sem criar conta. */
+  loginWithGoogle: (credential: string) => Promise<GoogleAuthResult>;
   /** Cria a conta após a confirmação do e-mail e abre a sessão. */
   completeRegistration: (input: CompleteRegistrationInput) => Promise<User>;
   /** Atualiza nome e nome de usuário do usuário autenticado. */

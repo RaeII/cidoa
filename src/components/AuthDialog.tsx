@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { Gift } from "lucide-react";
 import { ApiError } from "@/api/http";
 import { requestLoginCode } from "@/api/auth/auth.routes";
 import type { AuthChallenge, RegistrationRequiredResult } from "@/api/auth/auth.types";
@@ -83,9 +84,18 @@ export function AuthDialog({
   const [submitting, setSubmitting] = useState(false);
   const [resendIn, setResendIn] = useState(0);
   const [showReferral, setShowReferral] = useState(false);
+  // Erro do código só aparece depois de tentar entrar — digitar não deve acusar erro.
+  const [showReferralError, setShowReferralError] = useState(false);
   // Campo de indicação só aparece via link (`?ref=` já preencheu o código) ou clique.
   const referralOpen = showReferral || referralCode !== "";
   const referralBlocked = referralCode !== "" && (referralLoading || !referralPreview);
+
+  /** Trava o envio e revela o erro do código de indicação, se houver. */
+  function blockedByReferral() {
+    if (!referralBlocked) return false;
+    setShowReferralError(true);
+    return true;
+  }
 
   // Reset ao fechar — reabrir sempre começa limpo no passo de e-mail.
   const reset = useCallback(() => {
@@ -100,6 +110,7 @@ export function AuthDialog({
     setSubmitting(false);
     setResendIn(0);
     setShowReferral(false);
+    setShowReferralError(false);
   }, []);
 
   function handleOpenChange(next: boolean) {
@@ -125,12 +136,22 @@ export function AuthDialog({
   // Mantém o handler do Google sempre atualizado (fecha no sucesso, mostra erro).
   useEffect(() => {
     handleGoogleRef.current = async (credential: string) => {
-      if (referralBlocked) return;
+      if (blockedByReferral()) return;
       setError(null);
       setSubmitting(true);
       try {
-        await loginWithGoogle(credential, referralCode || undefined);
-        closeAfterAuth();
+        const result = await loginWithGoogle(credential);
+        if (result.status === "authenticated") {
+          closeAfterAuth();
+          return;
+        }
+
+        // 1º acesso: nada foi criado ainda — usuário confere nome e username.
+        setRegistration(result);
+        setEmail(result.email);
+        setName(result.name ?? "");
+        setUsername(result.username);
+        setStep("profile");
       } catch (err) {
         setError(err instanceof ApiError ? err.message : "Erro ao entrar com o Google");
       } finally {
@@ -197,12 +218,13 @@ export function AuthDialog({
 
   async function handleEmailSubmit(e: FormEvent) {
     e.preventDefault();
+    if (blockedByReferral()) return;
     await sendCode();
   }
 
   async function handleCodeSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!challenge) return;
+    if (!challenge || blockedByReferral()) return;
     setError(null);
     setSubmitting(true);
     try {
@@ -225,12 +247,12 @@ export function AuthDialog({
 
   async function handleProfileSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!registration) return;
+    if (!registration || blockedByReferral()) return;
 
     if (Date.now() >= new Date(registration.expiresAt).getTime()) {
       setStep("email");
       setRegistration(null);
-      setError("A verificação expirou. Envie um novo código.");
+      setError("A verificação expirou. Entre novamente.");
       return;
     }
 
@@ -257,7 +279,7 @@ export function AuthDialog({
     step === "code"
       ? `Digite o código enviado para ${email}.`
       : step === "profile"
-        ? `E-mail ${email} confirmado. Complete seu perfil para continuar.`
+        ? "Confira seus dados antes de criar a conta."
         : null;
 
   return (
@@ -272,7 +294,10 @@ export function AuthDialog({
         {step === "email" ? (
           <div className="space-y-5">
             {/* Botão custom visível + botão real do GIS invisível por cima (recebe o clique). */}
-            <div className={`group relative h-10 ${referralBlocked ? "opacity-50" : ""}`}>
+            <div
+              className={`group relative h-10 ${referralBlocked ? "opacity-50" : ""}`}
+              onClick={referralBlocked ? () => setShowReferralError(true) : undefined}
+            >
               <button
                 type="button"
                 aria-hidden
@@ -309,7 +334,7 @@ export function AuthDialog({
                 {error}
               </p>
             )}
-            <Button type="submit" disabled={submitting || referralBlocked} className="w-full">
+            <Button type="submit" disabled={submitting} className="w-full">
               {submitting ? "Enviando…" : "Continuar com E-mail"}
             </Button>
             </form>
@@ -340,7 +365,7 @@ export function AuthDialog({
             )}
             <Button
               type="submit"
-              disabled={submitting || code.length !== 6 || referralBlocked}
+              disabled={submitting || code.length !== 6}
               className="w-full"
             >
               {submitting ? "Validando…" : "Continuar"}
@@ -368,6 +393,16 @@ export function AuthDialog({
           </form>
         ) : (
           <form onSubmit={handleProfileSubmit} className="space-y-4">
+            {/* E-mail já verificado (código ou Google): só confirmação, não editável. */}
+            <Input
+              id="auth-confirm-email"
+              label="E-mail"
+              labelClassName="bg-background"
+              type="email"
+              value={email}
+              readOnly
+              disabled
+            />
             <Input
               id="auth-name"
               label="Nome"
@@ -398,41 +433,63 @@ export function AuthDialog({
                 {error}
               </p>
             )}
-            <Button type="submit" disabled={submitting || referralBlocked} className="w-full">
+            <Button type="submit" disabled={submitting} className="w-full">
               {submitting ? "Criando conta…" : "Criar conta"}
             </Button>
           </form>
         )}
 
+        {/* Bloco de indicação destacado (borda tracejada + fundo primário) pra não se
+            confundir com os campos de login logo acima. */}
         {referralOpen ? (
-          <div className="space-y-2">
-            <Input
-              id="auth-referral-code"
-              label="Código de indicação (opcional)"
-              labelClassName="bg-background"
-              maxLength={16}
-              autoCapitalize="characters"
-              spellCheck={false}
-              autoFocus={showReferral}
-              value={referralCode}
-              onChange={(event) => onReferralCodeChange(event.target.value)}
-            />
-            {referralLoading && (
-              <p className="text-xs text-muted-foreground">Verificando indicação…</p>
-            )}
-            {referralError && (
-              <p role="alert" className="text-sm text-destructive">{referralError}</p>
-            )}
-            {referralPreview && (
-              <ReferralPerson label="Você foi indicado por" person={referralPreview} />
-            )}
+          <div className="mt-3 space-y-4 rounded-xl border border-dashed border-primary/40 bg-primary/5 p-4">
+            <div className="flex items-start gap-2.5">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Gift className="size-4" aria-hidden />
+              </span>
+              <div className="space-y-0.5">
+                <p className="text-sm font-semibold">Alguém te indicou o Cidoa?</p>
+                <p className="text-xs text-muted-foreground">
+                  Opcional. Cole o código de quem te convidou.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {/* Fundo sólido no input: o label flutuante corta a borda e precisa da mesma cor atrás. */}
+              <Input
+                id="auth-referral-code"
+                label="Código de indicação"
+                className="bg-background font-mono tracking-[0.15em] dark:bg-background"
+                placeholder="A1B2C3D4E5F60718"
+                maxLength={16}
+                autoCapitalize="characters"
+                spellCheck={false}
+                autoFocus={showReferral}
+                aria-invalid={showReferralError && referralError ? true : undefined}
+                value={referralCode}
+                onChange={(event) => {
+                  setShowReferralError(false);
+                  onReferralCodeChange(event.target.value);
+                }}
+              />
+              {referralLoading && (
+                <p className="text-xs text-muted-foreground">Verificando indicação…</p>
+              )}
+              {showReferralError && referralError && (
+                <p role="alert" className="text-sm text-destructive">{referralError}</p>
+              )}
+              {referralPreview && (
+                <ReferralPerson label="Você foi indicado por" person={referralPreview} />
+              )}
+            </div>
           </div>
         ) : (
           <button
             type="button"
             onClick={() => setShowReferral(true)}
-            className="text-center text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-primary/40 bg-primary/5 px-3 py-2.5 text-sm font-medium transition-colors hover:bg-primary/10"
           >
+            <Gift className="size-4 text-primary" aria-hidden />
             Tenho um código de indicação
           </button>
         )}

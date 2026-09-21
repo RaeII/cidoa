@@ -1,0 +1,3 @@
+- [ ] Edificio preto com textura e modelo padrão fica piscando
+- [ ] Colocar paratibanda nos modelos de edificios com quinas
+- [ ] Ajustar o link de indicação, está copiando um mensagem junto
