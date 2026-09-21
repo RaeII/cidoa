@@ -227,7 +227,7 @@ doc/
 
 - `src/main.tsx` → renderiza React no `#root`
 - `src/App.tsx` → `BrowserRouter` com rotas lazy: `/` = `CitySceneEditor` (cena), `/dale/login` + `/dale` = área admin (ver [[componentes-html]] e [[area-admin]])
-- Acesso público na cena → `AuthDialog`: e-mail → código; conta existente entra, conta nova informa `name` + `username` somente após confirmar o e-mail. Campo opcional de indicação fica sempre visível; `?ref=` preenche código e preview. Ver [[area-admin#Login público na cena (passwordless)]] e [[referral]].
+- Acesso público na cena → `AuthDialog`: e-mail → código; conta existente entra, conta nova informa `name` + `username` somente após confirmar o e-mail. Campo de indicação fica no rodapé do modal, escondido atrás de link sublinhado; `?ref=` já abre preenchido com preview. Ver [[area-admin#Login público na cena (passwordless)]] e [[referral]].
 
 ### 2. Container Principal
 

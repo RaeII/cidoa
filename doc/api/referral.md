@@ -27,7 +27,8 @@ Fluxo público de captura, validação, confirmação e compartilhamento de indi
 
 - Link esperado: `/?ref=A1B2C3D4E5F60718`.
 - Código normalizado com `trim()` + uppercase.
-- Campo opcional fica sempre visível no `AuthDialog`.
+- Campo no `AuthDialog` fica escondido: aparece só com `?ref=` na URL ou clique em
+  "Tenho um código de indicação" (link sublinhado, último componente do modal).
 - Código informado precisa ter 16 caracteres hexadecimais e passar por `GET /api/referral/preview/:code`.
 - Preview usa debounce de 350 ms e request cancelável. Código inválido bloqueia e-mail, Google e conclusão do cadastro até correção ou remoção.
 - Cancelar descarta código pendente e remove somente `ref` da URL, preservando outros parâmetros e hash.

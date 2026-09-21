@@ -82,6 +82,9 @@ export function AuthDialog({
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [resendIn, setResendIn] = useState(0);
+  const [showReferral, setShowReferral] = useState(false);
+  // Campo de indicação só aparece via link (`?ref=` já preencheu o código) ou clique.
+  const referralOpen = showReferral || referralCode !== "";
   const referralBlocked = referralCode !== "" && (referralLoading || !referralPreview);
 
   // Reset ao fechar — reabrir sempre começa limpo no passo de e-mail.
@@ -96,6 +99,7 @@ export function AuthDialog({
     setError(null);
     setSubmitting(false);
     setResendIn(0);
+    setShowReferral(false);
   }, []);
 
   function handleOpenChange(next: boolean) {
@@ -265,28 +269,6 @@ export function AuthDialog({
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
 
-        <div className="space-y-2">
-          <Input
-            id="auth-referral-code"
-            label="Código de indicação (opcional)"
-            labelClassName="bg-background"
-            maxLength={16}
-            autoCapitalize="characters"
-            spellCheck={false}
-            value={referralCode}
-            onChange={(event) => onReferralCodeChange(event.target.value)}
-          />
-          {referralLoading && (
-            <p className="text-xs text-muted-foreground">Verificando indicação…</p>
-          )}
-          {referralError && (
-            <p role="alert" className="text-sm text-destructive">{referralError}</p>
-          )}
-          {referralPreview && (
-            <ReferralPerson label="Você foi indicado por" person={referralPreview} />
-          )}
-        </div>
-
         {step === "email" ? (
           <div className="space-y-5">
             {/* Botão custom visível + botão real do GIS invisível por cima (recebe o clique). */}
@@ -420,6 +402,39 @@ export function AuthDialog({
               {submitting ? "Criando conta…" : "Criar conta"}
             </Button>
           </form>
+        )}
+
+        {referralOpen ? (
+          <div className="space-y-2">
+            <Input
+              id="auth-referral-code"
+              label="Código de indicação (opcional)"
+              labelClassName="bg-background"
+              maxLength={16}
+              autoCapitalize="characters"
+              spellCheck={false}
+              autoFocus={showReferral}
+              value={referralCode}
+              onChange={(event) => onReferralCodeChange(event.target.value)}
+            />
+            {referralLoading && (
+              <p className="text-xs text-muted-foreground">Verificando indicação…</p>
+            )}
+            {referralError && (
+              <p role="alert" className="text-sm text-destructive">{referralError}</p>
+            )}
+            {referralPreview && (
+              <ReferralPerson label="Você foi indicado por" person={referralPreview} />
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowReferral(true)}
+            className="text-center text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+          >
+            Tenho um código de indicação
+          </button>
         )}
       </DialogContent>
     </Dialog>
