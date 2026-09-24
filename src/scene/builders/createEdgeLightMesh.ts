@@ -8,6 +8,7 @@ import {
 } from "./createHearstBuildingMesh";
 import { getOctagonalFootprintPoints } from "./createOctagonalBuildingMesh";
 import { getOneTradeLedFootprintRings } from "./createOneTradeBuildingMesh";
+import { getResidentialTierFootprints } from "./createResidentialBuildingMesh";
 import { getSetbackTierFootprints } from "./createSetbackBuildingMesh";
 import { getTaipeiTierFootprints } from "./createTaipeiBuildingMesh";
 import { getTaperedFootprintScaleAtHeightRatio } from "./createTaperedBuildingMesh";
@@ -640,8 +641,10 @@ function createLed(
     return group;
   }
 
-  if (shape === "taipei") {
-    const tiers = getTaipeiTierFootprints(width, depth, height);
+  if (shape === "taipei" || shape === "residential") {
+    const tiers = shape === "taipei"
+      ? getTaipeiTierFootprints(width, depth, height)
+      : getResidentialTierFootprints(width, depth, height);
     for (const tier of tiers) {
       const halfW = tier.width / 2;
       const halfD = tier.depth / 2;

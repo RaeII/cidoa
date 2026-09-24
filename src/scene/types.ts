@@ -35,7 +35,8 @@ export type BuildingShape =
   | "hearst"
   | "empire"
   | "taipei"
-  | "one-trade";
+  | "one-trade"
+  | "residential";
 
 // Conjunto PBR de fachada por edifício. "default" = Facade006 (textura global da cena).
 export type FacadeStyle =

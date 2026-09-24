@@ -31,7 +31,11 @@ const SHAPE_OPTIONS: { value: BuildingShape; label: string }[] = [
   { value: "empire", label: "Empire State" },
   { value: "taipei", label: "Taipei 101" },
   { value: "one-trade", label: "One Trade" },
+  { value: "residential", label: "Residencial (sacadas)" },
 ];
+
+// Formatos com materiais próprios (sem textura PBR) — fachada/tiling não se aplicam.
+const TEXTURELESS_SHAPES: ReadonlySet<BuildingShape> = new Set(["empire", "residential"]);
 
 const FACADE_STYLE_OPTIONS: { value: FacadeStyle; label: string }[] = [
   { value: "default", label: "Padrão" },
@@ -235,23 +239,25 @@ export function BuildingCustomizePanel({
             onChange={handleColorChange}
           />
         </PanelSection>
-        <PanelSection title="Fachada">
-          <div className="grid grid-cols-2 gap-2">
-            {FACADE_STYLE_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => handleFacadeStyleChange(option.value)}
-                className={`rounded-lg border px-3 py-2 text-xs transition-colors ${
-                  facadeStyle === option.value
-                    ? "border-white/40 bg-white/15 text-white"
-                    : "border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70"
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </PanelSection>
+        {!TEXTURELESS_SHAPES.has(buildingShape) && (
+          <PanelSection title="Fachada">
+            <div className="grid grid-cols-2 gap-2">
+              {FACADE_STYLE_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => handleFacadeStyleChange(option.value)}
+                  className={`rounded-lg border px-3 py-2 text-xs transition-colors ${
+                    facadeStyle === option.value
+                      ? "border-white/40 bg-white/15 text-white"
+                      : "border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </PanelSection>
+        )}
         <PanelSection title="Formato">
           <div className="grid grid-cols-2 gap-2">
             {SHAPE_OPTIONS.map((option) => (
@@ -269,20 +275,22 @@ export function BuildingCustomizePanel({
             ))}
           </div>
         </PanelSection>
-        <PanelSection title="Texturas">
-          <p className="mb-1 text-xs text-white/50">
-            Cada textura de fachada tem sua escala ideal. Vale só neste edifício.
-          </p>
-          <RangeField
-            label="Tiling Scale"
-            value={tilingScale}
-            min={0.2}
-            max={4}
-            step={0.05}
-            onChange={handleTilingScaleChange}
-            valueLabel={`×${tilingScale.toFixed(2)}`}
-          />
-        </PanelSection>
+        {!TEXTURELESS_SHAPES.has(buildingShape) && (
+          <PanelSection title="Texturas">
+            <p className="mb-1 text-xs text-white/50">
+              Cada textura de fachada tem sua escala ideal. Vale só neste edifício.
+            </p>
+            <RangeField
+              label="Tiling Scale"
+              value={tilingScale}
+              min={0.2}
+              max={4}
+              step={0.05}
+              onChange={handleTilingScaleChange}
+              valueLabel={`×${tilingScale.toFixed(2)}`}
+            />
+          </PanelSection>
+        )}
         <PanelSection title="Letreiro">
           <label className="block">
             <span className="mb-2 block text-sm text-white/75">Marca ou empresa</span>

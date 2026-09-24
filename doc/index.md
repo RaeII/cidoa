@@ -112,6 +112,7 @@ src/
       createEmpireBuildingMesh.ts
       createTaipeiBuildingMesh.ts
       createOneTradeBuildingMesh.ts
+      createResidentialBuildingMesh.ts
       createHologramMesh.ts
       loadEnvironment.ts
     managers/
@@ -165,7 +166,7 @@ Ele guarda todos os estados:
 - `sceneStats`, `hoverInfo`
 - `showControlPanel` — toggle do painel de configuração (escondido por padrão)
 - `selectedBuildingId` — edifício selecionado para personalização
-- `buildingCustomizations` — `Map<donationId, BuildingCustomization>` com cor, formato (default/twisted/octagonal/setback/tapered/chrysler/hearst/empire/taipei/one-trade), acessório de topo (holofotes, heliponto, jardim suspenso ou helicóptero com cabine afunilada realista), letreiro, LED de arestas e holograma cyberpunk
+- `buildingCustomizations` — `Map<donationId, BuildingCustomization>` com cor, formato (default/twisted/octagonal/setback/tapered/chrysler/hearst/empire/taipei/one-trade/residential), acessório de topo (holofotes, heliponto, jardim suspenso ou helicóptero com cabine afunilada realista), letreiro, LED de arestas e holograma cyberpunk
 
 E entrega para:
 
@@ -230,6 +231,7 @@ flowchart TD
     M --> Y[createEmpireBuildingMesh]
     M --> Z[createTaipeiBuildingMesh]
     M --> OT[createOneTradeBuildingMesh]
+    M --> RS[createResidentialBuildingMesh]
     M --> HG[createHologramMesh]
     E --> C
     P --> C
@@ -259,6 +261,7 @@ flowchart LR
     DM --> |formato empire| EM[createEmpireBuildingMesh]
     DM --> |formato taipei| TP101[createTaipeiBuildingMesh]
     DM --> |formato one-trade| OT[createOneTradeBuildingMesh]
+    DM --> |formato residential| RS[createResidentialBuildingMesh]
     DM --> |topo| RM[createRooftopMesh]
     DM --> |sign| SM[createSignMesh]
     DM --> |LED| EL[createEdgeLightMesh]
@@ -300,6 +303,7 @@ flowchart LR
 | Alterar torre Empire State (empire)              | [[scene-builders#createEmpireBuildingMesh.ts]]    |
 | Alterar torre Taipei 101 (taipei)                | [[scene-builders#createTaipeiBuildingMesh.ts]]    |
 | Alterar torre One Trade (one-trade)              | [[scene-builders#createOneTradeBuildingMesh.ts]]  |
+| Alterar torre residencial com sacadas (residential) | [[scene-builders#createResidentialBuildingMesh.ts]] |
 
 | Alterar torre Chrysler (chrysler) | [[scene-builders#createChryslerBuildingMesh.ts]] |
 | Alterar geração dos prédios de doação | [[scene-managers]] |

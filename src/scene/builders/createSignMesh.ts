@@ -8,6 +8,7 @@ import {
   ONE_TRADE_SIGN_Y_OFFSET_RATIO,
   getOneTradeFootprintScaleAtHeightRatio,
 } from "./createOneTradeBuildingMesh";
+import { getResidentialRoofOffset } from "./createResidentialBuildingMesh";
 import { getSetbackFootprintScaleAtHeightRatio } from "./createSetbackBuildingMesh";
 import {
   TAIPEI_SIGN_Y_OFFSET_RATIO,
@@ -57,20 +58,24 @@ export function createSignMesh(
   const isEmpire = shape === "empire" && buildingH > 0;
   const isTaipei = shape === "taipei" && buildingH > 0;
   const isOneTrade = shape === "one-trade" && buildingH > 0;
-
-  // Empire, Taipei e One Trade tem mastros estreitos no topo; o letreiro fica no corpo principal.
-  const yOffset = buildingH * (
-    isEmpire
-      ? 0.1
-      : isTaipei
-        ? TAIPEI_SIGN_Y_OFFSET_RATIO
-        : isOneTrade
-          ? ONE_TRADE_SIGN_Y_OFFSET_RATIO
-          : 0.45
-  );
+  const isResidential = shape === "residential" && buildingH > 0;
 
   // Altura do letreiro consistente em todos os lados
   const signH = Math.max(buildingW, buildingD) * SIGN_HEIGHT_RATIO;
+
+  // Empire, Taipei e One Trade tem mastros estreitos no topo; o letreiro fica no corpo principal.
+  // Residencial: letreiro apoiado na laje de cobertura, à frente do guarda-corpo.
+  const yOffset = isResidential
+    ? getResidentialRoofOffset(buildingH) + signH / 2
+    : buildingH * (
+        isEmpire
+          ? 0.1
+          : isTaipei
+            ? TAIPEI_SIGN_Y_OFFSET_RATIO
+            : isOneTrade
+              ? ONE_TRADE_SIGN_Y_OFFSET_RATIO
+              : 0.45
+      );
 
   // Para edifícios torcidos, calcula o ângulo da torção exatamente na altura do
   // letreiro. A geometria torcida (createTwistedBuildingMesh) usa

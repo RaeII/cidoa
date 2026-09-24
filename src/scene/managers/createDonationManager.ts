@@ -77,6 +77,11 @@ import {
   createOneTradeBuildingMesh,
   disposeOneTradeBuildingSharedResources,
 } from "../builders/createOneTradeBuildingMesh";
+import {
+  createResidentialBuildingMesh,
+  disposeResidentialBuildingSharedResources,
+  setResidentialBuildingHeight,
+} from "../builders/createResidentialBuildingMesh";
 import { seeded } from "../utils/random";
 import { randomFacadeStyle } from "../utils/facadeStyle";
 
@@ -1447,9 +1452,10 @@ export function createDonationManager({
     }
   };
 
+  // `baseOpacity` = opacidade autoral (ex: vidro de guarda-corpo); foco multiplica.
   const setMatOpacity = (mat: THREE.Material, opacity: number) => {
-    mat.transparent = opacity < 1;
-    mat.opacity = opacity;
+    mat.opacity = (mat.userData.baseOpacity ?? 1) * opacity;
+    mat.transparent = mat.opacity < 1;
     mat.needsUpdate = true;
   };
 
@@ -1457,6 +1463,20 @@ export function createDonationManager({
     return Array.from(
       new Set(Array.isArray(entry.mesh.material) ? entry.mesh.material : [entry.mesh.material]),
     );
+  };
+
+  // Vidros de formatos sem textura (ex: residential) amostram o cubemap da cena;
+  // marcados por `sceneEnvMapIntensity`, saem da captura como a fachada.
+  const getSceneGlassMaterials = (): THREE.MeshStandardMaterial[] => {
+    const list: THREE.MeshStandardMaterial[] = [];
+    for (const entry of customShapeMeshes.values()) {
+      for (const material of getCustomShapeMaterials(entry)) {
+        if (material.userData.sceneEnvMapIntensity !== undefined) {
+          list.push(material as THREE.MeshStandardMaterial);
+        }
+      }
+    }
+    return list;
   };
 
   const setCustomShapeOpacity = (entry: CustomShapeEntry, opacity: number) => {
@@ -1875,6 +1895,12 @@ export function createDonationManager({
           sceneMesh = createTaipeiBuildingMesh(facadeMat, topMat);
         } else if (shape === "one-trade") {
           sceneMesh = createOneTradeBuildingMesh(facadeMat, topMat);
+        } else if (shape === "residential") {
+          sceneMesh = createResidentialBuildingMesh(facadeMat, topMat, transform.scale.y);
+          tmpColor.set(customization.color);
+          if (!tmpColor.equals(currentBuildingColor)) {
+            facadeMat.color.set(customization.color);
+          }
         } else {
           // Formato default mas precisa de mesh próprio (ex: tiling customizado).
           sceneMesh = new THREE.Mesh(buildingGeometry, [facadeMat, topMat]);
@@ -1895,6 +1921,9 @@ export function createDonationManager({
       entry.mesh.position.copy(transform.position);
       entry.mesh.scale.copy(transform.scale);
       entry.mesh.userData.donationValue = donation.value;
+      if (entry.shape === "residential") {
+        setResidentialBuildingHeight(entry.mesh, transform.scale.y);
+      }
     }
 
     for (const [donId, entry] of customShapeMeshes) {
@@ -2093,11 +2122,13 @@ export function createDonationManager({
       // Cor é específica por edifício para clones — não sobrescrever aqui.
       if (!currentTextureSettings.enabled) {
         for (const mat of getAllFacadeMaterials()) {
+          if (isTexturelessMaterial(mat)) continue; // formato sem textura: material autoral
           mat.roughness = settings.roughness;
           mat.metalness = settings.metalness;
           mat.needsUpdate = true;
         }
         for (const mat of getAllTopMaterials()) {
+          if (isTexturelessMaterial(mat)) continue;
           mat.roughness = settings.roughness;
           mat.metalness = settings.metalness;
           mat.needsUpdate = true;
@@ -2172,6 +2203,7 @@ export function createDonationManager({
     beginEnvCapture() {
       for (const mat of getAllFacadeMaterials()) mat.envMapIntensity = 0;
       for (const mat of getAllTopMaterials()) mat.envMapIntensity = 0;
+      for (const mat of getSceneGlassMaterials()) mat.envMapIntensity = 0;
       // Lotes vazios (loteamento) fora da captura → edifícios não refletem lotes.
       if (lotMesh) lotMesh.visible = false;
     },
@@ -2181,6 +2213,9 @@ export function createDonationManager({
       }
       for (const mat of getAllTopMaterials()) {
         mat.envMapIntensity = currentTextureSettings.top.envMapIntensity;
+      }
+      for (const mat of getSceneGlassMaterials()) {
+        mat.envMapIntensity = mat.userData.sceneEnvMapIntensity;
       }
       if (lotMesh) lotMesh.visible = true;
     },
@@ -2409,6 +2444,7 @@ export function createDonationManager({
       disposeEmpireBuildingSharedResources();
       disposeTaipeiBuildingSharedResources();
       disposeOneTradeBuildingSharedResources();
+      disposeResidentialBuildingSharedResources();
       focusFacadeMaterial.dispose();
       focusTopMaterial.dispose();
       for (const bucket of buckets.values()) {

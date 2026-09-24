@@ -461,6 +461,43 @@ ONE_TRADE_SIGN_Y_OFFSET_RATIO: number
 
 ---
 
+### `createResidentialBuildingMesh.ts`
+
+Cria `THREE.Mesh` da **torre residencial com sacadas** (`BuildingShape === "residential"`). Referência: `src/assets/model_building/model1.png`. Modelo **sem textura** — detalhe todo em geometria + materiais próprios.
+
+**Detalhes modelados:**
+- Sacadas em 3 faces (frente `+Z`, laterais `±X`), laje saliente 1,92 m por andar
+- Guarda-corpo de vidro translúcido em cada sacada; na cobertura contorna as 4 faces
+- Pano de vidro recuado atrás das sacadas, montantes verticais + testeira escura sob cada laje, pilar de pedra nos cantos
+- Empena cega nos fundos (`−Z`) com 2 colunas de janelas estreitas (moldura + vidro); laje 7 cm saliente marca andar
+- Aletas terracota nos 2 cantos dos fundos, do chão ao guarda-corpo da cobertura
+- Térreo: pilotis de pedra, lobby de vidro recuado com caixilhos, parede nos fundos
+- Cobertura: piso (slot `roof`), casa de máquinas com beiral, venezianas laterais e porta de vidro
+
+**Como funciona:**
+- Medidas em metros (pé-direito 3,2 m, térreo 4,6 m, laje 0,6 m). Footprint 20×20 m = unit box em X/Z; Y normalizado pela altura total → geometria cabe em `1×1×1`
+- **Nº de andares sai da altura na cena** (`getResidentialFloorCount`, `0,1 un./m`, 1–60 andares) → pé-direito constante em qualquer altura, sem andar esticado. Geometria cacheada por nº de andares; `setResidentialBuildingHeight` troca a geometria quando a altura muda
+- Caixas agrupadas por slot de material com `mergeGeometries` → **1 draw call por material** (6 grupos)
+- Slots: `0 stone` (= `facadeMaterial`, recebe cor do edifício), `1 roof` (= `topMaterial`), `2 glass`, `3 railing`, `4 frame`, `5 accent`
+- `facadeMaterial`/`topMaterial` viram textureless via `clearTextureSlots` (exportado de [[#createEmpireBuildingMesh.ts]]), clearcoat 0
+- Vidros (`glass`, `railing`) usam o `envMap` da fachada = cubemap dinâmico → **refletem a cena**. `userData.sceneEnvMapIntensity` marca p/ manager zerar na captura; `railing` guarda `userData.baseOpacity` (0,38) p/ foco multiplicar em vez de sobrescrever
+- Declara `aProjPosition`/`aProjNormal` (cópia de position/normal) p/ shader triplanar
+
+**API:**
+```typescript
+createResidentialBuildingMesh(facadeMaterial: THREE.MeshStandardMaterial, topMaterial: THREE.MeshStandardMaterial, height: number): THREE.Mesh
+setResidentialBuildingHeight(mesh: THREE.Mesh, height: number): void
+disposeResidentialBuildingSharedResources(): void
+getResidentialFloorCount(height: number): number
+getResidentialTierFootprints(width?: number, depth?: number, height?: number): ResidentialTierFootprint[]
+getResidentialRoofOffset(height: number): number
+```
+
+> [!note] Acessórios
+> `createEdgeLightMesh` usa `getResidentialTierFootprints` (corpo até guarda-corpo da cobertura + casa de máquinas) no mesmo loop de tiers do Taipei. `createSignMesh` apoia o letreiro na laje de cobertura (`getResidentialRoofOffset + signH/2`), à frente do guarda-corpo. Acessório de topo fica em `scale.y/2` = topo da casa de máquinas (igual Empire/Taipei no mastro).
+
+---
+
 ## O que Builders NÃO Fazem
 
 Builders não decidem:

@@ -142,7 +142,7 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 | `donationId` | `number` | ID da doação selecionada |
 | `initialColor` | `string` | Cor atual do edifício (customizada ou global) |
 | `initialFacadeStyle` | `FacadeStyle` | Fachada atual — 10 conjuntos PBR (`"default"`, `"facade001"`, `"facade002"`, `"facade005"`, `"facade007"`, `"facade014"`, `"facade016"`, `"facade018a"`, `"facade019a"`, `"facade020a"`); ver [[scene-types#FacadeStyle]]. Sem customização, `CitySceneEditor` preenche com `randomFacadeStyle(donationId)` — o painel abre na fachada sorteada que o prédio já mostra, então mexer só na cor não troca a textura ([[scene-utils#`facadeStyle.ts`]]) |
-| `initialBuildingShape` | `BuildingShape` | Formato atual (`"default"`, `"twisted"`, `"octagonal"`, `"setback"`, `"tapered"`, `"chrysler"`, `"hearst"`, `"empire"`, `"taipei"` ou `"one-trade"`) |
+| `initialBuildingShape` | `BuildingShape` | Formato atual (`"default"`, `"twisted"`, `"octagonal"`, `"setback"`, `"tapered"`, `"chrysler"`, `"hearst"`, `"empire"`, `"taipei"`, `"one-trade"` ou `"residential"`) |
 | `initialTilingScale` | `number` | Multiplicador de tiling da textura (1.0 = sem alteração) |
 | `initialRooftopType` | `RooftopType` | Estado atual do acessório de topo |
 | `initialSignText` | `string` | Texto atual do letreiro na fachada |
@@ -163,9 +163,9 @@ Painel de personalização de um edifício individual, exibido ao clicar em um p
 | Seção | Controles | Descrição |
 |---|---|---|
 | **Aparência** | `ColorField` | Cor individual do edifício (hex) |
-| **Fachada** | Botões | 10 opções: padrão (Facade006), vidro azul (001), vidro noturno (002), vidro espelhado (005), escritório aceso (007), torre noturna (014), janelas âmbar (016), tijolo (018A), concreto cinza (019A), tijolo e vidro (020A). Prédio continua instanciado — muda de bucket de fachada (ver [[scene-managers#Buckets de fachada (1 InstancedMesh por estilo)]]) |
-| **Formato** | Botões | Opções: padrão (caixa), torre torcida, torre octogonal, torre setback, torre afunilada, Chrysler, Hearst Tower, Empire State, Taipei 101 ou One Trade |
-| **Texturas** | `RangeField` | Tiling Scale por edifício (0.2–4, passo 0.05) — multiplicador do tiling global, cada textura de fachada tem escala própria adequada. ≠ 1.0 tira o prédio do `InstancedMesh`; volta pra 1.00 devolve pro instanced. `textureTransform` (escala/offset X/Y) existe no tipo e no runtime, mas **ainda não tem UI** |
+| **Fachada** | Botões | Some p/ formatos textureless (`TEXTURELESS_SHAPES` = Empire, Residencial). 10 opções: padrão (Facade006), vidro azul (001), vidro noturno (002), vidro espelhado (005), escritório aceso (007), torre noturna (014), janelas âmbar (016), tijolo (018A), concreto cinza (019A), tijolo e vidro (020A). Prédio continua instanciado — muda de bucket de fachada (ver [[scene-managers#Buckets de fachada (1 InstancedMesh por estilo)]]) |
+| **Formato** | Botões | Opções: padrão (caixa), torre torcida, torre octogonal, torre setback, torre afunilada, Chrysler, Hearst Tower, Empire State, Taipei 101, One Trade ou Residencial (sacadas) |
+| **Texturas** | `RangeField` | Some p/ formatos textureless. Tiling Scale por edifício (0.2–4, passo 0.05) — multiplicador do tiling global, cada textura de fachada tem escala própria adequada. ≠ 1.0 tira o prédio do `InstancedMesh`; volta pra 1.00 devolve pro instanced. `textureTransform` (escala/offset X/Y) existe no tipo e no runtime, mas **ainda não tem UI** |
 | **Letreiro** | Input de texto + seletor de lados | Marca/empresa na fachada (máx 30 chars). Seletor de lados (1–4) aparece quando há texto |
 | **Topo** | Botões | Opções: nenhum, holofotes, heliponto, jardim suspenso ou helicóptero |
 | **LED de arestas** | Botões | Liga/desliga o LED nas arestas verticais e topo |

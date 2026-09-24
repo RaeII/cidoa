@@ -556,7 +556,7 @@ function getEmpireGeometry(): THREE.BufferGeometry {
   return sharedEmpireGeometry;
 }
 
-function clearTextureSlots(material: THREE.Material): void {
+export function clearTextureSlots(material: THREE.Material): void {
   material.userData.textureless = true;
 
   if (material instanceof THREE.MeshStandardMaterial) {
