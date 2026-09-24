@@ -265,6 +265,8 @@ function loadDataTexture(src: string): THREE.Texture {
   return texture;
 }
 
+// Material autoral (Empire, Residencial): manager não aplica mapas nem
+// intensidades globais de textura — o builder é dono dos mapas/valores.
 function isTexturelessMaterial(material: THREE.Material): boolean {
   return material.userData.textureless === true;
 }
@@ -1064,9 +1066,9 @@ export function createDonationManager({
     mat: THREE.MeshPhysicalMaterial,
     settings: TextureSettings,
   ) => {
-    const textureless = isTexturelessMaterial(mat);
+    if (isTexturelessMaterial(mat)) return;
     const tex = getFacadeTextures(mat.userData.facadeStyle as FacadeStyle | undefined);
-    if (settings.enabled && !textureless) {
+    if (settings.enabled) {
       mat.map = tex.color;
       mat.normalMap = tex.normal;
       mat.normalScale.set(settings.normalScale, settings.normalScale);
@@ -1083,15 +1085,13 @@ export function createDonationManager({
       mat.normalMap = null;
       mat.roughnessMap = null;
       mat.metalnessMap = null;
-      mat.bumpMap = textureless ? null : tex.displacement;
-      mat.displacementMap = textureless ? null : tex.displacement;
+      mat.bumpMap = tex.displacement;
+      mat.displacementMap = tex.displacement;
       mat.displacementScale = 0;
       mat.emissiveMap = null;
     }
-    mat.emissiveIntensity = textureless ? 0 : settings.emissiveIntensity;
-    if (!textureless) {
-      mat.envMapIntensity = settings.envMapIntensity;
-    }
+    mat.emissiveIntensity = settings.emissiveIntensity;
+    mat.envMapIntensity = settings.envMapIntensity;
     mat.needsUpdate = true;
   };
 
@@ -1105,8 +1105,8 @@ export function createDonationManager({
     const top = settings.top;
     const targets = getAllTopMaterials();
     for (const mat of targets) {
-      const textureless = isTexturelessMaterial(mat);
-      if (settings.enabled && !textureless) {
+      if (isTexturelessMaterial(mat)) continue;
+      if (settings.enabled) {
         mat.map = concreteColorMap;
         mat.normalMap = concreteNormalMap;
         mat.normalScale.set(top.normalScale, top.normalScale);
@@ -1120,13 +1120,11 @@ export function createDonationManager({
         mat.map = null;
         mat.normalMap = null;
         mat.roughnessMap = null;
-        mat.bumpMap = textureless ? null : concreteDisplacementMap;
-        mat.displacementMap = textureless ? null : concreteDisplacementMap;
+        mat.bumpMap = concreteDisplacementMap;
+        mat.displacementMap = concreteDisplacementMap;
         mat.displacementScale = 0;
       }
-      if (!textureless) {
-        mat.envMapIntensity = top.envMapIntensity;
-      }
+      mat.envMapIntensity = top.envMapIntensity;
       mat.needsUpdate = true;
     }
   };
@@ -1465,13 +1463,14 @@ export function createDonationManager({
     );
   };
 
-  // Vidros de formatos sem textura (ex: residential) amostram o cubemap da cena;
-  // marcados por `sceneEnvMapIntensity`, saem da captura como a fachada.
-  const getSceneGlassMaterials = (): THREE.MeshStandardMaterial[] => {
+  // Materiais autorais de formatos custom (ex: residential) com envMap próprio;
+  // marcados por `authoredEnvMapIntensity`: zerados na captura e restaurados
+  // com o valor do builder (não o envMapIntensity global das fachadas).
+  const getAuthoredEnvMaterials = (): THREE.MeshStandardMaterial[] => {
     const list: THREE.MeshStandardMaterial[] = [];
     for (const entry of customShapeMeshes.values()) {
       for (const material of getCustomShapeMaterials(entry)) {
-        if (material.userData.sceneEnvMapIntensity !== undefined) {
+        if (material.userData.authoredEnvMapIntensity !== undefined) {
           list.push(material as THREE.MeshStandardMaterial);
         }
       }
@@ -1896,7 +1895,11 @@ export function createDonationManager({
         } else if (shape === "one-trade") {
           sceneMesh = createOneTradeBuildingMesh(facadeMat, topMat);
         } else if (shape === "residential") {
-          sceneMesh = createResidentialBuildingMesh(facadeMat, topMat, transform.scale.y);
+          sceneMesh = createResidentialBuildingMesh(facadeMat, topMat, transform.scale.y, {
+            map: concreteColorMap,
+            normalMap: concreteNormalMap,
+            roughnessMap: concreteRoughnessMap,
+          });
           tmpColor.set(customization.color);
           if (!tmpColor.equals(currentBuildingColor)) {
             facadeMat.color.set(customization.color);
@@ -2203,7 +2206,7 @@ export function createDonationManager({
     beginEnvCapture() {
       for (const mat of getAllFacadeMaterials()) mat.envMapIntensity = 0;
       for (const mat of getAllTopMaterials()) mat.envMapIntensity = 0;
-      for (const mat of getSceneGlassMaterials()) mat.envMapIntensity = 0;
+      for (const mat of getAuthoredEnvMaterials()) mat.envMapIntensity = 0;
       // Lotes vazios (loteamento) fora da captura → edifícios não refletem lotes.
       if (lotMesh) lotMesh.visible = false;
     },
@@ -2214,8 +2217,9 @@ export function createDonationManager({
       for (const mat of getAllTopMaterials()) {
         mat.envMapIntensity = currentTextureSettings.top.envMapIntensity;
       }
-      for (const mat of getSceneGlassMaterials()) {
-        mat.envMapIntensity = mat.userData.sceneEnvMapIntensity;
+      // Depois do loop global: autorais sobrescrevem o valor das fachadas.
+      for (const mat of getAuthoredEnvMaterials()) {
+        mat.envMapIntensity = mat.userData.authoredEnvMapIntensity;
       }
       if (lotMesh) lotMesh.visible = true;
     },

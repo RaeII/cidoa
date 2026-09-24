@@ -463,7 +463,7 @@ ONE_TRADE_SIGN_Y_OFFSET_RATIO: number
 
 ### `createResidentialBuildingMesh.ts`
 
-Cria `THREE.Mesh` da **torre residencial com sacadas** (`BuildingShape === "residential"`). Referência: `src/assets/model_building/model1.png`. Modelo **sem textura** — detalhe todo em geometria + materiais próprios.
+Cria `THREE.Mesh` da **torre residencial com sacadas** (`BuildingShape === "residential"`). Referência: `src/assets/model_building/model1.png`. Sem textura de fachada (janelas) — detalhe todo em geometria; pedra ganha textura de superfície Concrete024.
 
 **Detalhes modelados:**
 - Sacadas em 3 faces (frente `+Z`, laterais `±X`), laje saliente 1,92 m por andar
@@ -478,14 +478,16 @@ Cria `THREE.Mesh` da **torre residencial com sacadas** (`BuildingShape === "resi
 - Medidas em metros (pé-direito 3,2 m, térreo 4,6 m, laje 0,6 m). Footprint 20×20 m = unit box em X/Z; Y normalizado pela altura total → geometria cabe em `1×1×1`
 - **Nº de andares sai da altura na cena** (`getResidentialFloorCount`, `0,1 un./m`, 1–60 andares) → pé-direito constante em qualquer altura, sem andar esticado. Geometria cacheada por nº de andares; `setResidentialBuildingHeight` troca a geometria quando a altura muda
 - Caixas agrupadas por slot de material com `mergeGeometries` → **1 draw call por material** (6 grupos)
-- Slots: `0 stone` (= `facadeMaterial`, recebe cor do edifício), `1 roof` (= `topMaterial`), `2 glass`, `3 railing`, `4 frame`, `5 accent`
-- `facadeMaterial`/`topMaterial` viram textureless via `clearTextureSlots` (exportado de [[#createEmpireBuildingMesh.ts]]), clearcoat 0
-- Vidros (`glass`, `railing`) usam o `envMap` da fachada = cubemap dinâmico → **refletem a cena**. `userData.sceneEnvMapIntensity` marca p/ manager zerar na captura; `railing` guarda `userData.baseOpacity` (0,38) p/ foco multiplicar em vez de sobrescrever
+- Slots: `0 stone` (= `facadeMaterial`, recebe cor do edifício), `1 roof` (= `topMaterial`, concreto global dos telhados, sem ajuste), `2 glass`, `3 railing`, `4 frame`, `5 accent`
+- **Pedra:** `facadeMaterial` vira autoral via `clearTextureSlots` (exportado de [[#createEmpireBuildingMesh.ts]]) e recebe `ResidentialStoneMaps` do manager (cor/normal/roughness Concrete024). Cor travertino `0xbbb4a6` × mapa, normalScale 0,6, roughness 1, clearcoat 0. Triplanar do manager projeta em coordenada de mundo; `tilingMultiplier = 6` → repete a cada ~4 m
+- **Cores calibradas no runtime real:** cena = ambient ~8 + HDRI + exposição 1,45 ACES → albedo alto estoura p/ branco. Pedra renderiza ≈ `#c2b8a7`, terracota ≈ `#b65630`
+- **Vidros/metal:** metalness alto (vidro 0,9 com 10% difuso; guarda-corpo 1, opacidade 0,32) → ambient não deixa leitoso; cor = tinta do reflexo
+- Todos os slots próprios + pedra usam o `envMap` da fachada = cubemap dinâmico → **refletem a cena**. `userData.authoredEnvMapIntensity` → manager zera na captura e restaura esse valor (não o `envMapIntensity` global 3,5 das fachadas texturizadas). `railing` guarda `userData.baseOpacity` p/ foco multiplicar em vez de sobrescrever
 - Declara `aProjPosition`/`aProjNormal` (cópia de position/normal) p/ shader triplanar
 
 **API:**
 ```typescript
-createResidentialBuildingMesh(facadeMaterial: THREE.MeshStandardMaterial, topMaterial: THREE.MeshStandardMaterial, height: number): THREE.Mesh
+createResidentialBuildingMesh(facadeMaterial: THREE.MeshStandardMaterial, topMaterial: THREE.MeshStandardMaterial, height: number, stoneMaps: ResidentialStoneMaps): THREE.Mesh
 setResidentialBuildingHeight(mesh: THREE.Mesh, height: number): void
 disposeResidentialBuildingSharedResources(): void
 getResidentialFloorCount(height: number): number

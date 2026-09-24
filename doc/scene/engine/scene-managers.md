@@ -236,14 +236,15 @@ Para cada doação custom, `syncCustomShapes()`:
    - `shape === "empire"` → [[scene-builders#createEmpireBuildingMesh.ts|createEmpireBuildingMesh]] (geometria art déco textureless compartilhada).
    - `shape === "taipei"` → [[scene-builders#createTaipeiBuildingMesh.ts|createTaipeiBuildingMesh]] (geometria modular compartilhada inspirada no Taipei 101).
    - `shape === "one-trade"` → [[scene-builders#createOneTradeBuildingMesh.ts|createOneTradeBuildingMesh]] (geometria facetada com base chanfrada e pináculo, usando texturas PBR padrão).
-   - `shape === "residential"` → [[scene-builders#createResidentialBuildingMesh.ts|createResidentialBuildingMesh]] (torre com sacadas textureless; geometria por nº de andares). Builder põe pedra creme; cor da customização só entra se ≠ cor global (igual Empire). A cada sync, `setResidentialBuildingHeight(mesh, scale.y)` troca a geometria se o nº de andares mudou.
+   - `shape === "residential"` → [[scene-builders#createResidentialBuildingMesh.ts|createResidentialBuildingMesh]] (torre com sacadas; geometria por nº de andares). Manager passa `concreteColorMap`/`concreteNormalMap`/`concreteRoughnessMap` como textura da pedra. Builder põe pedra travertino; cor da customização só entra se ≠ cor global (igual Empire). A cada sync, `setResidentialBuildingHeight(mesh, scale.y)` troca a geometria se o nº de andares mudou.
    - `shape === "default"` → `THREE.Mesh(buildingGeometry, [facadeMat, topMat])` (mesma `BoxGeometry` do InstancedMesh).
 5. Adiciona à cena, registra em `customShapeMeshes` e seta `userData.donationId`/`userData.donationValue` para suportar raycast.
 
 Pontos de integração:
 
 - Os clones são incluídos em `getAllFacadeMaterials()` / `getAllTopMaterials()` para que `applyTextureToFacade`, `applyTextureToTop`, `updateBuildingSettings`, `setEnvMap`, `beginEnvCapture`/`endEnvCapture` e `setShadowEnabled` propaguem mudanças globais para eles.
-- Vidros de formatos textureless (`userData.sceneEnvMapIntensity`) entram em `getSceneGlassMaterials()` → `beginEnvCapture` zera, `endEnvCapture` restaura o valor autoral.
+- **Material autoral** (`userData.textureless`, Empire/Residencial): `applyFacadeTextures`/`applyTextureToTop` pulam o material inteiro → mapas e intensidades do builder ficam intactos.
+- Materiais com `userData.authoredEnvMapIntensity` entram em `getAuthoredEnvMaterials()` → `beginEnvCapture` zera, `endEnvCapture` restaura o valor autoral **depois** do loop global (senão pedra herdaria `envMapIntensity` 3,5 das fachadas e estouraria).
 - `setMatOpacity` multiplica pela `userData.baseOpacity` (default 1) → vidro de guarda-corpo continua translúcido depois do foco.
 - `updateBuildingSettings` pula materiais textureless ao aplicar roughness/metalness global (material autoral de Empire/Residencial).
 - `setFocusedDonation` dim os clones para `0.15` quando outro prédio está focado, mantém em `1.0` se o custom é o focado, e dispensa o `focusHighlightMesh` (o próprio Mesh já é separado).

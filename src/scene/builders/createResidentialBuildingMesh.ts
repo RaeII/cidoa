@@ -10,6 +10,13 @@ import { clearTextureSlots } from "./createEmpireBuildingMesh";
 // Medidas em metros. Footprint 20×20 m = unit box em X/Z. Número de andares
 // sai da altura do edifício na cena → pé-direito constante em qualquer altura.
 
+// Mapas PBR da pedra (Concrete024 do manager, projetados pelo triplanar).
+export type ResidentialStoneMaps = {
+  map: THREE.Texture;
+  normalMap: THREE.Texture;
+  roughnessMap: THREE.Texture;
+};
+
 export type ResidentialTierFootprint = {
   bottomY: number;
   topY: number;
@@ -42,7 +49,10 @@ const CAP_T = 0.2;
 const ROOF_EXTRA = SLAB_T + DECK_T + PENT_H + CAP_T;
 const MAX_FLOORS = 60;
 
-const STONE_COLOR = 0xe9e1d3;
+// Cena tem ambient forte (~8) + exposição 1.45 → albedo alto estoura p/ branco.
+// Valores calibrados no runtime: travertino × mapa de concreto lê como creme.
+const STONE_COLOR = 0xbbb4a6;
+const STONE_TILING = 6; // × uTiling global (0.4) → mapa repete a cada ~4 m
 
 const geometryCache = new Map<number, THREE.BufferGeometry>();
 
@@ -245,54 +255,76 @@ export function getResidentialRoofOffset(height: number): number {
   return (deck / total - 0.5) * height;
 }
 
-// Vidro reflete o cubemap dinâmico da cena (mesmo envMap da fachada).
-// `sceneEnvMapIntensity` marca o material p/ o manager zerar durante a captura.
-function createSceneGlass(
+// Material com envMap = cubemap dinâmico da cena (reflete a cidade).
+// `authoredEnvMapIntensity` → manager zera na captura e restaura este valor
+// (em vez do envMapIntensity global das fachadas texturizadas).
+function createSceneMaterial(
   envMap: THREE.Texture | null,
   params: THREE.MeshStandardMaterialParameters,
 ): THREE.MeshStandardMaterial {
   const material = new THREE.MeshStandardMaterial({ ...params, envMap });
-  material.userData.sceneEnvMapIntensity = material.envMapIntensity;
+  material.userData.authoredEnvMapIntensity = material.envMapIntensity;
   if (material.transparent) material.userData.baseOpacity = material.opacity;
   return material;
 }
 
+// facadeMaterial vira a pedra (slot 0, recebe a cor do edifício);
+// topMaterial segue o concreto global dos telhados, sem ajuste.
 export function createResidentialBuildingMesh(
   facadeMaterial: THREE.MeshStandardMaterial,
   topMaterial: THREE.MeshStandardMaterial,
   height: number,
+  stoneMaps: ResidentialStoneMaps,
 ): THREE.Mesh {
-  for (const material of [facadeMaterial, topMaterial]) {
-    if (material instanceof THREE.MeshPhysicalMaterial) material.clearcoat = 0;
-    clearTextureSlots(material);
-  }
+  if (facadeMaterial instanceof THREE.MeshPhysicalMaterial) facadeMaterial.clearcoat = 0;
+  clearTextureSlots(facadeMaterial);
   facadeMaterial.color.set(STONE_COLOR);
-  facadeMaterial.roughness = 0.78;
-  facadeMaterial.metalness = 0.02;
-  topMaterial.roughness = 0.92;
-  topMaterial.metalness = 0;
+  facadeMaterial.map = stoneMaps.map;
+  facadeMaterial.normalMap = stoneMaps.normalMap;
+  facadeMaterial.normalScale.set(0.6, 0.6);
+  facadeMaterial.roughnessMap = stoneMaps.roughnessMap;
+  facadeMaterial.roughness = 1;
+  facadeMaterial.metalness = 0;
+  facadeMaterial.envMapIntensity = 1;
+  facadeMaterial.userData.authoredEnvMapIntensity = 1;
+  if (facadeMaterial.userData.tilingMultiplier) {
+    facadeMaterial.userData.tilingMultiplier.value = STONE_TILING;
+  }
 
+  // Vidros e metal com metalness alto: o ambient forte não os deixa leitosos;
+  // cor = tinta do reflexo. Vidro guarda 10% de difuso → sem preto chapado
+  // onde o reflexo pega o zênite escuro do HDRI.
   const envMap = facadeMaterial.envMap;
   const materials: THREE.Material[] = [
     facadeMaterial,
     topMaterial,
-    createSceneGlass(envMap, {
-      color: 0x4a5f66,
-      roughness: 0.06,
-      metalness: 0.9,
-      envMapIntensity: 1.4,
-    }),
-    createSceneGlass(envMap, {
-      color: 0xa8d4cc,
+    createSceneMaterial(envMap, {
+      color: 0x7f949b,
       roughness: 0.05,
-      metalness: 0.2,
-      envMapIntensity: 1.2,
+      metalness: 0.9,
+      envMapIntensity: 1,
+    }),
+    createSceneMaterial(envMap, {
+      color: 0x7d9a93,
+      roughness: 0.04,
+      metalness: 1,
+      envMapIntensity: 1,
       transparent: true,
-      opacity: 0.38,
+      opacity: 0.32,
       depthWrite: false,
     }),
-    new THREE.MeshStandardMaterial({ color: 0x2a2f33, roughness: 0.45, metalness: 0.6 }),
-    new THREE.MeshStandardMaterial({ color: 0xb5531c, roughness: 0.75, metalness: 0 }),
+    createSceneMaterial(envMap, {
+      color: 0x3b3f42,
+      roughness: 0.4,
+      metalness: 0.8,
+      envMapIntensity: 1,
+    }),
+    createSceneMaterial(envMap, {
+      color: 0x5a2c1a,
+      roughness: 0.8,
+      metalness: 0,
+      envMapIntensity: 1,
+    }),
   ];
 
   const mesh = new THREE.Mesh(
