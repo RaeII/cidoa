@@ -583,6 +583,44 @@ Modelo `yachthouse` inspirado nas fotos do Yachthouse Residence Club: duas torre
 
 ---
 
+### `createResidentialBuildingMesh.ts`
+
+Modelo `residential`: torre residencial com sacadas. Sem textura de fachada — detalhe todo em geometria; pedra ganha textura de superfície Concrete024.
+
+**Detalhes modelados:**
+- Sacadas em 3 faces (frente `+Z`, laterais `±X`), laje saliente 1,92 m por andar, guarda-corpo de vidro translúcido (cobertura: 4 faces)
+- Pano de vidro recuado atrás das sacadas: montantes verticais, testeira escura sob cada laje, pilar de pedra nos cantos
+- Empena cega nos fundos (`−Z`) com 2 colunas de janelas estreitas; laje 7 cm saliente marca andar
+- Aletas terracota nos 2 cantos dos fundos, do chão ao guarda-corpo da cobertura
+- Térreo: pilotis, lobby de vidro recuado com caixilhos, parede nos fundos
+- Cobertura: piso (slot topo), casa de máquinas com beiral, venezianas e porta
+
+**Como funciona:**
+- Medidas em metros (pé-direito 3,2 m, térreo 4,6 m, laje 0,6 m). Footprint 20×20 m = unit box; mesh `1×1×1` centrado (profundidade 0,996: laje frontal 8 mm aquém da aleta)
+- **Nº de andares segue a altura** (`getResidentialFloorCount`, 0,1 un./m, 1–60). Registro cria com altura do preview (3 → 7 andares); manager chama `setResidentialBuildingHeight(mesh, scale.y)` em todo sync. Geometria cacheada por nº de andares
+- `mergeGeometries` por slot → **6 grupos = 6 draw calls**: `0 pedra` (= `facadeMaterial`, recebe cor), `1 topo` (= `topMaterial`, concreto global dos telhados), `2 vidro`, `3 guarda-corpo`, `4 caixilho`, `5 terracota`
+- Pedra: `clearTextureSlots` (exportado de [[#createEmpireBuildingMesh.ts]]) marca material autoral; cor travertino `0xbbb4a6`, roughness 1, clearcoat 0, `tilingMultiplier = 6` (~4 m por repetição no triplanar)
+- **Builder não carrega textura** (roda no node e no preview): `setResidentialStoneMaps(stone, set | null)` recebe o set Concrete024 do manager
+- Cores calibradas pro runtime (ambient ~8 + HDRI + exposição 1,45 ACES): pedra renderiza ≈ `#c2b8a7`, terracota ≈ `#b65630`. Vidros/metal com metalness alto (vidro 0,9, guarda-corpo 1 com opacidade 0,32) → ambient não deixa leitoso
+- Slots próprios usam `envMap` da fachada (cube probe) → **refletem a cidade**. `userData.authoredEnvMapIntensity` marca p/ manager; guarda-corpo guarda `userData.baseOpacity`
+- `RESIDENTIAL_ROOFTOP_SCALE` (0,35): acessório de topo assenta na casa de máquinas. `getResidentialTierFootprints` (LED: corpo + casa de máquinas) e `getResidentialRoofOffset` (letreiro apoiado na laje de cobertura)
+- `check-building-shapes.mjs`: lote, 6 slots/grupos, andares por altura com cache, piso/teto de andares, pedra liga/desliga textura, guarda-corpo translúcido, vidros marcados p/ envMap, dispose
+- Catálogo: migration backend `0015_residential_building.sql`, key `residential`, label **Residencial (sacadas)**. Ver [[customization-api]]
+
+**API:**
+```typescript
+createResidentialBuildingMesh(facadeMaterial: THREE.Material, topMaterial: THREE.Material): THREE.Mesh
+setResidentialBuildingHeight(mesh: THREE.Mesh, height: number): void
+setResidentialStoneMaps(stone: THREE.MeshStandardMaterial, maps: ResidentialStoneMaps | null): void
+disposeResidentialBuildingSharedResources(): void
+getResidentialFloorCount(height: number): number
+getResidentialTierFootprints(width?: number, depth?: number, height?: number): ResidentialTierFootprint[]
+getResidentialRoofOffset(height: number): number
+RESIDENTIAL_ROOFTOP_SCALE: number
+```
+
+---
+
 ## O que Builders NÃO Fazem
 
 Builders não decidem:

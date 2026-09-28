@@ -88,6 +88,10 @@ flowchart LR
 
 Key `yachthouse`, label **Yachthouse (torres gêmeas)**. Migration backend `0012_yachthouse_building.sql` inclui opção em `shape`, ordem 11, presa a código. Painel e preview reutilizam catálogo existente; aplicar migration e aguardar cache público (até 60 s) para disponibilizar opção. Builder em [[scene-builders#createYachthouseBuildingMesh.ts]].
 
+## Modelo Residencial
+
+Key `residential`, label **Residencial (sacadas)**. Migration backend `0015_residential_building.sql` inclui opção em `shape`, ordem 12, presa a código, **sem requisito** (grátis até admin configurar liberação). Painel e preview reutilizam catálogo; aplicar migration e aguardar cache público (até 60 s). Enum `buildingShape` do backend aceita `residential`. Builder em [[scene-builders#createResidentialBuildingMesh.ts]].
+
 ## Combinação dos requisitos
 
 `unlock.mode`: `all` exige todos os eixos preenchidos; `any` libera ao atingir um deles. Eixo `null` não conta como alternativa cumprida. Catálogo antigo sem `mode` usa `all` no front. Migration backend `0013_customization_unlock_mode.sql` adiciona modo sem alterar conquistas existentes. Ver [[passe-front]].

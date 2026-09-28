@@ -13,7 +13,8 @@ import { build } from "esbuild";
 // Bundle em memória: não cria servidor, watcher ou porta de teste.
 const bundle = await build({
   stdin: {
-    contents: ["createBuildingShapeMesh", "createEdgeLightMesh", "createPreviewScene", "createParapetMesh"]
+    contents: ["createBuildingShapeMesh", "createEdgeLightMesh", "createPreviewScene", "createParapetMesh",
+      "createResidentialBuildingMesh"]
       .map((name) => `export * from './src/scene/builders/${name}.ts';`).join("\n"),
     resolveDir: process.cwd(),
   },
@@ -21,7 +22,8 @@ const bundle = await build({
 });
 const { BUILDING_SHAPES, createBuildingShapeMesh, createUnitBuildingGeometry,
   disposeBuildingShapeSharedResources, createEdgeLightMesh, resolveSubject, frameBox,
-  createParapetGeometry, getParapetHeightScale, createBuildingParapets } =
+  createParapetGeometry, getParapetHeightScale, createBuildingParapets,
+  setResidentialBuildingHeight, setResidentialStoneMaps, getResidentialFloorCount } =
   await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].contents).toString("base64")}`);
 
 const box = new THREE.Box3();
@@ -59,6 +61,39 @@ for (const shape of BUILDING_SHAPES) {
     disposeBuildingShapeSharedResources();
     assert.ok(disposed, "yachthouse: dispose não libera geometria");
     assert.notEqual(createBuildingShapeMesh(shape, facade, top, createUnitBuildingGeometry()).geometry, mesh.geometry);
+  }
+  if (shape === "residential") {
+    for (const axis of ["x", "y", "z"]) {
+      // Laje frontal 8 mm aquém da aleta dos fundos (0,996): dentro do lote, sem sobra.
+      assert.ok(size[axis] <= 1 + 1e-6 && size[axis] > 0.99, `residential: dimensão ${axis} fora do lote`);
+    }
+    assert.equal(materials.length, 6, "residential: 6 slots (pedra, topo, vidro, guarda-corpo, caixilho, terracota)");
+    assert.equal(mesh.geometry.groups.length, 6, "residential: 1 draw call por material");
+    mesh.geometry.groups.forEach((group, i) => assert.equal(group.materialIndex, i, "residential: grupo fora do slot"));
+    // Pé-direito real: nº de andares segue a altura, geometria cacheada por andar.
+    const preview = mesh.geometry;
+    setResidentialBuildingHeight(mesh, 16);
+    const tall = mesh.geometry;
+    assert.notEqual(tall, preview, "residential: altura não trocou nº de andares");
+    assert.ok(tall.index.count > preview.index.count, "residential: prédio alto com menos andares");
+    setResidentialBuildingHeight(mesh, 16);
+    assert.equal(mesh.geometry, tall, "residential: cache por andar não reaproveitado");
+    assert.equal(getResidentialFloorCount(0.5), 1, "residential: prédio mínimo sem andar");
+    assert.equal(getResidentialFloorCount(1000), 60, "residential: teto de andares");
+    // Pedra liga/desliga a textura do topo; vidro do guarda-corpo translúcido sobrevive ao foco.
+    const stoneMap = new THREE.Texture();
+    setResidentialStoneMaps(facade, { color: stoneMap, normal: null, roughness: null });
+    assert.equal(facade.map, stoneMap, "residential: pedra sem textura");
+    setResidentialStoneMaps(facade, null);
+    assert.equal(facade.map, null, "residential: textura desligada ficou na pedra");
+    assert.ok(materials[3].transparent && materials[3].userData.baseOpacity < 1, "residential: guarda-corpo opaco");
+    for (const material of materials.slice(2)) {
+      assert.equal(typeof material.userData.authoredEnvMapIntensity, "number", "residential: vidro fora da captura do envMap");
+    }
+    let disposed = false;
+    tall.addEventListener("dispose", () => { disposed = true; });
+    disposeBuildingShapeSharedResources();
+    assert.ok(disposed, "residential: dispose não libera geometria");
   }
   console.log(`ok ${shape} — ${size.toArray().map((n) => n.toFixed(2)).join(" × ")}`);
 }

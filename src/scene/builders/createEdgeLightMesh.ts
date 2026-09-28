@@ -10,6 +10,7 @@ import { getOctagonalFootprintPoints } from "./createOctagonalBuildingMesh";
 import { getOneTradeLedFootprintRings } from "./createOneTradeBuildingMesh";
 import { getSetbackTierFootprints } from "./createSetbackBuildingMesh";
 import { getTaipeiTierFootprints } from "./createTaipeiBuildingMesh";
+import { getResidentialTierFootprints } from "./createResidentialBuildingMesh";
 import { getTaperedFootprintScaleAtHeightRatio } from "./createTaperedBuildingMesh";
 import { TWIST_TOTAL_ANGLE } from "./createTwistedBuildingMesh";
 import { YACHTHOUSE_BODY, YACHTHOUSE_ROOF, YACHTHOUSE_TOWER_CENTERS } from "./createYachthouseBuildingMesh";
@@ -638,8 +639,11 @@ function createLed(
     return buildInstancedGroup(segments);
   }
 
-  if (shape === "taipei") {
-    const tiers = getTaipeiTierFootprints(width, depth, height);
+  // Residencial: corpo com sacadas + casa de máquinas, mesmo contorno por tier.
+  if (shape === "taipei" || shape === "residential") {
+    const tiers = shape === "taipei"
+      ? getTaipeiTierFootprints(width, depth, height)
+      : getResidentialTierFootprints(width, depth, height);
     for (const tier of tiers) {
       const halfW = tier.width / 2;
       const halfD = tier.depth / 2;

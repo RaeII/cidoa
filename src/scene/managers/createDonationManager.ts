@@ -43,6 +43,11 @@ import { DEFAULT_HOLOGRAM_COLOR, DEFAULT_HOLOGRAM_OPACITY } from "../types";
 import { setEmpireBuildingMeshColor } from "../builders/createEmpireBuildingMesh";
 import { YACHTHOUSE_ROOF, YACHTHOUSE_TOWER_CENTERS } from "../builders/createYachthouseBuildingMesh";
 import {
+  RESIDENTIAL_ROOFTOP_SCALE,
+  setResidentialBuildingHeight,
+  setResidentialStoneMaps,
+} from "../builders/createResidentialBuildingMesh";
+import {
   createBuildingShapeMesh,
   createUnitBuildingGeometry,
   disposeBuildingShapeSharedResources,
@@ -222,6 +227,8 @@ export type DonationManager = {
   dispose: () => void;
 };
 
+// Material autoral (Empire, Residencial): manager não aplica mapas nem
+// intensidades globais de textura — o builder é dono dos mapas/valores.
 function isTexturelessMaterial(material: THREE.Material): boolean {
   return material.userData.textureless === true;
 }
@@ -1412,10 +1419,10 @@ export function createDonationManager({
     mat: THREE.MeshPhysicalMaterial,
     settings: TextureSettings,
   ) => {
+    if (isTexturelessMaterial(mat)) return;
     const set = facadeSetFor(mat);
-    const textureless = isTexturelessMaterial(mat);
     const previousMask = textureDefineMask(mat);
-    if (settings.enabled && !textureless && set) {
+    if (settings.enabled && set) {
       mat.map = set.color;
       mat.normalMap = settings.normalScale !== 0 ? set.normal : null;
       mat.normalScale.set(settings.normalScale, settings.normalScale);
@@ -1440,10 +1447,8 @@ export function createDonationManager({
       mat.displacementScale = 0;
       mat.emissiveMap = null;
     }
-    mat.emissiveIntensity = textureless ? 0 : settings.emissiveIntensity;
-    if (!textureless) {
-      mat.envMapIntensity = facadeEnvMapIntensity(settings);
-    }
+    mat.emissiveIntensity = settings.emissiveIntensity;
+    mat.envMapIntensity = facadeEnvMapIntensity(settings);
     if (previousMask !== textureDefineMask(mat)) mat.needsUpdate = true;
   };
 
@@ -1455,9 +1460,9 @@ export function createDonationManager({
     const top = settings.top;
     const targets = getAllTopMaterials();
     for (const mat of targets) {
-      const textureless = isTexturelessMaterial(mat);
+      if (isTexturelessMaterial(mat)) continue;
       const previousMask = textureDefineMask(mat);
-      if (settings.enabled && !textureless && topSet) {
+      if (settings.enabled && topSet) {
         mat.map = topSet.color;
         mat.normalMap = top.normalScale !== 0 ? topSet.normal : null;
         mat.normalScale.set(top.normalScale, top.normalScale);
@@ -1475,10 +1480,14 @@ export function createDonationManager({
         mat.displacementMap = null;
         mat.displacementScale = 0;
       }
-      if (!textureless) {
-        mat.envMapIntensity = top.envMapIntensity;
-      }
+      mat.envMapIntensity = top.envMapIntensity;
       if (previousMask !== textureDefineMask(mat)) mat.needsUpdate = true;
+    }
+    // Pedra do residencial usa o mesmo concreto do topo (chega async, liga/desliga junto).
+    for (const entry of customShapeMeshes.values()) {
+      if (entry.shape === "residential") {
+        setResidentialStoneMaps(entry.facadeMat, settings.enabled ? topSet : null);
+      }
     }
     parapets.updateTexture(topMaterial);
   };
@@ -2113,9 +2122,10 @@ export function createDonationManager({
     }
   };
 
+  // `baseOpacity` = opacidade autoral (ex: vidro de guarda-corpo); foco multiplica.
   const setMatOpacity = (mat: THREE.Material, opacity: number) => {
-    mat.transparent = opacity < 1;
-    mat.opacity = opacity;
+    mat.opacity = (mat.userData.baseOpacity ?? 1) * opacity;
+    mat.transparent = mat.opacity < 1;
     mat.needsUpdate = true;
   };
 
@@ -2123,6 +2133,21 @@ export function createDonationManager({
     return Array.from(
       new Set(Array.isArray(entry.mesh.material) ? entry.mesh.material : [entry.mesh.material]),
     );
+  };
+
+  // Materiais autorais de formatos custom (ex: residential) com envMap próprio;
+  // marcados por `authoredEnvMapIntensity`: seguem o envMap da cena, zeram na
+  // captura e voltam ao valor do builder (não ao envMapIntensity global das fachadas).
+  const getAuthoredEnvMaterials = (): THREE.MeshStandardMaterial[] => {
+    const list: THREE.MeshStandardMaterial[] = [];
+    for (const entry of customShapeMeshes.values()) {
+      for (const material of getCustomShapeMaterials(entry)) {
+        if (material.userData.authoredEnvMapIntensity !== undefined) {
+          list.push(material as THREE.MeshStandardMaterial);
+        }
+      }
+    }
+    return list;
   };
 
   const setCustomShapeOpacity = (entry: CustomShapeEntry, opacity: number) => {
@@ -2227,8 +2252,12 @@ export function createDonationManager({
   const positionRooftop = (donationId: number, group: THREE.Group) => {
     group.visible = readDonationTransform(donationId);
     if (!group.visible) return;
-    const isYachthouse = customShapeMeshes.get(donationId)?.shape === "yachthouse";
-    group.scale.setScalar(isYachthouse ? YACHTHOUSE_ROOF.width : 1);
+    const shape = customShapeMeshes.get(donationId)?.shape;
+    const isYachthouse = shape === "yachthouse";
+    // Residencial: acessório sobre a casa de máquinas (topo do mesh), escalado a ela.
+    group.scale.setScalar(
+      isYachthouse ? YACHTHOUSE_ROOF.width : shape === "residential" ? RESIDENTIAL_ROOFTOP_SCALE : 1,
+    );
     group.position.set(
       tmpTransformPosition.x + (isYachthouse ? YACHTHOUSE_TOWER_CENTERS[0] * tmpTransformScale.x : 0),
       tmpTransformPosition.y + tmpTransformScale.y * (isYachthouse ? YACHTHOUSE_ROOF.height - 0.5 : 0.5),
@@ -2563,6 +2592,11 @@ export function createDonationManager({
           if (!tmpColor.equals(currentBuildingColor)) {
             setEmpireBuildingMeshColor(sceneMesh, customization.color);
           }
+        } else if (shape === "residential") {
+          // Builder pinta pedra travertino; cor da customização só se ≠ global (igual Empire).
+          setResidentialStoneMaps(facadeMat, currentTextureSettings.enabled ? topSet : null);
+          tmpColor.set(customization.color);
+          if (!tmpColor.equals(currentBuildingColor)) facadeMat.color.set(customization.color);
         }
 
         sceneMesh.userData.donationId = donation.id;
@@ -2580,6 +2614,10 @@ export function createDonationManager({
       entry.mesh.position.copy(transform.position);
       entry.mesh.scale.copy(transform.scale);
       entry.mesh.userData.donationValue = donation.value;
+      if (entry.shape === "residential") {
+        // Nº de andares acompanha a altura (troca geometria do cache se mudou).
+        setResidentialBuildingHeight(entry.mesh, transform.scale.y);
+      }
     }
 
     for (const [donId, entry] of customShapeMeshes) {
@@ -2684,10 +2722,12 @@ export function createDonationManager({
       // Cor é específica por edifício para clones — não sobrescrever aqui.
       if (!currentTextureSettings.enabled) {
         for (const mat of getAllFacadeMaterials()) {
+          if (isTexturelessMaterial(mat)) continue; // formato autoral mantém o material
           mat.roughness = settings.roughness;
           mat.metalness = settings.metalness;
         }
         for (const mat of getAllTopMaterials()) {
+          if (isTexturelessMaterial(mat)) continue;
           mat.roughness = settings.roughness;
           mat.metalness = settings.metalness;
         }
@@ -2752,6 +2792,12 @@ export function createDonationManager({
         mat.envMap = envMap;
         mat.needsUpdate = true;
       }
+      // Probe recriado (resolução) ou reflexo desligado: vidros não podem ficar
+      // apontando pro cube descartado.
+      for (const mat of getAuthoredEnvMaterials()) {
+        mat.envMap = envMap;
+        mat.needsUpdate = true;
+      }
     },
     setEnvMapRotation(yDeg) {
       // Só Y: rotação no eixo vertical gira o azimute de TODA fachada igualmente. Girar no
@@ -2784,6 +2830,7 @@ export function createDonationManager({
     beginEnvCapture(includeCityFloor) {
       for (const mat of getAllFacadeMaterials()) mat.envMapIntensity = 0;
       for (const mat of getAllTopMaterials()) mat.envMapIntensity = 0;
+      for (const mat of getAuthoredEnvMaterials()) mat.envMapIntensity = 0;
       // O probe é fixo na cidade: captura o dataset completo, independente do
       // culling da câmera principal, e restaura o buffer compacto ao terminar.
       compactVisibleInstances(true);
@@ -2828,6 +2875,10 @@ export function createDonationManager({
       }
       for (const mat of getAllTopMaterials()) {
         mat.envMapIntensity = currentTextureSettings.top.envMapIntensity;
+      }
+      // Depois do loop global: autorais sobrescrevem o valor das fachadas.
+      for (const mat of getAuthoredEnvMaterials()) {
+        mat.envMapIntensity = mat.userData.authoredEnvMapIntensity;
       }
       compactVisibleInstances();
       for (const donationId of customShapesHiddenBeforeCapture) {
@@ -2891,13 +2942,56 @@ export function createDonationManager({
       const prevNeedsCustom = needsCustomMesh(prevCustomization);
       const nowNeedsCustom = needsCustomMesh(customization);
 
+      // Acessórios independem da alocação: rodam também na troca de formato. Sem
+      // isso a 1ª aplicação vinda do banco (formato + acessórios juntos, ver
+      // CitySceneEditor) perdia topo/letreiro/LED/holograma de todo formato custom.
+      const applyAccessories = () => {
+        // Atualizar acessório de topo se o tipo mudou
+        if (customization.rooftopType !== prevRooftop) {
+          setRooftop(donationId, customization.rooftopType);
+        }
+
+        // Atualizar letreiro se o texto ou número de lados mudou
+        if (customization.signText !== prevSignText || customization.signSides !== prevSignSides) {
+          setSign(donationId, customization.signText, customization.signSides);
+        }
+
+        // LED de arestas: type muda → rebuild
+        if (customization.edgeLightType !== prevEdgeLightType) {
+          setEdgeLight(donationId, customization.edgeLightType);
+        }
+
+        // Holograma: imagem muda (incluindo remoção) → recarregar.
+        // Cor/opacidade só ajustam uniforms — sem reload da textura.
+        if (customization.hologramImage !== prevHologramImage) {
+          setHologram(
+            donationId,
+            customization.hologramImage,
+            customization.hologramColor,
+            customization.hologramOpacity,
+          );
+        } else {
+          const entry = hologramMeshes.get(donationId);
+          if (entry) {
+            if (customization.hologramColor !== prevHologramColor) {
+              setHologramTint(entry, customization.hologramColor);
+            }
+            if (customization.hologramOpacity !== prevHologramOpacity) {
+              setHologramOpacity(entry, customization.hologramOpacity);
+            }
+          }
+        }
+      };
+
       // Transição de allocation: se o prédio entra ou sai do customShapeMeshes
-      // (ou troca de shape), re-alocar instâncias e re-aplicar foco.
+      // (ou troca de shape), re-alocar instâncias e re-aplicar foco. Material
+      // (cor/textura) já nasce certo no rebuild — só acessórios seguem.
       if (prevNeedsCustom !== nowNeedsCustom || customization.buildingShape !== prevShape) {
         rebuildInstances();
         if (focusedDonationId !== null) {
           applyFocus(focusedDonationId);
         }
+        applyAccessories();
         return;
       }
 
@@ -2959,41 +3053,7 @@ export function createDonationManager({
         applyInstanceColors();
       }
 
-      // Atualizar acessório de topo se o tipo mudou
-      if (customization.rooftopType !== prevRooftop) {
-        setRooftop(donationId, customization.rooftopType);
-      }
-
-      // Atualizar letreiro se o texto ou número de lados mudou
-      if (customization.signText !== prevSignText || customization.signSides !== prevSignSides) {
-        setSign(donationId, customization.signText, customization.signSides);
-      }
-
-      // LED de arestas: type muda → rebuild
-      if (customization.edgeLightType !== prevEdgeLightType) {
-        setEdgeLight(donationId, customization.edgeLightType);
-      }
-
-      // Holograma: imagem muda (incluindo remoção) → recarregar.
-      // Cor/opacidade só ajustam uniforms — sem reload da textura.
-      if (customization.hologramImage !== prevHologramImage) {
-        setHologram(
-          donationId,
-          customization.hologramImage,
-          customization.hologramColor,
-          customization.hologramOpacity,
-        );
-      } else {
-        const entry = hologramMeshes.get(donationId);
-        if (entry) {
-          if (customization.hologramColor !== prevHologramColor) {
-            setHologramTint(entry, customization.hologramColor);
-          }
-          if (customization.hologramOpacity !== prevHologramOpacity) {
-            setHologramOpacity(entry, customization.hologramOpacity);
-          }
-        }
-      }
+      applyAccessories();
     },
     tickAnimations(elapsedSeconds, deltaMs) {
       for (const entry of hologramMeshes.values()) {
