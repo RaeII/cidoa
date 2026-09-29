@@ -1,7 +1,7 @@
 import { useState, type SyntheticEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ApiError } from "@/api/http";
-import { useAuth } from "@/hooks/useAuth";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/card";
 
 function Login() {
-  const { isAuthenticated, isAdmin, login, logout } = useAuth();
+  const { user, login } = useAdminAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -23,12 +23,12 @@ function Login() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Rota de origem guardada pelo RequireAuth — volta para lá após logar.
+  // Rota de origem guardada pelo RequireAdmin — volta para lá após logar.
   const locationState = location.state as { from?: { pathname: string } } | null;
   const from = locationState?.from?.pathname ?? "/dale";
 
-  // Admin já logado não vê o login (evita loop com o RequireAuth).
-  if (isAuthenticated && isAdmin) {
+  // Admin já logado não vê o login (evita loop com o RequireAdmin).
+  if (user) {
     return <Navigate to={from} replace />;
   }
 
@@ -37,13 +37,9 @@ function Login() {
     setError(null);
     setSubmitting(true);
     try {
-      const user = await login({ login: identifier, password });
-      // Login OK mas não é admin: barra aqui e derruba a sessão.
-      if (!user.is_admin) {
-        await logout();
-        setError("Acesso restrito a administradores.");
-        return;
-      }
+      // Backend só aceita conta admin (comum = mesmo 401 de senha errada) e
+      // abre só a sessão do painel — a cena continua deslogada.
+      await login({ login: identifier, password });
       navigate(from, { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Erro inesperado ao entrar");

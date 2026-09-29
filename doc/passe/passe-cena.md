@@ -14,7 +14,7 @@ aliases: [passe-cena]
 | Grant no ledger | Disponível, mesmo se requisitos atuais aumentaram |
 | Progresso satisfaz requisitos | Disponível |
 | Sem sessão, carregando ou falha de `/me` | Item com requisito continua bloqueado |
-| Admin | Catálogo disponível para prévia |
+| Conta admin logada na cena | Catálogo disponível para prévia (sessão do painel não conta) |
 
 Presentes dos [[primeiros-inscritos]] entram no mesmo ledger do passe. Podem incluir itens grátis, portanto ausência/presença no ledger não substitui verificar `unlock === null`.
 

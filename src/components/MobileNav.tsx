@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Building2, LogOut, Menu, Palette } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { MOBILE_PRIMARY_COUNT, navItems, type NavItem } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -69,7 +69,7 @@ function NavTab({ item }: { item: NavItem }) {
 
 // Drawer "Menu": nav completa + conta (tema, sair). Abre da direita.
 function MoreSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-  const { user, logout } = useAuth();
+  const { user, logout } = useAdminAuth();
   const { pathname } = useLocation();
   const name = user?.username ?? "—";
 

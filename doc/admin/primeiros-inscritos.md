@@ -6,7 +6,7 @@ aliases: [Benefícios de cadastro]
 
 # Primeiros inscritos
 
-Página `/dale/primeiros-inscritos` · `src/pages/admin/EarlySignups.tsx`. Menu desktop e mobile via `src/lib/nav.ts`; rota lazy protegida por `RequireAuth`.
+Página `/dale/primeiros-inscritos` · `src/pages/admin/EarlySignups.tsx`. Menu desktop e mobile via `src/lib/nav.ts`; rota lazy protegida por `RequireAdmin`.
 
 ## Administrar
 

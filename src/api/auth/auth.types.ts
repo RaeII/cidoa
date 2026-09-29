@@ -1,7 +1,7 @@
 import type { User } from "../user/user.types";
 
 /**
- * Credenciais de login. `login` aceita username OU email —
+ * Credenciais do login do painel admin. `login` aceita username OU email —
  * o backend resolve o identificador.
  */
 export interface LoginInput {

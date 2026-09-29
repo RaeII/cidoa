@@ -64,15 +64,17 @@ src/
   index.css
   api/
     http.ts
+    admin/
+      admin.routes.ts             ← sessão do painel (login senha/me/logout) + usuários + rotas /admin
     auth/
-      auth.routes.ts              ← login e cadastro passwordless
+      auth.routes.ts              ← sessão da cena: login e cadastro passwordless/Google
       auth.types.ts               ← contratos do perfil + desafio por código
     referral/
       referral.routes.ts          ← preview, resumo e confirmação de indicação
       referral.types.ts           ← contratos do sistema de indicação
       referral.logic.ts           ← normalização e decisão do modal
     user/
-      user.routes.ts              ← perfil próprio + listagem/promoção admin
+      user.routes.ts              ← perfil próprio (sessão da cena)
       user.types.ts               ← usuário público, incluindo imagem de perfil base64
     customizationApi.ts             ← catálogo de personalizações + conquistas do usuário
     donationApi.ts                  ← snapshot + personalizações atuais + PUT da personalização
@@ -95,7 +97,9 @@ src/
       toast.tsx                     ← notificações: toast.* + <Toaster /> (Radix Toast), cena e admin
     AuthMenu.tsx                  ← menu do usuário na cena: modo noite, perfil, indicação, sair
     AuthDialog.tsx                ← login por e-mail ou Google; cadastro confirma nome + username
-    AuthProvider.tsx              ← sessão local espelhada do cookie httpOnly
+    AuthProvider.tsx              ← sessão da cena (cookie token_access), só na rota /
+    AdminAuthProvider.tsx         ← sessão do painel (cookie token_admin), só em /dale/*
+    RequireAdmin.tsx              ← guarda de /dale: exige sessão do painel
     ProfileDialog.tsx             ← edição de nome, username e imagem de perfil
     referral/
       ReferralDialog.tsx          ← confirmação e avisos da indicação
@@ -231,7 +235,7 @@ doc/
 ### 1. Entrada
 
 - `src/main.tsx` → renderiza React no `#root`
-- `src/App.tsx` → `BrowserRouter` com rotas lazy: `/` = `CitySceneEditor` (cena), `/dale/login` + `/dale` = área admin (ver [[componentes-html]] e [[area-admin]]). `<Toaster />` global montado aqui — ver [[componentes-html#Notificações (toast)]]
+- `src/App.tsx` → `BrowserRouter` com rotas lazy: `/` = `CitySceneEditor` (cena) dentro de `AuthProvider`; `/dale/login` + `/dale` = área admin dentro de `AdminAuthProvider` (layout route) + `RequireAdmin` (ver [[componentes-html#Roteamento]] e [[area-admin]]). Cada área monta só a própria sessão — login numa não abre a outra ([[area-admin#Duas sessões (cena × painel)]]). `<Toaster />` global montado aqui — ver [[componentes-html#Notificações (toast)]]
 - Acesso público na cena → `AuthDialog`: e-mail → código, ou Google. Conta existente entra; conta nova confirma `name` + `username` (Google já sugere ambos) com o e-mail bloqueado na tela. Campo de indicação fica no rodapé do modal, escondido atrás de link sublinhado; `?ref=` já abre preenchido com preview. Ver [[area-admin#Login público na cena (passwordless)]] e [[referral]].
 
 ### 2. Container Principal
@@ -426,6 +430,8 @@ flowchart LR
 | Entender como React sincroniza com Three.js | [[scene-hooks]] |
 | Mexer na UI/tema/componentes do admin | [[componentes-html]] |
 | Mexer no login, dashboard ou auth do admin | [[area-admin]] |
+| Mexer no login do painel / sessão admin (`token_admin`) | [[area-admin#AdminAuthProvider]] · guarda em [[area-admin#RequireAdmin]] |
+| Sessão da cena vs painel (cookies, providers, 401) | [[area-admin#Duas sessões (cena × painel)]] |
 | Botão de login + modal passwordless na cena | [[area-admin#Login público na cena (passwordless)]] |
 | Gerar/excluir edifícios fictícios em massa (admin) | [[edificios-teste]] |
 | Vincular catálogo do IBGE (regiões/estados/municípios) | [[ibge]] |

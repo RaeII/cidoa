@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { getDashboardStats } from "@/api/admin/admin.routes";
 import type { DashboardStats } from "@/api/admin/admin.types";
 import { ApiError } from "@/api/http";
-import { useAuth } from "@/hooks/useAuth";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { AppSidebar } from "@/components/AppSidebar";
 import { MobileNav } from "@/components/MobileNav";
 import { Button } from "@/components/ui/button";
@@ -102,7 +102,7 @@ function StatsGrid() {
 }
 
 function Dashboard() {
-  const { user } = useAuth();
+  const { user } = useAdminAuth();
 
   return (
     <SidebarProvider className="h-svh">

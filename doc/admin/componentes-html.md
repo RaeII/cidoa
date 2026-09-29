@@ -31,7 +31,7 @@ Padrão copiado do repo **base_vite** (mesmo backend). Reutiliza componente ante
 | Tema | classe `.dark` no `<html>` + `useTheme` (sem provider) |
 
 > [!note] Estado
-> Auth = React Context ([[area-admin#AuthProvider]]). Não usa zustand — base_vite resolve com Context + hook, então segue igual. Não adiciona lib de estado sem necessidade.
+> Auth = React Context, um por sessão: cena ([[area-admin#AuthProvider]]) e painel ([[area-admin#AdminAuthProvider]]). Não usa zustand — base_vite resolve com Context + hook, então segue igual. Não adiciona lib de estado sem necessidade.
 
 ---
 
@@ -45,13 +45,15 @@ src/
       button.tsx  input.tsx  card.tsx  sidebar.tsx  sheet.tsx  switch.tsx
       dropdown-menu.tsx  avatar.tsx  tooltip.tsx  separator.tsx  skeleton.tsx
       pagination.tsx
-    AuthProvider.tsx           ← sessão global (login/logout)
-    RequireAuth.tsx            ← guarda da área /dale (exige admin)
+    AuthProvider.tsx           ← sessão da cena (código/Google, logout)
+    AdminAuthProvider.tsx      ← sessão do painel /dale (senha, logout)
+    RequireAdmin.tsx           ← guarda da área /dale (exige sessão do painel)
     AppSidebar.tsx             ← sidebar desktop (nav + conta/tema no rodapé)
     MobileNav.tsx              ← nav mobile (bottom bar + drawer, < md)
     ThemeToggle.tsx            ← switch claro/escuro
   hooks/
-    useAuth.ts                 ← AuthContext + hook useAuth
+    useAuth.ts                 ← AuthContext + hook useAuth (cena)
+    useAdminAuth.ts            ← AdminAuthContext + hook useAdminAuth (painel)
     useTheme.ts                ← tema via .dark no <html>
     use-mobile.ts              ← breakpoint < 768px
   lib/
@@ -64,9 +66,9 @@ src/
       Pass.tsx                 ← /dale/passe; trilha e configuração, ver [[passe-admin-ui]]
   api/
     http.ts                    ← axios único (cookie + evento de sessão)
-    auth/                      ← login/logout + tipos
-    admin/                     ← métricas do dashboard
-    user/                      ← tipo User
+    auth/                      ← login da cena (código/Google) + tipos
+    admin/                     ← sessão do painel, usuários, métricas do dashboard
+    user/                      ← perfil próprio (cena) + tipo User
 ```
 
 > [!important] Alias `@/` — em **três** lugares
@@ -165,8 +167,9 @@ Desvio consciente em `pagination.tsx`: `PaginationLink` renderiza `<button type=
 
 | Componente | Papel |
 | --- | --- |
-| [[area-admin#AuthProvider]] | provider global de sessão (login/logout, isAdmin) |
-| [[area-admin#RequireAuth]] | guarda de rota — só admin logado entra em `/dale` |
+| [[area-admin#AuthProvider]] | sessão da cena (código/Google, logout, isAdmin) — só na rota `/` |
+| [[area-admin#AdminAuthProvider]] | sessão do painel (senha, logout) — só em `/dale/*` |
+| [[area-admin#RequireAdmin]] | guarda de rota — só sessão do painel entra em `/dale` |
 | `AppSidebar` | sidebar desktop `collapsible=icon`; nav (`lib/nav`) + rodapé com usuário, tema e sair |
 | `MobileNav` | bottom bar fixa (< md) + drawer "Menu" com nav completa e conta |
 | `ThemeToggle` | switch claro/escuro (usa `useTheme`) |
@@ -177,13 +180,18 @@ Desvio consciente em `pagination.tsx`: `PaginationLink` renderiza `<button type=
 
 ## Roteamento
 
-`src/App.tsx` = `BrowserRouter` + `AuthProvider` + `Suspense` + `<Toaster />` ([[#Notificações (toast)]]). Cada página é `lazy()` → chunk próprio (cena Three.js pesada fica separada do admin).
+`src/App.tsx` = `BrowserRouter` + `Suspense` + `<Toaster />` ([[#Notificações (toast)]]). Cada página é `lazy()` → chunk próprio (cena Three.js pesada fica separada do admin).
+
+Cada área monta só a própria sessão ([[area-admin#Duas sessões (cena × painel)]]):
+
+- `/` → `<AuthProvider><CitySceneEditor /></AuthProvider>`.
+- Layout route sem path → `<AdminAuthProvider><Suspense><Outlet /></Suspense></AdminAuthProvider>` envolve `/dale/login` + grupo `<RequireAdmin>`.
 
 ```text
 /                      → CitySceneEditor   (pública, cena 3D)
 /dale/login            → Login             (pública)
-/dale                  → Dashboard         (dentro de <RequireAuth> — exige admin)
-/dale/edificios-teste  → TestBuildings     (dentro de <RequireAuth> — ver [[edificios-teste]])
+/dale                  → Dashboard         (dentro de <RequireAdmin> — exige sessão do painel)
+/dale/edificios-teste  → TestBuildings     (dentro de <RequireAdmin> — ver [[edificios-teste]])
 *                      → redireciona pra /
 ```
 
@@ -212,4 +220,4 @@ Antes de escrever: **procure**. Duplicar componente é o erro mais comum.
 
 ## Navegação do Passe
 
-`navItems` inclui **Passe** (`/dale/passe`, ícone Trophy), rota lazy protegida por `RequireAuth`. Sidebar e mobile compartilham entrada. Passe ocupa quarto atalho mobile; IBGE continua no drawer Menu.
+`navItems` inclui **Passe** (`/dale/passe`, ícone Trophy), rota lazy protegida por `RequireAdmin`. Sidebar e mobile compartilham entrada. Passe ocupa quarto atalho mobile; IBGE continua no drawer Menu.

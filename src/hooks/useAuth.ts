@@ -2,22 +2,21 @@ import { createContext, useContext } from "react";
 import type {
   CompleteRegistrationInput,
   GoogleAuthResult,
-  LoginInput,
   VerifyCodeInput,
   VerifyCodeResult,
 } from "../api/auth/auth.types";
 import type { User } from "../api/user/user.types";
 import type { UpdateOwnProfileInput } from "../api/user/user.types";
 
+/** Sessão da CENA. Painel /dale usa `useAdminAuth` (sessão separada). */
 export interface AuthContextValue {
   /** Usuário logado, ou null sem sessão. */
   user: User | null;
   isAuthenticated: boolean;
   /** Aguarda a confirmação inicial do cookie pelo backend. */
   isLoading: boolean;
+  /** Conta admin logada na cena: libera toda personalização. Não abre o painel. */
   isAdmin: boolean;
-  /** Login por senha (admin). Seta o cookie httpOnly e persiste a sessão local. */
-  login: (input: LoginInput) => Promise<User>;
   /** Valida o e-mail; abre a sessão existente ou libera cadastro em memória. */
   loginWithCode: (input: VerifyCodeInput) => Promise<VerifyCodeResult>;
   /** Login com Google (GIS); no 1º acesso devolve os dados a confirmar, sem criar conta. */

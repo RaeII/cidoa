@@ -14,13 +14,13 @@ aliases:
 Página admin (`/dale/edificios-teste`) pra gerar/excluir edifícios fictícios em massa. Edifício = doação — a cena desenha cada doação como prédio. Serve pra testar render e velocidade de carga com muitos prédios. Base de UI em [[componentes-html]]; auth e shell em [[area-admin]].
 
 > [!info] Backend
-> Front só chama as rotas. Lógica (geração aleatória, seed de cidade/ONG, senha destrutiva) mora no **cidoa-back**, submódulo `test-buildings` (`POST`/`DELETE /api/admin/test-buildings`). Ambas exigem JWT + admin.
+> Front só chama as rotas. Lógica (geração aleatória, seed de cidade/ONG, senha destrutiva) mora no **cidoa-back**, submódulo `test-buildings` (`POST`/`DELETE /api/admin/test-buildings`). Ambas exigem sessão admin (`token_admin`).
 
 ---
 
 ## Rota & navegação
 
-- Rota lazy em `src/App.tsx`, dentro de `<RequireAuth>` (só admin logado). Path `/dale/edificios-teste`.
+- Rota lazy em `src/App.tsx`, dentro de `<RequireAdmin>` (só sessão do painel). Path `/dale/edificios-teste`.
 - Item na sidebar/bottom-bar vem de `src/lib/nav.ts` (ícone `Blocks`) — fonte única, [[componentes-html#Componentes reutilizáveis|AppSidebar + MobileNav]] leem de lá.
 - Página: `src/pages/admin/TestBuildings.tsx`. Mesmo shell do [[area-admin#Dashboard|Dashboard]]: `SidebarProvider` + `AppSidebar` + conteúdo rolável + `MobileNav`.
 
@@ -63,7 +63,7 @@ await deleteAllBuildings(password); // DELETE /admin/test-buildings { confirm: t
 ```
 
 > [!important] Front não é a defesa
-> A senha e o `confirm` são validados no **servidor**. O `Sheet` é só UX (evita clique acidental). Ver [[area-admin#RequireAuth|defesa em profundidade]].
+> A senha e o `confirm` são validados no **servidor**. O `Sheet` é só UX (evita clique acidental). Ver [[area-admin#RequireAdmin|defesa em profundidade]].
 
 ---
 
@@ -87,7 +87,7 @@ Tipos em `src/api/admin/admin.types.ts` (`CreateTestBuildingsResult`, `DeleteAll
 | UI da página (criar/excluir) | `src/pages/admin/TestBuildings.tsx` |
 | Chamadas de API | `src/api/admin/admin.routes.ts` |
 | Item da sidebar/nav | `src/lib/nav.ts` |
-| Rota | `src/App.tsx` (dentro de `<RequireAuth>`) |
+| Rota | `src/App.tsx` (dentro de `<RequireAdmin>`) |
 
 ---
 

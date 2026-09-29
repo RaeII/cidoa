@@ -1,7 +1,7 @@
 import { Building2, ChevronsUpDown, LogOut, Palette } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { navItems } from "@/lib/nav";
-import { useAuth } from "@/hooks/useAuth";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -30,7 +30,7 @@ function initials(name: string) {
 }
 
 export function AppSidebar() {
-  const { user, logout } = useAuth();
+  const { user, logout } = useAdminAuth();
   const { isMobile } = useSidebar();
   const { pathname } = useLocation();
   const name = user?.username ?? "—";

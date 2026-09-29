@@ -17,77 +17,110 @@ aliases:
 Área protegida do front (`/dale`), separada da cena 3D. Login de administrador + dashboard. Base de UI (shadcn, tema, sidebar, roteamento) em [[componentes-html]].
 
 > [!info] Backend
-> Auth e métricas vêm do backend **cidoa-back** (mesmo backend do base_vite). Login seta cookie JWT httpOnly; rotas `/admin/*` exigem JWT + admin. Criar o primeiro admin = script `create-admin.ts` no backend (não há signup público de admin).
+> Auth e métricas vêm do backend **cidoa-back** (mesmo backend do base_vite). Painel tem sessão própria: `POST /api/admin/auth/login` seta cookie JWT httpOnly `token_admin`; rotas `/admin/*` exigem essa sessão (`adminGuard`). Criar o primeiro admin = script `create-admin.ts` no backend (não há signup público de admin).
 
 ---
 
-## Fluxo de autenticação
+## Duas sessões (cena × painel)
 
-Token JWT vive em **cookie httpOnly** `token_access` — o JS nunca lê. O front guarda só um **espelho** da sessão (usuário + validade) no `localStorage`, como espelho informativo. Ao carregar/recuperar foco, `GET /user/me` confirma cookie e permissões atuais; nunca restaura autorização do `localStorage`. `isLoading` impede redirecionamento prematuro de `/dale`. Autenticação real = sempre o cookie validado pelo backend.
+Cena e painel = sessões **independentes**. Login numa nunca abre a outra; logout numa nunca derruba a outra. Cada área monta só o próprio provider ([[componentes-html#Roteamento]]).
+
+| | Cena (`/`) | Painel (`/dale`) |
+| --- | --- | --- |
+| Cookie httpOnly | `token_access` (path `/`) | `token_admin` (path `/api/admin`, sameSite `strict`, TTL 8h) |
+| JWT `type` | `user` | `admin` |
+| Login | código por e-mail, Google, cadastro (`/auth/*`) | senha, `POST /admin/auth/login` — só conta admin |
+| Confirma sessão | `GET /user/me` | `GET /admin/auth/me` |
+| Logout | `POST /auth/logout` | `POST /admin/auth/logout` |
+| Provider + hook | [[#AuthProvider]] + `useAuth` | [[#AdminAuthProvider]] + `useAdminAuth` |
+| Guard | nenhum (cena pública) | [[#RequireAdmin]] + `adminGuard` no backend |
+| Evento de 401 | `SESSION_EXPIRED_EVENT` | `ADMIN_SESSION_EXPIRED_EVENT` |
+| Montado em | rota `/` | layout route de `/dale/login` + grupo `RequireAdmin` |
+
+- `token_admin` com `path=/api/admin` → navegador nem envia pra rotas da app. `adminGuard` só lê `token_admin`; `token_access` nunca passa.
+- Conta comum em `/admin/auth/login` → mesmo 401 "Credenciais inválidas" de senha errada.
+- Conta admin logada **na cena** ganha só perks da cena (`isAdmin`, ver [[usuarios#O que admin ganha]]). Painel pede login próprio em `/dale/login`.
+- JS nunca lê token. Usuário vive só em memória (nada em `localStorage`), confirmado pelo backend no mount e a cada foco. `isLoading` impede redirect prematuro de `/dale`.
+- Sem revogação no servidor: logout apaga cookie; token vale até `exp`. Permissão (conta ativa/admin) vem do banco a cada requisição.
+
+> [!note] Por que separado
+> Antes `/dale/login` setava o mesmo `token_access` da cena: logar no admin logava na cena, e conta admin logada na cena abria `/dale`.
 
 ```mermaid
 flowchart TD
-    L[Login.tsx] -->|login/senha| API[POST /api/auth/login]
-    API -->|cookie httpOnly + user| AP[AuthProvider]
-    AP -->|admin?| Check{is_admin}
-    Check -->|não| Deny[logout + erro 'só admin']
-    Check -->|sim| Nav[navigate /dale]
-    Nav --> RA[RequireAuth]
-    RA -->|isAuthenticated && isAdmin| Dash[Dashboard]
-    RA -->|senão| L
+    L[Login.tsx] -->|login/senha| API[POST /api/admin/auth/login]
+    API -->|401: senha errada ou não-admin| L
+    API -->|cookie token_admin + user| AAP[AdminAuthProvider]
+    AAP --> Nav[navigate from ou /dale]
+    Nav --> RA[RequireAdmin]
+    RA -->|user| Dash[Dashboard]
+    RA -->|sem user| L
     Dash -->|GET /api/admin/dashboard/stats| Stats[(métricas)]
-    Stats -->|401| Evt[SESSION_EXPIRED_EVENT]
-    Evt --> AP
-    AP -->|limpa sessão| L
+    Stats -->|401| Evt[ADMIN_SESSION_EXPIRED_EVENT]
+    Evt --> AAP
+    AAP -->|limpa user| L
 ```
 
 ---
 
 ## AuthProvider
 
-`src/components/AuthProvider.tsx` + `src/hooks/useAuth.ts`.
+`src/components/AuthProvider.tsx` + `src/hooks/useAuth.ts`. Sessão da **cena**. Montado só na rota `/`, em volta do `CitySceneEditor`.
 
-Expõe via Context: `user`, `isAuthenticated`, `isLoading`, `isAdmin`, `login()`, `loginWithCode()`, `loginWithGoogle()`, `completeRegistration()`, `updateProfile()`, `logout()`.
+Expõe via Context: `user`, `isAuthenticated`, `isLoading`, `isAdmin`, `loginWithCode()`, `loginWithGoogle()`, `completeRegistration()`, `updateProfile()`, `logout()`.
 
 - Mount/foco → `GET /user/me`; confirma sessão e permissões atuais. Falha limpa usuário local. `isLoading` cobre consulta inicial; respostas antigas não sobrescrevem login/logout mais recente.
-
-- `login(input)` → login por **senha** (admin), `POST /auth/login`.
 - `loginWithCode({ challengeId, code })` → passwordless, `POST /auth/login/verify-code`; autentica conta existente ou devolve prova efêmera para conta nova.
 - `loginWithGoogle(credential)` → `POST /auth/google` com o ID token do GIS; entra ou vincula e abre a sessão. No 1º acesso devolve `registration_required` (e-mail + nome/username sugeridos) sem criar conta.
 - `completeRegistration({ registrationToken, name, username })` → `POST /auth/register/complete`; cria conta só após e-mail confirmado.
-- `updateProfile({ name, username, profile_image? })` → `PUT /user/me`; atualiza backend + espelho local sem alterar validade da sessão.
-- Login por senha, conta existente por código e cadastro concluído passam pelo mesmo `establishSession(user, expiresIn)`: salva o espelho (`cidoa.admin.session`) e seta `user`.
-- `logout()` → `POST /auth/logout` + limpa espelho local (limpa mesmo se a request falhar — cookie expira sozinho).
-- Escuta `SESSION_EXPIRED_EVENT` (do `http.ts`): 401 fora dos fluxos de auth → cookie inválido/expirado → derruba sessão local.
+- `updateProfile({ name, username, profile_image? })` → `PUT /user/me`; atualiza backend + `user` em memória.
+- Conta existente por código, Google e cadastro concluído passam pelo mesmo `establishSession(user)`: seta `user`, encerra `isLoading`.
+- `logout()` → `POST /auth/logout` + limpa `user` (limpa mesmo se a request falhar — cookie expira sozinho). Sessão do painel intacta.
+- Escuta `SESSION_EXPIRED_EVENT` (do `http.ts`): 401 fora de `/admin/*` e fora dos fluxos de auth → derruba só sessão da cena.
+- `isAdmin` = `user.is_admin`. Libera toda personalização na cena; **não** abre `/dale`.
+- Sem login por senha (`login()` removido). Senha só no painel.
+- Mount apaga chave antiga `cidoa.admin.session` do `localStorage` (espelho morto de perfil/e-mail, nunca lido).
 
 > [!note] Signup só passwordless
 > Não há signup por senha. Admin nasce pelo script do backend (`create-admin.ts`); usuário comum se cadastra pelo modal passwordless na cena (ver [[#Login público na cena (passwordless)]]).
 
 ---
 
-## RequireAuth
+## AdminAuthProvider
 
-`src/components/RequireAuth.tsx`. Rota-layout que protege `/dale`.
+`src/components/AdminAuthProvider.tsx` + `src/hooks/useAdminAuth.ts`. Sessão do **painel**. Montado no layout route que envolve `/dale/login` e o grupo `RequireAdmin`.
+
+Expõe via Context: `user`, `isLoading`, `login()`, `logout()`.
+
+- Mount/foco → `GET /admin/auth/me` (`getAdminSession`). Falha → `user = null`.
+- `login({ login, password })` → `POST /admin/auth/login` (`adminLogin`); seta `user`.
+- `logout()` → `POST /admin/auth/logout` (`adminLogout`); limpa `user` mesmo se request falhar. Sessão da cena intacta.
+- Escuta `ADMIN_SESSION_EXPIRED_EVENT`: 401 em `/admin/*` → cookie admin inválido/expirado → limpa `user` → `RequireAdmin` manda pro login.
+- `sessionVersion` (ref): refresh mais velho que login/logout é descartado.
+- `useAdminAuth()` fora do provider lança erro.
+
+Consumidores: `Login`, `RequireAdmin`, `Dashboard`, `Users`, `AppSidebar`, `MobileNav`.
+
+---
+
+## RequireAdmin
+
+`src/components/RequireAdmin.tsx` (antigo `RequireAuth.tsx`). Rota-layout que protege `/dale`. Lê `useAdminAuth` — sessão da cena, mesmo de conta admin, não conta.
 
 ```tsx
 if (isLoading) return <p role="status">Carregando sessão…</p>
-if (!isAuthenticated || !isAdmin) {
+if (!user) {
   return <Navigate to="/dale/login" replace state={{ from: location }} />
 }
 return <Outlet />
 ```
 
 > [!important] Defesa em profundidade
-> Guard do front é só UX/navegação. O backend **também** exige JWT + admin em toda rota `/admin/*` (adminGuard). Bloquear no front não substitui o servidor.
+> Guard do front é só UX/navegação. O backend **também** exige sessão admin (`token_admin` + conta ativa/admin no banco) em toda rota `/admin/*` (`adminGuard`). Bloquear no front não substitui o servidor.
 
-### Anti-loop (admin vs. não-admin)
+### Anti-loop
 
-Cuidado sutil: se o `RequireAuth` exige admin e o `Login` redireciona todo autenticado, um **não-admin logado** entraria em loop (login → /dale → bounce → login…). Resolvido em dois pontos:
-
-1. `Login` só redireciona quem é `isAuthenticated && isAdmin`.
-2. Ao logar, se `!user.is_admin` → `logout()` + erro "Acesso restrito a administradores", **sem** navegar.
-
-Resultado: não-admin nunca fica autenticado na área; sem loop.
+`Login` redireciona quem tem `user`; `RequireAdmin` deixa passar quem tem `user`. Mesma condição nos dois lados → sem loop. Não-admin nunca ganha sessão do painel (backend recusa no login), então front não checa `is_admin` nem faz logout de emergência.
 
 ---
 
@@ -97,19 +130,20 @@ Resultado: não-admin nunca fica autenticado na área; sem loop.
 
 - Card centralizado (`min-h-svh`, `bg-background`), `ThemeToggle` no canto.
 - Campos `Username ou email` + `Senha` (input com label flutuante).
-- Envia `{ login, password }` — backend resolve username **ou** email.
-- Guarda a rota de origem (`location.state.from`) e volta pra ela após logar; default `/dale`.
-- Erro de credencial vira `ApiError` → mensagem no formulário.
+- Envia `{ login, password }` via `useAdminAuth().login` — backend resolve username **ou** email.
+- Guarda a rota de origem (`location.state.from`) e volta pra ela após logar; default `/dale`. Já com sessão do painel → redirect direto.
+- Senha errada **ou** conta não-admin → mesmo 401 "Credenciais inválidas" → `ApiError` → mensagem no formulário.
+- Abre só a sessão do painel; cena continua deslogada.
 
 ---
 
 ## Dashboard
 
-`src/pages/admin/Dashboard.tsx` — rota `/dale` (dentro de `RequireAuth`).
+`src/pages/admin/Dashboard.tsx` — rota `/dale` (dentro de `RequireAdmin`).
 
 Layout: `SidebarProvider` (`h-svh`) + `AppSidebar` + conteúdo rolável + `MobileNav`. Mostra:
 
-1. **Sessão** — o admin logado (username, email, id, flag admin) — vem do `useAuth().user`, sem request.
+1. **Sessão** — o admin logado (username, email, id, flag admin) — vem do `useAdminAuth().user`, sem request.
 2. **Métricas** — `GET /api/admin/dashboard/stats`: doações (contagem, total, ticket médio, maior), cidades, ONGs, usuários. Loading = `Skeleton`; erro = mensagem + botão "Tentar de novo".
 
 > [!note] setState em effect
@@ -171,15 +205,15 @@ flowchart TD
 
 `src/api/http.ts` — axios único, compartilhado com a cena. Ajustes pra auth:
 
-- `withCredentials: true` → envia o cookie httpOnly.
-- Interceptor de 401 **fora** dos fluxos de auth (`/auth/login*`, `/auth/register*`) → dispara `SESSION_EXPIRED_EVENT` no `window`. Dentro do fluxo, 401 = credencial/código inválido (não sessão expirada).
+- `withCredentials: true` → envia cookies httpOnly (`token_access`; `token_admin` só vai pra `/api/admin`).
+- Interceptor de 401 **fora** dos fluxos de auth (regex `/auth/(login|register|google)` — cobre `/admin/auth/login`) escolhe evento pela URL: `/admin/*` → `ADMIN_SESSION_EXPIRED_EVENT` (derruba só painel); resto → `SESSION_EXPIRED_EVENT` (derruba só cena). Dentro do fluxo, 401 = credencial/código inválido (não sessão expirada).
 
 | Módulo | Arquivo | Rotas |
 | --- | --- | --- |
-| Auth | `api/auth/auth.routes.ts` | `login`, `logout`, `requestLoginCode`, `verifyLoginCode`, `completeRegistration` |
+| Auth (cena) | `api/auth/auth.routes.ts` | `logout`, `loginWithGoogle`, `requestLoginCode`, `verifyLoginCode`, `completeRegistration` — sem login por senha |
 | Referral | `api/referral/referral.routes.ts` | `getReferralPreview`, `getMyReferralSummary`, `applyMyReferral` — ver [[referral]] |
-| Admin | `api/admin/admin.routes.ts` | `getDashboardStats`, `createTestBuildings`, `deleteAllBuildings` (ver [[edificios-teste]]), `getIbgeStatus`, `syncIbge` (ver [[ibge]]) |
-| User | `api/user/user.routes.ts` + `user.types.ts` | `updateOwnProfile`; tipo `User`, incluindo `name: string \| null` para contas antigas |
+| Admin (painel) | `api/admin/admin.routes.ts` | sessão: `adminLogin`, `adminLogout`, `getAdminSession`; usuários: `listUsers`, `setUserAdmin`, `deleteUser` (ver [[usuarios]]); `getDashboardStats`, `createTestBuildings`, `deleteAllBuildings` (ver [[edificios-teste]]), `getIbgeStatus`, `syncIbge` (ver [[ibge]]) |
+| User (cena) | `api/user/user.routes.ts` + `user.types.ts` | `getOwnSession`, `updateOwnProfile`; tipo `User`, incluindo `name: string \| null` para contas antigas |
 
 ---
 
@@ -191,7 +225,7 @@ Sem signup público. No **backend** (cidoa-back):
 bun run scripts/create-admin.ts <username> <password> [email]
 ```
 
-Cria/promove usuário com `is_admin=true` + senha bcrypt. Depois é só logar em `/dale/login`.
+Cria/promove usuário com `is_admin=true` + senha bcrypt. Depois é só logar em `/dale/login` (abre só o painel; cena pede login próprio).
 
 ---
 
@@ -199,8 +233,10 @@ Cria/promove usuário com `is_admin=true` + senha bcrypt. Depois é só logar em
 
 | Objetivo | Arquivo |
 | --- | --- |
-| Regras de acesso / redirect da área admin | `src/components/RequireAuth.tsx` |
-| Sessão, login, logout | `src/components/AuthProvider.tsx` + `src/hooks/useAuth.ts` |
+| Regras de acesso / redirect da área admin | `src/components/RequireAdmin.tsx` |
+| Sessão da cena (código, Google, logout) | `src/components/AuthProvider.tsx` + `src/hooks/useAuth.ts` |
+| Sessão do painel (login por senha, logout) | `src/components/AdminAuthProvider.tsx` + `src/hooks/useAdminAuth.ts` |
+| Qual provider cada rota monta | `src/App.tsx` |
 | Botão de login na cena (público) | `src/components/AuthMenu.tsx` |
 | Modo noite (toggle no menu do usuário) | [[area-admin#Modo noite (menu do usuário)]] |
 | Modal de login/cadastro passwordless | `src/components/AuthDialog.tsx` |
@@ -212,8 +248,8 @@ Cria/promove usuário com `is_admin=true` + senha bcrypt. Depois é só logar em
 | Vincular catálogo do IBGE | [[ibge]] |
 | Itens da sidebar/nav | `src/lib/nav.ts` |
 | Chamadas de API admin | `src/api/admin/admin.routes.ts` |
-| Cookie / evento de sessão | `src/api/http.ts` |
-| Novas rotas admin | `src/App.tsx` (dentro de `<RequireAuth>`) |
+| Cookies / eventos de sessão (401 → cena ou painel) | `src/api/http.ts` |
+| Novas rotas admin | `src/App.tsx` (dentro de `<RequireAdmin>`) |
 
 ---
 
@@ -226,4 +262,4 @@ Cria/promove usuário com `is_admin=true` + senha bcrypt. Depois é só logar em
 
 ## Primeiros inscritos
 
-Menu **Primeiros inscritos** → `/dale/primeiros-inscritos`. Configura combo e quantidade; libera aos primeiros cadastros, inclusive anteriores. JWT + admin em GET/PUT `/admin/early-signups`. Ver [[primeiros-inscritos]].
+Menu **Primeiros inscritos** → `/dale/primeiros-inscritos`. Configura combo e quantidade; libera aos primeiros cadastros, inclusive anteriores. Sessão admin em GET/PUT `/admin/early-signups`. Ver [[primeiros-inscritos]].

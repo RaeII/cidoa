@@ -15,13 +15,13 @@ aliases:
 Página admin (`/dale/ibge`) pra **vincular** no banco o catálogo geográfico do IBGE — regiões, estados e municípios do Brasil. Serve pra doações e ONGs apontarem pra uma cidade real. Base de UI em [[componentes-html]]; auth e shell em [[area-admin]].
 
 > [!info] Backend
-> Front só chama as rotas. Busca no IBGE, normalização e upsert moram no **cidoa-back**, submódulo `ibge` (`POST /api/admin/ibge/sync`, `GET /api/admin/ibge/status`). Ambas exigem JWT + admin. Detalhe do backend: `cidoa-back/doc/modulos/admin/ibge.md`.
+> Front só chama as rotas. Busca no IBGE, normalização e upsert moram no **cidoa-back**, submódulo `ibge` (`POST /api/admin/ibge/sync`, `GET /api/admin/ibge/status`). Ambas exigem sessão admin (`token_admin`). Detalhe do backend: `cidoa-back/doc/modulos/admin/ibge.md`.
 
 ---
 
 ## Rota & navegação
 
-- Rota lazy em `src/App.tsx`, dentro de `<RequireAuth>` (só admin logado). Path `/dale/ibge`.
+- Rota lazy em `src/App.tsx`, dentro de `<RequireAdmin>` (só sessão do painel). Path `/dale/ibge`.
 - Item na sidebar/bottom-bar vem de `src/lib/nav.ts` (ícone `MapPinned`) — fonte única, [[componentes-html#Componentes reutilizáveis|AppSidebar + MobileNav]] leem de lá.
 - Página: `src/pages/admin/Ibge.tsx`. Mesmo shell do [[area-admin#Dashboard|Dashboard]]: `SidebarProvider` + `AppSidebar` + conteúdo rolável + `MobileNav`.
 
@@ -68,7 +68,7 @@ Tipos em `src/api/admin/admin.types.ts` (`IbgeStatus`, `IbgeCounts`).
 | UI da página (status/vincular) | `src/pages/admin/Ibge.tsx` |
 | Chamadas de API | `src/api/admin/admin.routes.ts` |
 | Item da sidebar/nav | `src/lib/nav.ts` |
-| Rota | `src/App.tsx` (dentro de `<RequireAuth>`) |
+| Rota | `src/App.tsx` (dentro de `<RequireAdmin>`) |
 
 ---
 

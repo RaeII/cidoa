@@ -1,4 +1,6 @@
 import { http } from "../http";
+import type { LoginInput, LoginResponse } from "../auth/auth.types";
+import type { User, UserPage } from "../user/user.types";
 import type {
   CreateOptionInput,
   CreateTestBuildingsResult,
@@ -13,7 +15,58 @@ import type {
   UpdateOptionInput,
 } from "./admin.types";
 
-// Rotas /admin do backend — todas exigem JWT + admin (cookie httpOnly).
+// Rotas /admin do backend — todas exigem sessão admin (cookie httpOnly
+// `token_admin`, separado da sessão da cena), exceto login/logout.
+
+// ─── Sessão do painel ───────────────────────────────────────────
+
+/** Senha de conta admin. Abre só a sessão do painel; a cena não é tocada. */
+export async function adminLogin(input: LoginInput) {
+  const { data } = await http.post<LoginResponse>("/admin/auth/login", input);
+  return data;
+}
+
+export async function adminLogout() {
+  await http.post("/admin/auth/logout");
+}
+
+export async function getAdminSession() {
+  const { data } = await http.get<LoginResponse>("/admin/auth/me");
+  return data;
+}
+
+// ─── Usuários ───────────────────────────────────────────────────
+
+/**
+ * Lista usuários ativos. `search` casa username, nome ou e-mail —
+ * é assim que se acha uma conta sem paginar a base toda.
+ */
+export async function listUsers(
+  params: { search?: string; page?: number; limit?: number } = {},
+) {
+  const { data } = await http.get<UserPage>("/admin/users", {
+    // axios omite chave undefined — `search` vazio não vira `?search=`.
+    params: { search: params.search || undefined, page: params.page, limit: params.limit },
+  });
+  return data;
+}
+
+/** Liga/desliga o acesso de administrador. Backend confere a permissão no banco a cada requisição. */
+export async function setUserAdmin(id: number, isAdmin: boolean) {
+  const { data } = await http.put<{ data: User }>(`/admin/users/${id}`, { is_admin: isAdmin });
+  return data.data;
+}
+
+/**
+ * Exclui o usuário e todos os dados dele. Definitivo — leva doações,
+ * personalizações, indicações e identidades de login junto, e libera
+ * o e-mail para um novo cadastro.
+ */
+export async function deleteUser(id: number) {
+  await http.delete(`/admin/users/${id}`);
+}
+
+// ─── Primeiros inscritos ────────────────────────────────────────
 
 export async function getEarlySignupSettings() {
   const { data } = await http.get<{ data: EarlySignupSettings }>("/admin/early-signups");

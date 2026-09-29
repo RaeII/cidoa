@@ -9,11 +9,11 @@ import {
   TriangleAlert,
   Users as UsersIcon,
 } from "lucide-react";
-import { deleteUser, listUsers, setUserAdmin } from "@/api/user/user.routes";
+import { deleteUser, listUsers, setUserAdmin } from "@/api/admin/admin.routes";
 import type { User } from "@/api/user/user.types";
 import { ApiError } from "@/api/http";
 import { pageWindow } from "@/lib/pagination";
-import { useAuth } from "@/hooks/useAuth";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { AppSidebar } from "@/components/AppSidebar";
 import { MobileNav } from "@/components/MobileNav";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -143,7 +143,7 @@ function UserRow({
 }
 
 function Users() {
-  const { user: me } = useAuth();
+  const { user: me } = useAdminAuth();
   const [term, setTerm] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);

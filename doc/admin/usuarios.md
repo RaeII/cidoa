@@ -16,13 +16,13 @@ aliases:
 Página admin (`/dale/usuarios`) pra **visualizar e administrar as contas da aplicação**: busca, paginação, dar/tirar admin e excluir. Base de UI em [[componentes-html]]; auth e shell em [[area-admin]].
 
 > [!info] Backend
-> Front só chama rota existente. Nada de módulo novo: `GET /api/user/` (paginado + `?search=`), `PUT /api/user/:id` com `{ is_admin }` e `DELETE /api/user/:id`. Todas exigem JWT + admin. Detalhe: `cidoa-back/doc/modulos/usuarios/usuarios.md`.
+> Front só chama rota existente: `GET /api/admin/users` (paginado + `?search=`), `PUT /api/admin/users/:id` com `{ is_admin }` e `DELETE /api/admin/users/:id`. Todas exigem sessão admin (`token_admin` + `adminGuard`). Detalhe: `cidoa-back/doc/modulos/usuarios/usuarios.md`.
 
 ---
 
 ## Rota & navegação
 
-- Rota lazy em `src/App.tsx`, dentro de `<RequireAuth>` (só admin logado). Path `/dale/usuarios`.
+- Rota lazy em `src/App.tsx`, dentro de `<RequireAdmin>` (só sessão do painel). Path `/dale/usuarios`.
 - Item na sidebar/bottom-bar vem de `src/lib/nav.ts` (ícone `Users`) — fonte única, [[componentes-html#Componentes reutilizáveis|AppSidebar + MobileNav]] leem de lá.
 - Página: `src/pages/admin/Users.tsx`. Mesmo shell do [[area-admin#Dashboard|Dashboard]]: `SidebarProvider` + `AppSidebar` + conteúdo rolável + `MobileNav`.
 
@@ -32,10 +32,10 @@ Página admin (`/dale/usuarios`) pra **visualizar e administrar as contas da apl
 
 | Poder | Onde |
 | --- | --- |
-| Entrar no painel `/dale` | `RequireAuth` exige `isAdmin`; backend exige `adminGuard` em cada rota |
-| Usar **toda** personalização sem cumprir passe | `canUseCustomization(..., isAdmin)` em [[passe-formatacao]] · tabela em [[passe-cena]] |
+| Entrar no painel `/dale` | Login próprio em `/dale/login` (só conta admin) → `RequireAdmin` + `adminGuard` em cada rota. Ver [[area-admin#Duas sessões (cena × painel)]] |
+| Usar **toda** personalização sem cumprir passe | Só quando a conta admin loga **na cena** (código/Google), à parte do painel: `useAuth().isAdmin` → `canUseCustomization(..., isAdmin)` em [[passe-formatacao]] · tabela em [[passe-cena]] |
 
-Admin nem chega a pedir `/customization/me`: `useCustomizationCatalog` pula o fetch de conquistas e marca tudo `isUnlocked`. Sem cadeado, sem requisito, sem `fieldset` desabilitado no [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]].
+Admin logado na cena nem chega a pedir `/customization/me`: `useCustomizationCatalog` pula o fetch de conquistas e marca tudo `isUnlocked`. Sem cadeado, sem requisito, sem `fieldset` desabilitado no [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]].
 
 ---
 
@@ -72,13 +72,13 @@ Teste executável: `bun test tests/page-window.test.ts` — extremos, meio, bura
 
 | Item | Efeito |
 | --- | --- |
-| **Tornar admin** / **Remover admin** | `setUserAdmin(id, next)` → `PUT /user/:id { is_admin }`. Resposta substitui a linha; feedback inline embaixo da lista |
+| **Tornar admin** / **Remover admin** | `setUserAdmin(id, next)` → `PUT /admin/users/:id { is_admin }`. Resposta substitui a linha; feedback inline embaixo da lista |
 | **Excluir usuário** (destrutivo) | Abre a confirmação — ver [[#Excluir usuário]] |
 
 Enquanto a promoção está em voo, o gatilho vira `Loader2` e fica desabilitado.
 
 > [!info] Permissão atual no banco
-> Backend consulta conta ativa/admin em cada requisição. Promoção/rebaixamento vale com o token existente. Front consulta `GET /user/me` ao carregar e ao recuperar foco; `localStorage` não restaura autorização. `RequireAuth` aguarda `isLoading` antes de redirecionar. Atualizar página ou voltar à aba sincroniza a UI.
+> Backend consulta conta ativa/admin em cada requisição. Promoção/rebaixamento vale com o token existente. Painel consulta `GET /admin/auth/me` ao carregar e ao recuperar foco (cena faz o mesmo com `GET /user/me`); nada em `localStorage`. `RequireAdmin` aguarda `isLoading` antes de redirecionar. Atualizar página ou voltar à aba sincroniza a UI. Promovido **não** ganha painel sozinho: precisa logar em `/dale/login`.
 
 > [!warning] Cena local não é autorização
 > Admin libera todas as opções **ativas** do catálogo. Personalização atual só altera estado React/Three.js no próprio navegador: DevTools pode modificar essa cena. Não concede permissão de API nem grava alterações compartilhadas. Persistência futura exige validar propriedade e conquistas/admin no backend.
@@ -90,31 +90,36 @@ Enquanto a promoção está em voo, o gatilho vira `Loader2` e fica desabilitado
 
 ## Excluir usuário
 
-`Dialog` de confirmação nomeando quem vai embora (`Excluir @username?`) antes de qualquer chamada. Confirmar dispara `deleteUser(id)` → `DELETE /user/:id`.
+`Dialog` de confirmação nomeando quem vai embora (`Excluir @username?`) antes de qualquer chamada. Confirmar dispara `deleteUser(id)` → `DELETE /admin/users/:id`.
 
 Apaga a conta **e todos os dados dela**: doações (o prédio some da cena), personalizações, conquistas, indicações e identidades de login. Definitivo, sem soft delete — e o e-mail volta a ficar livre, que é o que permite repetir o teste de login com a mesma conta. O inventário de tabelas está em `cidoa-back/doc/modulos/usuarios/usuarios.md`.
 
 Erro (ex.: `403`) mantém o diálogo aberto com o motivo. Sucesso fecha, avisa inline e recarrega a página atual — se o excluído era o último item de uma página além da primeira, recua uma, senão a lista ficaria vazia.
 
 > [!danger] Excluir a si mesmo é permitido
-> Diferente do rebaixamento, a própria conta **pode** ser excluída — o diálogo avisa que o acesso ao painel cai na hora e que só `scripts/create-admin.ts` devolve. Se preferir bloquear, o lugar é o mesmo guarda do `is_admin: false` no `user.controller.ts` do backend.
+> Diferente do rebaixamento, a própria conta **pode** ser excluída — o diálogo avisa que o acesso ao painel cai na hora e que só `scripts/create-admin.ts` devolve. Se preferir bloquear, o lugar é o mesmo guarda do `is_admin: false` no `admin-users.controller.ts` do backend.
 
 > [!info] Só admin exclui
-> Rota exige JWT + `adminGuard`, e a página inteira vive atrás do `RequireAuth`. Conta não-admin nem chega na listagem.
+> Rota exige sessão admin + `adminGuard`, e a página inteira vive atrás do `RequireAdmin`. Conta não-admin nem abre sessão do painel.
 
 ---
 
 ## Camada de API
 
-`src/api/user/user.routes.ts` (mesmo axios `http` compartilhado, cookie httpOnly):
+`src/api/admin/admin.routes.ts` (mesmo axios `http` compartilhado, cookie `token_admin`):
+
+| Função | Rota | Retorno |
+| --- | --- | --- |
+| `listUsers({ search?, page?, limit? })` | `GET /admin/users` | `UserPage` — `{ data: User[], pagination }` |
+| `setUserAdmin(id, isAdmin)` | `PUT /admin/users/:id` | `User` atualizado |
+| `deleteUser(id)` | `DELETE /admin/users/:id` | Nada — exclui a conta e todos os dados dela |
+
+`src/api/user/user.routes.ts` fica só com sessão da cena (cookie `token_access`):
 
 | Função | Rota | Retorno |
 | --- | --- | --- |
 | `getOwnSession()` | `GET /user/me` | Perfil atual + `expiresIn`; resposta `no-store` |
-| `listUsers({ search?, page?, limit? })` | `GET /user` | `UserPage` — `{ data: User[], pagination }` |
-| `setUserAdmin(id, isAdmin)` | `PUT /user/:id` | `User` atualizado |
-| `deleteUser(id)` | `DELETE /user/:id` | Nada — exclui a conta e todos os dados dela |
-| `updateOwnProfile(input)` | `PUT /user/me` | `User` atualizado (perfil próprio, não-admin) |
+| `updateOwnProfile(input)` | `PUT /user/me` | `User` atualizado (perfil próprio) |
 
 Tipos em `src/api/user/user.types.ts` (`User`, `UserPage`). `search` vazio é omitido da query — axios pula chave `undefined`.
 

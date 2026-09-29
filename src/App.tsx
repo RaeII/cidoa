@@ -1,7 +1,8 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { AdminAuthProvider } from "./components/AdminAuthProvider";
 import { AuthProvider } from "./components/AuthProvider";
-import { RequireAuth } from "./components/RequireAuth";
+import { RequireAdmin } from "./components/RequireAdmin";
 import { Toaster } from "./components/ui/toast";
 
 // Code-split por página (doc/regras/04-performance do base_vite): a cena 3D
@@ -29,17 +30,34 @@ function PageFallback() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <Suspense fallback={<PageFallback />}>
-          <Routes>
-            {/* Cena 3D pública */}
-            <Route path="/" element={<CitySceneEditor />} />
+      <Suspense fallback={<PageFallback />}>
+        {/* Duas sessões independentes: cena (AuthProvider) e painel (AdminAuthProvider).
+            Cada área só monta a própria — login numa nunca abre a outra. */}
+        <Routes>
+          {/* Cena 3D pública */}
+          <Route
+            path="/"
+            element={
+              <AuthProvider>
+                <CitySceneEditor />
+              </AuthProvider>
+            }
+          />
 
-            {/* Login do admin */}
+          {/* Área admin */}
+          <Route
+            element={
+              <AdminAuthProvider>
+                <Suspense fallback={<PageFallback />}>
+                  <Outlet />
+                </Suspense>
+              </AdminAuthProvider>
+            }
+          >
             <Route path="/dale/login" element={<Login />} />
 
-            {/* Área admin: exige admin logado */}
-            <Route element={<RequireAuth />}>
+            {/* Exige sessão do painel */}
+            <Route element={<RequireAdmin />}>
               <Route path="/dale" element={<Dashboard />} />
               <Route path="/dale/edificios-teste" element={<TestBuildings />} />
               <Route path="/dale/personalizacoes" element={<Customizations />} />
@@ -48,11 +66,11 @@ export default function App() {
               <Route path="/dale/ibge" element={<Ibge />} />
               <Route path="/dale/usuarios" element={<Users />} />
             </Route>
+          </Route>
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
-      </AuthProvider>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
       <Toaster />
     </BrowserRouter>
   );
