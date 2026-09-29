@@ -126,6 +126,37 @@ Ficam em `src/components/ui/`. **Vendorizados**: código do shadcn colado no rep
 
 Adicionar primitivo novo: `bun run ui:add <nome>` — ver [[#Adicionar primitivo shadcn]]. Config em `components.json`.
 
+### Notificações (toast)
+
+`src/components/ui/toast.tsx` — `toast.*` + `<Toaster />`. Base: **Radix Toast** (já vem no `radix-ui`, zero dependência nova). `<Toaster />` montado 1× em `App.tsx`, fora do `Suspense` — vale pra cena e admin. Store fora do React: `toast.*` chama de qualquer lugar (callback de promise, handler de API), sem hook.
+
+```ts
+import { toast } from "@/components/ui/toast"
+
+toast.success("Salvo.")
+toast.error("Falhou.", { id: "save-42", action: { label: "Tentar de novo", onClick: retry } })
+toast.dismiss("save-42")
+```
+
+| Recurso | Como |
+| --- | --- |
+| Variantes | `success` · `error` · `warning` · `info` (ícone + cor) |
+| Fecha sozinho | success/info 4s · warning 6s · error 7s; `duration` sobrescreve, `Infinity` = só no "x" |
+| Fechar manual | botão "x", `Esc`, arrastar pra direita |
+| Pausa | hover ou foco na pilha (Radix); janela sem foco também pausa |
+| Sem duplicar | mesmo `id` substitui o toast e reinicia o timer |
+| Teto | 3 visíveis; 4º derruba o mais antigo |
+| Ação | `action` = botão extra; clicar também fecha |
+| Acessibilidade | `aria-live` do Radix anuncia; `F8` foca a pilha |
+
+Posição: rodapé central (`bottom-20` no mobile livra a `MobileNav`). Topo e cantos da cena já têm menu, filtros, painéis e engrenagem. Visual escuro fixo (vidro da cena), legível no admin claro e escuro.
+
+Quando usar: resultado **transitório** de ação (salvou, copiou, falhou em segundo plano). Erro de campo/formulário e erro de carga com botão de retry continuam **inline** — somem quando o contexto some.
+
+> [!bug] Dois contornos do Radix — não remover
+> **Pausa presa** → último toast fecha com o mouse em cima: viewport remove os listeners com a pausa ainda ligada; próximo toast nasce pausado e nunca sai sozinho. `batch` agrupa toasts abertos juntos; nova leva remonta o `Provider` (`key`) e zera a pausa.
+> **Foco no viewport** → clique de mouse no "x" focava o botão; ao fechar, Radix move o foco pro viewport e os restantes ficam pausados até clicar fora. `onMouseDown` com `preventDefault` nos botões impede. Teclado segue com foco gerenciado pelo Radix.
+
 Desvio consciente em `pagination.tsx`: `PaginationLink` renderiza `<button type="button">` no lugar do `<a href>` do upstream. A página aqui vive em estado React, não na URL — `<a>` sem `href` perde foco e teclado. Rótulos em português. Uso em [[usuarios#Paginação]].
 
 ---
@@ -146,7 +177,7 @@ Desvio consciente em `pagination.tsx`: `PaginationLink` renderiza `<button type=
 
 ## Roteamento
 
-`src/App.tsx` = `BrowserRouter` + `AuthProvider` + `Suspense`. Cada página é `lazy()` → chunk próprio (cena Three.js pesada fica separada do admin).
+`src/App.tsx` = `BrowserRouter` + `AuthProvider` + `Suspense` + `<Toaster />` ([[#Notificações (toast)]]). Cada página é `lazy()` → chunk próprio (cena Three.js pesada fica separada do admin).
 
 ```text
 /                      → CitySceneEditor   (pública, cena 3D)

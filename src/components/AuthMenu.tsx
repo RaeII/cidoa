@@ -16,6 +16,7 @@ import { AuthDialog } from "@/components/AuthDialog";
 import { ProfileDialog } from "@/components/ProfileDialog";
 import { ReferralDialog } from "@/components/referral/ReferralDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { toast } from "@/components/ui/toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -204,11 +205,14 @@ export function AuthMenu({ night, onNightChange }: AuthMenuProps) {
         });
       } else {
         await navigator.clipboard.writeText(summary.link);
+        // navigator.share já tem UI do sistema; cópia silenciosa precisa de aviso.
+        toast.success("Link de indicação copiado.");
       }
       setShareStatus("done");
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       setShareStatus("error");
+      toast.error("Não foi possível compartilhar o link.");
     }
 
     shareTimer.current = setTimeout(() => setShareStatus("idle"), 2500);

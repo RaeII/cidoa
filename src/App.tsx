@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./components/AuthProvider";
 import { RequireAuth } from "./components/RequireAuth";
+import { Toaster } from "./components/ui/toast";
 
 // Code-split por página (doc/regras/04-performance do base_vite): a cena 3D
 // (Three.js, pesada) e a área /dale (admin) viram chunks separados.
@@ -52,6 +53,7 @@ export default function App() {
           </Routes>
         </Suspense>
       </AuthProvider>
+      <Toaster />
     </BrowserRouter>
   );
 }

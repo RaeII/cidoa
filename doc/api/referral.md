@@ -68,7 +68,7 @@ flowchart TD
 ## Home e perfil
 
 - Usuário comum logado recebe botão somente com ícone de compartilhar ao lado do `AuthMenu`.
-- Compartilhamento usa `navigator.share`; sem suporte, copia link com `navigator.clipboard`.
+- Compartilhamento usa `navigator.share`; sem suporte, copia link com `navigator.clipboard` + toast "Link de indicação copiado." (share nativo já tem UI própria). Falha → toast de erro.
 - Perfil mostra código e botão com a ação "Compartilhar".
 - Bloco “Você foi indicado por” só aparece quando `referrer` existe.
 - Total só aparece quando `referral_count > 0`.

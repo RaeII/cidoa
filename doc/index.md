@@ -92,6 +92,7 @@ src/
       switch.tsx                    ← Switch shadcn usado nas ativações do admin
       pagination.tsx                ← Pagination shadcn; botão no lugar de <a> (página é estado, não URL)
       select.tsx                    ← Select shadcn; filtro de personalização no admin
+      toast.tsx                     ← notificações: toast.* + <Toaster /> (Radix Toast), cena e admin
     AuthMenu.tsx                  ← menu do usuário na cena: modo noite, perfil, indicação, sair
     AuthDialog.tsx                ← login por e-mail ou Google; cadastro confirma nome + username
     AuthProvider.tsx              ← sessão local espelhada do cookie httpOnly
@@ -230,7 +231,7 @@ doc/
 ### 1. Entrada
 
 - `src/main.tsx` → renderiza React no `#root`
-- `src/App.tsx` → `BrowserRouter` com rotas lazy: `/` = `CitySceneEditor` (cena), `/dale/login` + `/dale` = área admin (ver [[componentes-html]] e [[area-admin]])
+- `src/App.tsx` → `BrowserRouter` com rotas lazy: `/` = `CitySceneEditor` (cena), `/dale/login` + `/dale` = área admin (ver [[componentes-html]] e [[area-admin]]). `<Toaster />` global montado aqui — ver [[componentes-html#Notificações (toast)]]
 - Acesso público na cena → `AuthDialog`: e-mail → código, ou Google. Conta existente entra; conta nova confirma `name` + `username` (Google já sugere ambos) com o e-mail bloqueado na tela. Campo de indicação fica no rodapé do modal, escondido atrás de link sublinhado; `?ref=` já abre preenchido com preview. Ver [[area-admin#Login público na cena (passwordless)]] e [[referral]].
 
 ### 2. Container Principal
@@ -433,6 +434,7 @@ flowchart LR
 | Entender o que admin libera (personalização sem cadeado) | [[usuarios#O que admin ganha]] · [[passe-cena]] |
 | Adicionar rota ou página no admin | [[componentes-html#Roteamento]] |
 | Adicionar primitivo shadcn (`bun run ui:add <nome>`) | [[componentes-html#Adicionar primitivo shadcn]] |
+| Mostrar aviso/erro temporário (toast) | [[componentes-html#Notificações (toast)]] |
 
 ## Ordem de Leitura Recomendada
 

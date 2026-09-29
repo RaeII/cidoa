@@ -88,10 +88,10 @@ Antes: painel mexia só no state do React — recarregou a página, sumiu. Agora
 
 **Escrita** — `updateCustomization` do editor é o ponto único: aplica na cena, guarda no state e agenda `saveDonationCustomization`. Debounce de 500ms **por edifício** (`pendingSaves`): cor e opacidade disparam a cada frame de arrasto; sem isso um slider vira dezenas de PUTs. Um timer por `donationId` — editar A e depois B não pode cancelar o save de A. Desmontar dentro da janela do debounce dispara os pendentes em vez de descartá-los.
 
-**Erro** — banner acima do painel. `400`/`403` repetem a mensagem do backend (opção travada, item desligado); `401` pede login; `404` = prédio de outro usuário.
+**Erro** — toast ([[componentes-html#Notificações (toast)]]), id `save-customization-<donationId>`: falhas seguidas do mesmo prédio substituem em vez de empilhar; próximo save ok fecha. `400`/`403` repetem a mensagem do backend (opção travada, item desligado); `401` pede login; `404` = prédio de outro usuário. Rede/5xx → genérico + botão **Tentar de novo**, que regrava o estado **atual** do prédio (`customizationsRef`), não o da tentativa falha.
 
 > [!warning] Otimista de propósito
-> A cena muda antes do PUT responder. Falhou, o banner avisa mas a cena **não** volta atrás — recarregar a página restaura o que o banco tem. Reverter exigiria desfazer o state local do painel, que tem cópia própria dos valores.
+> A cena muda antes do PUT responder. Falhou, o toast avisa mas a cena **não** volta atrás — recarregar a página restaura o que o banco tem. Reverter exigiria desfazer o state local do painel, que tem cópia própria dos valores.
 
 Contrato da rota, autorização e cobrança de liberação: `doc/modulos/personalizacoes/personalizacoes.md` no vault do backend.
 

@@ -16,6 +16,7 @@ import { saveDonationCustomization } from "../api/donationApi";
 import { useCustomizationCatalog } from "./hooks/useCustomizationCatalog";
 import { DonationLoadOverlay } from "./html/DonationLoadOverlay";
 import { DonationFilterBar } from "./html/DonationFilterBar";
+import { toast } from "./ui/toast";
 import { DEFAULT_SCENE_STATS } from "../scene/config/citySceneConfig";
 import { createDefaultBlockLayoutSettings } from "../scene/config/blockLayoutConfig";
 import { createDefaultBuildingSettings } from "../scene/config/buildingConfig";
@@ -75,7 +76,6 @@ export function CitySceneEditor() {
   const [buildingCustomizations, setBuildingCustomizations] = useState<Map<number, BuildingCustomization>>(
     () => new Map(),
   );
-  const [saveError, setSaveError] = useState<string | null>(null);
   // Espelho do mapa p/ o rAF que reaplica na cena sem virar dependência do
   // effect de setDonations (senão cada troca de cor reconstruiria a cidade).
   const customizationsRef = useRef(buildingCustomizations);
@@ -220,25 +220,41 @@ export function CitySceneEditor() {
 
   const flushSave = useCallback((donationId: number, customization: BuildingCustomization) => {
     pendingSaves.current.delete(donationId);
-    saveDonationCustomization(donationId, customization)
-      .then(() => setSaveError(null))
-      .catch((err: unknown) => {
-        const response = axios.isAxiosError(err) ? err.response : undefined;
-        // 400/403 vêm com a razão exata do backend (opção travada, item
-        // desligado) — repetir a mensagem dele é melhor que genérico.
-        const fromServer =
-          response && (response.status === 400 || response.status === 403)
-            ? (response.data as { message?: string } | undefined)?.message
-            : undefined;
-        setSaveError(
-          fromServer ??
+    // Um toast por edifício: falhas seguidas (arrasto de slider) substituem
+    // em vez de empilhar; o próximo save ok fecha.
+    const toastId = `save-customization-${donationId}`;
+    function save(data: BuildingCustomization) {
+      saveDonationCustomization(donationId, data)
+        .then(() => toast.dismiss(toastId))
+        .catch((err: unknown) => {
+          const response = axios.isAxiosError(err) ? err.response : undefined;
+          // 400/403 vêm com a razão exata do backend (opção travada, item
+          // desligado) — repetir a mensagem dele é melhor que genérico.
+          const fromServer =
+            response && (response.status === 400 || response.status === 403)
+              ? (response.data as { message?: string } | undefined)?.message
+              : undefined;
+          const reason =
+            fromServer ??
             (response?.status === 401
               ? "Entre na sua conta para salvar a personalização."
               : response?.status === 404
                 ? "Este edifício não é seu — a mudança não foi salva."
-                : "Não foi possível salvar a personalização."),
-        );
-      });
+                : undefined);
+          toast.error(reason ?? "Não foi possível salvar a personalização.", {
+            id: toastId,
+            // Rede/servidor é transitório: repete com o estado ATUAL do edifício,
+            // não o da tentativa que falhou.
+            action: reason
+              ? undefined
+              : {
+                  label: "Tentar de novo",
+                  onClick: () => save(customizationsRef.current.get(donationId) ?? data),
+                },
+          });
+        });
+    }
+    save(customization);
   }, []);
 
   // Um debounce por edifício: editar A e depois B não pode cancelar o save de A.
@@ -507,11 +523,6 @@ export function CitySceneEditor() {
           />
         );
       })()}
-      {saveError && (
-        <div className="absolute right-4 top-4 z-40 w-72 rounded-xl border border-red-400/30 bg-red-950/90 px-3 py-2 text-xs text-red-100 shadow-lg backdrop-blur-md">
-          {saveError}
-        </div>
-      )}
       {showControlPanel && (
         <CityControlPanel
           buildingSettings={buildingSettings}
