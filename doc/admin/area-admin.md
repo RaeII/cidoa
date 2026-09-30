@@ -40,7 +40,7 @@ Cena e painel = sessões **independentes**. Login numa nunca abre a outra; logou
 - `token_admin` com `path=/api/admin` → navegador nem envia pra rotas da app. `adminGuard` só lê `token_admin`; `token_access` nunca passa.
 - Conta comum em `/admin/auth/login` → mesmo 401 "Credenciais inválidas" de senha errada.
 - Conta admin logada **na cena** ganha só perks da cena (`isAdmin`, ver [[usuarios#O que admin ganha]]). Painel pede login próprio em `/dale/login`.
-- JS nunca lê token. Usuário vive só em memória (nada em `localStorage`), confirmado pelo backend no mount e a cada foco. `isLoading` impede redirect prematuro de `/dale`.
+- JS nunca lê token. Usuário vive só em memória (nada em `localStorage`), confirmado pelo backend só no mount. `isLoading` impede redirect prematuro de `/dale`.
 - Sem revogação no servidor: logout apaga cookie; token vale até `exp`. Permissão (conta ativa/admin) vem do banco a cada requisição.
 
 > [!note] Por que separado

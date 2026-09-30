@@ -9,7 +9,7 @@ import { AdminAuthContext } from "../hooks/useAdminAuth";
  * Sessão do painel /dale — independente da sessão da cena (AuthProvider):
  * login aqui não loga na cena, e vice-versa. Token no cookie httpOnly
  * `token_admin` (só enviado a /api/admin); aqui fica só o usuário em memória,
- * confirmado pelo backend no mount e a cada foco da janela.
+ * confirmado pelo backend no mount.
  */
 export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -38,11 +38,9 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     };
     void refresh();
-    window.addEventListener("focus", refresh);
     window.addEventListener(ADMIN_SESSION_EXPIRED_EVENT, clear);
     return () => {
       active = false;
-      window.removeEventListener("focus", refresh);
       window.removeEventListener(ADMIN_SESSION_EXPIRED_EVENT, clear);
     };
   }, []);

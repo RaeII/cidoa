@@ -15,8 +15,8 @@ import { AuthContext } from "../hooks/useAuth";
 /**
  * Sessão da CENA. O token JWT vive no cookie httpOnly `token_access` — o JS
  * não consegue lê-lo. Aqui fica só o usuário em memória, confirmado pelo
- * backend no mount e a cada foco; se o cookie expirar/for revogado, a API
- * responde 401 e a sessão local cai.
+ * backend no mount; se o cookie expirar/for revogado, a API responde 401 e a
+ * sessão local cai.
  *
  * Painel /dale tem sessão própria (AdminAuthProvider): login aqui não abre o
  * painel, e login no painel não loga aqui.
@@ -49,10 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
     void refresh();
-    window.addEventListener("focus", refresh);
     return () => {
       active = false;
-      window.removeEventListener("focus", refresh);
     };
   }, []);
 
