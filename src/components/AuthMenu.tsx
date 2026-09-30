@@ -197,20 +197,10 @@ export function AuthMenu({ night, onNightChange }: AuthMenuProps) {
     if (shareTimer.current) clearTimeout(shareTimer.current);
 
     try {
-      if (navigator.share) {
-        await navigator.share({
-          title: "Cidoa",
-          text: "Cadastre-se na Cidoa com meu código de indicação.",
-          url: summary.link,
-        });
-      } else {
-        await navigator.clipboard.writeText(summary.link);
-        // navigator.share já tem UI do sistema; cópia silenciosa precisa de aviso.
-        toast.success("Link de indicação copiado.");
-      }
+      await navigator.clipboard.writeText(summary.link);
+      toast.success("Link de indicação copiado.");
       setShareStatus("done");
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
+    } catch {
       setShareStatus("error");
       toast.error("Não foi possível compartilhar o link.");
     }
