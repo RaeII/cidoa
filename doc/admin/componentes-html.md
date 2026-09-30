@@ -182,6 +182,9 @@ Desvio consciente em `pagination.tsx`: `PaginationLink` renderiza `<button type=
 
 `src/App.tsx` = `BrowserRouter` + `Suspense` + `<Toaster />` ([[#Notificações (toast)]]). Cada página é `lazy()` → chunk próprio (cena Three.js pesada fica separada do admin).
 
+> [!warning] Chunk de deploy antigo
+> Aba aberta antes do deploy pede chunk lazy com hash apagado → 404, tela branca. `src/main.tsx` escuta `vite:preloadError` e dá `location.reload()` (pega `index.html` novo). Guard em `sessionStorage` (`chunk-reload-at`): no máx. 1 reload a cada 10s — chunk faltando de verdade não vira loop. Servidor: `index.html` com `Cache-Control: no-cache`, `/assets/*` `immutable`.
+
 Cada área monta só a própria sessão ([[area-admin#Duas sessões (cena × painel)]]):
 
 - `/` → `<AuthProvider><CitySceneEditor /></AuthProvider>`.

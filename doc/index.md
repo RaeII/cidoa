@@ -60,7 +60,7 @@ public/
   basis/                       ← transcoder basis do KTX2Loader (js + wasm)
 src/
   App.tsx
-  main.tsx
+  main.tsx                      ← entry; reload em `vite:preloadError` (chunk de deploy antigo)
   index.css
   api/
     http.ts
