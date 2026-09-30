@@ -24,9 +24,10 @@ Antes: prédios nasciam no front (`INITIAL_TEST_DONATIONS`, 10 valores hardcoded
 | Arquivo | Papel |
 | --- | --- |
 | `src/api/http.ts` | Instância axios. `baseURL = VITE_API_URL ?? "/api"`. Normaliza erro → `ApiError {status, message}`. |
-| `src/api/donationApi.ts` | `fetchDonationSnapshot()` — busca snapshot + personalizações atuais em paralelo, mapeia tuplas → objetos. `saveDonationCustomization()` — PUT da personalização. Tipos `DonationRecord`/`City`/`Ong`/`DonationDataset`. |
+| `src/api/donationApi.ts` | `fetchDonationSnapshot()` — busca snapshot + personalizações atuais em paralelo, mapeia tuplas → objetos. `fetchMyDonationIds()` — `GET /donation/me`, ids das doações da sessão. `saveDonationCustomization()` — PUT da personalização. Tipos `DonationRecord`/`City`/`Ong`/`DonationDataset`. |
 | `src/api/regions.ts` | `UF_REGION` (27 UFs → 5 regiões) + `REGIONS`. Região é função fixa da UF — não vem do backend. |
 | `src/components/hooks/useDonations.ts` | Hook. Carrega snapshot, guarda dataset, aplica filtro (`useMemo`), expõe `loadState`/`donations`/`cities`/`ongs`/`savedCustomizations`/`filter`/`setFilter`/`retry`. |
+| `src/components/hooks/useOwnedDonationIds.ts` | Hook. `Set` dos ids da sessão atual via `fetchMyDonationIds`. Refaz ao trocar `user.id`; vazio sem login, carregando ou em erro. Ver [[#Quem pode editar]]. |
 
 ## Contrato do snapshot
 
@@ -88,7 +89,16 @@ Antes: painel mexia só no state do React — recarregou a página, sumiu. Agora
 
 **Escrita** — `updateCustomization` do editor é o ponto único: aplica na cena, guarda no state e agenda `saveDonationCustomization`. Debounce de 500ms **por edifício** (`pendingSaves`): cor e opacidade disparam a cada frame de arrasto; sem isso um slider vira dezenas de PUTs. Um timer por `donationId` — editar A e depois B não pode cancelar o save de A. Desmontar dentro da janela do debounce dispara os pendentes em vez de descartá-los.
 
-**Erro** — toast ([[componentes-html#Notificações (toast)]]), id `save-customization-<donationId>`: falhas seguidas do mesmo prédio substituem em vez de empilhar; próximo save ok fecha. `400`/`403` repetem a mensagem do backend (opção travada, item desligado); `401` pede login; `404` = prédio de outro usuário. Rede/5xx → genérico + botão **Tentar de novo**, que regrava o estado **atual** do prédio (`customizationsRef`), não o da tentativa falha.
+**Erro** — toast ([[componentes-html#Notificações (toast)]]), id `save-customization-<donationId>`: falhas seguidas do mesmo prédio substituem em vez de empilhar; próximo save ok fecha. Status lido de `ApiError` (interceptor do `http` nunca rejeita com `AxiosError` — checar `axios.isAxiosError` aqui dava sempre falso e todo erro caía no genérico). `400`/`403` repetem a mensagem do backend (opção travada, item desligado); `401` pede login; `404` = prédio de outro usuário. Rede/5xx → genérico + botão **Tentar de novo**, que regrava o estado **atual** do prédio (`customizationsRef`), não o da tentativa falha.
+
+### Quem pode editar
+
+`canEdit(id) = isAdmin || ownedDonationIds.has(id)` no `CitySceneEditor`. Clique no prédio abre [[html-components#BuildingInfoModal.tsx|BuildingInfoModal]] (só leitura) pra todos; lápis **Personalizar** só aparece se `canEdit`. Painel também tem gate no render: sessão cai (logout/401) → painel some sozinho.
+
+`GET /donation/me` (JWT, `no-store`) → `{ data: number[] }`, doações ativas da sessão. Só UX: autorização real continua no `WHERE` do PUT (404 em prédio alheio). Lista não refaz sozinha quando doação nova é vinculada — recarregar ou relogar.
+
+> [!note] Local sem dono
+> Prédios de teste (`/admin/test-buildings`) nascem com `user_id NULL`: ninguém além do admin edita. Pra testar fluxo de dono: `UPDATE donation SET user_id = <userId> WHERE id = <donationId>;`
 
 > [!warning] Otimista de propósito
 > A cena muda antes do PUT responder. Falhou, o toast avisa mas a cena **não** volta atrás — recarregar a página restaura o que o banco tem. Reverter exigiria desfazer o state local do painel, que tem cópia própria dos valores.

@@ -10,7 +10,8 @@ import type {
   RooftopType,
 } from "../../scene/types";
 
-const HOLOGRAM_MAX_BYTES = 4 * 1024 * 1024; // 4 MB — limite saudável para data URL em React state
+// 700 KB vira ~956 KB em base64: cabe no json({ limit: "1mb" }) do backend.
+const HOLOGRAM_MAX_BYTES = 700 * 1024;
 
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -131,7 +132,7 @@ export function BuildingCustomizePanel({
     const file = event.target.files?.[0];
     if (!file) return;
     if (file.size > HOLOGRAM_MAX_BYTES) {
-      setHologramError("Arquivo muito grande (máx. 4 MB).");
+      setHologramError("Arquivo muito grande (máx. 700 KB).");
       event.target.value = "";
       return;
     }

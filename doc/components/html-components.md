@@ -126,9 +126,26 @@ Barra de filtros das doações. Presentacional — recebe listas e filtro, emite
 
 ---
 
+### `BuildingInfoModal.tsx`
+
+Card só-leitura do edifício clicado. Canto superior direito, sem dim: cena segue interativa. Visual herdado da branch `video-2`.
+
+Mostra valor (BRL), `Cidade · UF`, chip da ONG — tudo do snapshot público, zero request no clique. Rótulo **Seu edifício** quando dono; senão **Doação**. Dono do prédio (e admin) vê lápis **Personalizar** → abre [[#BuildingCustomizePanel.tsx|BuildingCustomizePanel]]. Prédio alheio ou sem login: sem lápis. Regra em [[donation-api#Quem pode editar]].
+
+| Prop | Tipo | Descrição |
+|---|---|---|
+| `value` | `number` | Valor da doação |
+| `ongName` | `string?` | Nome da ONG |
+| `place` | `string?` | `"Cidade · UF"` |
+| `isOwn` | `boolean` | Doação da sessão atual |
+| `onCustomize` | `() => void` opcional | Ausente = só leitura (sem lápis) |
+| `onClose` | `() => void` | Fecha e limpa o foco |
+
+---
+
 ### `BuildingCustomizePanel.tsx`
 
-Painel de personalização de um edifício individual, exibido ao clicar em um prédio na cena. Posicionado no canto superior direito com scroll interno para caber em telas menores.
+Painel de personalização de um edifício individual, aberto pelo lápis do [[#BuildingInfoModal.tsx|BuildingInfoModal]] — só para dono ou admin. Posicionado no canto superior direito com scroll interno para caber em telas menores.
 
 **Responsabilidades:**
 - Exibir campos de personalização para o edifício selecionado
@@ -175,10 +192,10 @@ Cada seção renderiza a partir de `catalog` (só se categoria ativa + tem opç�
 | **Letreiro** | Input texto + seletor de lados | Feature `catalog.features.sign`. Marca/empresa (máx 30). Lados (1–4) quando há texto |
 | **Topo** | Botões | `catalog.rooftops` — nenhum, holofotes, heliponto, jardim, helicóptero |
 | **LED de arestas** | Botões | `catalog.edgeLights` — liga/desliga LED |
-| **Holograma** | Upload + cor + opacidade | Feature `catalog.features.hologram`. Cor do holograma segue hex livre (tint cyberpunk, não é cor do prédio) |
+| **Holograma** | Upload + cor + opacidade | Feature `catalog.features.hologram`. Arquivo máx. **700 KB** (~956 KB em base64, cabe no body limit de 1 MB do back). Cor do holograma segue hex livre (tint cyberpunk, não é cor do prédio) |
 
 > [!note] Fluxo de personalização
-> Clique no edifício → `onBuildingClick(donationId)` → `CitySceneEditor` chama `focusOnDonation` (destaque visual) e abre `BuildingCustomizePanel` → cada mudança chama `updateCustomization` que monta o `BuildingCustomization` completo, envia ao runtime via `canvasRef.updateDonationCustomization(id, {...})` **e agenda a gravação no banco** (debounce 500ms por edifício).
+> Clique no edifício → `onBuildingClick(donationId)` → `CitySceneEditor` chama `focusOnDonation` (destaque visual) e abre `BuildingInfoModal` → lápis (só `canEdit`) abre `BuildingCustomizePanel` → cada mudança chama `updateCustomization` que monta o `BuildingCustomization` completo, envia ao runtime via `canvasRef.updateDonationCustomization(id, {...})` **e agenda a gravação no banco** (debounce 500ms por edifício).
 
 > [!important] Personalização é permanente
 > O painel não mexe só no state: `updateCustomization` grava em `donation.customization` via `PUT /donation/:id/customization`. Recarregou a página, o prédio volta personalizado — o snapshot traz as personalizações salvas e o editor as reaplica na cena. Debounce, flush no unmount, toast de erro e limites de autorização em [[donation-api#Personalização persistida]].

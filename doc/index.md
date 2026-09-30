@@ -77,7 +77,7 @@ src/
       user.routes.ts              ← perfil próprio (sessão da cena)
       user.types.ts               ← usuário público, incluindo imagem de perfil base64
     customizationApi.ts             ← catálogo de personalizações + conquistas do usuário
-    donationApi.ts                  ← snapshot + personalizações atuais + PUT da personalização
+    donationApi.ts                  ← snapshot + personalizações atuais + doações próprias + PUT da personalização
     regions.ts
   pages/admin/
     Pass.tsx                    ← página dedicada /dale/passe
@@ -111,6 +111,7 @@ src/
       BuildingLayoutCard.tsx       ← card flutuante: modo de layout + teto de edifícios na tela
       DonationLoadOverlay.tsx
       DonationFilterBar.tsx
+      BuildingInfoModal.tsx          ← card só-leitura do prédio clicado; lápis só p/ dono/admin
       BuildingCustomizePanel.tsx
       BuildingControls.tsx
       TextureControls.tsx
@@ -140,6 +141,7 @@ src/
       useKeyboardShortcuts.ts
       useDonations.ts
       useCustomizationCatalog.ts   ← carrega catálogo de personalizações 1×
+      useOwnedDonationIds.ts       ← ids das doações da sessão (quem pode editar)
     three/
       CitySceneCanvas.tsx
       CustomizationPreview.tsx     ← miniatura + preview 3D de formato/topo/LED (admin)
@@ -249,9 +251,10 @@ Ele guarda todos os estados:
 - `environmentSettings`, `reflectionSettings`, `horizonSettings`, `blockLayoutSettings`, `terrainSettings`
 - `sceneStats`, `hoverInfo`
 - `showControlPanel` — toggle do painel de configuração (escondido por padrão)
-- `selectedBuildingId` — edifício selecionado para personalização
+- `infoBuildingId` — edifício clicado; abre [[html-components#BuildingInfoModal.tsx|BuildingInfoModal]]
+- `selectedBuildingId` — edifício em personalização; painel só renderiza se `canEdit` (dono ou admin, ver [[donation-api#Quem pode editar]])
 - `buildingCustomizations` — `Map<donationId, BuildingCustomization>` com cor, formato (default/twisted/octagonal/setback/tapered/chrysler/hearst/empire/taipei/one-trade/yachthouse/residential), acessório de topo (holofotes, heliponto, jardim suspenso ou helicóptero com casco único, vidros integrados e rotores proporcionais), letreiro, LED de arestas e holograma cyberpunk. **Persistido**: nasce do snapshot, cada mudança grava em `donation.customization` no banco — ver [[donation-api#Personalização persistida]]
-- `saveError` — falha da gravação (sem login, prédio de outro, opção travada). Banner sobre o painel
+- Falha da gravação (sem login, prédio de outro, opção travada) → toast por edifício, ver [[donation-api#Personalização persistida]]
 
 E entrega para:
 
@@ -296,6 +299,7 @@ flowchart TD
     C --> D[CitySceneCanvas]
     C --> E[CityControlPanel]
     C --> F[BuildingHeightInput]
+    C --> BI[BuildingInfoModal]
     C --> P[BuildingCustomizePanel]
     C --> BL[BuildingLayoutCard]
     D --> G[useCityScene]
@@ -329,7 +333,8 @@ flowchart TD
 ```mermaid
 flowchart LR
     Click[Clique no edifício] --> Focus[focusOnDonation]
-    Focus --> Panel[BuildingCustomizePanel]
+    Focus --> Info[BuildingInfoModal]
+    Info --> |lápis, só dono/admin| Panel[BuildingCustomizePanel]
     Panel --> |cor| UC[updateCustomization]
     Panel --> |formato| UC
     Panel --> |letreiro| UC
@@ -369,6 +374,7 @@ flowchart LR
 | Trocar modo de layout (quadra × centro)          | [[html-components#BuildingLayoutCard.tsx]]        |
 | Limitar quantos edifícios aparecem na tela       | [[html-components#BuildingLayoutCard.tsx]] · `visibleLimit` no `CitySceneEditor` |
 | Alterar a UI de personalização de edifício       | [[html-components#BuildingCustomizePanel.tsx]]    |
+| Card de info do prédio / quem pode editar        | [[html-components#BuildingInfoModal.tsx]] · [[donation-api#Quem pode editar]] |
 | Personalização salvar/carregar do banco          | [[donation-api#Personalização persistida]]        |
 | Entender de onde vêm as opções de personalização | [[customization-api]]                             |
 | Cadastrar/ativar cores e opções (admin)          | [[personalizacoes]]                               |

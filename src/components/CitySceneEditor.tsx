@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import axios from "axios";
 import { CitySceneCanvas, type CitySceneCanvasHandle } from "./three/CitySceneCanvas";
 import { AuthMenu } from "./AuthMenu";
 import { BuildingHeightInput } from "./html/BuildingHeightInput";
 import { BuildingCustomizePanel } from "./html/BuildingCustomizePanel";
+import { BuildingInfoModal } from "./html/BuildingInfoModal";
 import { BuildingLayoutCard } from "./html/BuildingLayoutCard";
 import { CityControlPanel } from "./html/CityControlPanel";
 import { KeyboardShortcutsHelp } from "./html/KeyboardShortcutsHelp";
@@ -12,6 +12,9 @@ import {
   type KeyboardShortcut,
 } from "./hooks/useKeyboardShortcuts";
 import { useDonations } from "./hooks/useDonations";
+import { useOwnedDonationIds } from "./hooks/useOwnedDonationIds";
+import { useAuth } from "@/hooks/useAuth";
+import { ApiError } from "../api/http";
 import { saveDonationCustomization } from "../api/donationApi";
 import { useCustomizationCatalog } from "./hooks/useCustomizationCatalog";
 import { DonationLoadOverlay } from "./html/DonationLoadOverlay";
@@ -72,6 +75,9 @@ export function CitySceneEditor() {
   const [uiVisibility, setUIVisibility] = useState(loadUIVisibilitySettings);
   // Granulado de renderização zerado por padrão: cena sempre abre na resolução nativa.
   const [grain, setGrain] = useState(0);
+  // Clique num edifício abre o modal de info; o painel de personalização só
+  // abre a partir dele, e só para quem pode editar (dono ou admin).
+  const [infoBuildingId, setInfoBuildingId] = useState<number | null>(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState<number | null>(null);
   const [buildingCustomizations, setBuildingCustomizations] = useState<Map<number, BuildingCustomization>>(
     () => new Map(),
@@ -89,6 +95,10 @@ export function CitySceneEditor() {
   const { loadState, donations, cities, ongs, savedCustomizations, filter, setFilter, retry } =
     useDonations();
   const customizationCatalog = useCustomizationCatalog();
+  const { isAdmin } = useAuth();
+  const ownedDonationIds = useOwnedDonationIds();
+  // Só UX: o backend recusa (404) o PUT em edifício alheio de qualquer jeito.
+  const canEdit = (donationId: number) => isAdmin || ownedDonationIds.has(donationId);
   const [donationsApplied, setDonationsApplied] = useState(false);
   // Teto de edifícios na cena (null = todos). Corta as doações de menor valor.
   const [visibleLimit, setVisibleLimit] = useState<number | null>(null);
@@ -123,6 +133,7 @@ export function CitySceneEditor() {
     // progresso no render (overlay) — set-state-in-effect é intencional.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedBuildingId(null);
+    setInfoBuildingId(null);
     setDonationsApplied(false);
     // setDonations é síncrono (rebuild inline ~0,5s p/ 100k). Duplo rAF: rAF
     // dispara ANTES do paint do próprio frame — só o 2º garante o overlay
@@ -189,15 +200,40 @@ export function CitySceneEditor() {
       } else {
         canvasRef.current?.clearFocus();
       }
-      setSelectedBuildingId(donationId);
+      setSelectedBuildingId(null);
+      setInfoBuildingId(donationId);
     },
     [],
   );
+
+  const handleCloseInfo = useCallback(() => {
+    canvasRef.current?.clearFocus();
+    setInfoBuildingId(null);
+  }, []);
+
+  // Modal de info → painel de personalização. Mantém o foco/zoom no edifício.
+  const handleCustomizeFromInfo = useCallback(() => {
+    setSelectedBuildingId(infoBuildingId);
+    setInfoBuildingId(null);
+  }, [infoBuildingId]);
 
   const handleCloseCustomizePanel = useCallback(() => {
     canvasRef.current?.clearFocus();
     setSelectedBuildingId(null);
   }, []);
+
+  // Tudo que o modal mostra já veio no snapshot público — sem request no clique.
+  const infoBuilding = useMemo(() => {
+    if (infoBuildingId === null) return null;
+    const donation = donations.find((d) => d.id === infoBuildingId);
+    if (!donation) return null;
+    const city = cities.find((c) => c.id === donation.cityId);
+    return {
+      value: donation.value,
+      ongName: ongs.find((o) => o.id === donation.ongId)?.name,
+      place: city ? `${city.name} · ${city.uf}` : undefined,
+    };
+  }, [infoBuildingId, donations, cities, ongs]);
 
   const getExistingCustomization = useCallback(
     (donationId: number) => {
@@ -227,20 +263,18 @@ export function CitySceneEditor() {
       saveDonationCustomization(donationId, data)
         .then(() => toast.dismiss(toastId))
         .catch((err: unknown) => {
-          const response = axios.isAxiosError(err) ? err.response : undefined;
+          // O interceptor do `http` rejeita com ApiError, nunca AxiosError.
+          const status = err instanceof ApiError ? err.status : 0;
           // 400/403 vêm com a razão exata do backend (opção travada, item
           // desligado) — repetir a mensagem dele é melhor que genérico.
-          const fromServer =
-            response && (response.status === 400 || response.status === 403)
-              ? (response.data as { message?: string } | undefined)?.message
-              : undefined;
           const reason =
-            fromServer ??
-            (response?.status === 401
-              ? "Entre na sua conta para salvar a personalização."
-              : response?.status === 404
-                ? "Este edifício não é seu — a mudança não foi salva."
-                : undefined);
+            err instanceof ApiError && (status === 400 || status === 403)
+              ? err.message
+              : status === 401
+                ? "Entre na sua conta para salvar a personalização."
+                : status === 404
+                  ? "Este edifício não é seu — a mudança não foi salva."
+                  : undefined;
           toast.error(reason ?? "Não foi possível salvar a personalização.", {
             id: toastId,
             // Rede/servidor é transitório: repete com o estado ATUAL do edifício,
@@ -398,6 +432,8 @@ export function CitySceneEditor() {
       handler: () => {
         if (showShortcutsHelp) {
           setShowShortcutsHelp(false);
+        } else if (infoBuildingId !== null) {
+          handleCloseInfo();
         } else if (selectedBuildingId !== null) {
           handleCloseCustomizePanel();
         } else {
@@ -492,7 +528,18 @@ export function CitySceneEditor() {
         onBlockLayoutChange={setBlockLayoutSettings}
         visibility={uiVisibility}
       />
-      {selectedBuildingId !== null && (() => {
+      {infoBuildingId !== null && infoBuilding && (
+        <BuildingInfoModal
+          value={infoBuilding.value}
+          ongName={infoBuilding.ongName}
+          place={infoBuilding.place}
+          isOwn={ownedDonationIds.has(infoBuildingId)}
+          onCustomize={canEdit(infoBuildingId) ? handleCustomizeFromInfo : undefined}
+          onClose={handleCloseInfo}
+        />
+      )}
+      {/* Gate no render: sessão que cai (logout/401) fecha o painel sozinha. */}
+      {selectedBuildingId !== null && canEdit(selectedBuildingId) && (() => {
         const c = getExistingCustomization(selectedBuildingId);
         return (
           <BuildingCustomizePanel

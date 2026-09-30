@@ -85,6 +85,19 @@ export async function fetchDonationSnapshot(
 }
 
 /**
+ * Ids das doações do usuário logado — decide quais edifícios abrem o painel.
+ * Só UX: o PUT abaixo continua recusando (404) o que não é dele.
+ */
+export async function fetchMyDonationIds(
+  opts: { signal?: AbortSignal } = {},
+): Promise<number[]> {
+  const { data } = await http.get<{ data: number[] }>("/donation/me", {
+    signal: opts.signal,
+  });
+  return data.data;
+}
+
+/**
  * Persiste a personalização de UM edifício. Exige sessão: o back só aceita do
  * dono da doação (ou admin) e responde 404 no resto — ver donation.controller.
  */
