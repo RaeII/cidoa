@@ -149,18 +149,18 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre pelo botão avatar 
 
 - **Fundo** — `DialogOverlay` com tinta `#04283d` + `backdrop-blur` + `backdrop-saturate-50`, fade 500 ms: cena muda de cor ao abrir.
 - **Visual** — mesmo vocabulário da cena: vidro escuro (`bg-black/60` + `backdrop-blur-xl`, `border-white/10`), cantos `rounded-2xl`/`rounded-3xl`, dourado `#c9a86a` como destaque (anel do avatar, "Ver na cidade", código, barra de progresso).
-- **Topo** — título `CIDOA` à esquerda; à direita pílula com nome, `@username` (some no celular), avatar redondo e toggle dia/noite (`onNightChange`).
-- **Abas** — Radix `Tabs` (setas ←/→ navegam), pílulas com ícone dentro do cartão. Ativa = branca. Celular: inativa mostra só ícone.
+- **Topo** — sem título visível (`DialogTitle` só `sr-only`); à direita pílula com nome, `@username` (some no celular), avatar redondo e toggle dia/noite (`onNightChange`).
+- **Abas** — Radix `Tabs` (setas ←/→ navegam), pílulas com ícone dentro do cartão. Abre em Doações; Perfil por último. Ativa = branca. Celular: inativa mostra só ícone.
 - **Conteúdo** — coluna centralizada com largura máxima (perfil `max-w-xl`, doações `max-w-2xl`, indicações `max-w-md`). Perfil e indicações centralizam também na vertical.
-- **Rodapé** — **Sair** (fecha + `logout()`) à esquerda; **Esc Voltar** à direita.
+- **Rodapé** — só **Esc Voltar** à direita.
 - **Tema** — Content leva classe `dark`: tokens shadcn escuros só dentro do menu.
 
 | Aba | Conteúdo |
 |---|---|
-| Perfil | `ProfilePanel.tsx`: avatar + nome + e-mail no topo; nome e username lado a lado (sm+). Salvar → toast. |
 | Doações | Total doado + doações da sessão, maior valor 1º. **Ver na cidade** fecha menu e chama `handleBuildingClick` (foco + [[#BuildingInfoModal.tsx\|card]]). Fora do filtro/teto atual → "Fora do filtro", sem botão. |
 | Personalizações | Catálogo agrupado (formato, topo, LED, cor, textura, letreiro/holograma) com `isUnlocked`. Travado mostra requisito via `formatUnlockRequirement` ([[passe-formatacao]]). |
 | Indicações | Código + compartilhar, total indicado, quem indicou ([[referral]]). Some p/ admin. |
+| Perfil | `ProfilePanel.tsx`: avatar + nome + e-mail no topo; nome e username lado a lado (sm+). Salvar → toast. Canto inferior direito: **Sair** discreto (texto cinza, hover vermelho; fecha + `logout()`). |
 
 | Prop | Tipo | Descrição |
 |---|---|---|

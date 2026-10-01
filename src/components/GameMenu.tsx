@@ -113,10 +113,8 @@ export function GameMenu({
           aria-describedby={undefined}
           className="dark fixed top-1/2 left-1/2 z-50 flex h-[min(42rem,calc(100svh-2rem))] w-[calc(100%-2rem)] max-w-4xl -translate-x-1/2 -translate-y-1/2 flex-col gap-4 text-white outline-none duration-300 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
         >
-          <header className="flex items-center justify-between gap-4">
-            <DialogTitle className="text-3xl font-black tracking-tight uppercase italic drop-shadow-lg sm:text-4xl">
-              Cidoa
-            </DialogTitle>
+          <header className="flex items-center justify-end gap-4">
+            <DialogTitle className="sr-only">Menu</DialogTitle>
             <div className={`flex min-w-0 items-center gap-3 rounded-full py-1.5 pr-1.5 pl-1.5 sm:pl-4 ${glass}`}>
               <div className="hidden min-w-0 text-right sm:block">
                 <p className="truncate text-sm font-semibold">{displayName}</p>
@@ -138,11 +136,8 @@ export function GameMenu({
             </div>
           </header>
 
-          <Tabs.Root defaultValue="profile" className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl ${glass}`}>
+          <Tabs.Root defaultValue="donations" className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl ${glass}`}>
             <Tabs.List aria-label="Seções do menu" className="m-2 flex gap-1 rounded-2xl bg-white/5 p-1">
-              <Tabs.Trigger value="profile" className={tabClass} title="Perfil">
-                <UserRound /><span className={tabLabel}>Perfil</span>
-              </Tabs.Trigger>
               <Tabs.Trigger value="donations" className={tabClass} title="Doações">
                 <Building2 /><span className={tabLabel}>Doações</span>
               </Tabs.Trigger>
@@ -154,11 +149,10 @@ export function GameMenu({
                   <Users /><span className={tabLabel}>Indicações</span>
                 </Tabs.Trigger>
               )}
+              <Tabs.Trigger value="profile" className={tabClass} title="Perfil">
+                <UserRound /><span className={tabLabel}>Perfil</span>
+              </Tabs.Trigger>
             </Tabs.List>
-
-            <Tabs.Content value="profile" className={`${panelClass} flex flex-col`}>
-              <ProfilePanel />
-            </Tabs.Content>
 
             <Tabs.Content value="donations" className={panelClass}>
               <div className="mx-auto max-w-2xl">
@@ -296,20 +290,24 @@ export function GameMenu({
                 </div>
               </Tabs.Content>
             )}
+
+            <Tabs.Content value="profile" className={`${panelClass} flex flex-col`}>
+              <ProfilePanel />
+              <button
+                type="button"
+                className="mt-8 flex h-8 items-center gap-1.5 self-end rounded-full px-3 text-sm text-white/50 transition-colors hover:bg-red-500/10 hover:text-red-300 focus-visible:ring-2 focus-visible:ring-[#c9a86a]/70 focus-visible:outline-none"
+                onClick={() => {
+                  onOpenChange(false);
+                  void logout();
+                }}
+              >
+                <LogOut className="size-4" />
+                Sair
+              </button>
+            </Tabs.Content>
           </Tabs.Root>
 
-          <footer className="flex items-center justify-between gap-2">
-            <button
-              type="button"
-              className={`${pillButton} ${glass} hover:text-red-300`}
-              onClick={() => {
-                onOpenChange(false);
-                void logout();
-              }}
-            >
-              <LogOut className="size-4" />
-              Sair
-            </button>
+          <footer className="flex justify-end">
             <DialogClose className={`${pillButton} ${glass}`}>
               <kbd className="rounded-md border border-white/30 px-1.5 font-sans text-xs">Esc</kbd>
               Voltar
