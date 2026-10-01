@@ -148,14 +148,16 @@ Mostra valor (BRL), `Cidade · UF`, chip da ONG — tudo do snapshot público, z
 Menu do usuário logado, estilo menu de pausa do GTA V. Abre pelo botão avatar + nome do `AuthMenu` (canto superior direito). Deslogado não existe — `AuthMenu` mostra "Entrar". Substituiu dropdown antigo + `ProfileDialog`.
 
 - **Fundo** — `DialogOverlay` com tinta `#04283d` + `backdrop-blur` + `backdrop-saturate-50`, fade 500 ms: cena muda de cor ao abrir.
-- **Topo** — título `CIDOA` à esquerda; à direita nome, `@username`, avatar quadrado e toggle dia/noite (`onNightChange`).
-- **Abas** — Radix `Tabs` (setas ←/→ navegam). Ativa = fundo branco + faixa dourada no topo.
+- **Visual** — mesmo vocabulário da cena: vidro escuro (`bg-black/60` + `backdrop-blur-xl`, `border-white/10`), cantos `rounded-2xl`/`rounded-3xl`, dourado `#c9a86a` como destaque (anel do avatar, "Ver na cidade", código, barra de progresso).
+- **Topo** — título `CIDOA` à esquerda; à direita pílula com nome, `@username` (some no celular), avatar redondo e toggle dia/noite (`onNightChange`).
+- **Abas** — Radix `Tabs` (setas ←/→ navegam), pílulas com ícone dentro do cartão. Ativa = branca. Celular: inativa mostra só ícone.
+- **Conteúdo** — coluna centralizada com largura máxima (perfil `max-w-xl`, doações `max-w-2xl`, indicações `max-w-md`). Perfil e indicações centralizam também na vertical.
 - **Rodapé** — **Sair** (fecha + `logout()`) à esquerda; **Esc Voltar** à direita.
 - **Tema** — Content leva classe `dark`: tokens shadcn escuros só dentro do menu.
 
 | Aba | Conteúdo |
 |---|---|
-| Perfil | `ProfilePanel.tsx`: nome, username, imagem, e-mail. Salvar → toast. |
+| Perfil | `ProfilePanel.tsx`: avatar + nome + e-mail no topo; nome e username lado a lado (sm+). Salvar → toast. |
 | Doações | Total doado + doações da sessão, maior valor 1º. **Ver na cidade** fecha menu e chama `handleBuildingClick` (foco + [[#BuildingInfoModal.tsx\|card]]). Fora do filtro/teto atual → "Fora do filtro", sem botão. |
 | Personalizações | Catálogo agrupado (formato, topo, LED, cor, textura, letreiro/holograma) com `isUnlocked`. Travado mostra requisito via `formatUnlockRequirement` ([[passe-formatacao]]). |
 | Indicações | Código + compartilhar, total indicado, quem indicou ([[referral]]). Some p/ admin. |

@@ -1,4 +1,4 @@
-import { Check, Lock, LogOut, MapPin, Moon, Share2, Sun, Users } from "lucide-react";
+import { Building2, Check, Lock, LogOut, MapPin, Moon, Palette, Share2, Sun, UserRound, Users } from "lucide-react";
 import { Dialog as DialogPrimitive, Tabs } from "radix-ui";
 import type { CatalogFeature, CatalogOption, CustomizationCatalog } from "@/api/customizationApi";
 import type { ReferralSummary } from "@/api/referral/referral.types";
@@ -34,12 +34,17 @@ type GameMenuProps = {
   onShareReferral: () => void;
 };
 
-// Barra de abas no estilo do menu de pausa do GTA V: aba ativa branca com faixa colorida no topo.
+// Vocabulário visual da cena (vidro escuro, cantos suaves, dourado da marca) na estrutura do menu de pausa do GTA V.
+const glass = "border border-white/10 bg-black/60 shadow-2xl backdrop-blur-xl";
 const tabClass =
-  "h-11 min-w-32 shrink-0 border-t-4 border-transparent bg-black/70 px-4 text-sm font-semibold tracking-wide text-white/75 uppercase transition-colors outline-none hover:bg-black/50 hover:text-white focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-inset data-[state=active]:border-[#c9a86a] data-[state=active]:bg-white data-[state=active]:text-black";
-const panelClass = "min-h-0 flex-1 overflow-y-auto bg-background/90 p-5 outline-none sm:p-6";
-const hintButton =
-  "flex h-9 items-center gap-2 bg-black/70 px-3 text-sm font-medium text-white/80 transition-colors hover:bg-black/50 hover:text-white focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none";
+  "group flex h-10 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium whitespace-nowrap text-white/60 transition-colors outline-none hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-[#c9a86a]/70 data-[state=active]:bg-white data-[state=active]:text-[#05111d] data-[state=active]:shadow-md [&_svg]:size-4 [&_svg]:shrink-0";
+// Inativa no celular mostra só o ícone; o nome volta no sm+.
+const tabLabel = "hidden group-data-[state=active]:inline sm:inline";
+const panelClass = "min-h-0 flex-1 overflow-y-auto px-4 py-5 outline-none sm:px-8 sm:py-7";
+const pillButton =
+  "flex h-10 items-center gap-2 rounded-full px-4 text-sm font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-[#c9a86a]/70 focus-visible:outline-none";
+const goldButton =
+  "flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#c9a86a]/40 bg-[#c9a86a]/10 px-3.5 text-sm font-medium text-[#e4c98b] transition-colors hover:bg-[#c9a86a]/20 focus-visible:ring-2 focus-visible:ring-[#c9a86a]/70 focus-visible:outline-none [&_svg]:size-4";
 
 type UnlockItem = {
   key: string;
@@ -106,26 +111,24 @@ export function GameMenu({
         <DialogOverlay className="bg-[#04283d]/55 backdrop-blur-md backdrop-saturate-50 duration-500" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
-          className="dark fixed top-1/2 left-1/2 z-50 flex h-[min(44rem,calc(100svh-2rem))] w-[calc(100%-2rem)] max-w-5xl -translate-x-1/2 -translate-y-1/2 flex-col gap-3 text-foreground outline-none duration-300 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+          className="dark fixed top-1/2 left-1/2 z-50 flex h-[min(42rem,calc(100svh-2rem))] w-[calc(100%-2rem)] max-w-4xl -translate-x-1/2 -translate-y-1/2 flex-col gap-4 text-white outline-none duration-300 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
         >
-          <header className="flex items-end justify-between gap-4">
-            <DialogTitle className="text-4xl font-black tracking-tight text-white uppercase italic drop-shadow-lg sm:text-5xl">
+          <header className="flex items-center justify-between gap-4">
+            <DialogTitle className="text-3xl font-black tracking-tight uppercase italic drop-shadow-lg sm:text-4xl">
               Cidoa
             </DialogTitle>
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="min-w-0 text-right">
-                <p className="truncate font-semibold text-white uppercase drop-shadow">{displayName}</p>
-                <p className="truncate text-xs text-white/70">@{user.username}</p>
+            <div className={`flex min-w-0 items-center gap-3 rounded-full py-1.5 pr-1.5 pl-1.5 sm:pl-4 ${glass}`}>
+              <div className="hidden min-w-0 text-right sm:block">
+                <p className="truncate text-sm font-semibold">{displayName}</p>
+                <p className="truncate text-xs text-white/60">@{user.username}</p>
               </div>
-              <Avatar className="size-12 rounded-none border-2 border-white/80">
+              <Avatar className="size-10 ring-2 ring-[#c9a86a]/60">
                 {user.profile_image && <AvatarImage src={user.profile_image} alt="" className="object-cover" />}
-                <AvatarFallback className="rounded-none bg-black/70 text-white">
-                  {initials}
-                </AvatarFallback>
+                <AvatarFallback className="bg-white/10 text-sm font-semibold text-white">{initials}</AvatarFallback>
               </Avatar>
               <button
                 type="button"
-                className={`${hintButton} size-12 justify-center px-0`}
+                className="grid size-10 place-items-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white focus-visible:ring-2 focus-visible:ring-[#c9a86a]/70 focus-visible:outline-none [&_svg]:size-[18px]"
                 onClick={() => onNightChange(!night)}
                 title={nightLabel}
                 aria-label={nightLabel}
@@ -135,92 +138,117 @@ export function GameMenu({
             </div>
           </header>
 
-          <Tabs.Root defaultValue="profile" className="flex min-h-0 flex-1 flex-col gap-1">
-            <Tabs.List aria-label="Seções do menu" className="flex gap-1 overflow-x-auto">
-              <Tabs.Trigger value="profile" className={`${tabClass} flex-1`}>Perfil</Tabs.Trigger>
-              <Tabs.Trigger value="donations" className={`${tabClass} flex-1`}>Doações</Tabs.Trigger>
-              <Tabs.Trigger value="customizations" className={`${tabClass} flex-1`}>Personalizações</Tabs.Trigger>
+          <Tabs.Root defaultValue="profile" className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl ${glass}`}>
+            <Tabs.List aria-label="Seções do menu" className="m-2 flex gap-1 rounded-2xl bg-white/5 p-1">
+              <Tabs.Trigger value="profile" className={tabClass} title="Perfil">
+                <UserRound /><span className={tabLabel}>Perfil</span>
+              </Tabs.Trigger>
+              <Tabs.Trigger value="donations" className={tabClass} title="Doações">
+                <Building2 /><span className={tabLabel}>Doações</span>
+              </Tabs.Trigger>
+              <Tabs.Trigger value="customizations" className={tabClass} title="Personalizações">
+                <Palette /><span className={tabLabel}>Personalizações</span>
+              </Tabs.Trigger>
               {!user.is_admin && (
-                <Tabs.Trigger value="referral" className={`${tabClass} flex-1`}>Indicações</Tabs.Trigger>
+                <Tabs.Trigger value="referral" className={tabClass} title="Indicações">
+                  <Users /><span className={tabLabel}>Indicações</span>
+                </Tabs.Trigger>
               )}
             </Tabs.List>
 
-            <Tabs.Content value="profile" className={panelClass}>
+            <Tabs.Content value="profile" className={`${panelClass} flex flex-col`}>
               <ProfilePanel />
             </Tabs.Content>
 
             <Tabs.Content value="donations" className={panelClass}>
-              <div className="mb-4 flex gap-8 border-b border-white/10 pb-4">
-                <div>
-                  <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Total doado</p>
-                  <p className="text-2xl font-semibold">{formatBRL(totalDonated)}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Edifícios</p>
-                  <p className="text-2xl font-semibold">{donations.length}</p>
-                </div>
+              <div className="mx-auto max-w-2xl">
+                <p className="mb-5 text-white/60">
+                  <span className="block text-3xl font-semibold tracking-tight text-white">{formatBRL(totalDonated)}</span>
+                  doados em {donations.length} {donations.length === 1 ? "edifício" : "edifícios"}
+                </p>
+                {donations.length === 0 ? (
+                  <p className="rounded-2xl bg-white/5 px-4 py-8 text-center text-sm text-white/60">
+                    Nenhuma doação ainda.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {donations.map((donation) => (
+                      <li key={donation.id} className="flex items-center gap-3 rounded-2xl bg-white/5 p-3 pr-4 transition-colors hover:bg-white/[0.08]">
+                        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#c9a86a]/10 text-[#c9a86a]">
+                          <Building2 className="size-5" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold">{formatBRL(donation.value)}</p>
+                          <p className="line-clamp-2 text-sm text-white/60 sm:truncate">
+                            {[donation.ongName, donation.place].filter(Boolean).join(" · ")}
+                          </p>
+                        </div>
+                        {donation.inScene ? (
+                          <button
+                            type="button"
+                            className={goldButton}
+                            onClick={() => {
+                              onOpenChange(false);
+                              onOpenDonation(donation.id);
+                            }}
+                          >
+                            <MapPin />
+                            <span className="hidden sm:inline">Ver na cidade</span>
+                            <span className="sr-only sm:hidden">Ver na cidade</span>
+                          </button>
+                        ) : (
+                          <span className="shrink-0 text-xs text-white/50">Fora do filtro</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-              {donations.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nenhuma doação ainda.</p>
-              ) : (
-                <ul className="divide-y divide-white/10">
-                  {donations.map((donation) => (
-                    <li key={donation.id} className="flex items-center justify-between gap-4 py-3">
-                      <div className="min-w-0">
-                        <p className="font-semibold">{formatBRL(donation.value)}</p>
-                        <p className="truncate text-sm text-muted-foreground">
-                          {[donation.ongName, donation.place].filter(Boolean).join(" · ")}
-                        </p>
-                      </div>
-                      {donation.inScene ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            onOpenChange(false);
-                            onOpenDonation(donation.id);
-                          }}
-                        >
-                          <MapPin />
-                          Ver na cidade
-                        </Button>
-                      ) : (
-                        <span className="shrink-0 text-xs text-muted-foreground">Fora do filtro</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
             </Tabs.Content>
 
             <Tabs.Content value="customizations" className={panelClass}>
               {!catalog ? (
-                <p role="status" className="text-sm text-muted-foreground">Carregando…</p>
+                <p role="status" className="text-center text-sm text-white/60">Carregando…</p>
               ) : (
-                <div className="space-y-6">
-                  <p className="text-sm text-muted-foreground">
-                    <strong className="text-foreground">{unlockedCount}</strong> de {itemCount} liberadas
-                  </p>
+                <div className="space-y-7">
+                  <div className="flex items-center gap-4">
+                    <p className="shrink-0 text-sm text-white/60">
+                      <strong className="text-base text-white">{unlockedCount}</strong> de {itemCount} liberadas
+                    </p>
+                    <div
+                      role="progressbar"
+                      aria-label="Personalizações liberadas"
+                      aria-valuemin={0}
+                      aria-valuemax={itemCount}
+                      aria-valuenow={unlockedCount}
+                      className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10"
+                    >
+                      <div
+                        className="h-full rounded-full bg-[#c9a86a]"
+                        style={{ width: `${itemCount ? (unlockedCount / itemCount) * 100 : 0}%` }}
+                      />
+                    </div>
+                  </div>
                   {groups.map((group) => (
                     <section key={group.title}>
-                      <h3 className="mb-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                        {group.title}
-                      </h3>
-                      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+                      <h3 className="mb-3 text-sm font-semibold text-white/90">{group.title}</h3>
+                      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                         {group.items.map((item) => (
-                          <li
-                            key={item.key}
-                            className={`border border-white/10 bg-white/5 ${item.isUnlocked ? "" : "opacity-60"}`}
-                          >
-                            <div className="h-24 p-2">
+                          <li key={item.key} className="overflow-hidden rounded-2xl bg-white/5">
+                            <div className={`h-24 bg-gradient-to-b from-white/[0.06] to-transparent p-3 ${item.isUnlocked ? "" : "opacity-40 grayscale"}`}>
                               <CustomizationImage categoryKey={item.categoryKey} optionKey={item.optionKey} value={item.value} />
                             </div>
-                            <div className="border-t border-white/10 px-2 py-1.5">
-                              <p className="truncate text-sm font-medium">{item.label}</p>
-                              <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                                {item.isUnlocked ? <Check className="size-3 text-emerald-400" /> : <Lock className="size-3" />}
-                                {item.isUnlocked ? "Liberado" : formatUnlockRequirement(item.unlock)}
-                              </p>
+                            <div className="px-3 pt-1 pb-3">
+                              <p className="truncate text-sm font-medium" title={item.label}>{item.label}</p>
+                              {item.isUnlocked ? (
+                                <p className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-300">
+                                  <Check className="size-3" />Liberado
+                                </p>
+                              ) : (
+                                <p className="mt-1 flex items-start gap-1 text-xs text-white/60">
+                                  <Lock className="mt-px size-3 shrink-0" />{formatUnlockRequirement(item.unlock)}
+                                </p>
+                              )}
                             </div>
                           </li>
                         ))}
@@ -232,41 +260,38 @@ export function GameMenu({
             </Tabs.Content>
 
             {!user.is_admin && (
-              <Tabs.Content value="referral" className={panelClass}>
-                <div className="max-w-lg space-y-4">
+              <Tabs.Content value="referral" className={`${panelClass} flex flex-col`}>
+                <div className="m-auto w-full max-w-md space-y-4 text-center">
                   {referralSummary && (
-                    <div className="flex items-center justify-between gap-3 border border-white/10 bg-white/5 p-3">
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-muted-foreground">Código de indicação</p>
-                        <p className="truncate font-mono text-lg font-semibold">{referralSummary.code}</p>
-                      </div>
-                      <Button type="button" size="sm" variant="outline" onClick={onShareReferral}>
-                        <Share2 />
-                        Compartilhar
-                      </Button>
-                    </div>
-                  )}
-                  {referralSummary && (
-                    <div className="flex items-center gap-3 border border-white/10 bg-white/5 p-3">
-                      <Users className="size-4 shrink-0 text-muted-foreground" />
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground">Indicações realizadas</p>
-                        <p className="text-sm font-semibold">
-                          {referralSummary.referral_count.toLocaleString("pt-BR")}
+                    <>
+                      <div className="rounded-3xl bg-white/5 px-6 py-7">
+                        <p className="text-sm text-white/60">Seu código de indicação</p>
+                        <p className="my-3 font-mono text-4xl font-semibold tracking-[0.2em] text-[#e4c98b]">
+                          {referralSummary.code}
                         </p>
+                        <Button type="button" className="rounded-full px-5" onClick={onShareReferral}>
+                          <Share2 />
+                          Compartilhar
+                        </Button>
                       </div>
-                    </div>
+                      <p className="text-white/60">
+                        <strong className="text-2xl font-semibold text-white">
+                          {referralSummary.referral_count.toLocaleString("pt-BR")}
+                        </strong>{" "}
+                        {referralSummary.referral_count === 1 ? "pessoa indicada" : "pessoas indicadas"}
+                      </p>
+                    </>
                   )}
                   {referralSummary?.referrer && (
                     <ReferralPerson
                       label="Você foi indicado por"
                       person={referralSummary.referrer}
-                      className="rounded-none border-white/10 bg-white/5"
+                      className="rounded-2xl border-0 bg-white/5 text-left"
                     />
                   )}
                   {referralError && <p role="alert" className="text-sm text-destructive">{referralError}</p>}
                   {!referralSummary && !referralError && (
-                    <p role="status" className="text-sm text-muted-foreground">Carregando…</p>
+                    <p role="status" className="text-sm text-white/60">Carregando…</p>
                   )}
                 </div>
               </Tabs.Content>
@@ -276,7 +301,7 @@ export function GameMenu({
           <footer className="flex items-center justify-between gap-2">
             <button
               type="button"
-              className={hintButton}
+              className={`${pillButton} ${glass} hover:text-red-300`}
               onClick={() => {
                 onOpenChange(false);
                 void logout();
@@ -285,8 +310,8 @@ export function GameMenu({
               <LogOut className="size-4" />
               Sair
             </button>
-            <DialogClose className={hintButton}>
-              <kbd className="border border-white/40 px-1.5 font-sans text-xs">Esc</kbd>
+            <DialogClose className={`${pillButton} ${glass}`}>
+              <kbd className="rounded-md border border-white/30 px-1.5 font-sans text-xs">Esc</kbd>
               Voltar
             </DialogClose>
           </footer>

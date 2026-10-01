@@ -1,5 +1,5 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { ImagePlus, Mail, Pencil, Trash2, UserRound } from "lucide-react";
+import { Check, ImagePlus, Mail, Pencil, Trash2 } from "lucide-react";
 import { ApiError } from "@/api/http";
 import { useAuth } from "@/hooks/useAuth";
 import { resizeImage } from "@/lib/image";
@@ -13,6 +13,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+// Campo no padrão dos painéis da cena (BuildingCustomizePanel): vidro claro, canto suave.
+const fieldClass = "rounded-xl border-white/10 bg-white/5 dark:bg-white/5 focus-visible:border-[#c9a86a]/60 focus-visible:ring-[#c9a86a]/20";
 
 /** Aba "Perfil" do GameMenu: nome, username e imagem de perfil. */
 export function ProfilePanel() {
@@ -77,33 +80,30 @@ export function ProfilePanel() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="grid gap-6 md:grid-cols-[auto_1fr]">
-      <div className="flex flex-col items-center gap-2">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="sr-only"
-          onChange={handleImageChange}
-        />
-        <div className="relative">
-          <Avatar className="size-28 rounded-none">
+    <form onSubmit={handleSubmit} className="m-auto w-full max-w-xl">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="sr-only"
+        onChange={handleImageChange}
+      />
+      <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+        <div className="relative shrink-0">
+          <Avatar className="size-24 ring-2 ring-[#c9a86a]/50 ring-offset-4 ring-offset-black/40">
             {profileImage && <AvatarImage src={profileImage} alt="Imagem de perfil" className="object-cover" />}
-            <AvatarFallback className="rounded-none bg-white/10 text-2xl font-semibold">
-              {initials}
-            </AvatarFallback>
+            <AvatarFallback className="bg-white/10 text-2xl font-semibold text-white">{initials}</AvatarFallback>
           </Avatar>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button
+              <button
                 type="button"
-                size="icon-sm"
-                className="absolute -right-2 -bottom-2 rounded-full shadow-md"
+                className="absolute -right-1 -bottom-1 grid size-9 place-items-center rounded-full border border-[#c9a86a]/50 bg-[#1b1810] text-[#e4c98b] shadow-lg transition-colors hover:bg-[#2a2416] focus-visible:ring-2 focus-visible:ring-[#c9a86a]/70 focus-visible:outline-none disabled:opacity-50"
                 disabled={processingImage || submitting}
                 aria-label="Editar imagem de perfil"
               >
-                <Pencil />
-              </Button>
+                <Pencil className="size-4" />
+              </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <DropdownMenuItem onSelect={() => fileInputRef.current?.click()}>
@@ -119,48 +119,51 @@ export function ProfilePanel() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+        <div className="min-w-0">
+          <p className="truncate text-xl font-semibold">{user.name || user.username}</p>
+          <p className="mt-1 inline-flex max-w-full items-center gap-1.5 text-sm text-white/60">
+            <Mail className="size-3.5 shrink-0" />
+            <span className="truncate">{user.email ?? "Sem e-mail"}</span>
+          </p>
+        </div>
       </div>
 
-      <div className="space-y-4">
-        <Input
-          id="profile-name"
-          label="Nome"
-          required
-          minLength={2}
-          maxLength={100}
-          autoComplete="name"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-        />
-        <Input
-          id="profile-username"
-          label="Nome de usuário"
-          required
-          minLength={3}
-          maxLength={45}
-          autoComplete="username"
-          autoCapitalize="none"
-          spellCheck={false}
-          value={username}
-          onChange={(event) => setUsername(event.target.value)}
-        />
+      <div className="mt-8 grid gap-4 sm:grid-cols-2">
+        <label className="block">
+          <span className="mb-2 block text-sm text-white/75">Nome</span>
+          <Input
+            className={fieldClass}
+            required
+            minLength={2}
+            maxLength={100}
+            autoComplete="name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-2 block text-sm text-white/75">Nome de usuário</span>
+          <Input
+            className={fieldClass}
+            required
+            minLength={3}
+            maxLength={45}
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+          />
+        </label>
+      </div>
 
-        <div className="flex items-center gap-3 border border-white/10 bg-white/5 p-3">
-          <Mail className="size-4 shrink-0 text-muted-foreground" />
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-muted-foreground">E-mail confirmado</p>
-            <p className="truncate text-sm font-medium">{user.email ?? "Sem e-mail"}</p>
-          </div>
-        </div>
+      {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
 
-        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-
-        <div className="flex justify-end">
-          <Button type="submit" disabled={!hasChanges || submitting || processingImage}>
-            <UserRound />
-            {submitting ? "Salvando…" : "Salvar alterações"}
-          </Button>
-        </div>
+      <div className="mt-6 flex justify-end">
+        <Button type="submit" className="rounded-full px-5" disabled={!hasChanges || submitting || processingImage}>
+          <Check />
+          {submitting ? "Salvando…" : "Salvar alterações"}
+        </Button>
       </div>
     </form>
   );
