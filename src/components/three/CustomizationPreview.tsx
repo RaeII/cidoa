@@ -26,6 +26,21 @@ function createRenderer(canvasLess: boolean) {
 // custa um punhado de frames e depois é só <img>. "" = falhou / sem preview.
 const thumbCache = new Map<string, string>();
 
+// UM contexto p/ todas as miniaturas. Renderer por thumb esgota o limite do
+// browser (~16 contextos vivos — dispose() não solta o contexto) e o browser
+// derruba o mais antigo: o da cena principal.
+let thumbRenderer: THREE.WebGLRenderer | null = null;
+
+function getThumbRenderer() {
+  if (!thumbRenderer || thumbRenderer.getContext().isContextLost()) {
+    thumbRenderer?.dispose();
+    thumbRenderer = createRenderer(true);
+    thumbRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    thumbRenderer.setSize(THUMB_SIZE, THUMB_SIZE, false);
+  }
+  return thumbRenderer;
+}
+
 function renderThumb(subject: PreviewSubject): string {
   const cacheKey = `${subject.kind}:${subject.key}`;
   const cached = thumbCache.get(cacheKey);
@@ -33,14 +48,11 @@ function renderThumb(subject: PreviewSubject): string {
 
   const resolved = resolveSubject(subject);
   let url = "";
-  let renderer: THREE.WebGLRenderer | null = null;
   let view: ReturnType<typeof createPreviewScene> | null = null;
   try {
     if (resolved) {
       view = createPreviewScene(resolved);
-      renderer = createRenderer(true);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setSize(THUMB_SIZE, THUMB_SIZE, false);
+      const renderer = getThumbRenderer();
       view.place(view.frame(1));
       renderer.render(view.scene, view.camera);
       url = renderer.domElement.toDataURL("image/png");
@@ -48,8 +60,8 @@ function renderThumb(subject: PreviewSubject): string {
   } catch {
     url = "";
   } finally {
+    // Geometria/material descartados soltam os buffers no renderer compartilhado.
     view?.dispose();
-    renderer?.dispose();
   }
   thumbCache.set(cacheKey, url);
   return url;

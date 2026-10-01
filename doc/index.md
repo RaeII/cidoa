@@ -95,15 +95,17 @@ src/
       pagination.tsx                ← Pagination shadcn; botão no lugar de <a> (página é estado, não URL)
       select.tsx                    ← Select shadcn; filtro de personalização no admin
       toast.tsx                     ← notificações: toast.* + <Toaster /> (Radix Toast), cena e admin
-    AuthMenu.tsx                  ← menu do usuário na cena: modo noite, perfil, indicação, sair
+    AuthMenu.tsx                  ← botão do usuário na cena: Entrar ou abre o GameMenu; fluxo de indicação
+    GameMenu.tsx                  ← menu estilo GTA: abas perfil/doações/personalizações/indicações, dia/noite, sair
     AuthDialog.tsx                ← login por e-mail ou Google; cadastro confirma nome + username
     AuthProvider.tsx              ← sessão da cena (cookie token_access), só na rota /
     AdminAuthProvider.tsx         ← sessão do painel (cookie token_admin), só em /dale/*
     RequireAdmin.tsx              ← guarda de /dale: exige sessão do painel
-    ProfileDialog.tsx             ← edição de nome, username e imagem de perfil
+    ProfilePanel.tsx              ← aba Perfil do GameMenu: nome, username e imagem
     referral/
       ReferralDialog.tsx          ← confirmação e avisos da indicação
       ReferralPerson.tsx          ← nome e imagem do indicador
+      ShareDialog.tsx             ← modal de compartilhar: redes sociais + copiar link
     CitySceneEditor.tsx
     html/
       CityControlPanel.tsx
@@ -363,6 +365,7 @@ flowchart LR
 | Alterar valor padrão dos prédios                 | [[scene-config]]                                  |
 | Alterar a UI do painel de configuração           | [[html-components#CityControlPanel.tsx]]          |
 | Granulado de render sob carga (padrão `0`)       | aba **tela** em [[html-components#CityControlPanel.tsx]] · `setGrain` em [[scene-runtime#Granulado (setGrain)]] |
+| Menu do usuário (abas, perfil, doações, sair)    | [[html-components#GameMenu.tsx]]                  |
 | Modo noite: toggle no menu do usuário            | [[area-admin#Modo noite (menu do usuário)]]       |
 | Modo noite: céu escuro e estrelas                | [[scene-builders#loadEnvironment.ts]]             |
 | Modo noite: luz, IBL e névoa                     | [[scene-runtime#Modo noite]] · `NIGHT_PRESET` em [[scene-config#environmentConfig.ts]] |

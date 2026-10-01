@@ -143,6 +143,37 @@ Mostra valor (BRL), `Cidade · UF`, chip da ONG — tudo do snapshot público, z
 
 ---
 
+### `GameMenu.tsx`
+
+Menu do usuário logado, estilo menu de pausa do GTA V. Abre pelo botão avatar + nome do `AuthMenu` (canto superior direito). Deslogado não existe — `AuthMenu` mostra "Entrar". Substituiu dropdown antigo + `ProfileDialog`.
+
+- **Fundo** — `DialogOverlay` com tinta `#04283d` + `backdrop-blur` + `backdrop-saturate-50`, fade 500 ms: cena muda de cor ao abrir.
+- **Topo** — título `CIDOA` à esquerda; à direita nome, `@username`, avatar quadrado e toggle dia/noite (`onNightChange`).
+- **Abas** — Radix `Tabs` (setas ←/→ navegam). Ativa = fundo branco + faixa dourada no topo.
+- **Rodapé** — **Sair** (fecha + `logout()`) à esquerda; **Esc Voltar** à direita.
+- **Tema** — Content leva classe `dark`: tokens shadcn escuros só dentro do menu.
+
+| Aba | Conteúdo |
+|---|---|
+| Perfil | `ProfilePanel.tsx`: nome, username, imagem, e-mail. Salvar → toast. |
+| Doações | Total doado + doações da sessão, maior valor 1º. **Ver na cidade** fecha menu e chama `handleBuildingClick` (foco + [[#BuildingInfoModal.tsx\|card]]). Fora do filtro/teto atual → "Fora do filtro", sem botão. |
+| Personalizações | Catálogo agrupado (formato, topo, LED, cor, textura, letreiro/holograma) com `isUnlocked`. Travado mostra requisito via `formatUnlockRequirement` ([[passe-formatacao]]). |
+| Indicações | Código + compartilhar, total indicado, quem indicou ([[referral]]). Some p/ admin. |
+
+| Prop | Tipo | Descrição |
+|---|---|---|
+| `open` / `onOpenChange` | `boolean` / `(open) => void` | Controlado pelo `AuthMenu` |
+| `night` / `onNightChange` | `boolean` / `(night) => void` | Toggle dia/noite do topo |
+| `donations` | `MyDonation[]` | `{ id, value, ongName?, place?, inScene }` |
+| `catalog` | `CustomizationCatalog \| null` | Mesmo do `useCustomizationCatalog`; `null` = carregando |
+| `onOpenDonation` | `(id) => void` | Foca edifício + abre card |
+| `referralSummary` / `referralError` | | Vêm do `AuthMenu` |
+| `onShareReferral` | `() => void` | Abre `ShareDialog` |
+
+`myDonations` montado no `CitySceneEditor`: `allDonations` (dataset sem filtro, do `useDonations`) ∩ `ownedDonationIds`; `inScene` = está em `visibleDonations`.
+
+---
+
 ### `BuildingCustomizePanel.tsx`
 
 Painel de personalização de um edifício individual, aberto pelo lápis do [[#BuildingInfoModal.tsx|BuildingInfoModal]] — só para dono ou admin. Posicionado no canto superior direito com scroll interno para caber em telas menores.
@@ -273,6 +304,7 @@ Hook genérico. Recebe array `KeyboardShortcut[]`, liga 1 listener `keydown` em 
 - Match modificador **exato** — `{ key: "m", ctrl: true }` dispara em Ctrl+M, não Ctrl+Shift+M.
 - Ignora digitação em `input`/`textarea`/`select`/`contentEditable`, exceto se `allowInInput: true`.
 - `preventDefault` padrão `true`.
+- Evento já com `defaultPrevented` → ignorado. Esc que fecha Dialog Radix (ex.: [[#GameMenu.tsx|GameMenu]]) não fecha card/painel da cena junto.
 - Lê array via `ref` atualizado por efeito → caller passa array inline novo a cada render sem re-ligar listener.
 - Export `formatShortcut(s)` → string legível (`"Ctrl + M"`, `"?"`). Tecla símbolo já implica Shift, omite rótulo.
 

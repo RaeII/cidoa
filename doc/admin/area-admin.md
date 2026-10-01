@@ -155,7 +155,7 @@ Layout: `SidebarProvider` (`h-svh`) + `AppSidebar` + conteúdo rolável + `Mobil
 
 Cidade de dia ou de noite. Estado é `environmentSettings.night` no `CitySceneEditor` — mesma trilha dos outros settings da cena (`CitySceneCanvas` → [[scene-hooks]] → `runtime.updateEnvironmentSettings`).
 
-- **Onde clica** — dropdown do `AuthMenu` ("Modo noite" / "Modo dia"). Deslogado não tem dropdown: o mesmo toggle vira botão de ícone (lua/sol) ao lado do "Entrar".
+- **Onde clica** — botão lua/sol no topo do [[html-components#GameMenu.tsx|GameMenu]]. Deslogado não tem menu: o mesmo toggle vira botão de ícone ao lado do "Entrar".
 - **Props** — `AuthMenu` recebe `night` + `onNightChange`; não guarda estado próprio.
 - **O que muda na cena** — céu tingido + estrelas ([[scene-builders#loadEnvironment.ts]]), luz/IBL/névoa ([[scene-runtime#Modo noite]]), valores em `NIGHT_PRESET` ([[scene-config#environmentConfig.ts]]).
 - **Não persiste** — recarregar volta pro dia. Persistir = mesmo padrão de [[scene-config#uiVisibilityConfig.ts]].
@@ -168,8 +168,8 @@ Nada a ver com o `ThemeToggle`/`useTheme` do admin, que é o tema claro/escuro d
 
 Usuário comum entra/cadastra **na própria cena 3D** (`/`), sem sair para outra página. Fluxo **passwordless**: e-mail → código de 6 dígitos.
 
-- **`src/components/AuthMenu.tsx`** — botão no canto superior direito da cena. Deslogado: toggle de noite (lua/sol) + "Entrar" abre o modal. Logado: botão somente com ícone de compartilhar indicação ao lado do usuário, **primeiro nome** da conta (`name`; cai no `username` se vazio) limitado a 18 caracteres + reticências e dropdown com `username` + e-mail, "Modo noite/dia" + "Perfil" + "Sair". Também coordena código vindo de `?ref=`, preview, resumo e confirmação. Ver [[referral]].
-- **`src/components/ProfileDialog.tsx`** — perfil em modal com imagem ou iniciais, nome, username e e-mail confirmado. Mostra código/link próprio; indicador recebido só quando existe; total indicado só quando maior que zero. Um lápis sobre o avatar abre ações de adicionar/trocar e remover imagem. Aceita JPEG, PNG ou WebP de até 10 MB; `src/lib/image.ts` reduz proporcionalmente para no máximo 400×400.
+- **`src/components/AuthMenu.tsx`** — botão no canto superior direito da cena. Deslogado: toggle de noite (lua/sol) + "Entrar" abre o modal. Logado: botão somente com ícone de compartilhar indicação ao lado do usuário, **primeiro nome** da conta (`name`; cai no `username` se vazio) limitado a 18 caracteres + reticências. Clique abre o [[html-components#GameMenu.tsx|GameMenu]] (perfil, doações, personalizações, indicações, dia/noite, sair). Também coordena código vindo de `?ref=`, preview, resumo e confirmação. Ver [[referral]].
+- **`src/components/ProfilePanel.tsx`** — aba **Perfil** do `GameMenu`: imagem ou iniciais, nome, username e e-mail confirmado. Código/link próprio, indicador e total indicado ficam na aba **Indicações**. Um lápis sobre o avatar abre ações de adicionar/trocar e remover imagem. Aceita JPEG, PNG ou WebP de até 10 MB; `src/lib/image.ts` reduz proporcionalmente para no máximo 400×400. "Salvar alterações" só habilita com nome, username ou imagem diferente do perfil atual.
 - **`src/components/AuthDialog.tsx`** — modal único (shadcn `Dialog`): campo opcional de indicação sempre visível + botão **Continuar com Google** + divisor "ou" + e-mail → código. Código de indicação válido mostra nome/imagem; inválido bloqueia login/cadastro até correção ou remoção. Conta nova envia código no cadastro; conta existente confirma depois do login.
   - **Botão Google (GIS)**: o script `accounts.google.com/gsi/client` (carregado no `index.html`) renderiza o botão via `google.accounts.id`. O popup devolve o `credential` (ID token); o callback chama `loginWithGoogle(credential)` → `POST /auth/google` → mesma sessão do fluxo por código. Entrar e cadastrar são a **mesma ação** (o backend resolve). No 1º acesso o modal vai para o passo de confirmação em vez de já entrar. `GOOGLE_CLIENT_ID` vem de `VITE_GOOGLE_CLIENT_ID` (com default público embutido). Registre a **origem** do front em *Authorized JavaScript origins* no Google Console.
   - **Confirmação de dados (passo `profile`)**: fecha os dois cadastros. E-mail aparece em campo **desabilitado** (só confere); nome e nome de usuário vêm preenchidos no 1º acesso por Google (sugestão do backend) e são editáveis. `POST /auth/register/complete` recebe `{ registrationToken, name, username, referralCode? }`. E-mail vem da prova assinada, nunca do body. Backend normaliza `username` para minúsculas, valida 3–45 caracteres e retorna `409` se já existir. `name` aceita 2–100 caracteres.
@@ -238,9 +238,10 @@ Cria/promove usuário com `is_admin=true` + senha bcrypt. Depois é só logar em
 | Sessão do painel (login por senha, logout) | `src/components/AdminAuthProvider.tsx` + `src/hooks/useAdminAuth.ts` |
 | Qual provider cada rota monta | `src/App.tsx` |
 | Botão de login na cena (público) | `src/components/AuthMenu.tsx` |
+| Menu do usuário logado (abas, sair) | `src/components/GameMenu.tsx` · [[html-components#GameMenu.tsx]] |
 | Modo noite (toggle no menu do usuário) | [[area-admin#Modo noite (menu do usuário)]] |
 | Modal de login/cadastro passwordless | `src/components/AuthDialog.tsx` |
-| Visualização e edição do perfil | `src/components/ProfileDialog.tsx` + `src/api/user/user.routes.ts` |
+| Visualização e edição do perfil | `src/components/ProfilePanel.tsx` + `src/api/user/user.routes.ts` |
 | Link, preview, confirmação e compartilhamento de indicação | `src/components/AuthMenu.tsx` + `src/components/referral/` + `src/api/referral/` |
 | Tela de login do admin (senha) | `src/pages/admin/Login.tsx` |
 | Tela de dashboard | `src/pages/admin/Dashboard.tsx` |

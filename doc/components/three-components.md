@@ -104,7 +104,7 @@ Dois exports, mesma cena interna:
 
 | Export | Uso | Custo |
 |---|---|---|
-| `CustomizationThumb` | miniatura na lista | render 1× por assunto → PNG data URL em cache module-level; depois é só `<img>` |
+| `CustomizationThumb` | miniatura na lista | render 1× por assunto → PNG data URL em cache module-level; depois é só `<img>`. **Um** `WebGLRenderer` compartilhado p/ todas as thumbs — renderer por thumb estoura limite de contextos (~16) e browser derruba o da cena principal |
 | `CustomizationPreview` | preview grande no dialog | canvas vivo com `OrbitControls` (arrastar/zoom, auto-rotate), 1 contexto WebGL enquanto montado |
 
 **Detalhes:**

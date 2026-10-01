@@ -22,6 +22,7 @@ export type DonationsLoadState =
   | { status: "ready"; count: number }
   | { status: "error"; message: string };
 
+const EMPTY_DONATIONS: DonationRecord[] = [];
 const EMPTY_CITIES: City[] = [];
 const EMPTY_ONGS: Ong[] = [];
 const EMPTY_CUSTOMIZATIONS = new Map<number, BuildingCustomization>();
@@ -102,6 +103,8 @@ export function useDonations() {
   return {
     loadState,
     donations,
+    /** Dataset sem filtro (ex.: listar as doações do usuário mesmo fora do filtro). */
+    allDonations: dataset?.donations ?? EMPTY_DONATIONS,
     cities: dataset?.cities ?? EMPTY_CITIES,
     ongs: dataset?.ongs ?? EMPTY_ONGS,
     savedCustomizations: dataset?.customizations ?? EMPTY_CUSTOMIZATIONS,

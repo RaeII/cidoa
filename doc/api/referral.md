@@ -21,6 +21,7 @@ Fluxo público de captura, validação, confirmação e compartilhamento de indi
 | `src/api/referral/referral.logic.ts` | Normalização e estado `confirm`, `linked`, `expired` ou `self`. |
 | `src/components/referral/ReferralPerson.tsx` | Nome e imagem do indicador. |
 | `src/components/referral/ReferralDialog.tsx` | Confirmação e mensagens finais. |
+| `src/components/referral/ShareDialog.tsx` | Modal de compartilhamento: redes sociais + link com botão copiar. |
 | `src/components/AuthMenu.tsx` | Orquestra URL, auth, resumo, modal e compartilhamento. |
 
 ## Captura e validação
@@ -68,8 +69,11 @@ flowchart TD
 ## Home e perfil
 
 - Usuário comum logado recebe botão somente com ícone de compartilhar ao lado do `AuthMenu`.
-- Compartilhamento copia só o link com `navigator.clipboard` + toast "Link de indicação copiado.". Sem `navigator.share`: evita menu nativo do SO e texto extra junto do link. Falha → toast de erro.
-- Perfil mostra código e botão com a ação "Compartilhar".
+- Botão abre `ShareDialog` (estilo YouTube), modal centralizado: WhatsApp, Facebook, LinkedIn e X em círculos com cor da marca + campo só leitura com link e botão "Copiar" (vira "Copiado" por 2 s).
+- Redes abrem em nova aba via URL de share (`wa.me/?text=`, `facebook.com/sharer`, `linkedin.com/sharing/share-offsite`, `x.com/intent/post`). Só link, sem texto extra.
+- Sem `navigator.share`: evita menu nativo do SO. Cópia usa `navigator.clipboard`; falha → toast de erro.
+- Ícones de marca são SVG inline (lucide 1.x não tem marcas).
+- Perfil mostra código e botão "Compartilhar", abre mesmo modal por cima do perfil.
 - Bloco “Você foi indicado por” só aparece quando `referrer` existe.
 - Total só aparece quando `referral_count > 0`.
 

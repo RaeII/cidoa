@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { LogOut, Moon, Share2, Sun, UserRoundPen } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Moon, Share2, Sun } from "lucide-react";
 import { ApiError } from "@/api/http";
 import {
   applyMyReferral,
@@ -11,20 +11,13 @@ import {
   REFERRAL_CODE_PATTERN,
 } from "@/api/referral/referral.logic";
 import type { ReferrerPreview, ReferralSummary } from "@/api/referral/referral.types";
+import type { CustomizationCatalog } from "@/api/customizationApi";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthDialog } from "@/components/AuthDialog";
-import { ProfileDialog } from "@/components/ProfileDialog";
+import { GameMenu, type MyDonation } from "@/components/GameMenu";
 import { ReferralDialog } from "@/components/referral/ReferralDialog";
+import { ShareDialog } from "@/components/referral/ShareDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { toast } from "@/components/ui/toast";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 const overlayButton =
   "flex h-11 items-center gap-2 rounded-xl border border-white/10 bg-black/60 px-4 text-sm font-medium text-white/80 shadow-lg backdrop-blur-md transition-colors hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-50";
@@ -41,14 +34,18 @@ type AuthMenuProps = {
   /** Modo noite da cena (`EnvironmentSettings.night`), controlado por aqui. */
   night: boolean;
   onNightChange: (night: boolean) => void;
+  /** Doações da sessão, p/ a aba "Doações" do menu. */
+  myDonations: readonly MyDonation[];
+  catalog: CustomizationCatalog | null;
+  onOpenDonation: (donationId: number) => void;
 };
 
-/** Autenticação, perfil, modo noite e entrada única dos fluxos de indicação da cena. */
-export function AuthMenu({ night, onNightChange }: AuthMenuProps) {
-  const { isAuthenticated, user, logout } = useAuth();
+/** Autenticação, menu do usuário (GameMenu) e entrada única dos fluxos de indicação da cena. */
+export function AuthMenu({ night, onNightChange, myDonations, catalog, onOpenDonation }: AuthMenuProps) {
+  const { isAuthenticated, user } = useAuth();
   const [initialCode] = useState(initialReferralCode);
   const [authOpen, setAuthOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [referralCode, setReferralCode] = useState(initialCode);
   const [referralPreview, setReferralPreview] = useState<ReferrerPreview | null>(null);
   const [referralLoading, setReferralLoading] = useState(
@@ -67,8 +64,7 @@ export function AuthMenu({ night, onNightChange }: AuthMenuProps) {
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [appliedReferrer, setAppliedReferrer] = useState<ReferrerPreview | null>(null);
-  const [shareStatus, setShareStatus] = useState<"idle" | "done" | "error">("idle");
-  const shareTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const summary = summaryState?.userId === user?.id ? summaryState?.data ?? null : null;
   const summaryError = summaryState?.userId === user?.id ? summaryState?.error ?? null : null;
@@ -122,10 +118,6 @@ export function AuthMenu({ night, onNightChange }: AuthMenuProps) {
       cancelled = true;
     };
   }, [user]);
-
-  useEffect(() => () => {
-    if (shareTimer.current) clearTimeout(shareTimer.current);
-  }, []);
 
   function changeReferralCode(rawCode: string) {
     const code = normalizeReferralCode(rawCode);
@@ -192,22 +184,6 @@ export function AuthMenu({ night, onNightChange }: AuthMenuProps) {
     }
   }
 
-  async function shareReferral() {
-    if (!summary) return;
-    if (shareTimer.current) clearTimeout(shareTimer.current);
-
-    try {
-      await navigator.clipboard.writeText(summary.link);
-      toast.success("Link de indicação copiado.");
-      setShareStatus("done");
-    } catch {
-      setShareStatus("error");
-      toast.error("Não foi possível compartilhar o link.");
-    }
-
-    shareTimer.current = setTimeout(() => setShareStatus("idle"), 2500);
-  }
-
   const nightLabel = night ? "Modo dia" : "Modo noite";
 
   const referralDialogError =
@@ -222,9 +198,6 @@ export function AuthMenu({ night, onNightChange }: AuthMenuProps) {
     // Tela principal mostra o primeiro nome da conta; username só no menu.
     const firstName = user.name?.trim().split(/\s+/)[0] || user.username;
     const visibleName = firstName.length > 18 ? `${firstName.slice(0, 18)}…` : firstName;
-    const shareLabel = shareStatus === "error"
-      ? "Falha ao compartilhar"
-      : "Compartilhar indicação";
 
     return (
       <>
@@ -233,60 +206,46 @@ export function AuthMenu({ night, onNightChange }: AuthMenuProps) {
             <button
               type="button"
               className={overlayButton}
-              onClick={shareReferral}
-              title={shareLabel}
-              aria-label={shareLabel}
+              onClick={() => setShareOpen(true)}
+              title="Compartilhar indicação"
+              aria-label="Compartilhar indicação"
             >
               <Share2 />
             </button>
           )}
-          <DropdownMenu>
-            <DropdownMenuTrigger className={`${overlayButton} max-w-[14rem]`} title={firstName}>
-              <Avatar className="size-6 shrink-0">
-                {user.profile_image && <AvatarImage src={user.profile_image} alt="" className="object-cover" />}
-                <AvatarFallback className="bg-white/10 text-[10px] text-white">
-                  {firstName.slice(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <span className="truncate">{visibleName}</span>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuLabel className="min-w-0">
-                <span className="block truncate font-semibold">{user.username}</span>
-                <span className="block truncate text-xs font-normal text-muted-foreground">
-                  {user.email ?? "Sem e-mail"}
-                </span>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onNightChange(!night)}>
-                {night ? <Sun /> : <Moon />}
-                {nightLabel}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  setProfileOpen(true);
-                  void refreshSummary();
-                }}
-              >
-                <UserRoundPen />
-                Perfil
-              </DropdownMenuItem>
-              <DropdownMenuItem variant="destructive" onClick={() => logout()}>
-                <LogOut />
-                Sair
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <button
+            type="button"
+            className={`${overlayButton} max-w-[14rem]`}
+            title={firstName}
+            aria-haspopup="dialog"
+            onClick={() => {
+              setMenuOpen(true);
+              void refreshSummary();
+            }}
+          >
+            <Avatar className="size-6 shrink-0">
+              {user.profile_image && <AvatarImage src={user.profile_image} alt="" className="object-cover" />}
+              <AvatarFallback className="bg-white/10 text-[10px] text-white">
+                {firstName.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <span className="truncate">{visibleName}</span>
+          </button>
         </div>
-        {profileOpen && (
-          <ProfileDialog
-            open={profileOpen}
-            onOpenChange={setProfileOpen}
-            referralSummary={summary}
-            referralError={summaryError}
-            shareStatus={shareStatus}
-            onShareReferral={shareReferral}
-          />
+        <GameMenu
+          open={menuOpen}
+          onOpenChange={setMenuOpen}
+          night={night}
+          onNightChange={onNightChange}
+          donations={myDonations}
+          catalog={catalog}
+          onOpenDonation={onOpenDonation}
+          referralSummary={summary}
+          referralError={summaryError}
+          onShareReferral={() => setShareOpen(true)}
+        />
+        {summary && (
+          <ShareDialog open={shareOpen} onOpenChange={setShareOpen} url={summary.link} />
         )}
         <ReferralDialog
           open={referralCode !== "" && !effectiveAuthOpen}

@@ -92,7 +92,7 @@ export function CitySceneEditor() {
 
   // Doações vêm do snapshot cacheado; personalizações, da leitura no-store.
   // Filtro client-side por região/UF/cidade/ONG; replace-all na cena a cada mudança.
-  const { loadState, donations, cities, ongs, savedCustomizations, filter, setFilter, retry } =
+  const { loadState, donations, allDonations, cities, ongs, savedCustomizations, filter, setFilter, retry } =
     useDonations();
   const customizationCatalog = useCustomizationCatalog();
   const { isAdmin } = useAuth();
@@ -234,6 +234,25 @@ export function CitySceneEditor() {
       place: city ? `${city.name} · ${city.uf}` : undefined,
     };
   }, [infoBuildingId, donations, cities, ongs]);
+
+  // Aba "Doações" do menu: todas as doações da sessão; só as que estão na cena dão p/ focar.
+  const myDonations = useMemo(() => {
+    if (ownedDonationIds.size === 0) return [];
+    const inScene = new Set(visibleDonations.filter((d) => ownedDonationIds.has(d.id)).map((d) => d.id));
+    return allDonations
+      .filter((d) => ownedDonationIds.has(d.id))
+      .sort((a, b) => b.value - a.value)
+      .map((d) => {
+        const city = cities.find((c) => c.id === d.cityId);
+        return {
+          id: d.id,
+          value: d.value,
+          ongName: ongs.find((o) => o.id === d.ongId)?.name,
+          place: city ? `${city.name} · ${city.uf}` : undefined,
+          inScene: inScene.has(d.id),
+        };
+      });
+  }, [ownedDonationIds, visibleDonations, allDonations, cities, ongs]);
 
   const getExistingCustomization = useCallback(
     (donationId: number) => {
@@ -470,6 +489,9 @@ export function CitySceneEditor() {
         <AuthMenu
           night={environmentSettings.night}
           onNightChange={(night) => setEnvironmentSettings((prev) => ({ ...prev, night }))}
+          myDonations={myDonations}
+          catalog={customizationCatalog}
+          onOpenDonation={handleBuildingClick}
         />
       </div>
       {loadState.status === "ready" && uiVisibility.donationFilter && (
