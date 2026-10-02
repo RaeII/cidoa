@@ -422,6 +422,12 @@ export function createDonationManager({
       // NÃO serve aqui: girar no X quase não mexe nas direções ±X e gira ±Z inteiro — a
       // própria correção fica dependente da face. Escalar só o Y é simétrico no eixo
       // vertical, então toda fachada vertical amostra a MESMA faixa de elevação do cube.
+      // getIBLRadiance mora num #include que o three só expande DEPOIS do onBeforeCompile:
+      // inlina o chunk aqui, senão as âncoras abaixo nunca casam.
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "#include <envmap_physical_pars_fragment>",
+        THREE.ShaderChunk.envmap_physical_pars_fragment,
+      );
       const IBL_ANCHOR = "reflectVec = inverseTransformDirection( reflectVec, viewMatrix );";
       if (import.meta.env.DEV && !shader.fragmentShader.includes(IBL_ANCHOR)) {
         console.warn("[donationManager] âncora do getIBLRadiance sumiu — uEnvHorizon inativo");
