@@ -21,7 +21,7 @@ Fluxo público de captura, validação, confirmação e compartilhamento de indi
 | `src/api/referral/referral.logic.ts` | Normalização e estado `confirm`, `linked`, `expired` ou `self`. |
 | `src/components/referral/ReferralPerson.tsx` | Nome e imagem do indicador. |
 | `src/components/referral/ReferralDialog.tsx` | Confirmação e mensagens finais. |
-| `src/components/referral/ShareDialog.tsx` | Modal de compartilhamento: redes sociais + link com botão copiar. |
+| `src/components/referral/ShareDialog.tsx` | `SharePanel`: redes sociais + link com botão copiar. `ShareDialog`: mesmo painel em modal. |
 | `src/components/AuthMenu.tsx` | Orquestra URL, auth, resumo, modal e compartilhamento. |
 
 ## Captura e validação
@@ -34,7 +34,7 @@ Fluxo público de captura, validação, confirmação e compartilhamento de indi
   título "Alguém te indicou o Cidoa?" + descrição curta. Label do input só "Código de indicação".
   Input com fundo sólido (`bg-background`) — label flutuante corta a borda e precisa da mesma cor atrás.
   `mt-3` no bloco (aberto ou fechado) separa do botão de login; `p-4` + `space-y-4` dão respiro ao input.
-- Código informado precisa ter 16 caracteres hexadecimais e passar por `GET /api/referral/preview/:code`.
+- Código informado precisa ter 8 caracteres (`A-Z` sem `I`/`O`, `2-9`) e passar por `GET /api/referral/preview/:code`.
 - Preview usa debounce de 350 ms e request cancelável. Código inválido bloqueia e-mail, Google e conclusão do cadastro até correção ou remoção.
 - Erro do código (`"Código inválido."`) só aparece na tentativa de entrar, nunca ao digitar: botões seguem clicáveis,
   o envio é abortado e o erro revelado. Digitar de novo esconde o erro.
@@ -73,7 +73,8 @@ flowchart TD
 - Redes abrem em nova aba via URL de share (`wa.me/?text=`, `facebook.com/sharer`, `linkedin.com/sharing/share-offsite`, `x.com/intent/post`). Só link, sem texto extra.
 - Sem `navigator.share`: evita menu nativo do SO. Cópia usa `navigator.clipboard`; falha → toast de erro.
 - Ícones de marca são SVG inline (lucide 1.x não tem marcas).
-- Perfil mostra código e botão "Compartilhar", abre mesmo modal por cima do perfil.
+- Aba Indicações do menu mostra código + `SharePanel` direto abaixo, sem modal extra.
+- Topo da aba: falta p/ meta fixa de 2 indicações (`REFERRAL_GOAL`, não lê recompensas do banco) + barra com 1 segmento bônus pré-preenchido. Meta batida → contagem "N pessoas indicadas".
 - Bloco “Você foi indicado por” só aparece quando `referrer` existe.
 - Total só aparece quando `referral_count > 0`.
 

@@ -1,4 +1,4 @@
-import { Building2, Check, Lock, LogOut, MapPin, Moon, Palette, Share2, Sun, UserRound, Users } from "lucide-react";
+import { Building2, Check, Lock, LogOut, MapPin, Moon, Palette, Sun, UserRound, Users } from "lucide-react";
 import { Dialog as DialogPrimitive, Tabs } from "radix-ui";
 import type { CatalogFeature, CatalogOption, CustomizationCatalog } from "@/api/customizationApi";
 import type { ReferralSummary } from "@/api/referral/referral.types";
@@ -7,8 +7,8 @@ import { formatBRL, formatUnlockRequirement } from "@/lib/unlock";
 import { CustomizationImage } from "@/components/customization/CustomizationImage";
 import { ProfilePanel } from "@/components/ProfilePanel";
 import { ReferralPerson } from "@/components/referral/ReferralPerson";
+import { SharePanel } from "@/components/referral/ShareDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog";
 
 /** Doação própria já resolvida p/ exibição. `inScene` = passa no filtro/teto atual da cena. */
@@ -31,7 +31,6 @@ type GameMenuProps = {
   onOpenDonation: (donationId: number) => void;
   referralSummary: ReferralSummary | null;
   referralError: string | null;
-  onShareReferral: () => void;
 };
 
 // Vocabulário visual da cena (vidro escuro, cantos suaves, dourado da marca) na estrutura do menu de pausa do GTA V.
@@ -45,6 +44,9 @@ const pillButton =
   "flex h-10 items-center gap-2 rounded-full px-4 text-sm font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-[#c9a86a]/70 focus-visible:outline-none";
 const goldButton =
   "flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#c9a86a]/40 bg-[#c9a86a]/10 px-3.5 text-sm font-medium text-[#e4c98b] transition-colors hover:bg-[#c9a86a]/20 focus-visible:ring-2 focus-visible:ring-[#c9a86a]/70 focus-visible:outline-none [&_svg]:size-4";
+
+// Meta fixa por enquanto; recompensas de indicação do banco serão ajustadas depois.
+const REFERRAL_GOAL = 2;
 
 type UnlockItem = {
   key: string;
@@ -91,7 +93,6 @@ export function GameMenu({
   onOpenDonation,
   referralSummary,
   referralError,
-  onShareReferral,
 }: GameMenuProps) {
   const { user, logout } = useAuth();
   if (!user) return null;
@@ -103,6 +104,8 @@ export function GameMenu({
   const groups = catalog ? catalogGroups(catalog) : [];
   const unlockedCount = groups.reduce((n, g) => n + g.items.filter((item) => item.isUnlocked).length, 0);
   const itemCount = groups.reduce((n, g) => n + g.items.length, 0);
+  const referralCount = referralSummary?.referral_count ?? 0;
+  const referralsLeft = REFERRAL_GOAL - referralCount;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -258,22 +261,38 @@ export function GameMenu({
                 <div className="m-auto w-full max-w-md space-y-4 text-center">
                   {referralSummary && (
                     <>
-                      <div className="rounded-3xl bg-white/5 px-6 py-7">
+                      {referralsLeft > 0 && (
+                        <div className="rounded-3xl bg-white/5 px-6 py-5 text-left">
+                          <p className="text-sm text-white/70">
+                            <strong className="block text-2xl font-semibold text-[#e4c98b]">
+                              {referralsLeft === 1 ? "Falta" : "Faltam"} apenas {referralsLeft}
+                            </strong>{" "}
+                            {referralsLeft === 1 ? "indicação" : "indicações"} para desbloquear sua recompensa
+                          </p>
+                          {/* Barra começa com 1 segmento bônus (efeito de progresso dotado). */}
+                          <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
+                            <div
+                              className="h-full rounded-full bg-[#c9a86a] transition-[width] duration-700"
+                              style={{ width: `${((referralCount + 1) / (REFERRAL_GOAL + 1)) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      <div className="py-4">
                         <p className="text-sm text-white/60">Seu código de indicação</p>
-                        <p className="my-3 font-mono text-4xl font-semibold tracking-[0.2em] text-[#e4c98b]">
+                        <p className="mt-3 mb-6 font-mono text-xl font-semibold tracking-widest break-all sm:text-3xl">
                           {referralSummary.code}
                         </p>
-                        <Button type="button" className="rounded-full px-5" onClick={onShareReferral}>
-                          <Share2 />
-                          Compartilhar
-                        </Button>
+                        <SharePanel url={referralSummary.link} />
                       </div>
-                      <p className="text-white/60">
-                        <strong className="text-2xl font-semibold text-white">
-                          {referralSummary.referral_count.toLocaleString("pt-BR")}
-                        </strong>{" "}
-                        {referralSummary.referral_count === 1 ? "pessoa indicada" : "pessoas indicadas"}
-                      </p>
+                      {referralsLeft <= 0 && (
+                        <p className="text-white/60">
+                          <strong className="text-2xl font-semibold text-white">
+                            {referralSummary.referral_count.toLocaleString("pt-BR")}
+                          </strong>{" "}
+                          {referralSummary.referral_count === 1 ? "pessoa indicada" : "pessoas indicadas"}
+                        </p>
+                      )}
                     </>
                   )}
                   {referralSummary?.referrer && (

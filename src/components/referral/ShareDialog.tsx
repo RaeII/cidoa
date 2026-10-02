@@ -32,14 +32,8 @@ const networks = [
   },
 ];
 
-interface ShareDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  url: string;
-}
-
-/** Modal de compartilhamento: redes sociais + link com botão de copiar. */
-export function ShareDialog({ open, onOpenChange, url }: ShareDialogProps) {
+/** Compartilhamento inline: redes sociais + link com botão de copiar. */
+export function SharePanel({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
   const encodedUrl = encodeURIComponent(url);
 
@@ -59,46 +53,62 @@ export function ShareDialog({ open, onOpenChange, url }: ShareDialogProps) {
   }
 
   return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-4 gap-2">
+        {networks.map((network) => (
+          <a
+            key={network.name}
+            href={network.href(encodedUrl)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex flex-col items-center gap-2 rounded-lg py-1 text-xs font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
+            <span
+              className={`grid size-14 place-items-center rounded-full text-white transition-transform group-hover:scale-105 ${network.className}`}
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" className="size-7" aria-hidden="true">
+                <path d={network.path} />
+              </svg>
+            </span>
+            {network.name}
+          </a>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-2 rounded-xl border bg-muted/40 p-1.5 pl-3">
+        <input
+          readOnly
+          value={url}
+          aria-label="Link"
+          onFocus={(event) => event.currentTarget.select()}
+          className="min-w-0 flex-1 truncate bg-transparent text-sm outline-none"
+        />
+        <Button type="button" size="sm" onClick={copyLink}>
+          {copied ? <Check /> : <Copy />}
+          {copied ? "Copiado" : "Copiar"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Modal da home: mesmo painel, sem precisar abrir o menu. */
+export function ShareDialog({
+  open,
+  onOpenChange,
+  url,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  url: string;
+}) {
+  return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-6 sm:max-w-md" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>Compartilhar</DialogTitle>
         </DialogHeader>
-
-        <div className="grid grid-cols-4 gap-2">
-          {networks.map((network) => (
-            <a
-              key={network.name}
-              href={network.href(encodedUrl)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex flex-col items-center gap-2 rounded-lg py-1 text-xs font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-            >
-              <span
-                className={`grid size-14 place-items-center rounded-full text-white transition-transform group-hover:scale-105 ${network.className}`}
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor" className="size-7" aria-hidden="true">
-                  <path d={network.path} />
-                </svg>
-              </span>
-              {network.name}
-            </a>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-2 rounded-xl border bg-muted/40 p-1.5 pl-3">
-          <input
-            readOnly
-            value={url}
-            aria-label="Link"
-            onFocus={(event) => event.currentTarget.select()}
-            className="min-w-0 flex-1 truncate bg-transparent text-sm outline-none"
-          />
-          <Button type="button" size="sm" onClick={copyLink}>
-            {copied ? <Check /> : <Copy />}
-            {copied ? "Copiado" : "Copiar"}
-          </Button>
-        </div>
+        <SharePanel url={url} />
       </DialogContent>
     </Dialog>
   );

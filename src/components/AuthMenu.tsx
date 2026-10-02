@@ -242,7 +242,6 @@ export function AuthMenu({ night, onNightChange, myDonations, catalog, onOpenDon
           onOpenDonation={onOpenDonation}
           referralSummary={summary}
           referralError={summaryError}
-          onShareReferral={() => setShareOpen(true)}
         />
         {summary && (
           <ShareDialog open={shareOpen} onOpenChange={setShareOpen} url={summary.link} />

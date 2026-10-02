@@ -159,7 +159,7 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre pelo botão avatar 
 |---|---|
 | Doações | Total doado + doações da sessão, maior valor 1º. **Ver na cidade** fecha menu e chama `handleBuildingClick` (foco + [[#BuildingInfoModal.tsx\|card]]). Fora do filtro/teto atual → "Fora do filtro", sem botão. |
 | Personalizações | Catálogo agrupado (formato, topo, LED, cor, textura, letreiro/holograma) com `isUnlocked`. Travado mostra requisito via `formatUnlockRequirement` ([[passe-formatacao]]). |
-| Indicações | Código + compartilhar, total indicado, quem indicou ([[referral]]). Some p/ admin. |
+| Indicações | Topo: "Faltam apenas N indicações para desbloquear sua recompensa" + barra. Meta fixa `REFERRAL_GOAL = 2` (recompensas do banco ajustadas depois); N = meta − `referral_count`; barra começa com 1 segmento bônus (`(count+1)/(meta+1)`). Meta batida → total indicado. Depois: código (quebra linha se não cabe) + `SharePanel` inline (redes + copiar link, sem modal), quem indicou ([[referral]]). Some p/ admin. |
 | Perfil | `ProfilePanel.tsx`: avatar + nome + e-mail no topo; nome e username lado a lado (sm+). Salvar → toast. Canto inferior direito: **Sair** discreto (texto cinza, hover vermelho; fecha + `logout()`). |
 
 | Prop | Tipo | Descrição |
@@ -170,7 +170,6 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre pelo botão avatar 
 | `catalog` | `CustomizationCatalog \| null` | Mesmo do `useCustomizationCatalog`; `null` = carregando |
 | `onOpenDonation` | `(id) => void` | Foca edifício + abre card |
 | `referralSummary` / `referralError` | | Vêm do `AuthMenu` |
-| `onShareReferral` | `() => void` | Abre `ShareDialog` |
 
 `myDonations` montado no `CitySceneEditor`: `allDonations` (dataset sem filtro, do `useDonations`) ∩ `ownedDonationIds`; `inScene` = está em `visibleDonations`.
 

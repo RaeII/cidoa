@@ -105,7 +105,7 @@ src/
     referral/
       ReferralDialog.tsx          ← confirmação e avisos da indicação
       ReferralPerson.tsx          ← nome e imagem do indicador
-      ShareDialog.tsx             ← modal de compartilhar: redes sociais + copiar link
+      ShareDialog.tsx             ← `SharePanel` (redes + copiar link, inline no menu) + `ShareDialog` (modal da home)
     CitySceneEditor.tsx
     html/
       CityControlPanel.tsx

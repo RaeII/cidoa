@@ -1,6 +1,6 @@
 import type { ReferralSummary } from "./referral.types";
 
-export const REFERRAL_CODE_PATTERN = /^[A-F0-9]{16}$/;
+export const REFERRAL_CODE_PATTERN = /^[A-HJ-NP-Z2-9]{8}$/;
 
 export function normalizeReferralCode(value: string): string {
   return value.trim().toUpperCase();
