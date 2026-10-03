@@ -149,7 +149,7 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre pelo botão avatar 
 
 - **Fundo** — `DialogOverlay` com tinta `#04283d` + `backdrop-blur` + `backdrop-saturate-50`, fade 500 ms: cena muda de cor ao abrir.
 - **Visual** — mesmo vocabulário da cena: vidro escuro (`bg-black/60` + `backdrop-blur-xl`, `border-white/10`), cantos `rounded-2xl`/`rounded-3xl`, dourado `#c9a86a` como destaque (anel do avatar, "Ver na cidade", código, barra de progresso).
-- **Topo** — sem título visível (`DialogTitle` só `sr-only`); à direita pílula com nome, `@username` (some no celular), avatar redondo e toggle dia/noite (`onNightChange`).
+- **Topo** — sem título visível (`DialogTitle` só `sr-only`); à direita switch sol/lua dia/noite (`NightToggle`, `onNightChange`) e, ao lado dele, pílula com nome, `@username` (some no celular) e avatar redondo.
 - **Abas** — Radix `Tabs` (setas ←/→ navegam), pílulas com ícone dentro do cartão. Abre em Doações; Perfil por último. Ativa = branca. Celular: inativa mostra só ícone.
 - **Conteúdo** — coluna centralizada com largura máxima (perfil `max-w-xl`, doações `max-w-2xl`, indicações `max-w-md`). Perfil e indicações centralizam também na vertical.
 - **Rodapé** — só **Esc Voltar** à direita.
@@ -160,7 +160,7 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre pelo botão avatar 
 | Doações | Total doado + doações da sessão, maior valor 1º. **Ver na cidade** fecha menu e chama `handleBuildingClick` (foco + [[#BuildingInfoModal.tsx\|card]]). Fora do filtro/teto atual → "Fora do filtro", sem botão. |
 | Personalizações | Catálogo agrupado (formato, topo, LED, cor, textura, letreiro/holograma) com `isUnlocked`. Travado mostra requisito via `formatUnlockRequirement` ([[passe-formatacao]]). |
 | Indicações | Topo: "Faltam apenas N indicações para desbloquear sua recompensa" + barra. Meta fixa `REFERRAL_GOAL = 2` (recompensas do banco ajustadas depois); N = meta − `referral_count`; barra começa com 1 segmento bônus (`(count+1)/(meta+1)`). Meta batida → total indicado. Depois: código (quebra linha se não cabe) + `SharePanel` inline (redes + copiar link, sem modal), quem indicou ([[referral]]). Some p/ admin. |
-| Perfil | `ProfilePanel.tsx`: avatar + nome + e-mail no topo; nome e username lado a lado (sm+). Salvar → toast. Canto inferior direito: **Sair** discreto (texto cinza, hover vermelho; fecha + `logout()`). |
+| Perfil | `ProfilePanel.tsx`: avatar + nome + e-mail no topo; nome e username lado a lado (sm+); abaixo [[#ProfileDetailsFields.tsx\|Cidade + Como conheceu]], mesmo formulário e mesmo Salvar (`PUT /user/me`). `hasChanges` conta cidade, origem e texto de "Outro" (só com "Outro" escolhido). Salvar → toast. Canto inferior direito: **Sair** discreto (texto cinza, hover vermelho; fecha + `logout()`). |
 
 | Prop | Tipo | Descrição |
 |---|---|---|
@@ -172,6 +172,48 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre pelo botão avatar 
 | `referralSummary` / `referralError` | | Vêm do `AuthMenu` |
 
 `myDonations` montado no `CitySceneEditor`: `allDonations` (dataset sem filtro, do `useDonations`) ∩ `ownedDonationIds`; `inScene` = está em `visibleDonations`.
+
+---
+
+### `OnboardingDialog.tsx`
+
+Perfil progressivo do 1º login: **Cidade** + **Como conheceu o Cidoa?**. Tudo opcional. Montado no `AuthMenu` (ramo logado).
+
+- **Quando abre** — `user.onboarding_completed_at === null` e `blocked` falso. `AuthMenu` passa `blocked` = indicação pendente (`?ref=`) || `GameMenu` aberto || `ShareDialog` aberto. `AuthDialog` nem existe no ramo logado. Não empilha modal.
+- **Uma vez por conta** — estado do servidor (`onboarding_completed_at`), não `localStorage`. Conta antiga também vê uma vez (sem backfill no back).
+- **Copy** — título "Complete seu perfil"; frase de valor "Com sua cidade, sugerimos ONGs perto de você."; botões **Pular** (ghost) e **Salvar**.
+- **Salvar** — desabilitado até ter cidade ou origem. `completeOnboarding({ city_id, discovery_source, discovery_source_other })` → `POST /user/me/onboarding`. Sucesso preenche `onboarding_completed_at` → fecha sozinho. Erro → `role="alert"`, continua aberto.
+- **Pular** — botão, Esc, X ou clique fora. Fecha na hora (estado local `skipped`) e manda `completeOnboarding({})` sem esperar. Falha de rede: fica fechado nesta sessão; servidor pergunta de novo no próximo login. Durante o Salvar, dismiss ignorado.
+- **Tema** — `Dialog` padrão (tema do `<html>`: claro creme ou escuro). `text-foreground` no Content: body da cena pinta texto branco, sumiria no claro.
+- **Foco inicial** — 1º campo (busca de cidade), padrão Radix.
+- **Botões** — `size="lg"` (40 px). Celular: `DialogFooter` empilha Salvar em cima, largura cheia.
+
+| Prop | Tipo | Descrição |
+|---|---|---|
+| `blocked` | `boolean` | Outro diálogo da cena aberto → espera |
+
+`AuthProvider.completeOnboarding` segue padrão `sessionVersion` do `updateProfile`: resposta de sessão antiga (logout no meio) não sobrescreve usuário.
+
+---
+
+### `ProfileDetailsFields.tsx`
+
+Campos compartilhados entre [[#OnboardingDialog.tsx|OnboardingDialog]] e aba Perfil ([[#GameMenu.tsx|ProfilePanel]]). Valor = `ProfileDetails` (`Pick<User, "city" | "discovery_source" | "discovery_source_other">`); conversão p/ API (`city_id`) fica em quem salva.
+
+- **Cidade** — combobox de busca único ("Campinas, SP"): estado + cidade numa interação, sem cascata UF → cidade.
+  - Lista: `getCities()` (`src/api/location/location.routes.ts`) — `GET /location/cities`, promise memoizada no módulo; onboarding e Perfil dividem a mesma requisição. Falha limpa cache → "Tentar de novo".
+  - Busca: `src/lib/citySearch.ts` (pura) — sem acento, sem maiúsculas, pontuação vira espaço, prefixo antes de substring, máx 6. Check: `node scripts/check-city-search.mjs`.
+  - Teclado: ↑ ↓ navegam (abrem a lista fechada), Enter escolhe, Esc fecha só a lista. Esc via captura na `window`: roda antes do Esc do Dialog Radix (captura no `document`, respeita `defaultPrevented`) — senão Esc fecharia o modal junto (no onboarding = pular).
+  - ARIA: `role="combobox"`, `aria-expanded`, `aria-controls`, `aria-autocomplete="list"`, `aria-activedescendant`; lista `role="listbox"` / `role="option"` + `aria-selected`. Foco nunca sai do input (`mousedown` com `preventDefault` em opção e no X).
+  - Blur sem clicar: texto que aponta pra 1 cidade só (resultado único ou nome exato único, `pickTypedCity`) escolhe; ambíguo ("Bom Jesus") volta pra cidade atual; texto apagado = sem cidade. Botão X (44 px) limpa.
+  - Lista inline (`absolute`, sem portal): herda tema do contexto (`.dark` do GameMenu). Na aba Perfil o painel rola: `scrollIntoView({ block: "nearest" })` mostra a lista inteira. Hover ativa por `mousemove` (rolar sob mouse parado não troca opção).
+- **Como conheceu o Cidoa?** — chips Radix `RadioGroup` (`role="radiogroup"`/`radio`, setas navegam e marcam). Rótulos em `DISCOVERY_LABELS` (lugar único): Instagram, TikTok, YouTube, Facebook, WhatsApp, Google, Amigo ou familiar, Uma ONG, Outro. "Outro" revela input (máx 100). Marcado = `bg-primary` (navy no claro, quase branco no escuro, igual aba ativa do menu). Chip `h-10`.
+- **Tema** — só tokens shadcn (`foreground`, `input`, `popover`, `muted`, `primary`): claro no diálogo, escuro no GameMenu. `fieldClassName` aplica o vidro da aba Perfil nos inputs de texto.
+
+| Prop | Tipo | Descrição |
+|---|---|---|
+| `value` / `onChange` | `ProfileDetails` / `(value) => void` | Controlado |
+| `fieldClassName` | `string?` | Classe extra dos inputs (vidro escuro do Perfil) |
 
 ---
 

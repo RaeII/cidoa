@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Moon, Share2, Sun } from "lucide-react";
+import { Share2 } from "lucide-react";
 import { ApiError } from "@/api/http";
 import {
   applyMyReferral,
@@ -15,8 +15,10 @@ import type { CustomizationCatalog } from "@/api/customizationApi";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthDialog } from "@/components/AuthDialog";
 import { GameMenu, type MyDonation } from "@/components/GameMenu";
+import { OnboardingDialog } from "@/components/OnboardingDialog";
 import { ReferralDialog } from "@/components/referral/ReferralDialog";
 import { ShareDialog } from "@/components/referral/ShareDialog";
+import { NightToggle } from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const overlayButton =
@@ -40,7 +42,7 @@ type AuthMenuProps = {
   onOpenDonation: (donationId: number) => void;
 };
 
-/** Autenticação, menu do usuário (GameMenu) e entrada única dos fluxos de indicação da cena. */
+/** Autenticação, onboarding do primeiro login, menu do usuário (GameMenu) e entrada única dos fluxos de indicação da cena. */
 export function AuthMenu({ night, onNightChange, myDonations, catalog, onOpenDonation }: AuthMenuProps) {
   const { isAuthenticated, user } = useAuth();
   const [initialCode] = useState(initialReferralCode);
@@ -184,8 +186,6 @@ export function AuthMenu({ night, onNightChange, myDonations, catalog, onOpenDon
     }
   }
 
-  const nightLabel = night ? "Modo dia" : "Modo noite";
-
   const referralDialogError =
     referralError ??
     applyError ??
@@ -258,6 +258,8 @@ export function AuthMenu({ night, onNightChange, myDonations, catalog, onOpenDon
           onConfirm={confirmReferral}
           onCancel={clearPendingReferral}
         />
+        {/* Não empilha modal: espera indicação pendente, menu e compartilhar fecharem. */}
+        <OnboardingDialog blocked={referralCode !== "" || menuOpen || shareOpen} />
       </>
     );
   }
@@ -265,16 +267,8 @@ export function AuthMenu({ night, onNightChange, myDonations, catalog, onOpenDon
   return (
     <>
       <div className="flex items-center gap-2">
-        {/* Deslogado não tem menu — o mesmo toggle vira botão ao lado do "Entrar". */}
-        <button
-          type="button"
-          className={overlayButton}
-          onClick={() => onNightChange(!night)}
-          title={nightLabel}
-          aria-label={nightLabel}
-        >
-          {night ? <Sun /> : <Moon />}
-        </button>
+        {/* Deslogado não tem menu — o mesmo toggle fica ao lado do "Entrar". */}
+        <NightToggle night={night} onNightChange={onNightChange} />
         <button type="button" className={overlayButton} onClick={() => setAuthOpen(true)}>
           Entrar
         </button>

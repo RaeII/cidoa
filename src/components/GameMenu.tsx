@@ -1,4 +1,4 @@
-import { Building2, Check, Lock, LogOut, MapPin, Moon, Palette, Sun, UserRound, Users } from "lucide-react";
+import { Building2, Check, Lock, LogOut, MapPin, Palette, UserRound, Users } from "lucide-react";
 import { Dialog as DialogPrimitive, Tabs } from "radix-ui";
 import type { CatalogFeature, CatalogOption, CustomizationCatalog } from "@/api/customizationApi";
 import type { ReferralSummary } from "@/api/referral/referral.types";
@@ -8,6 +8,7 @@ import { CustomizationImage } from "@/components/customization/CustomizationImag
 import { ProfilePanel } from "@/components/ProfilePanel";
 import { ReferralPerson } from "@/components/referral/ReferralPerson";
 import { SharePanel } from "@/components/referral/ShareDialog";
+import { NightToggle } from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogClose, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog";
 
@@ -99,7 +100,6 @@ export function GameMenu({
 
   const displayName = user.name?.trim() || user.username;
   const initials = displayName.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
-  const nightLabel = night ? "Modo dia" : "Modo noite";
   const totalDonated = donations.reduce((sum, donation) => sum + donation.value, 0);
   const groups = catalog ? catalogGroups(catalog) : [];
   const unlockedCount = groups.reduce((n, g) => n + g.items.filter((item) => item.isUnlocked).length, 0);
@@ -118,6 +118,7 @@ export function GameMenu({
         >
           <header className="flex items-center justify-end gap-4">
             <DialogTitle className="sr-only">Menu</DialogTitle>
+            <NightToggle night={night} onNightChange={onNightChange} />
             <div className={`flex min-w-0 items-center gap-3 rounded-full py-1.5 pr-1.5 pl-1.5 sm:pl-4 ${glass}`}>
               <div className="hidden min-w-0 text-right sm:block">
                 <p className="truncate text-sm font-semibold">{displayName}</p>
@@ -127,15 +128,6 @@ export function GameMenu({
                 {user.profile_image && <AvatarImage src={user.profile_image} alt="" className="object-cover" />}
                 <AvatarFallback className="bg-white/10 text-sm font-semibold text-white">{initials}</AvatarFallback>
               </Avatar>
-              <button
-                type="button"
-                className="grid size-10 place-items-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white focus-visible:ring-2 focus-visible:ring-[#c9a86a]/70 focus-visible:outline-none [&_svg]:size-[18px]"
-                onClick={() => onNightChange(!night)}
-                title={nightLabel}
-                aria-label={nightLabel}
-              >
-                {night ? <Sun /> : <Moon />}
-              </button>
             </div>
           </header>
 

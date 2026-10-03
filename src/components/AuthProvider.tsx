@@ -8,8 +8,12 @@ import {
 import type { CompleteRegistrationInput, VerifyCodeInput } from "../api/auth/auth.types";
 import { SESSION_EXPIRED_EVENT } from "../api/http";
 import type { User } from "../api/user/user.types";
-import type { UpdateOwnProfileInput } from "../api/user/user.types";
-import { getOwnSession, updateOwnProfile as apiUpdateOwnProfile } from "../api/user/user.routes";
+import type { ProfileDetailsInput, UpdateOwnProfileInput } from "../api/user/user.types";
+import {
+  completeOnboarding as apiCompleteOnboarding,
+  getOwnSession,
+  updateOwnProfile as apiUpdateOwnProfile,
+} from "../api/user/user.routes";
 import { AuthContext } from "../hooks/useAuth";
 
 /**
@@ -101,6 +105,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return updated;
   }, []);
 
+  const completeOnboarding = useCallback(async (input: ProfileDetailsInput) => {
+    const version = sessionVersion.current;
+    const updated = await apiCompleteOnboarding(input);
+    if (version !== sessionVersion.current) return updated;
+    setUser(updated);
+    return updated;
+  }, []);
+
   const logout = useCallback(async () => {
     ++sessionVersion.current;
     try {
@@ -134,9 +146,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loginWithGoogle,
       completeRegistration,
       updateProfile,
+      completeOnboarding,
       logout,
     }),
-    [user, isLoading, loginWithCode, loginWithGoogle, completeRegistration, updateProfile, logout],
+    [user, isLoading, loginWithCode, loginWithGoogle, completeRegistration, updateProfile, completeOnboarding, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

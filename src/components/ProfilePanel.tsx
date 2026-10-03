@@ -1,12 +1,14 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { Check, ImagePlus, Mail, Pencil, Trash2 } from "lucide-react";
 import { ApiError } from "@/api/http";
+import type { ProfileDetails } from "@/api/user/user.types";
 import { useAuth } from "@/hooks/useAuth";
 import { resizeImage } from "@/lib/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
+import { ProfileDetailsFields } from "@/components/ProfileDetailsFields";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,12 +19,17 @@ import {
 // Campo no padrão dos painéis da cena (BuildingCustomizePanel): vidro claro, canto suave.
 const fieldClass = "rounded-xl border-white/10 bg-white/5 dark:bg-white/5 focus-visible:border-[#c9a86a]/60 focus-visible:ring-[#c9a86a]/20";
 
-/** Aba "Perfil" do GameMenu: nome, username e imagem de perfil. */
+/** Aba "Perfil" do GameMenu: nome, username, imagem, cidade e como conheceu. */
 export function ProfilePanel() {
   const { user, updateProfile } = useAuth();
   const [name, setName] = useState(user?.name ?? "");
   const [username, setUsername] = useState(user?.username ?? "");
   const [profileImage, setProfileImage] = useState(user?.profile_image ?? null);
+  const [details, setDetails] = useState<ProfileDetails>({
+    city: user?.city ?? null,
+    discovery_source: user?.discovery_source ?? null,
+    discovery_source_other: user?.discovery_source_other ?? null,
+  });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [processingImage, setProcessingImage] = useState(false);
@@ -38,7 +45,14 @@ export function ProfilePanel() {
     .toUpperCase();
 
   const imageChanged = profileImage !== (user.profile_image ?? null);
-  const hasChanges = name !== (user.name ?? "") || username !== user.username || imageChanged;
+  // Texto de "Outro" só conta com "Outro" escolhido; o backend descarta nos demais.
+  const detailsChanged =
+    details.city?.id !== user.city?.id ||
+    details.discovery_source !== user.discovery_source ||
+    (details.discovery_source === "other" &&
+      (details.discovery_source_other ?? "").trim() !== (user.discovery_source_other ?? ""));
+  const hasChanges =
+    name !== (user.name ?? "") || username !== user.username || imageChanged || detailsChanged;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -49,6 +63,9 @@ export function ProfilePanel() {
         name,
         username,
         ...(imageChanged ? { profile_image: profileImage } : {}),
+        city_id: details.city?.id ?? null,
+        discovery_source: details.discovery_source,
+        discovery_source_other: details.discovery_source_other,
       });
       toast.success("Perfil atualizado.");
     } catch (err) {
@@ -155,6 +172,10 @@ export function ProfilePanel() {
             onChange={(event) => setUsername(event.target.value)}
           />
         </label>
+      </div>
+
+      <div className="mt-5">
+        <ProfileDetailsFields value={details} onChange={setDetails} fieldClassName={fieldClass} />
       </div>
 
       {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}

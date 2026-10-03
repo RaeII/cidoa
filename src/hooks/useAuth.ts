@@ -6,7 +6,7 @@ import type {
   VerifyCodeResult,
 } from "../api/auth/auth.types";
 import type { User } from "../api/user/user.types";
-import type { UpdateOwnProfileInput } from "../api/user/user.types";
+import type { ProfileDetailsInput, UpdateOwnProfileInput } from "../api/user/user.types";
 
 /** Sessão da CENA. Painel /dale usa `useAdminAuth` (sessão separada). */
 export interface AuthContextValue {
@@ -23,8 +23,10 @@ export interface AuthContextValue {
   loginWithGoogle: (credential: string) => Promise<GoogleAuthResult>;
   /** Cria a conta após a confirmação do e-mail e abre a sessão. */
   completeRegistration: (input: CompleteRegistrationInput) => Promise<User>;
-  /** Atualiza nome e nome de usuário do usuário autenticado. */
+  /** Atualiza nome, nome de usuário, imagem, cidade e origem do usuário autenticado. */
   updateProfile: (input: UpdateOwnProfileInput) => Promise<User>;
+  /** Salva ou pula (`{}`) o onboarding do primeiro login; grava `onboarding_completed_at`. */
+  completeOnboarding: (input: ProfileDetailsInput) => Promise<User>;
   /** Remove o cookie no backend e limpa a sessão local. */
   logout: () => Promise<void>;
 }

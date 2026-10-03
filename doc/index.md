@@ -53,6 +53,7 @@ scripts/
   ui-add.sh                    ← adiciona primitivo shadcn corrigindo o CLI (`bun run ui:add <nome>`)
   encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`)
   check-pass.mjs               ← ordenação do passe sem servidor/navegador
+  check-city-search.mjs        ← busca de cidade (acento, prefixo antes de substring, UF, limite) sem navegador
   check-building-shapes.mjs    ← checa os 12 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
   check-building-textures.mjs  ← troca de textura no destaque padrão; reuso de meshes/cache, sem navegador
   check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
@@ -74,8 +75,11 @@ src/
       referral.types.ts           ← contratos do sistema de indicação
       referral.logic.ts           ← normalização e decisão do modal
     user/
-      user.routes.ts              ← perfil próprio (sessão da cena)
-      user.types.ts               ← usuário público, incluindo imagem de perfil base64
+      user.routes.ts              ← perfil próprio + `completeOnboarding` (sessão da cena)
+      user.types.ts               ← usuário público (imagem base64, cidade, origem, onboarding)
+    location/
+      location.routes.ts          ← `getCities()`: catálogo IBGE, 1 requisição memoizada por carga
+      location.types.ts           ← `City { id, name, uf }`
     customizationApi.ts             ← catálogo de personalizações + conquistas do usuário
     donationApi.ts                  ← snapshot + personalizações atuais + doações próprias + PUT da personalização
     regions.ts
@@ -95,13 +99,15 @@ src/
       pagination.tsx                ← Pagination shadcn; botão no lugar de <a> (página é estado, não URL)
       select.tsx                    ← Select shadcn; filtro de personalização no admin
       toast.tsx                     ← notificações: toast.* + <Toaster /> (Radix Toast), cena e admin
-    AuthMenu.tsx                  ← botão do usuário na cena: Entrar ou abre o GameMenu; fluxo de indicação
+    AuthMenu.tsx                  ← botão do usuário na cena: Entrar ou abre o GameMenu; fluxo de indicação; monta o onboarding
+    OnboardingDialog.tsx          ← 1º login: cidade + como conheceu, opcional, uma vez por conta, "Pular"
+    ProfileDetailsFields.tsx      ← campos compartilhados onboarding/Perfil: busca de cidade + chips de origem
     GameMenu.tsx                  ← menu estilo GTA: abas perfil/doações/personalizações/indicações, dia/noite, sair
     AuthDialog.tsx                ← login por e-mail ou Google; cadastro confirma nome + username
     AuthProvider.tsx              ← sessão da cena (cookie token_access), só na rota /
     AdminAuthProvider.tsx         ← sessão do painel (cookie token_admin), só em /dale/*
     RequireAdmin.tsx              ← guarda de /dale: exige sessão do painel
-    ProfilePanel.tsx              ← aba Perfil do GameMenu: nome, username e imagem
+    ProfilePanel.tsx              ← aba Perfil do GameMenu: nome, username, imagem, cidade e como conheceu
     referral/
       ReferralDialog.tsx          ← confirmação e avisos da indicação
       ReferralPerson.tsx          ← nome e imagem do indicador
@@ -126,6 +132,7 @@ src/
       PointLightControls.tsx
   lib/
     image.ts                       ← valida e reduz imagens proporcionalmente para até 400 px
+    citySearch.ts                  ← busca de cidade pura: sem acento, prefixo antes de substring
     pass.ts                        ← contrato visual e ordenação por esforço estimado
     adminUnlock.ts                 ← alvos de edição por opção/feature
     unlock.ts                      ← fonte única: requisito do passe → texto (badge, frase, o que falta)
@@ -442,6 +449,9 @@ flowchart LR
 | Mexer no login do painel / sessão admin (`token_admin`) | [[area-admin#AdminAuthProvider]] · guarda em [[area-admin#RequireAdmin]] |
 | Sessão da cena vs painel (cookies, providers, 401) | [[area-admin#Duas sessões (cena × painel)]] |
 | Botão de login + modal passwordless na cena | [[area-admin#Login público na cena (passwordless)]] |
+| Onboarding do 1º login (cidade, como conheceu, pular) | [[html-components#OnboardingDialog.tsx]] · [[area-admin#Perfil progressivo (onboarding)]] |
+| Campo Cidade (busca) / chips "Como conheceu?" | [[html-components#ProfileDetailsFields.tsx]] · busca em `src/lib/citySearch.ts` |
+| Rótulos das origens ("Instagram", "Uma ONG"…) | `DISCOVERY_LABELS` em [[html-components#ProfileDetailsFields.tsx]] |
 | Gerar/excluir edifícios fictícios em massa (admin) | [[edificios-teste]] |
 | Vincular catálogo do IBGE (regiões/estados/municípios) | [[ibge]] |
 | Colocar um usuário como admin | [[usuarios]] |

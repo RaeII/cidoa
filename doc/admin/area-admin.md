@@ -155,12 +155,12 @@ Layout: `SidebarProvider` (`h-svh`) + `AppSidebar` + conteúdo rolável + `Mobil
 
 Cidade de dia ou de noite. Estado é `environmentSettings.night` no `CitySceneEditor` — mesma trilha dos outros settings da cena (`CitySceneCanvas` → [[scene-hooks]] → `runtime.updateEnvironmentSettings`).
 
-- **Onde clica** — botão lua/sol no topo do [[html-components#GameMenu.tsx|GameMenu]]. Deslogado não tem menu: o mesmo toggle vira botão de ícone ao lado do "Entrar".
+- **Onde clica** — switch sol/lua (`NightToggle`, `src/components/ThemeToggle.tsx`) no topo do [[html-components#GameMenu.tsx|GameMenu]], à esquerda da pílula do usuário (fora dela). Deslogado não tem menu: mesmo switch ao lado do "Entrar".
 - **Props** — `AuthMenu` recebe `night` + `onNightChange`; não guarda estado próprio.
 - **O que muda na cena** — céu tingido + estrelas ([[scene-builders#loadEnvironment.ts]]), luz/IBL/névoa ([[scene-runtime#Modo noite]]), valores em `NIGHT_PRESET` ([[scene-config#environmentConfig.ts]]).
 - **Não persiste** — recarregar volta pro dia. Persistir = mesmo padrão de [[scene-config#uiVisibilityConfig.ts]].
 
-Nada a ver com o `ThemeToggle`/`useTheme` do admin, que é o tema claro/escuro do HTML.
+Estado nada a ver com `ThemeToggle`/`useTheme` do admin (tema claro/escuro do HTML). Só UI compartilhada: os dois usam mesmo switch interno `SunMoonSwitch`; `NightToggle` troca cores pro vidro escuro da cena.
 
 ---
 
@@ -168,8 +168,8 @@ Nada a ver com o `ThemeToggle`/`useTheme` do admin, que é o tema claro/escuro d
 
 Usuário comum entra/cadastra **na própria cena 3D** (`/`), sem sair para outra página. Fluxo **passwordless**: e-mail → código de 6 dígitos.
 
-- **`src/components/AuthMenu.tsx`** — botão no canto superior direito da cena. Deslogado: toggle de noite (lua/sol) + "Entrar" abre o modal. Logado: botão somente com ícone de compartilhar indicação ao lado do usuário, **primeiro nome** da conta (`name`; cai no `username` se vazio) limitado a 18 caracteres + reticências. Clique abre o [[html-components#GameMenu.tsx|GameMenu]] (perfil, doações, personalizações, indicações, dia/noite, sair). Também coordena código vindo de `?ref=`, preview, resumo e confirmação. Ver [[referral]].
-- **`src/components/ProfilePanel.tsx`** — aba **Perfil** do `GameMenu`: imagem ou iniciais, nome, username e e-mail confirmado. Código/link próprio, indicador e total indicado ficam na aba **Indicações**. Um lápis sobre o avatar abre ações de adicionar/trocar e remover imagem. Aceita JPEG, PNG ou WebP de até 10 MB; `src/lib/image.ts` reduz proporcionalmente para no máximo 400×400. "Salvar alterações" só habilita com nome, username ou imagem diferente do perfil atual.
+- **`src/components/AuthMenu.tsx`** — botão no canto superior direito da cena. Deslogado: switch sol/lua de noite + "Entrar" abre o modal. Logado: botão somente com ícone de compartilhar indicação ao lado do usuário, **primeiro nome** da conta (`name`; cai no `username` se vazio) limitado a 18 caracteres + reticências. Clique abre o [[html-components#GameMenu.tsx|GameMenu]] (perfil, doações, personalizações, indicações, dia/noite, sair). Também coordena código vindo de `?ref=`, preview, resumo e confirmação ([[referral]]) e monta o [[#Perfil progressivo (onboarding)|onboarding]].
+- **`src/components/ProfilePanel.tsx`** — aba **Perfil** do `GameMenu`: imagem ou iniciais, nome, username, e-mail confirmado, **cidade** e **como conheceu** ([[#Perfil progressivo (onboarding)]]). Código/link próprio, indicador e total indicado ficam na aba **Indicações**. Um lápis sobre o avatar abre ações de adicionar/trocar e remover imagem. Aceita JPEG, PNG ou WebP de até 10 MB; `src/lib/image.ts` reduz proporcionalmente para no máximo 400×400. "Salvar alterações" só habilita com nome, username, imagem, cidade ou origem diferente do perfil atual.
 - **`src/components/AuthDialog.tsx`** — modal único (shadcn `Dialog`): campo opcional de indicação sempre visível + botão **Continuar com Google** + divisor "ou" + e-mail → código. Código de indicação válido mostra nome/imagem; inválido bloqueia login/cadastro até correção ou remoção. Conta nova envia código no cadastro; conta existente confirma depois do login.
   - **Botão Google (GIS)**: o script `accounts.google.com/gsi/client` (carregado no `index.html`) renderiza o botão via `google.accounts.id`. O popup devolve o `credential` (ID token); o callback chama `loginWithGoogle(credential)` → `POST /auth/google` → mesma sessão do fluxo por código. Entrar e cadastrar são a **mesma ação** (o backend resolve). No 1º acesso o modal vai para o passo de confirmação em vez de já entrar. `GOOGLE_CLIENT_ID` vem de `VITE_GOOGLE_CLIENT_ID` (com default público embutido). Registre a **origem** do front em *Authorized JavaScript origins* no Google Console.
   - **Confirmação de dados (passo `profile`)**: fecha os dois cadastros. E-mail aparece em campo **desabilitado** (só confere); nome e nome de usuário vêm preenchidos no 1º acesso por Google (sugestão do backend) e são editáveis. `POST /auth/register/complete` recebe `{ registrationToken, name, username, referralCode? }`. E-mail vem da prova assinada, nunca do body. Backend normaliza `username` para minúsculas, valida 3–45 caracteres e retorna `409` se já existir. `name` aceita 2–100 caracteres.
@@ -191,13 +191,28 @@ flowchart TD
     VC -->|conta nova: prova efêmera| Cadastro[confirma e-mail + nome + username]
     Cadastro -->|POST /auth/register/complete| AP
     AP --> Close[fecha modal, AuthMenu mostra usuário]
+    Close -->|onboarding_completed_at null| Onb[OnboardingDialog]
+    Onb -->|Salvar ou Pular| OB[POST /user/me/onboarding]
+    OB --> AP
     Btn -->|usuário logado| Profile[Perfil]
-    Profile -->|name + username| Update[PUT /user/me]
+    Profile -->|name + username + cidade + origem| Update[PUT /user/me]
     Update --> AP
 ```
 
 > [!info] Backend passwordless
 > Contrato completo (rate limit, e-mail descartável, HMAC do código, seam OAuth) em `cidoa-back` → `doc/modulos/auth/auth.md`.
+
+### Perfil progressivo (onboarding)
+
+Cadastro segue mínimo (e-mail + nome + username). Depois da conta existir, [[html-components#OnboardingDialog.tsx|OnboardingDialog]] pergunta **cidade** e **como conheceu o Cidoa** — opcional, uma vez por conta, com **Pular**.
+
+- **Quando** — logo após login/sessão restaurada, se `user.onboarding_completed_at === null`. Espera indicação pendente, `GameMenu` e `ShareDialog` fecharem.
+- **Salvar ou pular** — `POST /user/me/onboarding` (pular = `{}`); servidor grava `onboarding_completed_at` na 1ª vez. Esc, X, clique fora = pular. Pular com rede falhando fecha nesta sessão; próximo login pergunta de novo.
+- **Depois** — mesmos campos ([[html-components#ProfileDetailsFields.tsx|ProfileDetailsFields]]) na aba **Perfil**, mesmo Salvar (`PUT /user/me`).
+- **Cidade** — busca única "Campinas, SP" (traz a UF junto). Lista `GET /location/cities` (catálogo IBGE do back; sem sync do IBGE só as 27 capitais). Grava `user.city_id` → mesma tabela `city` de `donation.city_id`.
+
+> [!todo] Próximo passo: doação e ONG perto
+> Ainda não existe checkout de doação pro usuário nem localização de ONG. Checkout novo pré-preenche `user.city`; "ONGs perto" exige `ong.city_id` numa migration futura do back.
 
 ---
 
@@ -213,7 +228,8 @@ flowchart TD
 | Auth (cena) | `api/auth/auth.routes.ts` | `logout`, `loginWithGoogle`, `requestLoginCode`, `verifyLoginCode`, `completeRegistration` — sem login por senha |
 | Referral | `api/referral/referral.routes.ts` | `getReferralPreview`, `getMyReferralSummary`, `applyMyReferral` — ver [[referral]] |
 | Admin (painel) | `api/admin/admin.routes.ts` | sessão: `adminLogin`, `adminLogout`, `getAdminSession`; usuários: `listUsers`, `setUserAdmin`, `deleteUser` (ver [[usuarios]]); `getDashboardStats`, `createTestBuildings`, `deleteAllBuildings` (ver [[edificios-teste]]), `getIbgeStatus`, `syncIbge` (ver [[ibge]]) |
-| User (cena) | `api/user/user.routes.ts` + `user.types.ts` | `getOwnSession`, `updateOwnProfile`; tipo `User`, incluindo `name: string \| null` para contas antigas |
+| User (cena) | `api/user/user.routes.ts` + `user.types.ts` | `getOwnSession`, `updateOwnProfile`, `completeOnboarding`; tipo `User`, incluindo `name: string \| null` para contas antigas, `city`, `discovery_source(_other)` e `onboarding_completed_at` |
+| Location (cena) | `api/location/location.routes.ts` + `location.types.ts` | `getCities()` — tuplas `[id, nome, UF]` → `City`; promise memoizada, falha limpa cache |
 
 ---
 
@@ -242,6 +258,7 @@ Cria/promove usuário com `is_admin=true` + senha bcrypt. Depois é só logar em
 | Modo noite (toggle no menu do usuário) | [[area-admin#Modo noite (menu do usuário)]] |
 | Modal de login/cadastro passwordless | `src/components/AuthDialog.tsx` |
 | Visualização e edição do perfil | `src/components/ProfilePanel.tsx` + `src/api/user/user.routes.ts` |
+| Onboarding do 1º login (cidade, como conheceu) | `src/components/OnboardingDialog.tsx` + `src/components/ProfileDetailsFields.tsx` |
 | Link, preview, confirmação e compartilhamento de indicação | `src/components/AuthMenu.tsx` + `src/components/referral/` + `src/api/referral/` |
 | Tela de login do admin (senha) | `src/pages/admin/Login.tsx` |
 | Tela de dashboard | `src/pages/admin/Dashboard.tsx` |
