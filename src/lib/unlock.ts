@@ -30,6 +30,22 @@ export function formatBRL(value: number): string {
   });
 }
 
+/**
+ * Aceita as duas formas digitadas: "50,90" (vírgula, pt-BR) e "50.90".
+ * A vírgula decide: com ela, ponto é separador de milhar. Devolve null para
+ * qualquer coisa que não seja um valor positivo (vazio, zero, texto).
+ */
+export function parseMoney(raw: string): number | null {
+  const text = raw.trim();
+  if (!text) return null;
+  const normalized = text.includes(",")
+    ? text.replace(/\./g, "").replace(",", ".")
+    : text;
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return Math.round(parsed * 100) / 100;
+}
+
 export function formatReferrals(count: number): string {
   return `${count} ${count === 1 ? "indicação" : "indicações"}`;
 }

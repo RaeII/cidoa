@@ -126,6 +126,29 @@ Barra de filtros das doações. Presentacional — recebe listas e filtro, emite
 
 ---
 
+### `ContributeDialog.tsx`
+
+`html/donate/`. Botão **Contribuir** (pílula creme, ícone `building-complex-plus`, rodapé central) + modal do formulário. **Só UI** — `onSubmit` = costura do pagamento; hoje `CitySceneEditor` só mostra toast "Pagamento em breve.".
+
+**Campos:**
+- **Novo edifício · Aumentar edifício** — chips; só aparecem se usuário tem edifício (`buildings` não vazio). Aumentar abre select do edifício (`R$ 120 · ONG`)
+- **ONG** — select. Lista = ONGs do snapshot (backend ainda sem rota de ONGs)
+- **Valor** — chips R$ 10/25/50/100 + input livre (`R$`, aceita `50,90`/`50.90` via `parseMoney` de `src/lib/unlock.ts`)
+- Botão final muda texto: `Erguer edifício · R$ 50` / `Aumentar edifício · R$ 50`. Desabilitado até ONG + valor (+ edifício se aumentar)
+
+Montado só com dataset pronto. Estado de abrir/fechar é interno (`DialogTrigger`). Copy sem "Doar"/"Construir"/"prédio".
+
+| Prop | Tipo | Descrição |
+|---|---|---|
+| `ongs` | `readonly Ong[]` | ONGs pro select |
+| `buildings` | `readonly MyDonation[]` | Edifícios do usuário (`myDonations` do editor) |
+| `onSubmit` | `(c: Contribution) => void` | `{ donationId: number \| null, ongId, value }` — `null` = edifício novo |
+
+> [!todo] Falta (backend)
+> Pagamento, criar/aumentar doação, rota de ONGs, exigir login antes de pagar.
+
+---
+
 ### `BuildingInfoModal.tsx`
 
 Card só-leitura do edifício clicado. Canto superior direito, sem dim: cena segue interativa. Visual herdado da branch `video-2`.

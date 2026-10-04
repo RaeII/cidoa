@@ -120,6 +120,8 @@ src/
       DonationLoadOverlay.tsx
       DonationFilterBar.tsx
       BuildingInfoModal.tsx          ← card só-leitura do prédio clicado; lápis só p/ dono/admin
+      donate/
+        ContributeDialog.tsx         ← botão Contribuir + form (novo/aumentar edifício, ONG, valor); só UI
       BuildingCustomizePanel.tsx
       BuildingControls.tsx
       TextureControls.tsx
@@ -384,6 +386,7 @@ flowchart LR
 | Trocar modo de layout (quadra × centro)          | [[html-components#BuildingLayoutCard.tsx]]        |
 | Limitar quantos edifícios aparecem na tela       | [[html-components#BuildingLayoutCard.tsx]] · `visibleLimit` no `CitySceneEditor` |
 | Alterar a UI de personalização de edifício       | [[html-components#BuildingCustomizePanel.tsx]]    |
+| Botão Contribuir / form de contribuição          | [[html-components#ContributeDialog.tsx]]          |
 | Card de info do prédio / quem pode editar        | [[html-components#BuildingInfoModal.tsx]] · [[donation-api#Quem pode editar]] |
 | Personalização salvar/carregar do banco          | [[donation-api#Personalização persistida]]        |
 | Entender de onde vêm as opções de personalização | [[customization-api]]                             |

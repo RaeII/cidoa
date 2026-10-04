@@ -46,6 +46,7 @@ Mesmo princípio em `formatUnlockRemaining`: eixo **já cumprido** também some.
 | `meetsUnlock(rule, progress)` | Progresso já satisfaz? |
 | `formatUnlockRemaining(rule, progress)` | `Faltam R$ 20 e 1 indicação` · `null` quando já bate |
 | `formatBRL(v)` | `R$ 50` (inteiro) · `R$ 49,90` (com centavo) |
+| `parseMoney(raw)` | `"50,90"`/`"50.90"` → `50.9`; vazio, zero, texto → `null`. Usado no [[passe-admin-ui#Dialog de liberação\|UnlockDialog]] e no [[html-components#ContributeDialog.tsx\|ContributeDialog]] |
 | `formatReferrals(n)` | `1 indicação` · `3 indicações` |
 
 Tipos `UnlockRule` e `UnlockProgress` também saem daqui — `customizationApi.ts` e `admin.types.ts` importam, não redeclaram.

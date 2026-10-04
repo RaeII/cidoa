@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Loader2, Trophy } from "lucide-react";
 import { updateCustomizationCategory, updateCustomizationOption } from "@/api/admin/admin.routes";
 import { ApiError } from "@/api/http";
-import { formatUnlockCta, type UnlockRule } from "@/lib/unlock";
+import { formatUnlockCta, parseMoney, type UnlockRule } from "@/lib/unlock";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -11,22 +11,6 @@ import { Switch } from "@/components/ui/switch";
 import type { UnlockTarget } from "@/lib/adminUnlock";
 
 type Feedback = { ok: boolean; text: string } | null;
-
-/**
- * Aceita as duas formas que o admin digita: "50,90" (vírgula, pt-BR) e "50.90".
- * A vírgula decide: com ela, ponto é separador de milhar. Devolve null para
- * qualquer coisa que não seja um valor exigível (vazio, zero, texto).
- */
-function parseMoney(raw: string): number | null {
-  const text = raw.trim();
-  if (!text) return null;
-  const normalized = text.includes(",")
-    ? text.replace(/\./g, "").replace(",", ".")
-    : text;
-  const parsed = Number(normalized);
-  if (!Number.isFinite(parsed) || parsed <= 0) return null;
-  return Math.round(parsed * 100) / 100;
-}
 
 function parseCount(raw: string): number | null {
   const parsed = Number(raw.trim());

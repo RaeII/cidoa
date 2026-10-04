@@ -19,6 +19,7 @@ import { saveDonationCustomization } from "../api/donationApi";
 import { useCustomizationCatalog } from "./hooks/useCustomizationCatalog";
 import { DonationLoadOverlay } from "./html/DonationLoadOverlay";
 import { DonationFilterBar } from "./html/DonationFilterBar";
+import { ContributeDialog } from "./html/donate/ContributeDialog";
 import { toast } from "./ui/toast";
 import { DEFAULT_SCENE_STATS } from "../scene/config/citySceneConfig";
 import { createDefaultBlockLayoutSettings } from "../scene/config/blockLayoutConfig";
@@ -500,6 +501,14 @@ export function CitySceneEditor() {
           ongs={ongs}
           filter={filter}
           onChange={setFilter}
+        />
+      )}
+      {loadState.status === "ready" && (
+        // Só a UI: pagamento e erguer/aumentar o edifício entram com o backend.
+        <ContributeDialog
+          ongs={ongs}
+          buildings={myDonations}
+          onSubmit={() => toast.info("Pagamento em breve.")}
         />
       )}
       {(loadState.status !== "ready" || !donationsApplied) && (
