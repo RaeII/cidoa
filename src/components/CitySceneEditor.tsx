@@ -20,6 +20,12 @@ import { useCustomizationCatalog } from "./hooks/useCustomizationCatalog";
 import { DonationLoadOverlay } from "./html/DonationLoadOverlay";
 import { DonationFilterBar } from "./html/DonationFilterBar";
 import { ContributeDialog } from "./html/donate/ContributeDialog";
+import { BuildingProfileDialog } from "./html/donate/BuildingProfileForm";
+import {
+  fetchBuildingProfile,
+  type BuildingProfile,
+  type Contribution,
+} from "../api/contributionApi";
 import { toast } from "./ui/toast";
 import { DEFAULT_SCENE_STATS } from "../scene/config/citySceneConfig";
 import { createDefaultBlockLayoutSettings } from "../scene/config/blockLayoutConfig";
@@ -93,16 +99,33 @@ export function CitySceneEditor() {
 
   // Doações vêm do snapshot cacheado; personalizações, da leitura no-store.
   // Filtro client-side por região/UF/cidade/ONG; replace-all na cena a cada mudança.
-  const { loadState, donations, allDonations, cities, ongs, savedCustomizations, filter, setFilter, retry } =
-    useDonations();
+  const {
+    loadState,
+    donations,
+    allDonations,
+    cities,
+    ongs,
+    savedCustomizations,
+    filter,
+    setFilter,
+    retry,
+    upsertDonation,
+  } = useDonations();
   const customizationCatalog = useCustomizationCatalog();
   const { isAdmin } = useAuth();
-  const ownedDonationIds = useOwnedDonationIds();
+  const { ids: ownedDonationIds, addOwned } = useOwnedDonationIds();
   // Só UX: o backend recusa (404) o PUT em edifício alheio de qualquer jeito.
   const canEdit = (donationId: number) => isAdmin || ownedDonationIds.has(donationId);
   const [donationsApplied, setDonationsApplied] = useState(false);
   // Teto de edifícios na cena (null = todos). Corta as doações de menor valor.
   const [visibleLimit, setVisibleLimit] = useState<number | null>(null);
+  const [contributeOpen, setContributeOpen] = useState(false);
+  // Login controlado aqui: o modal de contribuição também pede login.
+  const [authOpen, setAuthOpen] = useState(false);
+  const [profileEditId, setProfileEditId] = useState<number | null>(null);
+  const [infoProfile, setInfoProfile] = useState<{ id: number; profile: BuildingProfile | null } | null>(null);
+  // Edifício a focar quando o rebuild da cena terminar (ex.: recém-erguido fora do filtro).
+  const pendingFocusRef = useRef<number | null>(null);
 
   // Personalização salva no banco vira o estado inicial do painel. Só muda
   // quando o dataset chega (load/retry) — que é justamente quando descartar
@@ -150,6 +173,14 @@ export function CitySceneEditor() {
         // enquanto prédio personalizado for minoria; indexar por id se crescer.
         for (const [id, customization] of customizationsRef.current) {
           canvasRef.current?.updateDonationCustomization(id, customization);
+        }
+        // Aqui e não num effect à parte: focusOnDonation é no-op até o edifício
+        // existir na cena, e o início deste effect limpa foco e painel.
+        const focusId = pendingFocusRef.current;
+        pendingFocusRef.current = null;
+        if (focusId !== null && visibleDonations.some((d) => d.id === focusId)) {
+          canvasRef.current?.focusOnDonation(focusId);
+          setSelectedBuildingId(focusId);
         }
         setDonationsApplied(true);
       });
@@ -223,6 +254,50 @@ export function CitySceneEditor() {
     setSelectedBuildingId(null);
   }, []);
 
+  // Pagamento confirmado: o edifício entra (ou cresce) na cidade sem recarregar o snapshot.
+  const handlePaid = (contribution: Contribution, donationId: number) => {
+    const existing = allDonations.find((d) => d.id === donationId);
+    if (existing) {
+      upsertDonation({ ...existing, value: existing.value + contribution.value });
+    } else if (contribution.donationId === null) {
+      upsertDonation({
+        id: donationId,
+        value: contribution.value,
+        cityId: contribution.cityId,
+        ongId: contribution.ongId,
+      });
+    }
+    addOwned(donationId);
+  };
+
+  // Fim do fluxo de contribuição: câmera no edifício + painel de personalização.
+  const handleContributionFinish = (donationId: number) => {
+    const visible = visibleDonations.some((d) => d.id === donationId);
+    if (visible && donationsApplied) {
+      canvasRef.current?.focusOnDonation(donationId);
+      setSelectedBuildingId(donationId);
+      return;
+    }
+    if (!visible) {
+      setFilter({});
+      setVisibleLimit(null);
+    }
+    pendingFocusRef.current = donationId;
+  };
+
+  // Imagem/nome/descrição ficam fora do snapshot: busca no clique.
+  useEffect(() => {
+    if (infoBuildingId === null) return;
+    const controller = new AbortController();
+    fetchBuildingProfile(infoBuildingId, controller.signal).then(
+      (profile) => {
+        if (!controller.signal.aborted) setInfoProfile({ id: infoBuildingId, profile });
+      },
+      () => {},
+    );
+    return () => controller.abort();
+  }, [infoBuildingId]);
+
   // Tudo que o modal mostra já veio no snapshot público — sem request no clique.
   const infoBuilding = useMemo(() => {
     if (infoBuildingId === null) return null;
@@ -276,6 +351,7 @@ export function CitySceneEditor() {
 
   const flushSave = useCallback((donationId: number, customization: BuildingCustomization) => {
     pendingSaves.current.delete(donationId);
+    if (donationId < 0) return; // ponytail: id local do mock de pagamento; sai com o backend
     // Um toast por edifício: falhas seguidas (arrasto de slider) substituem
     // em vez de empilhar; o próximo save ok fecha.
     const toastId = `save-customization-${donationId}`;
@@ -493,6 +569,9 @@ export function CitySceneEditor() {
           myDonations={myDonations}
           catalog={customizationCatalog}
           onOpenDonation={handleBuildingClick}
+          authOpen={authOpen}
+          onAuthOpenChange={setAuthOpen}
+          onboardingBlocked={contributeOpen || selectedBuildingId !== null}
         />
       </div>
       {loadState.status === "ready" && uiVisibility.donationFilter && (
@@ -504,11 +583,14 @@ export function CitySceneEditor() {
         />
       )}
       {loadState.status === "ready" && (
-        // Só a UI: pagamento e erguer/aumentar o edifício entram com o backend.
         <ContributeDialog
+          open={contributeOpen}
+          onOpenChange={setContributeOpen}
           ongs={ongs}
           buildings={myDonations}
-          onSubmit={() => toast.info("Pagamento em breve.")}
+          onRequestLogin={() => setAuthOpen(true)}
+          onPaid={handlePaid}
+          onFinish={handleContributionFinish}
         />
       )}
       {(loadState.status !== "ready" || !donationsApplied) && (
@@ -566,9 +648,16 @@ export function CitySceneEditor() {
           place={infoBuilding.place}
           isOwn={ownedDonationIds.has(infoBuildingId)}
           onCustomize={canEdit(infoBuildingId) ? handleCustomizeFromInfo : undefined}
+          profile={infoProfile?.id === infoBuildingId ? infoProfile.profile : null}
+          onEditProfile={canEdit(infoBuildingId) ? () => setProfileEditId(infoBuildingId) : undefined}
           onClose={handleCloseInfo}
         />
       )}
+      <BuildingProfileDialog
+        donationId={profileEditId}
+        onClose={() => setProfileEditId(null)}
+        onSaved={(id, profile) => setInfoProfile({ id, profile })}
+      />
       {/* Gate no render: sessão que cai (logout/401) fecha o painel sozinha. */}
       {selectedBuildingId !== null && canEdit(selectedBuildingId) && (() => {
         const c = getExistingCustomization(selectedBuildingId);

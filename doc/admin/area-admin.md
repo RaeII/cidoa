@@ -156,7 +156,7 @@ Layout: `SidebarProvider` (`h-svh`) + `AppSidebar` + conteúdo rolável + `Mobil
 Cidade de dia ou de noite. Estado é `environmentSettings.night` no `CitySceneEditor` — mesma trilha dos outros settings da cena (`CitySceneCanvas` → [[scene-hooks]] → `runtime.updateEnvironmentSettings`).
 
 - **Onde clica** — switch sol/lua (`NightToggle`, `src/components/ThemeToggle.tsx`) no topo do [[html-components#GameMenu.tsx|GameMenu]], à esquerda da pílula do usuário (fora dela). Deslogado não tem menu: mesmo switch ao lado do "Entrar".
-- **Props** — `AuthMenu` recebe `night` + `onNightChange`; não guarda estado próprio.
+- **Props** — `AuthMenu` recebe `night` + `onNightChange`; não guarda estado próprio. Login também é controlado de fora: `authOpen` + `onAuthOpenChange` (editor abre o `AuthDialog` pelo [[html-components#ContributeDialog.tsx|Contribuir]]) e `onboardingBlocked`.
 - **O que muda na cena** — céu tingido + estrelas ([[scene-builders#loadEnvironment.ts]]), luz/IBL/névoa ([[scene-runtime#Modo noite]]), valores em `NIGHT_PRESET` ([[scene-config#environmentConfig.ts]]).
 - **Não persiste** — recarregar volta pro dia. Persistir = mesmo padrão de [[scene-config#uiVisibilityConfig.ts]].
 

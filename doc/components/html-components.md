@@ -128,24 +128,56 @@ Barra de filtros das doações. Presentacional — recebe listas e filtro, emite
 
 ### `ContributeDialog.tsx`
 
-`html/donate/`. Botão **Contribuir** (pílula creme, ícone `building-complex-plus`, rodapé central) + modal do formulário. **Só UI** — `onSubmit` = costura do pagamento; hoje `CitySceneEditor` só mostra toast "Pagamento em breve.".
+`html/donate/`. Pílula **Contribuir** (creme, ícone `building-complex-plus`, rodapé central) + modal em **3 etapas**. Pagamento e perfil passam por [[contribution-api]] (mock hoje).
 
-**Campos:**
-- **Novo edifício · Aumentar edifício** — chips; só aparecem se usuário tem edifício (`buildings` não vazio). Aumentar abre select do edifício (`R$ 120 · ONG`)
-- **ONG** — select. Lista = ONGs do snapshot (backend ainda sem rota de ONGs)
-- **Valor** — chips R$ 10/25/50/100 + input livre (`R$`, aceita `50,90`/`50.90` via `parseMoney` de `src/lib/unlock.ts`)
-- Botão final muda texto: `Erguer edifício · R$ 50` / `Aumentar edifício · R$ 50`. Desabilitado até ONG + valor (+ edifício se aumentar)
+```mermaid
+flowchart LR
+  P[Pílula] --> F[1 Contribuição]
+  F -- deslogado --> L[AuthDialog empilhado] --> F
+  F -- createPixCharge --> Pay[2 Pague com Pix]
+  Pay -- poll 3 s + visibilitychange --> S{status}
+  S -- expired --> X[Este código expirou → Gerar novo código]
+  S -- paid --> D[3 Pagamento confirmado]
+  D -- Ver meu edifício / X / Esc --> Fim[foco + BuildingCustomizePanel]
+```
 
-Montado só com dataset pronto. Estado de abrir/fechar é interno (`DialogTrigger`). Copy sem "Doar"/"Construir"/"prédio".
+**Etapa 1 — Contribuição**
+- **Novo edifício · Aumentar edifício** — chips; só com edifício próprio. Aumentar = select do edifício (pré-selecionado se só 1); **ONG e cidade somem** (herda do edifício)
+- **ONG** — select; pré-seleciona se só 1; vazio = `Nenhuma ONG disponível`
+- **Cidade do edifício** — `CityCombobox` de [[#ProfileDetailsFields.tsx]]. `city === undefined` = não tocado → mostra `user.city` (login no meio do fluxo já preenche)
+- **Valor** — chips R$ 10/25/50/100, **R$ 25 pré-selecionado**, + `Outro valor` (`parseMoney`). Mínimo R$ 5 só na UI; erro no blur
+- Botão: `Erguer edifício · R$ 25` / `Aumentar edifício · R$ 25`. Deslogado: `Entrar para continuar` → `onRequestLogin` (form fica preenchido)
+
+**Etapa 2 — Pague com Pix** (`PixPayment`, mesmo arquivo)
+- Resumo valor + `para {ONG}`. QR em destaque no desktop; celular (`useIsMobile`) esconde atrás de `Mostrar QR code` e **Copiar código** vira ação primária
+- `Pix Copia e Cola` (input só leitura) + 3 passos + `Confira se o recebedor é {receiverName}`
+- Status `role="status"` "Aguardando pagamento" + **`Válido até HH:MM`** (sem cronômetro). 3 falhas seguidas → "Sem conexão. Tentando de novo…"
+- Grafia **Pix**, nunca "PIX" (manual da marca BCB)
+
+**Etapa 3 — Pagamento confirmado** → [[#BuildingProfileForm.tsx]] com `Ver meu edifício`. Clique fora bloqueado (não perde texto); X/Esc = terminar sem salvar.
+
+**Estado** — `Flow` (`form` | `pay` | `done`) vive **fora** do `DialogContent`: fechar o modal não perde o Pix. Poll segue fechado; pílula vira **Pix pendente** (ícone relógio). Pago com modal fechado → toast "Pagamento confirmado." com **Continuar** (reabre na etapa 3). `Flow` guarda `userId`: troca de conta ignora a cobrança. `getPendingCharge` ao logar/remontar retoma Pix pendente. Troca de etapa foca o título.
 
 | Prop | Tipo | Descrição |
 |---|---|---|
-| `ongs` | `readonly Ong[]` | ONGs pro select |
-| `buildings` | `readonly MyDonation[]` | Edifícios do usuário (`myDonations` do editor) |
-| `onSubmit` | `(c: Contribution) => void` | `{ donationId: number \| null, ongId, value }` — `null` = edifício novo |
+| `open` / `onOpenChange` | `boolean` / `(open) => void` | Controlado pelo editor |
+| `ongs` | `readonly Ong[]` | ONGs do snapshot (back sem rota de ONGs) |
+| `buildings` | `readonly MyDonation[]` | `myDonations` do editor |
+| `onRequestLogin` | `() => void` | Abre `AuthDialog` (estado `authOpen` no editor) |
+| `onPaid` | `(c, donationId) => void` | Editor faz `upsertDonation` + `addOwned` → edifício entra/cresce na cena |
+| `onFinish` | `(donationId) => void` | Editor foca + abre painel; fora do filtro/teto → limpa ambos e foca no fim do rebuild (`pendingFocusRef`, rAF do `setDonations`) |
 
-> [!todo] Falta (backend)
-> Pagamento, criar/aumentar doação, rota de ONGs, exigir login antes de pagar.
+Copy sem "Doar"/"Construir"/"prédio". Decisões (login, R$ 25, validade, Pix pendente) vêm da pesquisa + supervisão — ver [[contribution-api]].
+
+---
+
+### `BuildingProfileForm.tsx`
+
+`html/donate/`. **Imagem** (4:3, `resizeImage(file, 800)` → JPEG, descarta EXIF), **Nome do edifício** (≤ 40), **Descrição** (textarea ≤ 160 + contador). Tudo opcional; dica "Aparece para quem clicar no seu edifício."
+
+- Carrega perfil atual antes de liberar campos — save substitui tudo, começar vazio apagaria o existente. Falha → "Não foi possível carregar." + Tentar de novo
+- Só salva se mudou; trim, `""` → `null`
+- `BuildingProfileDialog` (mesmo arquivo): "Editar nome e imagem" aberto do [[#BuildingInfoModal.tsx]]; `donationId` null = fechado
 
 ---
 
@@ -153,7 +185,7 @@ Montado só com dataset pronto. Estado de abrir/fechar é interno (`DialogTrigge
 
 Card só-leitura do edifício clicado. Canto superior direito, sem dim: cena segue interativa. Visual herdado da branch `video-2`.
 
-Mostra valor (BRL), `Cidade · UF`, chip da ONG — tudo do snapshot público, zero request no clique. Rótulo **Seu edifício** quando dono; senão **Doação**. Dono do prédio (e admin) vê lápis **Personalizar** → abre [[#BuildingCustomizePanel.tsx|BuildingCustomizePanel]]. Prédio alheio ou sem login: sem lápis. Regra em [[donation-api#Quem pode editar]].
+Mostra valor (BRL), `Cidade · UF`, chip da ONG — do snapshot público. Imagem 4:3, nome e descrição vêm do perfil ([[contribution-api]], `fetchBuildingProfile` no clique; aparece quando chega). Rótulo **Seu edifício** quando dono; senão **Edifício**. Quem pode editar vê link **Adicionar/Editar nome e imagem** → [[#BuildingProfileForm.tsx|BuildingProfileDialog]]. Dono do prédio (e admin) vê lápis **Personalizar** → abre [[#BuildingCustomizePanel.tsx|BuildingCustomizePanel]]. Prédio alheio ou sem login: sem lápis. Regra em [[donation-api#Quem pode editar]].
 
 | Prop | Tipo | Descrição |
 |---|---|---|
@@ -162,6 +194,8 @@ Mostra valor (BRL), `Cidade · UF`, chip da ONG — tudo do snapshot público, z
 | `place` | `string?` | `"Cidade · UF"` |
 | `isOwn` | `boolean` | Doação da sessão atual |
 | `onCustomize` | `() => void` opcional | Ausente = só leitura (sem lápis) |
+| `profile` | `BuildingProfile \| null` opcional | Imagem, nome, descrição |
+| `onEditProfile` | `() => void` opcional | Ausente = sem link de edição |
 | `onClose` | `() => void` | Fecha e limpa o foco |
 
 ---
@@ -202,7 +236,7 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre pelo botão avatar 
 
 Perfil progressivo do 1º login: **Cidade** + **Como conheceu o Cidoa?**. Tudo opcional. Montado no `AuthMenu` (ramo logado).
 
-- **Quando abre** — `user.onboarding_completed_at === null` e `blocked` falso. `AuthMenu` passa `blocked` = indicação pendente (`?ref=`) || `GameMenu` aberto || `ShareDialog` aberto. `AuthDialog` nem existe no ramo logado. Não empilha modal.
+- **Quando abre** — `user.onboarding_completed_at === null` e `blocked` falso. `AuthMenu` passa `blocked` = indicação pendente (`?ref=`) || `GameMenu` aberto || `ShareDialog` aberto || `onboardingBlocked` do editor (modal Contribuir ou painel de personalização abertos). `AuthDialog` nem existe no ramo logado. Não empilha modal.
 - **Uma vez por conta** — estado do servidor (`onboarding_completed_at`), não `localStorage`. Conta antiga também vê uma vez (sem backfill no back).
 - **Copy** — título "Complete seu perfil"; frase de valor "Com sua cidade, sugerimos ONGs perto de você."; botões **Pular** (ghost) e **Salvar**.
 - **Salvar** — desabilitado até ter cidade ou origem. `completeOnboarding({ city_id, discovery_source, discovery_source_other })` → `POST /user/me/onboarding`. Sucesso preenche `onboarding_completed_at` → fecha sozinho. Erro → `role="alert"`, continua aberto.

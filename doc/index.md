@@ -82,6 +82,7 @@ src/
       location.types.ts           ← `City { id, name, uf }`
     customizationApi.ts             ← catálogo de personalizações + conquistas do usuário
     donationApi.ts                  ← snapshot + personalizações atuais + doações próprias + PUT da personalização
+    contributionApi.ts              ← costura Pix + perfil do edifício (mock em memória até o back)
     regions.ts
   pages/admin/
     Pass.tsx                    ← página dedicada /dale/passe
@@ -121,7 +122,8 @@ src/
       DonationFilterBar.tsx
       BuildingInfoModal.tsx          ← card só-leitura do prédio clicado; lápis só p/ dono/admin
       donate/
-        ContributeDialog.tsx         ← botão Contribuir + form (novo/aumentar edifício, ONG, valor); só UI
+        ContributeDialog.tsx         ← pílula Contribuir + modal 3 etapas: contribuição → Pix → seu edifício
+        BuildingProfileForm.tsx      ← imagem/nome/descrição do edifício + dialog de edição
       BuildingCustomizePanel.tsx
       BuildingControls.tsx
       TextureControls.tsx
@@ -215,6 +217,7 @@ doc/
     donation-api.md
     referral.md                  ← links, código, confirmação e compartilhamento
     customization-api.md         ← catálogo, conquistas do usuário, formatação do requisito
+    contribution-api.md          ← Pix + perfil do edifício: contrato, mock, regras pro back
   components/                    ← espelha src/components (interface React)
     html-components.md
     three-components.md
@@ -386,7 +389,9 @@ flowchart LR
 | Trocar modo de layout (quadra × centro)          | [[html-components#BuildingLayoutCard.tsx]]        |
 | Limitar quantos edifícios aparecem na tela       | [[html-components#BuildingLayoutCard.tsx]] · `visibleLimit` no `CitySceneEditor` |
 | Alterar a UI de personalização de edifício       | [[html-components#BuildingCustomizePanel.tsx]]    |
-| Botão Contribuir / form de contribuição          | [[html-components#ContributeDialog.tsx]]          |
+| Botão Contribuir / fluxo de contribuição         | [[html-components#ContributeDialog.tsx]]          |
+| Pagamento Pix / contrato pro backend / mock      | [[contribution-api]]                              |
+| Imagem, nome e descrição do edifício             | [[html-components#BuildingProfileForm.tsx]]       |
 | Card de info do prédio / quem pode editar        | [[html-components#BuildingInfoModal.tsx]] · [[donation-api#Quem pode editar]] |
 | Personalização salvar/carregar do banco          | [[donation-api#Personalização persistida]]        |
 | Entender de onde vêm as opções de personalização | [[customization-api]]                             |

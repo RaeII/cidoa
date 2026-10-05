@@ -1,3 +1,5 @@
+import type { BuildingProfile } from "@/api/contributionApi";
+
 export type BuildingInfoModalProps = {
   value: number;
   ongName?: string;
@@ -6,6 +8,10 @@ export type BuildingInfoModalProps = {
   isOwn: boolean;
   /** Ausente = só leitura: edifício de outra pessoa (ou sem sessão). */
   onCustomize?: () => void;
+  /** Imagem, nome e descrição; chega depois do clique (null = sem perfil). */
+  profile?: BuildingProfile | null;
+  /** Ausente = só leitura. */
+  onEditProfile?: () => void;
   onClose: () => void;
 };
 
@@ -18,6 +24,8 @@ export function BuildingInfoModal({
   place,
   isOwn,
   onCustomize,
+  profile,
+  onEditProfile,
   onClose,
 }: BuildingInfoModalProps) {
   return (
@@ -30,7 +38,7 @@ export function BuildingInfoModal({
       >
         <div className="flex items-center justify-between gap-3">
           <span className="text-[11px] font-medium uppercase tracking-wider text-white/50">
-            {isOwn ? "Seu edifício" : "Doação"}
+            {isOwn ? "Seu edifício" : "Edifício"}
           </span>
           <button
             onClick={onClose}
@@ -44,7 +52,20 @@ export function BuildingInfoModal({
           </button>
         </div>
 
+        {profile?.image && (
+          <img
+            src={profile.image}
+            alt={profile.name ?? "Imagem do edifício"}
+            className="mt-3 aspect-[4/3] w-full rounded-xl object-cover"
+          />
+        )}
+        {profile?.name && <div className="mt-3 text-lg font-semibold break-words">{profile.name}</div>}
+
         {place && <div className="truncate text-sm text-white/60">{place}</div>}
+
+        {profile?.description && (
+          <p className="mt-2 text-sm whitespace-pre-line break-words text-white/75">{profile.description}</p>
+        )}
 
         {ongName && (
           <div className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-full border border-[#c9a86a]/25 bg-[#c9a86a]/10 px-2.5 py-1 text-[11px] text-[#e4c98b]">
@@ -74,6 +95,16 @@ export function BuildingInfoModal({
             </button>
           )}
         </div>
+
+        {onEditProfile && (
+          <button
+            type="button"
+            onClick={onEditProfile}
+            className="mt-1 min-h-11 text-sm text-[#e4c98b] hover:underline"
+          >
+            {profile?.name || profile?.image || profile?.description ? "Editar nome e imagem" : "Adicionar nome e imagem"}
+          </button>
+        )}
       </div>
     </div>
   );

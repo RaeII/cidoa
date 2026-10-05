@@ -284,8 +284,9 @@ export function AuthDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      {/* aria-describedby={undefined} silencia o aviso do Radix quando não há descrição. */}
-      <DialogContent className="sm:max-w-sm" {...(description ? {} : { "aria-describedby": undefined })}>
+      {/* aria-describedby={undefined} silencia o aviso do Radix quando não há descrição.
+          text-foreground: o body da cena pinta texto branco, que sumiria no tema claro. */}
+      <DialogContent className="text-foreground sm:max-w-sm" {...(description ? {} : { "aria-describedby": undefined })}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}

@@ -74,6 +74,18 @@ export function useDonations() {
     setReloadKey((key) => key + 1);
   }, []);
 
+  /** Troca o registro pelo id ou acrescenta (pagamento confirmado: edifício novo ou maior). */
+  const upsertDonation = useCallback((record: DonationRecord) => {
+    setDataset((prev) => {
+      if (!prev) return prev;
+      const exists = prev.donations.some((donation) => donation.id === record.id);
+      const donations = exists
+        ? prev.donations.map((donation) => (donation.id === record.id ? record : donation))
+        : [...prev.donations, record];
+      return { ...prev, donations };
+    });
+  }, []);
+
   const cityById = useMemo(() => {
     const map = new Map<number, City>();
     dataset?.cities.forEach((city) => map.set(city.id, city));
@@ -111,5 +123,6 @@ export function useDonations() {
     filter,
     setFilter,
     retry,
+    upsertDonation,
   };
 }

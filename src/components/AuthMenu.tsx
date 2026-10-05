@@ -40,13 +40,26 @@ type AuthMenuProps = {
   myDonations: readonly MyDonation[];
   catalog: CustomizationCatalog | null;
   onOpenDonation: (donationId: number) => void;
+  /** Login controlado pelo editor: o modal de contribuição também pede login. */
+  authOpen: boolean;
+  onAuthOpenChange: (open: boolean) => void;
+  /** Segura o onboarding do 1º login enquanto outro fluxo ocupa a tela. */
+  onboardingBlocked: boolean;
 };
 
 /** Autenticação, onboarding do primeiro login, menu do usuário (GameMenu) e entrada única dos fluxos de indicação da cena. */
-export function AuthMenu({ night, onNightChange, myDonations, catalog, onOpenDonation }: AuthMenuProps) {
+export function AuthMenu({
+  night,
+  onNightChange,
+  myDonations,
+  catalog,
+  onOpenDonation,
+  authOpen,
+  onAuthOpenChange,
+  onboardingBlocked,
+}: AuthMenuProps) {
   const { isAuthenticated, user } = useAuth();
   const [initialCode] = useState(initialReferralCode);
-  const [authOpen, setAuthOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [referralCode, setReferralCode] = useState(initialCode);
   const [referralPreview, setReferralPreview] = useState<ReferrerPreview | null>(null);
@@ -259,7 +272,7 @@ export function AuthMenu({ night, onNightChange, myDonations, catalog, onOpenDon
           onCancel={clearPendingReferral}
         />
         {/* Não empilha modal: espera indicação pendente, menu e compartilhar fecharem. */}
-        <OnboardingDialog blocked={referralCode !== "" || menuOpen || shareOpen} />
+        <OnboardingDialog blocked={referralCode !== "" || menuOpen || shareOpen || onboardingBlocked} />
       </>
     );
   }
@@ -269,13 +282,13 @@ export function AuthMenu({ night, onNightChange, myDonations, catalog, onOpenDon
       <div className="flex items-center gap-2">
         {/* Deslogado não tem menu — o mesmo toggle fica ao lado do "Entrar". */}
         <NightToggle night={night} onNightChange={onNightChange} />
-        <button type="button" className={overlayButton} onClick={() => setAuthOpen(true)}>
+        <button type="button" className={overlayButton} onClick={() => onAuthOpenChange(true)}>
           Entrar
         </button>
       </div>
       <AuthDialog
         open={effectiveAuthOpen}
-        onOpenChange={setAuthOpen}
+        onOpenChange={onAuthOpenChange}
         referralCode={referralCode}
         referralPreview={referralPreview}
         referralLoading={referralLoading}

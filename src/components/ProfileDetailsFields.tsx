@@ -32,7 +32,7 @@ const chipClass =
  * Busca única "Campinas, SP": estado + cidade numa interação, sem cascata UF → cidade.
  * Combobox ARIA (lista com aria-activedescendant); o foco nunca sai do input.
  */
-function CityCombobox({
+export function CityCombobox({
   id,
   value,
   onChange,
