@@ -54,6 +54,7 @@ scripts/
   encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`)
   check-pass.mjs               ← ordenação do passe sem servidor/navegador
   check-city-search.mjs        ← busca de cidade (acento, prefixo antes de substring, UF, limite) sem navegador
+  check-contribution.mjs       ← máscara monetária: 2 casas fixas, digitação/exclusão, colagem BRL e validação; sem servidor/navegador
   check-building-shapes.mjs    ← checa os 12 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
   check-building-textures.mjs  ← troca de textura no destaque padrão; reuso de meshes/cache, sem navegador
   check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
@@ -137,6 +138,7 @@ src/
   lib/
     image.ts                       ← valida e reduz imagens proporcionalmente para até 400 px
     citySearch.ts                  ← busca de cidade pura: sem acento, prefixo antes de substring
+    moneyInput.ts                  ← máscara monetária da contribuição: vírgula/2 casas sempre, milhar e colagem em reais
     pass.ts                        ← contrato visual e ordenação por esforço estimado
     adminUnlock.ts                 ← alvos de edição por opção/feature
     unlock.ts                      ← fonte única: requisito do passe → texto (badge, frase, o que falta)
@@ -390,6 +392,7 @@ flowchart LR
 | Limitar quantos edifícios aparecem na tela       | [[html-components#BuildingLayoutCard.tsx]] · `visibleLimit` no `CitySceneEditor` |
 | Alterar a UI de personalização de edifício       | [[html-components#BuildingCustomizePanel.tsx]]    |
 | Botão Contribuir / fluxo de contribuição         | [[html-components#ContributeDialog.tsx]]          |
+| Busca de ONG / campo de valor / resumo do Pix     | [[html-components#ContributeDialog.tsx]] · `src/lib/moneyInput.ts` · `scripts/check-contribution.mjs` |
 | Pagamento Pix / contrato pro backend / mock      | [[contribution-api]]                              |
 | Imagem, nome e descrição do edifício             | [[html-components#BuildingProfileForm.tsx]]       |
 | Card de info do prédio / quem pode editar        | [[html-components#BuildingInfoModal.tsx]] · [[donation-api#Quem pode editar]] |

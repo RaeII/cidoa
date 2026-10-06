@@ -130,6 +130,8 @@ Barra de filtros das doações. Presentacional — recebe listas e filtro, emite
 
 `html/donate/`. Pílula **Contribuir** (creme, ícone `building-complex-plus`, rodapé central) + modal em **3 etapas**. Pagamento e perfil passam por [[contribution-api]] (mock hoje).
 
+**Layout** — desktop até **896 px** (`lg:max-w-4xl`), padding 40 px; tablet até 768 px. Etapas numeradas; título recebe foco na abertura/troca de etapa. Formulário e Pix em duas colunas a partir de 768 px; celular empilha. Altura limitada por `100dvh`, rolagem interna, tokens claro/escuro.
+
 ```mermaid
 flowchart LR
   P[Pílula] --> F[1 Contribuição]
@@ -143,20 +145,24 @@ flowchart LR
 
 **Etapa 1 — Contribuição**
 - **Novo edifício · Aumentar edifício** — chips; só com edifício próprio. Aumentar = select do edifício (pré-selecionado se só 1); **ONG e cidade somem** (herda do edifício)
-- **ONG** — select; pré-seleciona se só 1; vazio = `Nenhuma ONG disponível`
+- **ONG** — `OngCombobox` local: digitar/buscar por nome, ignora acentos/caixa (`normalizeSearch` existente). Lista abre no foco; setas/Enter selecionam, Esc fecha só lista. Blur aceita resultado único/nome exato único; restante restaura seleção anterior. Pré-seleciona se só 1; catálogo vazio desabilita; busca vazia = todas, sem resultado = `Nenhuma ONG encontrada`
 - **Cidade do edifício** — `CityCombobox` de [[#ProfileDetailsFields.tsx]]. `city === undefined` = não tocado → mostra `user.city` (login no meio do fluxo já preenche)
-- **Valor** — chips R$ 10/25/50/100, **R$ 25 pré-selecionado**, + `Outro valor` (`parseMoney`). Mínimo R$ 5 só na UI; erro no blur
-- Botão: `Erguer edifício · R$ 25` / `Aumentar edifício · R$ 25`. Deslogado: `Entrar para continuar` → `onRequestLogin` (form fica preenchido)
+- **Valor da contribuição** — input 96 px, prefixo R$, teclado numérico, **25,00 inicial**. `formatMoneyInput` em `src/lib/moneyInput.ts`: máscara a cada tecla, sempre vírgula + **2 casas**, milhar com ponto; dígitos entram como centavos (`1234` → `12,34`). Apagar tudo mantém `0,00`. Colagem passa por `normalizeMoneyInput`: `25` → `25,00`, `25.90` → `25,90`, `R$ 1.234,56` → `1.234,56`. Rejeita letras, sinal, expoente e valores fora da precisão segura; `parseMoney` converte para reais. Mínimo R$ 5 visível; blur só valida mínimo. Chips R$ 10/25/50/100; 2 colunas em telas menores que 380 px
+- **Resumo** — ONG, cidade, Pix; aumentar também mostra valor acumulado após contribuição. IDs de ONG/edifício precisam existir no catálogo atual
+- Botão: **Ir para pagamento**. Deslogado: `Entrar para continuar` → `onRequestLogin` (form fica preenchido). Rodapé explica campo pendente ou próxima etapa; carregamento bloqueia envios repetidos
 
 **Etapa 2 — Pague com Pix** (`PixPayment`, mesmo arquivo)
-- Resumo valor + `para {ONG}`. QR em destaque no desktop; celular (`useIsMobile`) esconde atrás de `Mostrar QR code` e **Copiar código** vira ação primária
-- `Pix Copia e Cola` (input só leitura) + 3 passos + `Confira se o recebedor é {receiverName}`
-- Status `role="status"` "Aguardando pagamento" + **`Válido até HH:MM`** (sem cronômetro). 3 falhas seguidas → "Sem conexão. Tentando de novo…"
+- Resumo valor/ONG/cidade separado das instruções; QR 224 px no desktop. Celular (`useIsMobile`) esconde atrás de `Mostrar QR code`; **Copiar código Pix** = ação primária em ambos
+- `Pix Copia e Cola` (input só leitura) + 3 passos numerados + cartão **Recebedor no app do banco** (`receiverName`). Clipboard indisponível → seleciona código e orienta copiar manualmente
+- Status `role="status"` **Aguardando confirmação do pagamento** + **`Válido até HH:MM`** (sem cronômetro). 3 falhas seguidas → **Sem conexão. Tentando novamente…**
 - Grafia **Pix**, nunca "PIX" (manual da marca BCB)
+- Expirado: cartão próprio, **Gerar novo código** mantém contribuição. **Alterar contribuição** retorna ao formulário sem descartar cobrança nem parar poll (`editingCharge`); banner **Voltar ao Pix**, novo código substitui anterior conforme contrato. **Continuar depois** fecha modal e mantém acompanhamento
 
-**Etapa 3 — Pagamento confirmado** → [[#BuildingProfileForm.tsx]] com `Ver meu edifício`. Clique fora bloqueado (não perde texto); X/Esc = terminar sem salvar.
+**Etapa 3 — Pagamento confirmado** → [[#BuildingProfileForm.tsx]] com **Ver meu edifício** e **Agora não**. Clique fora bloqueado; saída sem alterações termina; com alterações abre `AlertDialog` **Sair sem salvar?**, preserva pagamento e exige decisão. Salvar/processar imagem bloqueia X/Esc e ações de saída.
 
 **Estado** — `Flow` (`form` | `pay` | `done`) vive **fora** do `DialogContent`: fechar o modal não perde o Pix. Poll segue fechado; pílula vira **Pix pendente** (ícone relógio). Pago com modal fechado → toast "Pagamento confirmado." com **Continuar** (reabre na etapa 3). `Flow` guarda `userId`: troca de conta ignora a cobrança. `getPendingCharge` ao logar/remontar retoma Pix pendente. Troca de etapa foca o título.
+
+**Verificação** — `node scripts/check-contribution.mjs`: máscara fixa de 2 casas a cada tecla, Backspace/apagar tudo, BRL colado, entradas inválidas, precisão e valores preservados. Sem servidor/navegador.
 
 | Prop | Tipo | Descrição |
 |---|---|---|
@@ -173,10 +179,12 @@ Copy sem "Doar"/"Construir"/"prédio". Decisões (login, R$ 25, validade, Pix pe
 
 ### `BuildingProfileForm.tsx`
 
-`html/donate/`. **Imagem** (4:3, `resizeImage(file, 800)` → JPEG, descarta EXIF), **Nome do edifício** (≤ 40), **Descrição** (textarea ≤ 160 + contador). Tudo opcional; dica "Aparece para quem clicar no seu edifício."
+`html/donate/`. **Imagem** (4:3, `resizeImage(file, 800)` → JPEG, descarta EXIF), **Nome do edifício** (≤ 40), **Descrição** (textarea ≤ 160 + contador). Tudo opcional, público para quem clicar no edifício.
 
+- Preview de imagem ocupa largura disponível; formatos/limite de 10 MB visíveis. Campos 48 px, textarea 4 linhas. Fluxo de contribuição usa duas colunas no desktop: imagem + textos
 - Carrega perfil atual antes de liberar campos — save substitui tudo, começar vazio apagaria o existente. Falha → "Não foi possível carregar." + Tentar de novo
 - Só salva se mudou; trim, `""` → `null`
+- `onSkip` opcional mostra **Agora não**; `onEditStateChange({ dirty, busy })` informa diálogo sobre alterações/processamento. Loading e salvamento têm feedback; Enter não envia durante carregamento/processamento
 - `BuildingProfileDialog` (mesmo arquivo): "Editar nome e imagem" aberto do [[#BuildingInfoModal.tsx]]; `donationId` null = fechado
 
 ---
