@@ -15,6 +15,10 @@ aliases:
 
 A ponte entre React e Three.js: `src/scene/hooks/useCityScene.ts`.
 
+## Catálogo no fluxo de contribuição
+
+`src/components/hooks/useCustomizationCatalog.ts` também atende o [[html-components#BuildingCustomizer.tsx|menu do edifício]] dentro do pagamento. O catálogo é carregado uma vez; `refreshKey` opcional refaz somente as conquistas da sessão quando `CitySceneEditor` confirma um pagamento. O resultado normalizado usa `useMemo`, mantendo a referência entre estatísticas da cena e mudanças de aparência. Ver [[customization-api#useCustomizationCatalog()]].
+
 ## Objetivo do Hook
 
 Esse hook existe para que os componentes React **não precisem conhecer diretamente** a implementação do runtime.

@@ -68,6 +68,8 @@ const state = {
   active: paidFlow,
   flow: paidFlow,
   profileEdit: { dirty: false, busy: false },
+  appearanceBusy: false,
+  get editBusy() { return state.profileEdit.busy || state.appearanceBusy; },
   confirmExit: false,
   open: true,
   focusedId: null,
@@ -86,6 +88,10 @@ state.handleOpenChange(true);
 assert.equal(state.open, true);
 assert.equal(state.flow, paidFlow, "Voltar deve reabrir Seu edifício, sem iniciar outro pagamento");
 assert.equal(views, 1);
+state.appearanceBusy = true;
+state.handleOpenChange(false);
+assert.equal(state.open, true, "Ler holograma bloqueia saída");
+state.appearanceBusy = false;
 state.profileEdit = { dirty: true, busy: true };
 state.handleOpenChange(false);
 assert.equal(state.open, true, "Salvar/processar imagem bloqueia saída");

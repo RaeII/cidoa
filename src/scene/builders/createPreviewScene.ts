@@ -14,7 +14,13 @@ import {
   disposeRooftopMesh,
   isRooftopType,
 } from "./createRooftopMesh";
-import type { BuildingShape, EdgeLightType, RooftopType } from "../types";
+import type { BuildingCustomization, BuildingShape, EdgeLightType, RooftopType } from "../types";
+import type { FacadeTextureSet } from "../textures/facadeTextureLoader";
+import { createSignMesh, disposeSignMesh } from "./createSignMesh";
+import { createHologramMesh, disposeHologramMesh, positionHologram, setHologramImage, setHologramOpacity, setHologramTint, tickHologram } from "./createHologramMesh";
+import { setEmpireBuildingMeshColor } from "./createEmpireBuildingMesh";
+import { getResidentialRoofOffset, RESIDENTIAL_ROOFTOP_SCALE, setResidentialStoneMaps } from "./createResidentialBuildingMesh";
+import { YACHTHOUSE_ROOF, YACHTHOUSE_TOWER_CENTERS } from "./createYachthouseBuildingMesh";
 import { createParapetGeometry, createParapetMaterial, getParapetHeightScale } from "./createParapetMesh";
 
 /** O que mostrar. `key` vem do catálogo — pode não ter builder no front. */
@@ -39,6 +45,14 @@ const VIEW: Record<PreviewSubject["kind"], { height: number; elevation: number }
 
 const FOV = 32;
 
+/** Aparência completa para a criação do edifício; omitida nas miniaturas do Passe. */
+export type BuildingPreviewAppearance = {
+  customization: BuildingCustomization;
+  facadeTextures?: FacadeTextureSet | null;
+  topTextures?: FacadeTextureSet | null;
+  onReady?: () => void;
+};
+
 /**
  * Key do catálogo -> builder. `null` = sem builder no front, ou `none`
  * (ausência de acessório) — quem chama mostra placeholder em vez de canvas.
@@ -52,13 +66,14 @@ export function resolveSubject({ kind, key }: PreviewSubject): ResolvedSubject |
 }
 
 /** Prédio + acessório, prontos pra cena. */
-function buildSubject(resolved: ResolvedSubject) {
+function buildSubject(resolved: ResolvedSubject, appearance?: BuildingPreviewAppearance) {
   const { height } = VIEW[resolved.kind];
-  const shape = resolved.kind === "shape" ? resolved.shape : "default";
+  const customization = appearance?.customization;
+  const shape = customization?.buildingShape ?? (resolved.kind === "shape" ? resolved.shape : "default");
   const accessory =
-    resolved.kind === "rooftop"
+    !customization && resolved.kind === "rooftop"
       ? createRooftopMesh(resolved.type, { width: 1, depth: 1 })
-      : resolved.kind === "edgeLight"
+      : !customization && resolved.kind === "edgeLight"
         ? createEdgeLightMesh(resolved.type, { width: 1, depth: 1, height }, shape)
         : null;
 
@@ -74,7 +89,33 @@ function buildSubject(resolved: ResolvedSubject) {
   });
   const boxGeometry = createUnitBuildingGeometry();
   const building = createBuildingShapeMesh(shape, facadeMat, topMat, boxGeometry);
+  building.name = "building";
   building.scale.set(1, height, 1);
+
+  const ownedTextures: THREE.Texture[] = [];
+  function applyMaps(material: THREE.MeshStandardMaterial, maps?: FacadeTextureSet | null) {
+    if (!maps || material.userData.textureless) return;
+    for (const [slot, map] of [["map", maps.color], ["normalMap", maps.normal], ["roughnessMap", maps.roughness], ["metalnessMap", maps.metalness]] as const) {
+      if (!map) continue;
+      const texture = map.clone();
+      const transform = customization?.textureTransform;
+      const tiling = customization?.tilingScale ?? 1;
+      texture.repeat.set((transform?.scaleX ?? 1) * tiling, (transform?.scaleY ?? 1) * tiling * height);
+      texture.offset.set(transform?.offsetX ?? 0, transform?.offsetY ?? 0);
+      texture.needsUpdate = true;
+      material[slot] = texture;
+      ownedTextures.push(texture);
+    }
+    material.needsUpdate = true;
+  }
+  if (customization) {
+    if (shape === "empire") setEmpireBuildingMeshColor(building, customization.color);
+    else facadeMat.color.set(customization.color);
+    topMat.color.set("#b9b6b1");
+    if (shape === "residential") setResidentialStoneMaps(facadeMat, appearance?.topTextures ?? null);
+    else applyMaps(facadeMat, appearance?.facadeTextures);
+    applyMaps(topMat, appearance?.topTextures);
+  }
 
   const root = new THREE.Group();
   root.add(building);
@@ -93,9 +134,56 @@ function buildSubject(resolved: ResolvedSubject) {
     root.add(accessory);
   }
 
+  const rooftops: THREE.Group[] = [];
+  let edgeLight: THREE.Group | null = null;
+  let sign: THREE.Group | null = null;
+  let hologram: ReturnType<typeof createHologramMesh> | null = null;
+  let disposed = false;
+  if (customization) {
+    const centers = shape === "yachthouse" ? YACHTHOUSE_TOWER_CENTERS : [0];
+    for (const x of centers) {
+      const scale = shape === "residential" ? RESIDENTIAL_ROOFTOP_SCALE : 1;
+      const footprint = shape === "yachthouse" ? YACHTHOUSE_ROOF : { width: scale, depth: scale };
+      const rooftop = createRooftopMesh(customization.rooftopType, footprint);
+      if (rooftop) {
+        rooftop.name = "rooftop";
+        const roofHeight = shape === "yachthouse" ? (YACHTHOUSE_ROOF.height - 0.5) * height : shape === "residential" ? getResidentialRoofOffset(height) : height / 2;
+        rooftop.position.set(x, roofHeight, 0);
+        root.add(rooftop);
+        rooftops.push(rooftop);
+      }
+    }
+    edgeLight = createEdgeLightMesh(customization.edgeLightType, { width: 1, depth: 1, height }, shape);
+    if (edgeLight) {
+      edgeLight.name = "edgeLight";
+      edgeLight.position.y = -height / 2;
+      root.add(edgeLight);
+    }
+    sign = createSignMesh(customization.signText, 1, 1, height, customization.signSides, shape);
+    if (sign) {
+      sign.name = "sign";
+      root.add(sign);
+    }
+    if (customization.hologramImage) {
+      const footprint = { width: 1, depth: 1, height };
+      hologram = createHologramMesh(footprint, { color: customization.hologramColor, opacity: customization.hologramOpacity });
+      hologram.group.name = "hologram";
+      positionHologram(hologram, new THREE.Vector3(), footprint);
+      root.add(hologram.group);
+      const entry = hologram;
+      void setHologramImage(entry, customization.hologramImage, footprint).then(() => {
+        if (disposed) return;
+        positionHologram(entry, new THREE.Vector3(), footprint);
+        appearance?.onReady?.();
+      }).catch((error: unknown) => { if (!disposed) console.warn("Falha ao carregar holograma da prévia", error); });
+    }
+  }
+
   const dispose = () => {
+    disposed = true;
     const materials = Array.isArray(building.material) ? building.material : [building.material];
-    for (const material of new Set(materials)) material.dispose();
+    for (const material of new Set([...materials, facadeMat, topMat])) material.dispose();
+    for (const texture of ownedTextures) texture.dispose();
     // Só a caixa é nossa: geometrias de formato/acessório são cache dos builders.
     boxGeometry.dispose();
     parapetGeometry?.dispose();
@@ -103,9 +191,27 @@ function buildSubject(resolved: ResolvedSubject) {
     if (accessory) {
       (resolved.kind === "rooftop" ? disposeRooftopMesh : disposeEdgeLightMesh)(accessory);
     }
+    for (const rooftop of rooftops) disposeRooftopMesh(rooftop);
+    if (edgeLight) disposeEdgeLightMesh(edgeLight);
+    if (sign) disposeSignMesh(sign);
+    if (hologram) disposeHologramMesh(hologram);
   };
 
-  return { root, dispose };
+  const bounds = () => {
+    const box = frameBox(root);
+    if (hologram) box.union(new THREE.Box3().setFromObject(hologram.group));
+    return box;
+  };
+  const tick = (elapsed: number, deltaMs: number) => { if (hologram) tickHologram(hologram, elapsed, deltaMs); };
+  const updateStyle = (next: BuildingCustomization) => {
+    if (shape === "empire") setEmpireBuildingMeshColor(building, next.color);
+    else facadeMat.color.set(next.color);
+    if (hologram) {
+      setHologramTint(hologram, next.hologramColor);
+      setHologramOpacity(hologram, next.hologramOpacity);
+    }
+  };
+  return { root, bounds, tick, updateStyle, dispose };
 }
 
 /**
@@ -130,12 +236,12 @@ export function frameBox(root: THREE.Object3D): THREE.Box3 {
  * cena 3D não há HDRI nem ambiente, então traz luz própria (sem sombra — mesma
  * regra do resto do projeto). Quem chama cuida do renderer e do dispose.
  */
-export function createPreviewScene(resolved: ResolvedSubject) {
-  const built = buildSubject(resolved);
+export function createPreviewScene(resolved: ResolvedSubject, appearance?: BuildingPreviewAppearance) {
+  const built = buildSubject(resolved, appearance);
 
   const scene = new THREE.Scene();
   // Halo do LED é aditivo: some em fundo claro.
-  if (resolved.kind === "edgeLight") scene.background = new THREE.Color(0x14161a);
+  if (resolved.kind === "edgeLight" || appearance) scene.background = new THREE.Color(0x101923);
   scene.add(new THREE.AmbientLight(0xffffff, 1.2));
   const key = new THREE.DirectionalLight(0xffffff, 2.4);
   key.position.set(4, 6, 5);
@@ -145,11 +251,12 @@ export function createPreviewScene(resolved: ResolvedSubject) {
   scene.add(fill);
   scene.add(built.root);
 
-  const sphere = frameBox(built.root).getBoundingSphere(new THREE.Sphere());
+  const sphere = built.bounds().getBoundingSphere(new THREE.Sphere());
   const camera = new THREE.PerspectiveCamera(FOV, 1, 0.01, 100);
 
   /** Aplica a proporção e devolve a distância que faz a esfera envolvente caber. */
   const frame = (aspect: number) => {
+    built.bounds().getBoundingSphere(sphere);
     camera.aspect = aspect;
     camera.updateProjectionMatrix();
     const halfFov = THREE.MathUtils.degToRad(FOV) / 2;
@@ -167,5 +274,5 @@ export function createPreviewScene(resolved: ResolvedSubject) {
     camera.lookAt(sphere.center);
   };
 
-  return { scene, camera, center: sphere.center, frame, place, dispose: built.dispose };
+  return { scene, camera, center: sphere.center, frame, place, tick: built.tick, updateStyle: built.updateStyle, dispose: built.dispose };
 }

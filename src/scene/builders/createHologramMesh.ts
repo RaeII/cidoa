@@ -375,6 +375,8 @@ export async function setHologramImage(
 }
 
 export function disposeHologramMesh(entry: HologramEntry) {
+  // Impede que uma imagem ainda em carga recrie a textura após o fechamento.
+  entry.loadToken += 1;
   for (const child of entry.group.children) {
     if ((child as THREE.Mesh).isMesh) {
       const mesh = child as THREE.Mesh;

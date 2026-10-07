@@ -27,6 +27,7 @@ A pasta `src/components/three` isola o ponto de montagem da cena.
 
 - `CitySceneCanvas.tsx` — cena principal
 - `CustomizationPreview.tsx` — preview isolado de uma personalização (admin)
+- `BuildingPreview.tsx` — edifício completo durante a personalização no modal
 
 ## Arquivo Principal
 
@@ -116,6 +117,17 @@ Dois exports, mesma cena interna:
 
 > [!important] three.js entra por import dinâmico
 > ~600 kB. `Customizations.tsx` importa este arquivo via `lazy()` + `Suspense` e **só `import type`** de qualquer coisa de `scene/` — um único import estático de builder (nem que seja pra pegar um guard) arrasta three pro chunk compartilhado do admin, e **toda** página admin paga o download (medido: 11 kB → 221 kB).
+
+## `BuildingPreview.tsx`
+
+Prévia 3D do edifício completo no [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]], carregada por import dinâmico somente enquanto o modal está aberto. Recebe a aparência completa e as configurações de textura; reutiliza [[scene-builders#createPreviewScene.ts|createPreviewScene]] e os mesmos modelos/acessórios da cidade, em proporções normalizadas para avaliar o estilo.
+
+- Um renderer/contexto por abertura. Alterar itens atualiza o modelo; cor, tint e opacidade atualizam materiais existentes, preservando câmera e GIF.
+- OrbitControls: arrastar para girar, rolar para aproximar; giro automático respeita `prefers-reduced-motion`.
+- Até 30 FPS e pixel ratio limitado a 1,5. Pausa renders com aba escondida ou prévia fora da tela (`IntersectionObserver`).
+- Texturas PBR usam o loader/cache compartilhado; só a textura selecionada e o concreto do topo são pedidos. Mapas locais clonados recebem tiling/offset sem modificar os mapas da cidade.
+- Fecha → cancela rAF, desconecta observadores, descarta modelo, controles e renderer, remove canvas e chama `forceContextLoss`. Sem WebGL → feedback, mantendo a edição disponível.
+- `node scripts/check-building-customizer.mjs` verifica pausa e limpeza com contexto simulado; [[scene-builders#createPreviewScene.ts|checagens de geometria]] verificam o modelo completo.
 
 ## Relação com o Hook
 

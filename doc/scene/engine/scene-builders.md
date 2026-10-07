@@ -369,17 +369,22 @@ Registro único formato → builder. Ponto de entrada de **todo** consumidor de 
 
 ### `createPreviewScene.ts`
 
-Cena isolada com **uma** personalização, pro preview do admin ([[personalizacoes#Preview 3D: Formato, Topo e LED]]). Não é usado pela cena principal. O componente React ([[three-components#CustomizationPreview.tsx|CustomizationPreview]]) só cria o renderer e chama daqui.
+Cena isolada com **uma** personalização para o admin ([[personalizacoes#Preview 3D: Formato, Topo e LED]]) ou edifício completo para [[three-components#BuildingPreview.tsx|BuildingPreview]]. Não é usada pela cena principal. Os componentes React criam o renderer e chamam daqui.
 
 **Responsabilidades:**
 - `resolveSubject({ kind, key })` — key crua do catálogo → builder, via `isBuildingShape`/`isRooftopType`/`isEdgeLightType`. `null` = sem builder no front ou `none` (ausência de acessório)
 - Montar prédio-base + acessório: `rooftop` vai no topo (`+height/2`), `edgeLight` na base (`-height/2`)
 - `VIEW` — altura do prédio-base e elevação da câmera por `kind`. O alvo tem que dominar o quadro: topo pede prédio baixo com câmera alta, formato pede prédio alto (geometria é 1×1×1 — sem esticar, Empire/Chrysler viram cubos)
 - Luz própria (ambient + 2 direcionais, sem sombra) — admin não tem HDRI nem `scene.environment`
-- Fundo escuro só no LED: halo é `AdditiveBlending` e some em fundo claro
+- Fundo escuro no LED e na aparência completa: halo é `AdditiveBlending` e some em fundo claro
 - `frame(aspect)` / `place(distance)` — enquadramento por bounding sphere, separados pra resize não desfazer o giro do usuário
 - `frameBox(root)` — bounding box que **ignora volumétrico** (transparente com `depthWrite: false`): o feixe do holofote tem 10 unidades e deixaria o prédio um ponto
-- `dispose()` — materiais e caixa criados aqui + `disposeRooftopMesh`/`disposeEdgeLightMesh`
+- `BuildingPreviewAppearance` opcional em `createPreviewScene(resolved, appearance)`: aparência, mapas de fachada/topo e callback após carregar holograma. Combina formato, cor, textura, topo, LED, letreiro e holograma com os builders existentes. Yachthouse recebe acessórios nas duas torres; residencial usa a pedra do topo.
+- `tick(elapsed, deltaMs)` anima o holograma; `updateStyle(customization)` atualiza cor, tint e opacidade sem reconstruir o modelo/decodificar GIF.
+- Enquadramento ignora feixes de luz e inclui a área do holograma; `frame()` recalcula os limites após carregar a imagem.
+- `dispose()` — materiais, caixa e clones de textura locais + acessórios/letreiro/holograma. Geometrias e mapas compartilhados com a cidade permanecem vivos.
+- `disposeHologramMesh` incrementa `loadToken`: imagem que chega depois do fechamento não recria textura descartada.
+- `node scripts/check-building-shapes.mjs` verifica os 12 formatos com acessórios, mudança de cor, proporções, descarte e a corrida de imagem atrasada do holograma.
 
 **Quando mexer aqui:**
 - Dar preview a outra categoria do catálogo (novo `kind` + entrada em `VIEW` + `PREVIEW_KIND` no admin)

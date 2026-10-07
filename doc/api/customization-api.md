@@ -64,11 +64,13 @@ Tipo e todas as funções de exibição vivem em [`src/lib/unlock.ts`](../../src
 
 ## `useCustomizationCatalog()`
 
-Hook: carrega catálogo 1× no mount, retorna `CustomizationCatalog | null`. `null` = carregando (ou falha logada). Consumido em [[html-components#CitySceneEditor|CitySceneEditor]], passado ao [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]] via prop `catalog`.
+Hook: carrega catálogo 1× no mount, retorna `CustomizationCatalog | null`. `null` = carregando (ou falha logada). Consumido em [[html-components#CitySceneEditor|CitySceneEditor]], passado ao [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]] e ao [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] via prop `catalog`.
 
 Endpoint cacheado no backend (staleness ≤60s), mas o cache é **invalidado a cada escrita do admin** — mudança de regra aparece na cena na hora.
 
 Hook busca `/customization/me` por usuário autenticado. Dados vinculados ao ID impedem reutilizar conquistas de outra sessão. Opções/features recebem `isUnlocked` derivado de grátis, ledger ou progresso; admin visualiza todos. Erro/carregamento de conquistas mantém itens pagos bloqueados. Ver [[passe-cena]] e [[primeiros-inscritos]].
+
+`useCustomizationCatalog(refreshKey = 0)` refaz conquistas ao mudar a chave, sem baixar novamente o catálogo; o editor incrementa após pagamento confirmado. `useMemo` mantém a referência do catálogo normalizado entre alterações visuais e estatísticas da cena.
 
 ## Fluxo
 
@@ -78,6 +80,7 @@ flowchart LR
   Hook --> API[fetchCustomizationCatalog]
   API --> BE[GET /customization/catalog]
   Hook --> Panel[BuildingCustomizePanel]
+  Hook --> Modal[BuildingCustomizer no pagamento]
   Panel --> |key as BuildingShape| Builders[create*BuildingMesh]
   Me[fetchMyUnlocks] --> BEME[GET /customization/me]
   Fmt[lib/unlock] --> Panel

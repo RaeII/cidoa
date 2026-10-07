@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useId, useRef, useState, type FormEvent, type KeyboardEvent, type SVGProps } from "react";
+import { lazy, Suspense, useEffect, useEffectEvent, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type SVGProps } from "react";
 import { ArrowLeft, ArrowRight, Check, ChevronDown, CircleCheck, Clock, Copy, HeartHandshake, Loader2, MapPin, Search } from "lucide-react";
 import { AlertDialog, RadioGroup } from "radix-ui";
 import {
@@ -10,6 +10,8 @@ import {
   type PixCharge,
 } from "@/api/contributionApi";
 import type { Ong } from "@/api/donationApi";
+import type { CustomizationCatalog } from "@/api/customizationApi";
+import type { BuildingCustomization, TextureSettings } from "@/scene/types";
 import { ApiError } from "@/api/http";
 import type { City } from "@/api/location/location.types";
 import type { MyDonation } from "@/components/GameMenu";
@@ -33,6 +35,8 @@ import { formatMoneyInput, normalizeMoneyInput } from "@/lib/moneyInput";
 import { formatBRL, parseMoney } from "@/lib/unlock";
 import { cn } from "@/lib/utils";
 import { BuildingProfileForm } from "./BuildingProfileForm";
+
+const BuildingCustomizer = lazy(() => import("@/components/customization/BuildingCustomizer").then((module) => ({ default: module.BuildingCustomizer })));
 
 const PRESETS = [10, 25, 50, 100];
 // Padrão baixo aumenta a taxa de conclusão (Goswami & Urminsky, 2016).
@@ -382,14 +386,18 @@ function PixPayment({
 
 /**
  * Pílula "Contribuir" + modal em 3 etapas: contribuição (ONG, cidade, valor) →
- * pagamento Pix → seu edifício (imagem, nome, descrição). Ver o edifício abre
- * a personalização na cena e mantém a etapa 3 disponível para voltar à edição.
+ * pagamento Pix → seu edifício (prévia 3D, aparência e perfil). Entrar na cidade
+ * mantém a etapa 3 disponível para voltar à edição.
  */
 export function ContributeDialog({
   open,
   onOpenChange,
   ongs,
   buildings,
+  catalog,
+  textureSettings,
+  getCustomization,
+  onCustomizationChange,
   onRequestLogin,
   onPaid,
   onFinish,
@@ -399,6 +407,10 @@ export function ContributeDialog({
   ongs: readonly Ong[];
   /** Edifícios do usuário; sem nenhum, a escolha novo/aumentar some. */
   buildings: readonly MyDonation[];
+  catalog: CustomizationCatalog | null;
+  textureSettings: TextureSettings;
+  getCustomization: (donationId: number) => BuildingCustomization;
+  onCustomizationChange: (donationId: number, patch: Partial<BuildingCustomization>) => void;
   onRequestLogin: () => void;
   /** Pagamento confirmado pelo servidor: o edifício entra ou cresce na cidade. */
   onPaid: (contribution: Contribution, donationId: number) => void;
@@ -427,12 +439,15 @@ export function ContributeDialog({
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
   const [profileEdit, setProfileEdit] = useState({ dirty: false, busy: false });
+  const [appearanceBusy, setAppearanceBusy] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
 
   // Cobrança de outra sessão (logout/troca de conta) nunca é reaproveitada.
   const active = flow.step === "form" || flow.userId !== userId ? null : flow;
   const step = active?.step === "pay" && editingCharge ? "form" : active?.step ?? "form";
   const pendingChargeId = active?.step === "pay" && !active.expired ? active.charge.id : null;
+  const customization = useMemo(() => active?.step === "done" ? getCustomization(active.donationId) : null, [active, getCustomization]);
+  const editBusy = profileEdit.busy || appearanceBusy;
 
   const ongNameOf = (contribution: Contribution) =>
     ongs.find((ong) => ong.id === contribution.ongId)?.name;
@@ -579,7 +594,7 @@ export function ContributeDialog({
   }
 
   function leaveProfile() {
-    if (active?.step !== "done" || profileEdit.busy) return;
+    if (active?.step !== "done" || editBusy) return;
     if (profileEdit.dirty) setConfirmExit(true);
     else finish(active.donationId);
   }
@@ -607,14 +622,14 @@ export function ContributeDialog({
       </DialogTrigger>
       {/* text-foreground: o body da cena pinta texto branco, que sumiria no tema claro. */}
       <DialogContent
-        className="max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] gap-6 overflow-y-auto overscroll-contain rounded-3xl p-5 text-foreground sm:max-h-[calc(100dvh-3rem)] sm:w-[calc(100%-3rem)] sm:max-w-3xl sm:p-8 lg:max-w-4xl lg:p-10"
+        className={cn("max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] gap-6 overflow-y-auto overscroll-contain rounded-3xl p-5 text-foreground sm:max-h-[calc(100dvh-3rem)] sm:w-[calc(100%-3rem)] sm:max-w-3xl sm:p-8 lg:max-w-4xl lg:p-10", step === "done" && "lg:max-w-6xl")}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           titleRef.current?.focus();
         }}
-        showCloseButton={step !== "done" || !profileEdit.busy}
+        showCloseButton={step !== "done" || !editBusy}
         onEscapeKeyDown={(event) => {
-          if (step === "done" && profileEdit.busy) event.preventDefault();
+          if (step === "done" && editBusy) event.preventDefault();
         }}
         // Etapa 3: clique fora não descarta o que foi digitado.
         onInteractOutside={step === "done" ? (event) => event.preventDefault() : undefined}
@@ -658,15 +673,28 @@ export function ContributeDialog({
             onBack={backToForm}
             onClose={() => onOpenChange(false)}
           />
-        ) : active?.step === "done" ? (
-          <BuildingProfileForm
-            donationId={active.donationId}
-            submitLabel="Ver meu edifício"
-            onDone={() => finish(active.donationId)}
-            onSkip={leaveProfile}
-            onEditStateChange={setProfileEdit}
-          />
-        ) : (
+        ) : active?.step === "done" ? (open && customization && (
+          <div className="space-y-6">
+            <Suspense fallback={<p role="status" className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 aria-hidden className="size-5 animate-spin" />Carregando personalização…</p>}>
+              <BuildingCustomizer
+                catalog={catalog}
+                customization={customization}
+                textureSettings={textureSettings}
+                onChange={(patch) => onCustomizationChange(active.donationId, patch)}
+                onBusyChange={setAppearanceBusy}
+              />
+            </Suspense>
+            <BuildingProfileForm
+              donationId={active.donationId}
+              collapsible
+              disabled={appearanceBusy}
+              submitLabel="Entrar na cidade"
+              onDone={() => finish(active.donationId)}
+              onSkip={leaveProfile}
+              onEditStateChange={setProfileEdit}
+            />
+          </div>
+        )) : (
           <form onSubmit={handleSubmit} aria-busy={creating} className="space-y-6">
             {pendingChargeId && (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-muted/50 px-4 py-3 text-sm">

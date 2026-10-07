@@ -130,7 +130,7 @@ Barra de filtros das doações. Presentacional — recebe listas e filtro, emite
 
 `html/donate/`. Pílula **Contribuir** (creme, ícone `building-complex-plus`, rodapé central) + modal em **3 etapas**. Pagamento e perfil passam por [[contribution-api]] (mock hoje).
 
-**Layout** — desktop até **896 px** (`lg:max-w-4xl`), padding 40 px; tablet até 768 px. Etapas numeradas; título recebe foco na abertura/troca de etapa. Formulário e Pix em duas colunas a partir de 768 px; celular empilha. Altura limitada por `100dvh`, rolagem interna, tokens claro/escuro.
+**Layout** — contribuição/Pix até **896 px** (`lg:max-w-4xl`); etapa do edifício até **1152 px** (`lg:max-w-6xl`), com prévia 3D e inventário lado a lado no desktop. Padding 40 px; tablet até 768 px; celular empilha. Etapas numeradas; título recebe foco na abertura/troca de etapa. Altura limitada por `100dvh`, rolagem interna, tokens claro/escuro.
 
 ```mermaid
 flowchart LR
@@ -140,7 +140,8 @@ flowchart LR
   Pay -- poll 3 s + visibilitychange --> S{status}
   S -- expired --> X[Este código expirou → Gerar novo código]
   S -- paid --> D[3 Pagamento confirmado]
-  D -- Ver meu edifício / X / Esc --> Fim[foco + BuildingCustomizePanel]
+  D --> Editor[BuildingCustomizer + prévia 3D]
+  Editor -- Entrar na cidade / X / Esc --> Fim[foco + BuildingCustomizePanel]
   Fim -- Voltar à edição --> D
 ```
 
@@ -160,7 +161,9 @@ flowchart LR
 - Grafia **Pix**, nunca "PIX" (manual da marca BCB)
 - Expirado: cartão próprio, **Gerar novo código** mantém contribuição. **Alterar contribuição** retorna ao formulário sem descartar cobrança nem parar poll (`editingCharge`); banner **Voltar ao Pix**, novo código substitui anterior conforme contrato. **Continuar depois** fecha modal e mantém acompanhamento
 
-**Etapa 3 — Pagamento confirmado** → [[#BuildingProfileForm.tsx]] com **Ver meu edifício** e **Agora não**. **Ver meu edifício** salva as alterações antes de focar o edifício e abrir o painel de personalização. O rodapé da cena exibe apenas **Voltar à edição**, que reabre esta etapa com nome, descrição e imagem salvos. Clique fora bloqueado; saída sem alterações vai para a cena e mantém a etapa 3 disponível; com alterações abre `AlertDialog` **Sair sem salvar?**, preserva pagamento e exige decisão. Salvar/processar imagem bloqueia X/Esc e ações de saída.
+**Etapa 3 — Pagamento confirmado** → [[#BuildingCustomizer.tsx]]: personalização estilo criação de personagem, com edifício 3D no próprio modal e inventário por categoria. [[#BuildingProfileForm.tsx]] fica em **Nome, descrição e imagem**, seção recolhível; **Entrar na cidade** salva o perfil e foca o edifício. A aparência usa o salvamento automático já existente no editor. O rodapé da cena exibe apenas **Voltar à edição**, que reabre a etapa com o perfil e aparência preservados. Clique fora bloqueado; saída com alterações pendentes no perfil abre `AlertDialog` **Sair sem salvar?**. Salvar/processar imagem do perfil ou ler o holograma bloqueia X/Esc e ações de saída.
+
+**Carregamento** — `BuildingCustomizer` entra por `lazy`/`Suspense` e só monta com pagamento confirmado **e modal aberto**; seu `BuildingPreview` também tem import dinâmico. Fechar desmonta imediatamente o menu e o canvas. `useMemo` preserva a referência da aparência entre atualizações das estatísticas da cidade, sem reconstruir a prévia.
 
 **Estado** — `Flow` (`form` | `pay` | `done`) vive **fora** do `DialogContent`: fechar o modal não perde o Pix nem a etapa do edifício pago. `finish` fecha e foca sem reiniciar o fluxo. Ao retornar, `BuildingProfileForm` recarrega o perfil salvo do mesmo `donationId`; as personalizações da cena continuam no estado do editor. Poll segue fechado; pílula vira **Pix pendente** (ícone relógio). Pago com modal fechado → toast "Pagamento confirmado." com **Continuar** (reabre na etapa 3). `Flow` guarda `userId`: troca de conta ignora a cobrança e oculta o retorno à edição anterior. `getPendingCharge` ao logar/remontar retoma Pix pendente. Troca de etapa foca o título.
 
@@ -171,6 +174,10 @@ flowchart LR
 | `open` / `onOpenChange` | `boolean` / `(open) => void` | Controlado pelo editor |
 | `ongs` | `readonly Ong[]` | ONGs do snapshot (back sem rota de ONGs) |
 | `buildings` | `readonly MyDonation[]` | `myDonations` do editor |
+| `catalog` | `CustomizationCatalog \| null` | Catálogo com `isUnlocked` da sessão |
+| `textureSettings` | `TextureSettings` | Textura global herdada pela prévia |
+| `getCustomization` | `(id) => BuildingCustomization` | Aparência completa atual do edifício |
+| `onCustomizationChange` | `(id, patch) => void` | Atualiza cena/estado e agenda o salvamento existente |
 | `onRequestLogin` | `() => void` | Abre `AuthDialog` (estado `authOpen` no editor) |
 | `onPaid` | `(c, donationId) => void` | Editor faz `upsertDonation` + `addOwned` → edifício entra/cresce na cena |
 | `onFinish` | `(donationId) => void` | Editor foca + abre painel sem apagar a etapa 3; fora do filtro/teto → limpa ambos e foca no fim do rebuild (`pendingFocusRef`, rAF do `setDonations`) |
@@ -188,6 +195,20 @@ Copy sem "Doar"/"Construir"/"prédio". Decisões (login, R$ 25, validade, Pix pe
 - Só salva se mudou; trim, `""` → `null`
 - `onSkip` opcional mostra **Agora não**; `onEditStateChange({ dirty, busy })` informa diálogo sobre alterações/processamento. Loading e salvamento têm feedback; Enter não envia durante carregamento/processamento
 - `BuildingProfileDialog` (mesmo arquivo): "Editar nome e imagem" aberto do [[#BuildingInfoModal.tsx]]; `donationId` null = fechado
+- `collapsible` mostra os campos em `<details>` nativo e mantém as ações visíveis; mensagens de carregamento/erro ficam fora da seção recolhida. `disabled` impede concluir enquanto o holograma está sendo lido.
+
+---
+
+### `BuildingCustomizer.tsx`
+
+`components/customization/`. Menu reutilizável de aparência: recebe `catalog`, `customization`, `textureSettings`, `onChange(patch)` e `onBusyChange` opcional. Não cria cobranças nem consulta/persiste dados por conta própria; o chamador mantém o estado.
+
+- Prévia [[three-components#BuildingPreview.tsx|BuildingPreview]] à esquerda; inventário à direita. Celular empilha; desktop mantém a prévia no topo durante a rolagem.
+- Abas Radix com teclado: **Formato, Cor, Fachada, Topo, LED, Letreiro, Holograma**. Categorias inativas/vazias somem; só a aba atual monta seus itens.
+- Cartões em grade de 2–4 colunas, com `CustomizationImage` usado pelo [[passe-admin-ui|Passe do admin]], nome, **Disponível**, **Em uso** ou **Bloqueado**. Bloqueados ficam desabilitados e mostram `formatUnlockCta` inteiro no cartão, inclusive regras AND/OR.
+- Fachada oferece **Padrão** para herdar a global. Letreiro mantém texto de até 30 caracteres e 1–4 lados. Holograma mantém upload PNG/JPG/WebP/GIF de até 700 KB, remover, cor e opacidade; valida tipo/tamanho e cancela a leitura no unmount.
+- A aparência usa `CitySceneEditor.updateCustomization`: mesma atualização ao vivo e debounce de 500 ms do painel da cidade. Fechar/reabrir preserva as escolhas.
+- `node scripts/check-building-customizer.mjs` verifica render React, categorias, requisitos, bloqueios, seleção e ciclo do canvas com GPU simulada; sem servidor/navegador.
 
 ---
 

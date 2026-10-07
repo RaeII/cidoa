@@ -93,6 +93,7 @@ src/
       PassTrack.tsx             ← trilha/grade reutilizável, um cartão por recompensa
     customization/
       CustomizationImage.tsx    ← miniatura compartilhada com catálogo
+      BuildingCustomizer.tsx   ← menu reutilizável por categorias, grade e prévia 3D; lazy no pagamento
     admin/
       UnlockDialog.tsx          ← editor de requisitos compartilhado
     ui/
@@ -123,7 +124,7 @@ src/
       DonationFilterBar.tsx
       BuildingInfoModal.tsx          ← card só-leitura do prédio clicado; lápis só p/ dono/admin
       donate/
-        ContributeDialog.tsx         ← pílula Contribuir + modal 3 etapas: contribuição → Pix → seu edifício
+        ContributeDialog.tsx         ← contribuição → Pix → criação do edifício com prévia 3D no modal
         BuildingProfileForm.tsx      ← imagem/nome/descrição do edifício + dialog de edição
       BuildingCustomizePanel.tsx
       BuildingControls.tsx
@@ -155,11 +156,12 @@ src/
     hooks/
       useKeyboardShortcuts.ts
       useDonations.ts
-      useCustomizationCatalog.ts   ← carrega catálogo de personalizações 1×
+      useCustomizationCatalog.ts   ← catálogo 1×, conquistas atualizadas após pagamento
       useOwnedDonationIds.ts       ← ids das doações da sessão (quem pode editar)
     three/
       CitySceneCanvas.tsx
       CustomizationPreview.tsx     ← miniatura + preview 3D de formato/topo/LED (admin)
+      BuildingPreview.tsx          ← edifício completo no modal, renderer só enquanto aberto
   scene/
     types.ts
     config/
@@ -183,7 +185,7 @@ src/
       createSignMesh.ts
       createEdgeLightMesh.ts
       createBuildingShapeMesh.ts   ← registro formato → builder (cena + admin)
-      createPreviewScene.ts        ← cena isolada de 1 personalização (preview do admin)
+      createPreviewScene.ts        ← cena isolada de personalização/admin ou edifício completo/modal
       createTwistedBuildingMesh.ts
       createOctagonalBuildingMesh.ts
       createSetbackBuildingMesh.ts
@@ -277,6 +279,7 @@ E entrega para:
 - [[three-components|CitySceneCanvas]] — monta a cena 3D
 - [[html-components|CityControlPanel]] — mostra os controles (abre pelo ícone de engrenagem, que some quando o painel está aberto; fecha pelo "X" na barra de abas)
 - [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]] — personalização do edifício selecionado com cor, formato, letreiro, topo, LED e holograma (upload de imagem ou GIF), sem controles de textura
+- [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] — mesma aparência no fluxo de pagamento, com grade por categoria e prévia 3D. `getExistingCustomization` entrega o objeto completo; `updateCustomization` compartilha estado e salvamento com a cidade. Menu/canvas montam somente na etapa 3 aberta.
 - [[html-components#BuildingHeightInput.tsx|BuildingHeightInput]] — input de doação e layout
 - [[html-components#BuildingLayoutCard.tsx|BuildingLayoutCard]] — card flutuante: modo de layout + quantos edifícios entram na cena
 

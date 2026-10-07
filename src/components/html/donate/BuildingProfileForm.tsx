@@ -30,6 +30,8 @@ export function BuildingProfileForm({
   onDone,
   onSkip,
   onEditStateChange,
+  collapsible = false,
+  disabled = false,
 }: {
   donationId: number;
   submitLabel: string;
@@ -37,6 +39,8 @@ export function BuildingProfileForm({
   onDone: (profile: BuildingProfile) => void;
   onSkip?: () => void;
   onEditStateChange?: (state: { dirty: boolean; busy: boolean }) => void;
+  collapsible?: boolean;
+  disabled?: boolean;
 }) {
   const nameId = useId();
   const descriptionId = useId();
@@ -94,7 +98,7 @@ export function BuildingProfileForm({
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (loadState !== "ready" || saving || imageBusy) return;
+    if (loadState !== "ready" || saving || imageBusy || disabled) return;
     const profile: BuildingProfile = {
       name: name.trim() || null,
       description: description.trim() || null,
@@ -118,28 +122,12 @@ export function BuildingProfileForm({
     }
   }
 
-  return (
-    <form onSubmit={handleSubmit} aria-busy={loadState === "loading" || saving || imageBusy} className="space-y-6">
+  const fields = (
+    <>
       <div>
-        <h3 className="font-semibold">Seu edifício</h3>
+        {!collapsible && <h3 className="font-semibold">Seu edifício</h3>}
         <p className="mt-1 text-sm text-muted-foreground">Informações opcionais, visíveis para quem clicar no edifício.</p>
       </div>
-      {loadState === "loading" && <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 aria-hidden="true" className="size-4 animate-spin" />Carregando informações…</p>}
-      {loadState === "error" && (
-        <p role="alert" className="text-sm text-destructive">
-          Não foi possível carregar.{" "}
-          <button
-            type="button"
-            className="font-medium underline underline-offset-4"
-            onClick={() => {
-              setLoadState("loading");
-              setAttempt((n) => n + 1);
-            }}
-          >
-            Tentar de novo
-          </button>
-        </p>
-      )}
       <fieldset disabled={loadState !== "ready" || saving || imageBusy} className={cn("min-w-0 space-y-6", onSkip && "md:grid md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] md:gap-8 md:space-y-0")}>
         <div>
           <p className={labelClass}>Imagem</p>
@@ -215,14 +203,33 @@ export function BuildingProfileForm({
           </div>
         </div>
       </fieldset>
+    </>
+  );
+
+  return (
+    <form onSubmit={handleSubmit} aria-busy={loadState === "loading" || saving || imageBusy || disabled} className="space-y-6">
+      {loadState === "loading" && <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 aria-hidden="true" className="size-4 animate-spin" />Carregando informações…</p>}
+      {loadState === "error" && (
+        <p role="alert" className="text-sm text-destructive">
+          Não foi possível carregar.{" "}
+          <button type="button" className="font-medium underline underline-offset-4" onClick={() => {
+            setLoadState("loading");
+            setAttempt((n) => n + 1);
+          }}>Tentar de novo</button>
+        </p>
+      )}
+      {collapsible ? <details className="rounded-2xl border bg-muted/20 p-4 sm:p-5">
+        <summary className="cursor-pointer text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring">Nome, descrição e imagem</summary>
+        <div className="mt-5 space-y-6">{fields}</div>
+      </details> : fields}
       {saveError && (
         <p role="alert" className="text-sm text-destructive">
           {saveError}
         </p>
       )}
       <div className="flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
-        {onSkip && <Button type="button" variant="ghost" className="h-12 rounded-xl" disabled={saving || imageBusy} onClick={onSkip}>Agora não</Button>}
-        <Button type="submit" size="lg" className={cn("h-12 rounded-xl", onSkip ? "sm:min-w-52" : "w-full")} disabled={loadState !== "ready" || saving || imageBusy}>
+        {onSkip && <Button type="button" variant="ghost" className="h-12 rounded-xl" disabled={saving || imageBusy || disabled} onClick={onSkip}>Agora não</Button>}
+        <Button type="submit" size="lg" className={cn("h-12 rounded-xl", onSkip ? "sm:min-w-52" : "w-full")} disabled={loadState !== "ready" || saving || imageBusy || disabled}>
           {saving && <Loader2 aria-hidden="true" className="animate-spin" />}
           {saving ? "Salvando…" : submitLabel}
         </Button>

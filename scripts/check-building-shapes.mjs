@@ -14,16 +14,17 @@ import { build } from "esbuild";
 const bundle = await build({
   stdin: {
     contents: ["createBuildingShapeMesh", "createEdgeLightMesh", "createPreviewScene", "createParapetMesh",
-      "createResidentialBuildingMesh"]
+      "createResidentialBuildingMesh", "createHologramMesh"]
       .map((name) => `export * from './src/scene/builders/${name}.ts';`).join("\n"),
     resolveDir: process.cwd(),
   },
   bundle: true, format: "esm", platform: "node", write: false,
 });
-const { BUILDING_SHAPES, createBuildingShapeMesh, createUnitBuildingGeometry,
+const { BUILDING_SHAPES, createBuildingShapeMesh, createUnitBuildingGeometry, createPreviewScene,
   disposeBuildingShapeSharedResources, createEdgeLightMesh, resolveSubject, frameBox,
   createParapetGeometry, getParapetHeightScale, createBuildingParapets,
-  setResidentialBuildingHeight, setResidentialStoneMaps, getResidentialFloorCount } =
+  setResidentialBuildingHeight, setResidentialStoneMaps, getResidentialFloorCount,
+  createHologramMesh, setHologramImage, disposeHologramMesh } =
   await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].contents).toString("base64")}`);
 
 const box = new THREE.Box3();
@@ -274,6 +275,55 @@ root.add(beam);
 const framed = frameBox(root).getSize(new THREE.Vector3());
 assert.ok(framed.y <= 1.001, `enquadramento pegou o volumétrico (altura ${framed.y})`);
 console.log("ok frameBox — volumétrico ignorado");
+
+// O modal combina o edifício completo sem descartar os caches usados pela cidade.
+const appearance = {
+  color: "#dd3399", buildingShape: "default", rooftopType: "helicopter", edgeLightType: "led",
+  signText: "", signSides: 1, textureKey: null, tilingScale: 1,
+  textureTransform: { scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0 },
+  hologramImage: null, hologramColor: "#73f2ff", hologramOpacity: 0.78,
+};
+const sharedMap = new THREE.Texture();
+let sharedDisposed = false;
+sharedMap.addEventListener("dispose", () => { sharedDisposed = true; });
+for (const shape of BUILDING_SHAPES) {
+  const view = createPreviewScene({ kind: "shape", shape }, {
+    customization: { ...appearance, buildingShape: shape },
+    facadeTextures: { color: sharedMap, normal: null, roughness: null, metalness: null, displacement: null },
+  });
+  const building = view.scene.getObjectByName("building");
+  assert.ok(building, `${shape}: prévia sem edifício`);
+  assert.ok(view.scene.getObjectByName("rooftop"), `${shape}: prévia sem topo`);
+  assert.ok(view.scene.getObjectByName("edgeLight"), `${shape}: prévia sem LED`);
+  assert.ok(view.frame(0.5) > view.frame(1), `${shape}: prévia corta em telas estreitas`);
+  view.updateStyle({ ...appearance, color: "#123456" });
+  assert.ok(building.material[0].color.equals(new THREE.Color("#123456")), `${shape}: cor não acompanha a edição`);
+  let materialDisposed = false;
+  building.material[0].addEventListener("dispose", () => { materialDisposed = true; });
+  view.dispose();
+  assert.equal(materialDisposed, true, `${shape}: material da prévia não descartado`);
+  assert.equal(sharedDisposed, false, `${shape}: prévia descartou textura da cidade`);
+}
+sharedMap.dispose();
+console.log("ok edifício completo — formatos, cor ao vivo, topo, LED, enquadramento e recursos compartilhados");
+
+// Fechar o modal antes da imagem chegar não pode recriar uma textura descartada.
+const originalImage = globalThis.Image;
+let pendingImage;
+globalThis.Image = class { constructor() { pendingImage = this; } naturalWidth = 100; naturalHeight = 100; };
+try {
+  const footprint = { width: 1, depth: 1, height: 3 };
+  const hologram = createHologramMesh(footprint, { color: "#73f2ff", opacity: 0.78 });
+  const loading = setHologramImage(hologram, "data:image/png;base64,preview", footprint);
+  disposeHologramMesh(hologram);
+  pendingImage.onload();
+  await loading;
+  assert.equal(hologram.texture, null, "Imagem atrasada recriou textura após fechamento");
+} finally {
+  if (originalImage === undefined) delete globalThis.Image;
+  else globalThis.Image = originalImage;
+}
+console.log("ok holograma — carga atrasada não recria recursos depois do dispose");
 
 disposeBuildingShapeSharedResources();
 console.log(`\n${BUILDING_SHAPES.length} formatos OK`);

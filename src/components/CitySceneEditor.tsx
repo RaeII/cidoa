@@ -111,7 +111,8 @@ export function CitySceneEditor() {
     retry,
     upsertDonation,
   } = useDonations();
-  const customizationCatalog = useCustomizationCatalog();
+  const [customizationRevision, setCustomizationRevision] = useState(0);
+  const customizationCatalog = useCustomizationCatalog(customizationRevision);
   const { isAdmin } = useAuth();
   const { ids: ownedDonationIds, addOwned } = useOwnedDonationIds();
   // Só UX: o backend recusa (404) o PUT em edifício alheio de qualquer jeito.
@@ -273,6 +274,7 @@ export function CitySceneEditor() {
       });
     }
     addOwned(donationId);
+    setCustomizationRevision((revision) => revision + 1);
   };
 
   // Fim do fluxo de contribuição: câmera no edifício + painel de personalização.
@@ -336,12 +338,14 @@ export function CitySceneEditor() {
   }, [ownedDonationIds, visibleDonations, allDonations, cities, ongs]);
 
   const getExistingCustomization = useCallback(
-    (donationId: number) => {
+    (donationId: number): BuildingCustomization => {
       const existing = buildingCustomizations.get(donationId);
       return {
         color: existing?.color ?? buildingSettings.color,
         buildingShape: existing?.buildingShape ?? "default" as const,
         textureKey: existing?.textureKey ?? null,
+        tilingScale: existing?.tilingScale ?? 1,
+        textureTransform: existing?.textureTransform ?? { ...DEFAULT_BUILDING_TEXTURE_TRANSFORM },
         rooftopType: existing?.rooftopType ?? "none" as const,
         signText: existing?.signText ?? "",
         signSides: existing?.signSides ?? 1,
@@ -593,6 +597,10 @@ export function CitySceneEditor() {
           onOpenChange={setContributeOpen}
           ongs={ongs}
           buildings={myDonations}
+          catalog={customizationCatalog}
+          textureSettings={textureSettings}
+          getCustomization={getExistingCustomization}
+          onCustomizationChange={updateCustomization}
           onRequestLogin={() => setAuthOpen(true)}
           onPaid={handlePaid}
           onFinish={handleContributionFinish}
