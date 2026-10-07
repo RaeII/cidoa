@@ -283,6 +283,7 @@ E entrega para:
 Também gerencia:
 
 - Doações do backend via `useDonations` (snapshot cacheado + personalizações `no-store`) → `canvasRef.setDonations(donations)` quando `loadState.status === "ready"`. Ver [[donation-api]]
+- Contribuição: ONG escolhida a cada pagamento; mesmo edifício apoia várias ONGs. Máximo 3 edifícios por conta, validado no backend/banco. Aumentar com vários exige escolher destino. Pix segue simulado; ver [[contribution-api]].
 - Teto de edifícios na cena (`visibleLimit`, padrão `null` = todos): ordena por valor desc e corta antes do `setDonations`, então o corte fica com as maiores doações. Controlado pelo [[html-components#BuildingLayoutCard.tsx|BuildingLayoutCard]]
 - Doações manuais via `canvasRef.addDonation(value)` e `canvasRef.addDonations(values)`
 - Foco em edifício via `canvasRef.focusOnDonation(id)` e `canvasRef.clearFocus()`

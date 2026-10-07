@@ -2,14 +2,15 @@
  * Costura do pagamento Pix e do perfil do edifício (nome, descrição, imagem).
  *
  * ponytail: mock em memória; o backend troca o corpo, a assinatura fica.
- * Pagamento só é confirmado pelo servidor (webhook do PSP) — o front nunca
- * marca como pago. Recarregar a página zera o mock.
+ * Backend valida as regras antes do Pix simulado. Pagamento real deve ser
+ * confirmado pelo webhook do PSP. Recarregar a página zera o mock.
  */
+import { http } from "./http";
 
-/** Erguer escolhe ONG e cidade; aumentar herda as do edifício. `value` em reais (2 casas), como `DonationRecord.value`. */
+/** Toda contribuição escolhe ONG; aumentar mantém a cidade do edifício. `value` em reais (2 casas). */
 export type Contribution =
   | { donationId: null; ongId: number; cityId: number; value: number }
-  | { donationId: number; value: number };
+  | { donationId: number; ongId: number; value: number };
 
 /** Cobrança pendente. Status vem à parte: a consulta não reenvia o QR a cada 3 s. */
 export type PixCharge = {
@@ -64,6 +65,10 @@ function wait(ms: number) {
 
 /** Exige sessão; cancela a pendente anterior do usuário; 400 vem com `message`. */
 export async function createPixCharge(contribution: Contribution): Promise<PixCharge> {
+  // ponytail: id negativo só existe no mock local; remover o desvio ao integrar o PSP.
+  if (contribution.donationId === null || contribution.donationId > 0) {
+    await http.post("/donation/contributions/validate", contribution);
+  }
   await wait(600);
   const now = Date.now();
   const neverPaid = contribution.value === MOCK_NEVER_PAID_VALUE;

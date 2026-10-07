@@ -13,14 +13,14 @@ aliases:
 Costura do fluxo [[html-components#ContributeDialog.tsx|Contribuir]]: cobrança Pix + perfil do edifício (imagem, nome, descrição).
 
 > [!warning] Hoje = mock em memória
-> Backend ainda não tem pagamento nem perfil. Arquivo é mock (`ponytail:`): backend troca o **corpo** das funções, **assinatura fica**. Recarregar página zera tudo; edifício novo ganha id **negativo** e some no reload.
+> Pagamento e perfil seguem mock (`ponytail:`). Backend valida contribuição antes de gerar Pix simulado. Recarregar página zera edifícios locais; novo ganha id **negativo** e some no reload. Aumento de id negativo fica só no mock; remover desvio quando PSP entrar.
 
 ## Contrato
 
 ```ts
 type Contribution =
   | { donationId: null; ongId: number; cityId: number; value: number } // erguer
-  | { donationId: number; value: number };                             // aumentar (herda ONG e cidade)
+  | { donationId: number; ongId: number; value: number };              // aumentar (mantém cidade)
 
 type PixCharge = {
   id: string;
@@ -45,7 +45,7 @@ type BuildingProfile = {
 
 | Função | Quem chama | Regra no back |
 |---|---|---|
-| `createPixCharge(c)` | etapa 1 / "Gerar novo código" | Sessão. Cancela pendente anterior do usuário. 400 com `message` aparece na tela; 401 abre login |
+| `createPixCharge(c)` | etapa 1 / "Gerar novo código" | `POST /donation/contributions/validate` exige sessão, máximo 3 edifícios, destino próprio, ONG ativa/cidade existente. 400 com `message` aparece na tela; 401 abre login. Pix continua simulado |
 | `getChargeStatus(id, signal)` | poll 3 s + `visibilitychange` | Só dono. Lê **nosso** banco, nunca o PSP |
 | `getPendingCharge(signal)` | ao logar / remontar | 1 pendente por usuário; null = nenhuma |
 | `fetchBuildingProfile(id, signal)` | etapa 3, card do edifício | Público. Fora do snapshot (imagem por edifício incharia o JSONB baixado em toda carga) |
@@ -53,6 +53,9 @@ type BuildingProfile = {
 
 ## Para o backend
 
+- `donationId: null` ergue; `donationId` positivo aumenta edifício próprio escolhido. `ongId` obrigatório nos dois casos; não precisa coincidir com ONG anterior.
+- `donation` mantém valor total/cidade/dono. `donation_beneficiary` acumula valores por edifício + ONG. `building_slot` + índice único bloqueiam quarto edifício mesmo sob concorrência. Migration `0018_building_contributions.sql` no backend.
+- `recordPaidContribution` disponível no backend para futura confirmação do PSP; não existe rota pública para marcar pagamento. Reusa transação ativa do webhook; chamador deve garantir idempotência da cobrança.
 - **Pago = webhook do PSP** (assinatura verificada) marca cobrança e cria/aumenta edifício no servidor. Front nunca confirma pagamento.
 - **Validade recomendada 1 h** (MP aceita 30 min–30 dias; padrão BCB 24 h).
 - **Imagem do perfil** = mesma regra Zod do `hologramImage`: só data URL, sem SVG, teto 1.000.000 chars (cabe no `json({ limit: "1mb" })`).

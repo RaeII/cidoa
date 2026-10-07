@@ -34,14 +34,17 @@ Antes: prédios nasciam no front (`INITIAL_TEST_DONATIONS`, 10 valores hardcoded
 `GET /donation/snapshot` (proxy Vite `/api` → back). Formato compacto por tuplas:
 
 ```json
-{ "v": 3, "total": 100000,
+{ "v": 4, "total": 100000,
   "cities": [[2800308, "Aracaju", "SE"]],
   "ongs": [[1, "Instituto X"]],
   "data": [[1, 42.5, 3550308, 7]],
-  "custom": [[1, { "color": "#ffd700", "buildingShape": "twisted", "…": "…" }]] }
+  "custom": [[1, { "color": "#ffd700", "buildingShape": "twisted", "…": "…" }]],
+  "beneficiaries": [[1, [7, 8]]] }
 ```
 
 `data`: `[id, value, cityId, ongId]`. `fetchDonationSnapshot` desdobra em objetos `DonationRecord`.
+
+`ongId` = ONG original, mantida na tupla por compatibilidade. `beneficiaries`: `[donationId, ongIds][]`, só edifícios com várias ONGs. `DonationRecord.ongIds` usa complemento ou `[ongId]` no snapshot antigo/edifício com uma ONG. Edifício aparece no filtro de qualquer ONG apoiada; card/menu mostram todos os nomes. Valor/altura continuam usando total acumulado.
 
 `custom`: cópia cacheada mantida no snapshot por compatibilidade. Não é mais fonte da hidratação porque pode ficar desatualizada por até 30s.
 
@@ -58,7 +61,7 @@ Solução: back manda header `X-Snapshot-Bytes` = tamanho do JSON raw. `donation
 Dataset inteiro já é **público** (id, valor, cidade, ONG — sem dado de doador). Filtrar no front NÃO delega segurança ao cliente — só escolhe o que renderizar. ~5ms p/ 100k.
 
 Predicado AND no `useMemo`:
-- `ongId` combina com qualquer nível de local.
+- `ongId` combina com qualquer nível de local; corresponde a qualquer item de `DonationRecord.ongIds`.
 - Local usa o mais específico presente: `cityId` > `uf` > `region`.
 - Região deriva da UF via `UF_REGION[cidade.uf]`.
 - `cityById` (Map) montado 1× pra lookup O(1).

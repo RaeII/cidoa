@@ -6,6 +6,7 @@ export type DonationRecord = {
   value: number;
   cityId: number;
   ongId: number;
+  ongIds: number[];
 };
 
 export type City = { id: number; name: string; uf: string };
@@ -33,6 +34,7 @@ type SnapshotPayload = {
   ongs: [number, string][];
   data: [number, number, number, number][];
   custom?: [number, BuildingCustomization][];
+  beneficiaries?: [number, number[]][];
 };
 
 type CustomizationsPayload = [number, BuildingCustomization][];
@@ -70,6 +72,7 @@ export async function fetchDonationSnapshot(
   ]);
 
   const payload = response.data;
+  const beneficiaries = new Map(payload.beneficiaries);
   return {
     total: payload.total,
     customizations: new Map(customizationsResponse.data),
@@ -80,6 +83,7 @@ export async function fetchDonationSnapshot(
       value,
       cityId,
       ongId,
+      ongIds: beneficiaries.get(id) ?? [ongId],
     })),
   };
 }

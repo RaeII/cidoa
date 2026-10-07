@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useId, useRef, useState, type FormEvent, type KeyboardEvent, type SVGProps } from "react";
-import { ArrowRight, Check, ChevronDown, CircleCheck, Clock, Copy, HeartHandshake, Loader2, MapPin, Search } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, CircleCheck, Clock, Copy, HeartHandshake, Loader2, MapPin, Search } from "lucide-react";
 import { AlertDialog, RadioGroup } from "radix-ui";
 import {
   createPixCharge,
@@ -39,6 +39,7 @@ const PRESETS = [10, 25, 50, 100];
 const DEFAULT_AMOUNT = "25,00";
 // Só UI: o backend tem a palavra final (400 com `message` aparece na tela).
 const MIN_VALUE = 5;
+const MAX_BUILDINGS = 3;
 const POLL_MS = 3_000;
 const STEPS = ["Contribuição", "Pagamento", "Seu edifício"];
 const STEP_INDEX = { form: 0, pay: 1, done: 2 } as const;
@@ -381,8 +382,8 @@ function PixPayment({
 
 /**
  * Pílula "Contribuir" + modal em 3 etapas: contribuição (ONG, cidade, valor) →
- * pagamento Pix → seu edifício (imagem, nome, descrição). Ao terminar, o editor
- * foca o edifício e abre o painel de personalização ao vivo na cena.
+ * pagamento Pix → seu edifício (imagem, nome, descrição). Ver o edifício abre
+ * a personalização na cena e mantém a etapa 3 disponível para voltar à edição.
  */
 export function ContributeDialog({
   open,
@@ -401,7 +402,7 @@ export function ContributeDialog({
   onRequestLogin: () => void;
   /** Pagamento confirmado pelo servidor: o edifício entra ou cresce na cidade. */
   onPaid: (contribution: Contribution, donationId: number) => void;
-  /** Fim do fluxo: foca o edifício e abre a personalização. */
+  /** Ver o edifício: foca e abre a personalização sem apagar a etapa 3. */
   onFinish: (donationId: number) => void;
 }) {
   const { user, isLoading } = useAuth();
@@ -434,9 +435,7 @@ export function ContributeDialog({
   const pendingChargeId = active?.step === "pay" && !active.expired ? active.charge.id : null;
 
   const ongNameOf = (contribution: Contribution) =>
-    contribution.donationId === null
-      ? ongs.find((ong) => ong.id === contribution.ongId)?.name
-      : buildings.find((building) => building.id === contribution.donationId)?.ongName;
+    ongs.find((ong) => ong.id === contribution.ongId)?.name;
 
   const handleStatus = useEffectEvent((chargeId: string, result: ChargeStatus) => {
     if (active?.step !== "pay" || active.charge.id !== chargeId) return;
@@ -513,24 +512,25 @@ export function ContributeDialog({
   }, [step, open]);
 
   const value = parseMoney(amount);
-  const growing = grow && buildings.length > 0;
+  const atBuildingLimit = buildings.length >= MAX_BUILDINGS;
+  const growing = (grow || atBuildingLimit) && buildings.length > 0;
   const pickedBuilding = buildingId || (buildings.length === 1 ? String(buildings[0].id) : "");
   const pickedOng = ongId || (ongs.length === 1 ? String(ongs[0].id) : "");
   const pickedCity = city === undefined ? (user?.city ?? null) : city;
   const selectedBuilding = buildings.find((building) => String(building.id) === pickedBuilding);
   const selectedOng = ongs.find((ong) => String(ong.id) === pickedOng);
-  const destinationName = growing ? selectedBuilding?.ongName : selectedOng?.name;
+  const destinationName = selectedOng?.name;
   const destinationPlace = growing ? selectedBuilding?.place : pickedCity ? formatCity(pickedCity) : undefined;
   const amountError = amountBlurred && (value === null || value < MIN_VALUE)
     ? `Mínimo de ${formatBRL(MIN_VALUE)}.`
     : null;
 
   let contribution: Contribution | null = null;
-  if (value !== null && value >= MIN_VALUE) {
+  if (value !== null && value >= MIN_VALUE && selectedOng) {
     if (growing) {
-      if (selectedBuilding) contribution = { donationId: selectedBuilding.id, value };
-    } else if (selectedOng && pickedCity) {
-        contribution = { donationId: null, ongId: selectedOng.id, cityId: pickedCity.id, value };
+      if (selectedBuilding) contribution = { donationId: selectedBuilding.id, ongId: selectedOng.id, value };
+    } else if (pickedCity) {
+      contribution = { donationId: null, ongId: selectedOng.id, cityId: pickedCity.id, value };
     }
   }
 
@@ -572,15 +572,6 @@ export function ContributeDialog({
   }
 
   function finish(donationId: number) {
-    setFlow({ step: "form" });
-    setEditingCharge(false);
-    setGrow(false);
-    setBuildingId("");
-    setOngId("");
-    setCity(undefined);
-    setAmount(DEFAULT_AMOUNT);
-    setAmountBlurred(false);
-    setError(null);
     setProfileEdit({ dirty: false, busy: false });
     setConfirmExit(false);
     onOpenChange(false);
@@ -593,7 +584,8 @@ export function ContributeDialog({
     else finish(active.donationId);
   }
 
-  // Depois de pago, sair leva ao edifício; edições pendentes pedem confirmação.
+  // Depois de pago, sair leva ao edifício e permite retornar à etapa 3.
+  // Edições pendentes pedem confirmação antes de serem descartadas.
   function handleOpenChange(next: boolean) {
     if (!next && active?.step === "done") return leaveProfile();
     onOpenChange(next);
@@ -609,8 +601,8 @@ export function ContributeDialog({
           type="button"
           className="absolute bottom-6 left-1/2 z-30 flex h-12 -translate-x-1/2 items-center gap-2 rounded-full bg-primary-foreground px-6 text-sm font-semibold text-primary shadow-lg outline-none transition-transform hover:scale-[1.03] focus-visible:ring-[3px] focus-visible:ring-ring/50 active:scale-100"
         >
-          {pendingChargeId ? <Clock className="size-5" /> : <BuildingComplexPlus className="size-5" />}
-          {pendingChargeId ? "Pix pendente" : "Contribuir"}
+          {active?.step === "done" ? <ArrowLeft aria-hidden="true" className="size-5" /> : pendingChargeId ? <Clock className="size-5" /> : <BuildingComplexPlus className="size-5" />}
+          {active?.step === "done" ? "Voltar à edição" : pendingChargeId ? "Pix pendente" : "Contribuir"}
         </button>
       </DialogTrigger>
       {/* text-foreground: o body da cena pinta texto branco, que sumiria no tema claro. */}
@@ -693,26 +685,27 @@ export function ContributeDialog({
                     <p id={`${amountId}-building`} className={labelClass}>Edifício</p>
                     <RadioGroup.Root
                       aria-labelledby={`${amountId}-building`}
-                      value={grow ? "grow" : "new"}
+                      value={growing ? "grow" : "new"}
                       onValueChange={(next) => setGrow(next === "grow")}
                       className="grid grid-cols-2 gap-2"
                     >
-                      <RadioGroup.Item value="new" className={cn(chipClass, "min-h-14")}>
+                      <RadioGroup.Item value="new" disabled={atBuildingLimit} className={cn(chipClass, "min-h-14 disabled:cursor-not-allowed disabled:opacity-50")}>
                         Novo edifício
                       </RadioGroup.Item>
                       <RadioGroup.Item value="grow" className={cn(chipClass, "min-h-14")}>
                         Aumentar edifício
                       </RadioGroup.Item>
                     </RadioGroup.Root>
-                    {grow && (
+                    {atBuildingLimit && <p className="mt-2 text-xs text-muted-foreground">Limite de 3 edifícios por conta.</p>}
+                    {growing && (
                       <Select value={pickedBuilding} onValueChange={setBuildingId}>
                         <SelectTrigger aria-label="Qual edifício" className={`mt-4 ${selectClass}`}>
                           <SelectValue placeholder="Qual edifício?" />
                         </SelectTrigger>
                         <SelectContent>
-                          {buildings.map((building) => (
+                          {buildings.map((building, index) => (
                             <SelectItem key={building.id} value={String(building.id)}>
-                              {formatBRL(building.value)}
+                              Edifício {index + 1} · {formatBRL(building.value)}
                               {building.ongName && ` · ${building.ongName}`}
                               {building.place && ` · ${building.place}`}
                             </SelectItem>
@@ -722,22 +715,20 @@ export function ContributeDialog({
                     )}
                   </div>
                 )}
+                <div>
+                  <label htmlFor={ongFieldId} className={labelClass}>
+                    ONG
+                  </label>
+                  <OngCombobox id={ongFieldId} ongs={ongs} value={pickedOng} onChange={setOngId} />
+                </div>
                 {!growing && (
-                  <>
-                    <div>
-                      <label htmlFor={ongFieldId} className={labelClass}>
-                        ONG
-                      </label>
-                      <OngCombobox id={ongFieldId} ongs={ongs} value={pickedOng} onChange={setOngId} />
-                    </div>
-                    <div>
-                      <label htmlFor={cityFieldId} className={labelClass}>
-                        Cidade do edifício
-                      </label>
-                      <CityCombobox id={cityFieldId} value={pickedCity} onChange={setCity} className="h-12 rounded-xl bg-background" />
-                      <p className="mt-2 text-xs text-muted-foreground">Seu edifício aparecerá nesta cidade.</p>
-                    </div>
-                  </>
+                  <div>
+                    <label htmlFor={cityFieldId} className={labelClass}>
+                      Cidade do edifício
+                    </label>
+                    <CityCombobox id={cityFieldId} value={pickedCity} onChange={setCity} className="h-12 rounded-xl bg-background" />
+                    <p className="mt-2 text-xs text-muted-foreground">Seu edifício aparecerá nesta cidade.</p>
+                  </div>
                 )}
                 <div className="flex items-start gap-3 rounded-2xl bg-muted/40 p-4 text-sm text-muted-foreground">
                   <BuildingComplexPlus className="mt-0.5 size-5 shrink-0 text-foreground" />
@@ -800,7 +791,7 @@ export function ContributeDialog({
                 <dl className="mt-5 space-y-3 border-t pt-5 text-sm">
                   <div className="flex justify-between gap-4">
                     <dt className="text-muted-foreground">ONG</dt>
-                    <dd className="min-w-0 break-words text-right font-medium">{destinationName ?? (growing ? selectedBuilding ? "ONG do edifício" : "Selecione um edifício" : "Selecione uma ONG")}</dd>
+                    <dd className="min-w-0 break-words text-right font-medium">{destinationName ?? "Selecione uma ONG"}</dd>
                   </div>
                   <div className="flex justify-between gap-4">
                     <dt className="text-muted-foreground">Cidade</dt>
@@ -822,7 +813,7 @@ export function ContributeDialog({
             <div className="flex flex-col gap-4 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-sm text-muted-foreground">
                 {error ? <p role="alert" className="text-destructive">{error}</p>
-                  : !contribution ? <p>{growing && !selectedBuilding ? "Escolha o edifício para continuar." : !growing && !selectedOng ? "Escolha uma ONG para continuar." : !growing && !pickedCity ? "Escolha uma cidade para continuar." : "Informe um valor a partir de R$ 5."}</p>
+                  : !contribution ? <p>{growing && !selectedBuilding ? "Escolha o edifício para continuar." : !selectedOng ? "Escolha uma ONG para continuar." : !growing && !pickedCity ? "Escolha uma cidade para continuar." : "Informe um valor a partir de R$ 5."}</p>
                   : !user ? <p>Entre para vincular o edifício à sua conta.</p>
                   : <p>Na próxima etapa, você recebe o código Pix.</p>}
               </div>

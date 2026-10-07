@@ -101,7 +101,7 @@ export function useDonations() {
       return dataset.donations;
     }
     return dataset.donations.filter((donation) => {
-      if (ongId !== undefined && donation.ongId !== ongId) return false;
+      if (ongId !== undefined && !donation.ongIds.includes(ongId)) return false;
       if (cityId !== undefined) return donation.cityId === cityId;
       if (uf !== undefined) return cityById.get(donation.cityId)?.uf === uf;
       if (region !== undefined) {

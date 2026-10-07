@@ -141,14 +141,16 @@ flowchart LR
   S -- expired --> X[Este código expirou → Gerar novo código]
   S -- paid --> D[3 Pagamento confirmado]
   D -- Ver meu edifício / X / Esc --> Fim[foco + BuildingCustomizePanel]
+  Fim -- Voltar à edição --> D
 ```
 
 **Etapa 1 — Contribuição**
-- **Novo edifício · Aumentar edifício** — chips; só com edifício próprio. Aumentar = select do edifício (pré-selecionado se só 1); **ONG e cidade somem** (herda do edifício)
-- **ONG** — `OngCombobox` local: digitar/buscar por nome, ignora acentos/caixa (`normalizeSearch` existente). Lista abre no foco; setas/Enter selecionam, Esc fecha só lista. Blur aceita resultado único/nome exato único; restante restaura seleção anterior. Pré-seleciona se só 1; catálogo vazio desabilita; busca vazia = todas, sem resultado = `Nenhuma ONG encontrada`
-- **Cidade do edifício** — `CityCombobox` de [[#ProfileDetailsFields.tsx]]. `city === undefined` = não tocado → mostra `user.city` (login no meio do fluxo já preenche)
+- **Novo edifício · Aumentar edifício** — chips; só com edifício próprio. Máximo **3 por conta**: ao atingir limite, Novo desabilita e Aumentar fica ativo; backend valida e banco impede quarto edifício. Aumentar = select do edifício (pré-selecionado se só 1); com 2 ou 3, seleção explícita obrigatória. Rótulos numerados distinguem edifícios com mesmo valor/cidade.
+- **ONG** — sempre visível e obrigatória, inclusive ao aumentar. Escolha independente das ONGs já apoiadas pelo edifício. `OngCombobox` local: digitar/buscar por nome, ignora acentos/caixa (`normalizeSearch` existente). Lista abre no foco; setas/Enter selecionam, Esc fecha só lista. Blur aceita resultado único/nome exato único; restante restaura seleção anterior. Pré-seleciona se só 1; catálogo vazio desabilita; busca vazia = todas, sem resultado = `Nenhuma ONG encontrada`
+- **Cidade do edifício** — aparece só ao erguer; aumentar mantém cidade existente. `CityCombobox` de [[#ProfileDetailsFields.tsx]]. `city === undefined` = não tocado → mostra `user.city` (login no meio do fluxo já preenche)
 - **Valor da contribuição** — input 96 px, prefixo R$, teclado numérico, **25,00 inicial**. `formatMoneyInput` em `src/lib/moneyInput.ts`: máscara a cada tecla, sempre vírgula + **2 casas**, milhar com ponto; dígitos entram como centavos (`1234` → `12,34`). Apagar tudo mantém `0,00`. Colagem passa por `normalizeMoneyInput`: `25` → `25,00`, `25.90` → `25,90`, `R$ 1.234,56` → `1.234,56`. Rejeita letras, sinal, expoente e valores fora da precisão segura; `parseMoney` converte para reais. Mínimo R$ 5 visível; blur só valida mínimo. Chips R$ 10/25/50/100; 2 colunas em telas menores que 380 px
 - **Resumo** — ONG, cidade, Pix; aumentar também mostra valor acumulado após contribuição. IDs de ONG/edifício precisam existir no catálogo atual
+- Pago: `CitySceneEditor` acrescenta `ongId` a `DonationRecord.ongIds` sem duplicar; filtro/card/menu reconhecem todas as ONGs apoiadas pelo edifício.
 - Botão: **Ir para pagamento**. Deslogado: `Entrar para continuar` → `onRequestLogin` (form fica preenchido). Rodapé explica campo pendente ou próxima etapa; carregamento bloqueia envios repetidos
 
 **Etapa 2 — Pague com Pix** (`PixPayment`, mesmo arquivo)
@@ -158,11 +160,11 @@ flowchart LR
 - Grafia **Pix**, nunca "PIX" (manual da marca BCB)
 - Expirado: cartão próprio, **Gerar novo código** mantém contribuição. **Alterar contribuição** retorna ao formulário sem descartar cobrança nem parar poll (`editingCharge`); banner **Voltar ao Pix**, novo código substitui anterior conforme contrato. **Continuar depois** fecha modal e mantém acompanhamento
 
-**Etapa 3 — Pagamento confirmado** → [[#BuildingProfileForm.tsx]] com **Ver meu edifício** e **Agora não**. Clique fora bloqueado; saída sem alterações termina; com alterações abre `AlertDialog` **Sair sem salvar?**, preserva pagamento e exige decisão. Salvar/processar imagem bloqueia X/Esc e ações de saída.
+**Etapa 3 — Pagamento confirmado** → [[#BuildingProfileForm.tsx]] com **Ver meu edifício** e **Agora não**. **Ver meu edifício** salva as alterações antes de focar o edifício e abrir o painel de personalização. O rodapé da cena exibe apenas **Voltar à edição**, que reabre esta etapa com nome, descrição e imagem salvos. Clique fora bloqueado; saída sem alterações vai para a cena e mantém a etapa 3 disponível; com alterações abre `AlertDialog` **Sair sem salvar?**, preserva pagamento e exige decisão. Salvar/processar imagem bloqueia X/Esc e ações de saída.
 
-**Estado** — `Flow` (`form` | `pay` | `done`) vive **fora** do `DialogContent`: fechar o modal não perde o Pix. Poll segue fechado; pílula vira **Pix pendente** (ícone relógio). Pago com modal fechado → toast "Pagamento confirmado." com **Continuar** (reabre na etapa 3). `Flow` guarda `userId`: troca de conta ignora a cobrança. `getPendingCharge` ao logar/remontar retoma Pix pendente. Troca de etapa foca o título.
+**Estado** — `Flow` (`form` | `pay` | `done`) vive **fora** do `DialogContent`: fechar o modal não perde o Pix nem a etapa do edifício pago. `finish` fecha e foca sem reiniciar o fluxo. Ao retornar, `BuildingProfileForm` recarrega o perfil salvo do mesmo `donationId`; as personalizações da cena continuam no estado do editor. Poll segue fechado; pílula vira **Pix pendente** (ícone relógio). Pago com modal fechado → toast "Pagamento confirmado." com **Continuar** (reabre na etapa 3). `Flow` guarda `userId`: troca de conta ignora a cobrança e oculta o retorno à edição anterior. `getPendingCharge` ao logar/remontar retoma Pix pendente. Troca de etapa foca o título.
 
-**Verificação** — `node scripts/check-contribution.mjs`: máscara fixa de 2 casas a cada tecla, Backspace/apagar tudo, BRL colado, entradas inválidas, precisão e valores preservados. Sem servidor/navegador.
+**Verificação** — `node scripts/check-contribution.mjs`: máscara fixa de 2 casas a cada tecla, Backspace/apagar tudo, BRL colado, entradas inválidas, precisão e valores preservados; retorno à etapa 3 após visualizar, bloqueio durante salvamento e confirmação de descarte. Sem servidor/navegador.
 
 | Prop | Tipo | Descrição |
 |---|---|---|
@@ -171,7 +173,7 @@ flowchart LR
 | `buildings` | `readonly MyDonation[]` | `myDonations` do editor |
 | `onRequestLogin` | `() => void` | Abre `AuthDialog` (estado `authOpen` no editor) |
 | `onPaid` | `(c, donationId) => void` | Editor faz `upsertDonation` + `addOwned` → edifício entra/cresce na cena |
-| `onFinish` | `(donationId) => void` | Editor foca + abre painel; fora do filtro/teto → limpa ambos e foca no fim do rebuild (`pendingFocusRef`, rAF do `setDonations`) |
+| `onFinish` | `(donationId) => void` | Editor foca + abre painel sem apagar a etapa 3; fora do filtro/teto → limpa ambos e foca no fim do rebuild (`pendingFocusRef`, rAF do `setDonations`) |
 
 Copy sem "Doar"/"Construir"/"prédio". Decisões (login, R$ 25, validade, Pix pendente) vêm da pesquisa + supervisão — ver [[contribution-api]].
 

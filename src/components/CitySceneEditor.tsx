@@ -258,13 +258,18 @@ export function CitySceneEditor() {
   const handlePaid = (contribution: Contribution, donationId: number) => {
     const existing = allDonations.find((d) => d.id === donationId);
     if (existing) {
-      upsertDonation({ ...existing, value: existing.value + contribution.value });
+      upsertDonation({
+        ...existing,
+        value: existing.value + contribution.value,
+        ongIds: [...new Set([...existing.ongIds, contribution.ongId])],
+      });
     } else if (contribution.donationId === null) {
       upsertDonation({
         id: donationId,
         value: contribution.value,
         cityId: contribution.cityId,
         ongId: contribution.ongId,
+        ongIds: [contribution.ongId],
       });
     }
     addOwned(donationId);
@@ -306,7 +311,7 @@ export function CitySceneEditor() {
     const city = cities.find((c) => c.id === donation.cityId);
     return {
       value: donation.value,
-      ongName: ongs.find((o) => o.id === donation.ongId)?.name,
+      ongName: ongs.filter((o) => donation.ongIds.includes(o.id)).map((o) => o.name).join(", "),
       place: city ? `${city.name} · ${city.uf}` : undefined,
     };
   }, [infoBuildingId, donations, cities, ongs]);
@@ -323,7 +328,7 @@ export function CitySceneEditor() {
         return {
           id: d.id,
           value: d.value,
-          ongName: ongs.find((o) => o.id === d.ongId)?.name,
+          ongName: ongs.filter((o) => d.ongIds.includes(o.id)).map((o) => o.name).join(", "),
           place: city ? `${city.name} · ${city.uf}` : undefined,
           inScene: inScene.has(d.id),
         };

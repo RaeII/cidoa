@@ -1,6 +1,7 @@
 // node scripts/check-contribution.mjs — campo monetário, sem servidor ou navegador.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import vm from "node:vm";
 import ts from "typescript";
 
 async function load(path) {
@@ -50,4 +51,52 @@ for (const [input, expected] of [["25", 25], ["R$ 1.234,56", 1234.56], ["25.90",
 }
 assert.equal(parseMoney(normalizeMoneyInput("0,00")), null);
 assert.equal(parseMoney(normalizeMoneyInput("")), null);
+
+// Executa os handlers reais do modal sem montar a cena nem abrir um navegador.
+const dialogSource = await readFile(new URL("../src/components/html/donate/ContributeDialog.tsx", import.meta.url), "utf8");
+const dialogAst = ts.createSourceFile("ContributeDialog.tsx", dialogSource, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TSX);
+const dialog = dialogAst.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "ContributeDialog");
+const handlers = ["finish", "leaveProfile", "handleOpenChange"];
+const declarations = dialog.body.statements.filter((node) => ts.isFunctionDeclaration(node) && handlers.includes(node.name?.text));
+assert.equal(declarations.length, handlers.length);
+const { outputText: handlerCode } = ts.transpileModule(declarations.map((node) => node.getText(dialogAst)).join("\n"), {
+  compilerOptions: { target: ts.ScriptTarget.ES2022 },
+});
+const paidFlow = { step: "done", userId: 1, contribution: { donationId: null, ongId: 2, cityId: 3, value: 25 }, donationId: 42 };
+let views = 0;
+const state = {
+  active: paidFlow,
+  flow: paidFlow,
+  profileEdit: { dirty: false, busy: false },
+  confirmExit: false,
+  open: true,
+  focusedId: null,
+  onOpenChange: (open) => { state.open = open; },
+  onFinish: (id) => { state.focusedId = id; views += 1; },
+};
+for (const field of ["flow", "profileEdit", "confirmExit"]) {
+  state[`set${field[0].toUpperCase()}${field.slice(1)}`] = (value) => { state[field] = value; };
+}
+vm.runInNewContext(handlerCode, state);
+state.finish(paidFlow.donationId);
+assert.equal(state.open, false);
+assert.equal(state.focusedId, 42);
+assert.equal(state.flow, paidFlow, "Ver meu edifício deve preservar o pagamento e a etapa de edição");
+state.handleOpenChange(true);
+assert.equal(state.open, true);
+assert.equal(state.flow, paidFlow, "Voltar deve reabrir Seu edifício, sem iniciar outro pagamento");
+assert.equal(views, 1);
+state.profileEdit = { dirty: true, busy: true };
+state.handleOpenChange(false);
+assert.equal(state.open, true, "Salvar/processar imagem bloqueia saída");
+assert.equal(state.confirmExit, false);
+state.profileEdit.busy = false;
+state.handleOpenChange(false);
+assert.equal(state.open, true, "Edições pendentes exigem confirmação");
+assert.equal(state.confirmExit, true);
+assert.equal(state.flow, paidFlow);
+state.finish(paidFlow.donationId);
+assert.equal(state.confirmExit, false);
+assert.equal(state.flow, paidFlow, "Confirmar descarte não apaga o pagamento");
 console.log("Contribuição: máscara fixa de 2 casas, digitação, exclusão, colagem em reais e valores preservados OK.");
+console.log("Seu edifício: visualizar, retornar à edição, bloqueio durante salvamento e confirmação de descarte OK.");
