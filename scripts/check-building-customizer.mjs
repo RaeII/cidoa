@@ -6,6 +6,7 @@ import vm from "node:vm";
 import { build } from "esbuild";
 import ts from "typescript";
 import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 const bundle = await build({
   stdin: { contents: `import { createElement } from 'react';
@@ -89,6 +90,18 @@ const mocks = {
   useEffect(callback) { cleanup = callback(); },
 };
 vm.runInNewContext(ts.transpileModule(effect.getText(previewAst), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, mocks);
+// Sem DOM/GPU: o OrbitControls real deve impedir a vista por baixo, preservando a distância.
+assert.equal(runtimeRef.current.controls.enablePan, false);
+const camera = new THREE.PerspectiveCamera();
+const orbit = new OrbitControls(camera);
+orbit.maxPolarAngle = runtimeRef.current.controls.maxPolarAngle;
+orbit.target.set(0, 1, 0);
+camera.position.set(4, -4, 4);
+const distance = camera.position.distanceTo(orbit.target);
+orbit.update();
+assert.equal(orbit.getPolarAngle(), Math.PI / 2, "Câmera deve parar no horizonte");
+assert.ok(camera.position.y >= orbit.target.y, "Não permite olhar o edifício por baixo");
+assert.ok(Math.abs(camera.position.distanceTo(orbit.target) - distance) < 1e-10, "Limite vertical preserva o zoom");
 runtimeRef.current.view = { scene: {}, camera: {}, tick() {}, dispose() { counts.view += 1; } };
 frame(40);
 assert.equal(counts.render, 1);
@@ -105,4 +118,4 @@ assert.equal(counts.render, 2);
 cleanup();
 assert.equal(runtimeRef.current, null);
 assert.deepEqual(counts, { render: 2, renderer: 1, context: 1, controls: 1, observers: 2, view: 1, canceled: 1 });
-console.log("Prévia: pausa em aba escondida/fora da tela e libera canvas, contexto, controles e observadores OK.");
+console.log("Prévia: câmera limitada ao horizonte, zoom preservado, pausa e liberação de recursos OK.");

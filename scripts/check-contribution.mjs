@@ -1,7 +1,9 @@
 // node scripts/check-contribution.mjs — campo monetário, sem servidor ou navegador.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import vm from "node:vm";
+import { build } from "esbuild";
 import ts from "typescript";
 
 async function load(path) {
@@ -56,6 +58,10 @@ assert.equal(parseMoney(normalizeMoneyInput("")), null);
 const dialogSource = await readFile(new URL("../src/components/html/donate/ContributeDialog.tsx", import.meta.url), "utf8");
 const dialogAst = ts.createSourceFile("ContributeDialog.tsx", dialogSource, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TSX);
 const dialog = dialogAst.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "ContributeDialog");
+const tabState = dialog.body.statements.filter(ts.isVariableStatement)
+  .flatMap((node) => [...node.declarationList.declarations])
+  .find((node) => ts.isArrayBindingPattern(node.name) && node.name.elements[0].name.getText(dialogAst) === "buildingTab");
+assert.equal(tabState.initializer.arguments[0].text, "information", "Informações precisa ser a aba inicial");
 const handlers = ["finish", "leaveProfile", "handleOpenChange"];
 const declarations = dialog.body.statements.filter((node) => ts.isFunctionDeclaration(node) && handlers.includes(node.name?.text));
 assert.equal(declarations.length, handlers.length);
@@ -71,12 +77,13 @@ const state = {
   appearanceBusy: false,
   get editBusy() { return state.profileEdit.busy || state.appearanceBusy; },
   confirmExit: false,
+  buildingTab: "appearance",
   open: true,
   focusedId: null,
   onOpenChange: (open) => { state.open = open; },
   onFinish: (id) => { state.focusedId = id; views += 1; },
 };
-for (const field of ["flow", "profileEdit", "confirmExit"]) {
+for (const field of ["flow", "profileEdit", "confirmExit", "buildingTab"]) {
   state[`set${field[0].toUpperCase()}${field.slice(1)}`] = (value) => { state[field] = value; };
 }
 vm.runInNewContext(handlerCode, state);
@@ -86,6 +93,7 @@ assert.equal(state.focusedId, 42);
 assert.equal(state.flow, paidFlow, "Ver meu edifício deve preservar o pagamento e a etapa de edição");
 state.handleOpenChange(true);
 assert.equal(state.open, true);
+assert.equal(state.buildingTab, "information", "Retornar à edição deve abrir as informações primeiro");
 assert.equal(state.flow, paidFlow, "Voltar deve reabrir Seu edifício, sem iniciar outro pagamento");
 assert.equal(views, 1);
 state.appearanceBusy = true;
@@ -104,5 +112,63 @@ assert.equal(state.flow, paidFlow);
 state.finish(paidFlow.donationId);
 assert.equal(state.confirmExit, false);
 assert.equal(state.flow, paidFlow, "Confirmar descarte não apaga o pagamento");
+
+// Renderiza a seção real do edifício: informações abertas, perfil preservado na outra aba
+// e envio pelo rodapé externo. A prévia 3D fica fora deste check, sem GPU/navegador.
+let buildingSection;
+function findSection(node) {
+  if (ts.isJsxElement(node) && node.openingElement.tagName.getText(dialogAst) === "Tabs.Root") buildingSection = node;
+  ts.forEachChild(node, findSection);
+}
+findSection(dialog);
+assert.ok(buildingSection, "Informações e aparência precisam de navegação própria");
+const constant = (name) => dialogAst.statements
+  .filter(ts.isVariableStatement)
+  .flatMap((node) => [...node.declarationList.declarations])
+  .find((node) => node.name.getText(dialogAst) === name).initializer.text;
+const bundle = await build({
+  stdin: { contents: `
+    import { createElement, Suspense } from 'react';
+    import { renderToStaticMarkup } from 'react-dom/server';
+    import { Tabs } from 'radix-ui';
+    import { BuildingProfileForm } from './src/components/html/donate/BuildingProfileForm';
+    import { Button } from './src/components/ui/button';
+    import { cn } from './src/lib/utils';
+    const BuildingCustomizer = () => createElement('div', { 'data-preview': true }, 'Prévia de aparência');
+    const Loader2 = () => null;
+    const noop = () => {};
+    const scrollClass = ${JSON.stringify(constant("scrollClass"))};
+    const footerClass = ${JSON.stringify(constant("footerClass"))};
+    function Section({ buildingTab = 'information', ready = true, editBusy = false, error = null }) {
+      const profileFormId = 'building-profile';
+      const profileEdit = { ready, busy: editBusy, error };
+      const appearanceBusy = false;
+      const active = { donationId: 42 };
+      const customization = {}, catalog = null, textureSettings = {};
+      const setBuildingTab = noop, finish = noop, leaveProfile = noop, setProfileEdit = noop;
+      const onCustomizationChange = noop, setAppearanceBusy = noop;
+      return (${buildingSection.getText(dialogAst)});
+    }
+    export const render = (props) => renderToStaticMarkup(createElement(Section, props));
+  `, resolveDir: process.cwd(), loader: "tsx" },
+  bundle: true, format: "cjs", platform: "node", packages: "external", jsx: "automatic", write: false,
+  define: { "import.meta.env": "{}" },
+});
+const renderModule = { exports: {} };
+new Function("require", "module", "exports", bundle.outputFiles[0].text)(createRequire(import.meta.url), renderModule, renderModule.exports);
+const { render } = renderModule.exports;
+const informationHtml = render({});
+assert.match(informationHtml, /aria-selected="true"[^>]*>Informações<\/button>/);
+assert.match(informationHtml, /Nome do edifício/);
+assert.match(informationHtml, /Descrição/);
+assert.doesNotMatch(informationHtml, /<details|data-preview/, "Informações não ficam recolhidas nem depois da prévia");
+assert.match(informationHtml, /type="submit" form="building-profile"/);
+assert.match(render({ buildingTab: "appearance" }), /<form id="building-profile"/, "Alternar de aba não desmonta o perfil nem perde os campos");
+assert.match(render({ buildingTab: "appearance" }), /data-preview="true"/);
+for (const props of [{ ready: false }, { editBusy: true }]) {
+  assert.match(render(props), /type="submit" form="building-profile"[^>]*disabled=""/, "Rodapé deve respeitar carregamento e salvamento");
+}
+assert.match(render({ buildingTab: "appearance", error: "Não foi possível salvar." }), /role="alert"[^>]*>Não foi possível salvar\./, "Falha ao salvar deve aparecer também na aba Aparência");
 console.log("Contribuição: máscara fixa de 2 casas, digitação, exclusão, colagem em reais e valores preservados OK.");
 console.log("Seu edifício: visualizar, retornar à edição, bloqueio durante salvamento e confirmação de descarte OK.");
+console.log("Informações: aba inicial, campos abertos, perfil preservado ao alternar e envio pelo rodapé OK.");

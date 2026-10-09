@@ -122,12 +122,13 @@ Dois exports, mesma cena interna:
 
 Prévia 3D do edifício completo no [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]], carregada por import dinâmico somente enquanto o modal está aberto. Recebe a aparência completa e as configurações de textura; reutiliza [[scene-builders#createPreviewScene.ts|createPreviewScene]] e os mesmos modelos/acessórios da cidade, em proporções normalizadas para avaliar o estilo.
 
+- Altura de 192 px no celular e até 320 px a partir de `sm`, limitada por `max-height: calc(100cqh - 2.5rem)`. No desktop (`lg`), remove o limite fixo e preenche com `flex-1` a coluna de `100cqh` do customizador; o aviso de salvamento automático conserva sua altura natural. O canvas e o enquadramento acompanham o tamanho pelo `ResizeObserver` existente.
 - Um renderer/contexto por abertura. Alterar itens atualiza o modelo; cor, tint e opacidade atualizam materiais existentes, preservando câmera e GIF.
-- OrbitControls: arrastar para girar, rolar para aproximar; giro automático respeita `prefers-reduced-motion`.
+- OrbitControls: arrastar para girar, rolar para aproximar; deslocamento lateral desabilitado e ângulo polar limitado a 90° (`maxPolarAngle = Math.PI / 2`), impedindo ver o edifício por baixo. Giro automático respeita `prefers-reduced-motion`.
 - Até 30 FPS e pixel ratio limitado a 1,5. Pausa renders com aba escondida ou prévia fora da tela (`IntersectionObserver`).
 - Texturas PBR usam o loader/cache compartilhado; só a textura selecionada e o concreto do topo são pedidos. Mapas locais clonados recebem tiling/offset sem modificar os mapas da cidade.
 - Fecha → cancela rAF, desconecta observadores, descarta modelo, controles e renderer, remove canvas e chama `forceContextLoss`. Sem WebGL → feedback, mantendo a edição disponível.
-- `node scripts/check-building-customizer.mjs` verifica pausa e limpeza com contexto simulado; [[scene-builders#createPreviewScene.ts|checagens de geometria]] verificam o modelo completo.
+- `node scripts/check-building-customizer.mjs` verifica o limite vertical com OrbitControls real sem DOM, preservação do zoom, pausa e limpeza com contexto simulado; [[scene-builders#createPreviewScene.ts|checagens de geometria]] verificam o modelo completo.
 
 ## Relação com o Hook
 

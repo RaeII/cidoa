@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useEffectEvent, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type SVGProps } from "react";
 import { ArrowLeft, ArrowRight, Check, ChevronDown, CircleCheck, Clock, Copy, HeartHandshake, Loader2, MapPin, Search } from "lucide-react";
-import { AlertDialog, RadioGroup } from "radix-ui";
+import { AlertDialog, RadioGroup, Tabs } from "radix-ui";
 import {
   createPixCharge,
   getChargeStatus,
@@ -52,6 +52,8 @@ const labelClass = "mb-2.5 block text-sm font-medium text-foreground";
 const chipClass =
   "min-h-11 rounded-xl border border-input px-2 text-sm font-medium transition-colors outline-none data-[state=unchecked]:hover:bg-foreground/5 focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground";
 const selectClass = "w-full rounded-xl data-[size=default]:h-12";
+const scrollClass = "min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-8 sm:py-6 lg:px-10";
+const footerClass = "shrink-0 border-t bg-background px-5 py-4 sm:px-8 lg:px-10";
 
 /** Estado do fluxo. Vive fora do `DialogContent`: fechar o modal não perde o Pix. */
 type Flow =
@@ -85,16 +87,17 @@ function BuildingComplexPlus(props: SVGProps<SVGSVGElement>) {
 }
 
 function Stepper({ current }: { current: number }) {
+  const compact = current === STEP_INDEX.done;
   return (
-    <ol aria-label="Etapas da contribuição" className="grid grid-cols-3 gap-3 border-b pb-6 sm:gap-6">
+    <ol aria-label="Etapas da contribuição" className={cn("grid grid-cols-3 gap-3 border-b pb-6 sm:gap-6", compact && "gap-2 pb-3 sm:gap-4")}>
       {STEPS.map((label, index) => (
         <li
           key={label}
           aria-current={index === current ? "step" : undefined}
-          className={cn("flex flex-col items-start gap-2 text-[11px] sm:flex-row sm:items-center sm:text-sm", index === current ? "font-medium text-foreground" : "text-muted-foreground")}
+          className={cn("flex flex-col items-start gap-2 text-[11px] sm:flex-row sm:items-center sm:text-sm", compact && "gap-1 sm:gap-2 sm:text-xs", index === current ? "font-medium text-foreground" : "text-muted-foreground")}
         >
-          <span aria-hidden="true" className={cn("grid size-7 shrink-0 place-items-center rounded-full text-xs sm:size-8", index <= current ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
-            {index < current ? <Check className="size-4" /> : index + 1}
+          <span aria-hidden="true" className={cn("grid size-7 shrink-0 place-items-center rounded-full text-xs sm:size-8", compact && "size-5 text-[10px] sm:size-6", index <= current ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+            {index < current ? <Check className={compact ? "size-3" : "size-4"} /> : index + 1}
           </span>
           <span>{label}</span>
         </li>
@@ -281,98 +284,99 @@ function PixPayment({
   const validUntil = new Date(charge.expiresAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] md:gap-8">
-        <div className="flex flex-col items-center justify-center gap-5 rounded-2xl border bg-muted/40 p-5 text-center sm:p-6">
-          <div className="space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Sua contribuição</p>
-            <p className="break-words text-4xl font-semibold tracking-tight tabular-nums">{formatBRL(charge.contribution.value)}</p>
-            {ongName && <p className="break-words text-sm font-medium">{ongName}</p>}
-            {place && <p className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground"><MapPin aria-hidden="true" className="size-3.5 shrink-0" />{place}</p>}
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className={scrollClass}>
+        <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] md:gap-8">
+          <div className="flex flex-col items-center justify-center gap-5 rounded-2xl border bg-muted/40 p-5 text-center sm:p-6">
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Sua contribuição</p>
+              <p className="break-words text-4xl font-semibold tracking-tight tabular-nums">{formatBRL(charge.contribution.value)}</p>
+              {ongName && <p className="break-words text-sm font-medium">{ongName}</p>}
+              {place && <p className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground"><MapPin aria-hidden="true" className="size-3.5 shrink-0" />{place}</p>}
+            </div>
+            {!expired && (isMobile ? (
+              <div className="space-y-3">
+                <Button type="button" variant="outline" aria-expanded={showQr} onClick={() => setShowQr((show) => !show)}>
+                  {showQr ? "Esconder QR code" : "Mostrar QR code"}
+                </Button>
+                {showQr && qr}
+              </div>
+            ) : qr)}
+            {!expired && <p className="flex items-center gap-1.5 text-xs text-muted-foreground tabular-nums"><Clock aria-hidden="true" className="size-3.5" />Válido até {validUntil}</p>}
           </div>
-          {!expired && (isMobile ? (
-            <div className="space-y-3">
-              <Button type="button" variant="outline" aria-expanded={showQr} onClick={() => setShowQr((show) => !show)}>
-                {showQr ? "Esconder QR code" : "Mostrar QR code"}
-              </Button>
-              {showQr && qr}
-            </div>
-          ) : qr)}
-          {!expired && <p className="flex items-center gap-1.5 text-xs text-muted-foreground tabular-nums"><Clock aria-hidden="true" className="size-3.5" />Válido até {validUntil}</p>}
-        </div>
 
-        <div className="min-w-0 space-y-5">
-          {expired ? (
-            <div className="space-y-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
-              <Clock aria-hidden="true" className="size-7 text-amber-600 dark:text-amber-400" />
-              <h3 className="font-semibold">Este código expirou</h3>
-              <p className="text-sm text-muted-foreground">Gere outro Pix para continuar com a mesma contribuição.</p>
-              {error && (
-                <p role="alert" className="text-sm text-destructive">
-                  {error}
-                </p>
-              )}
-              <Button size="lg" className="h-12 w-full rounded-xl" disabled={creating} onClick={onRenew}>
-                {creating ? (
-                  <>
-                    <Loader2 className="animate-spin" />
-                    Gerando Pix…
-                  </>
-                ) : (
-                  "Gerar novo código"
+          <div className="min-w-0 space-y-5">
+            {expired ? (
+              <div className="space-y-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
+                <Clock aria-hidden="true" className="size-7 text-amber-600 dark:text-amber-400" />
+                <h3 className="font-semibold">Este código expirou</h3>
+                <p className="text-sm text-muted-foreground">Gere outro Pix para continuar com a mesma contribuição.</p>
+                {error && (
+                  <p role="alert" className="text-sm text-destructive">
+                    {error}
+                  </p>
                 )}
-              </Button>
-            </div>
-          ) : (
-            <>
-              <div>
-                <label htmlFor={codeId} className={labelClass}>
-                  Pix Copia e Cola
-                </label>
-                <Input
-                  ref={codeRef}
-                  id={codeId}
-                  readOnly
-                  value={charge.copyPaste}
-                  className="h-12 rounded-xl bg-background font-mono text-xs md:text-xs"
-                  onFocus={(event) => event.target.select()}
-                />
-                {copyFailed && <p className="mt-2 text-sm text-muted-foreground">Selecione o código e copie.</p>}
+                <Button size="lg" className="h-12 w-full rounded-xl" disabled={creating} onClick={onRenew}>
+                  {creating ? (
+                    <>
+                      <Loader2 className="animate-spin" />
+                      Gerando Pix…
+                    </>
+                  ) : (
+                    "Gerar novo código"
+                  )}
+                </Button>
               </div>
-              <Button
-                type="button"
-                size="lg"
-                className="h-12 w-full rounded-xl"
-                onClick={copyCode}
-              >
-                {copied ? <Check /> : <Copy />}
-                {copied ? "Código copiado" : "Copiar código Pix"}
-              </Button>
-              <span role="status" className="sr-only">
-                {copied ? "Código copiado." : ""}
-              </span>
-              <ol className="space-y-4 text-sm">
-                {["Abra o app do seu banco e entre em Pix.", isMobile ? "Escolha Pix Copia e Cola e cole o código." : "Leia o QR code ou cole o código copiado.", "Confira o valor e o recebedor antes de confirmar."].map((instruction, index) => (
-                  <li key={instruction} className="flex items-start gap-3">
-                    <span aria-hidden="true" className="grid size-6 shrink-0 place-items-center rounded-full bg-muted text-xs font-medium">{index + 1}</span>
-                    <span className="pt-0.5 text-muted-foreground">{instruction}</span>
-                  </li>
-                ))}
-              </ol>
-              <div className="rounded-xl border px-4 py-3 text-sm">
-                <p className="text-xs text-muted-foreground">Recebedor no app do banco</p>
-                <p className="mt-1 break-words font-medium">{charge.receiverName}</p>
-              </div>
-              <p role="status" className="flex items-center gap-2 rounded-xl bg-muted/60 px-4 py-3 text-sm">
-                <span aria-hidden="true" className={cn("size-2 shrink-0 rounded-full", offline ? "bg-amber-500" : "bg-emerald-500 motion-safe:animate-pulse")} />
-                {offline ? "Sem conexão. Tentando novamente…" : "Aguardando confirmação do pagamento"}
-              </p>
-            </>
-          )}
+            ) : (
+              <>
+                <div>
+                  <label htmlFor={codeId} className={labelClass}>
+                    Pix Copia e Cola
+                  </label>
+                  <Input
+                    ref={codeRef}
+                    id={codeId}
+                    readOnly
+                    value={charge.copyPaste}
+                    className="h-12 rounded-xl bg-background font-mono text-xs md:text-xs"
+                    onFocus={(event) => event.target.select()}
+                  />
+                  {copyFailed && <p className="mt-2 text-sm text-muted-foreground">Selecione o código e copie.</p>}
+                </div>
+                <Button
+                  type="button"
+                  size="lg"
+                  className="h-12 w-full rounded-xl"
+                  onClick={copyCode}
+                >
+                  {copied ? <Check /> : <Copy />}
+                  {copied ? "Código copiado" : "Copiar código Pix"}
+                </Button>
+                <span role="status" className="sr-only">
+                  {copied ? "Código copiado." : ""}
+                </span>
+                <ol className="space-y-4 text-sm">
+                  {["Abra o app do seu banco e entre em Pix.", isMobile ? "Escolha Pix Copia e Cola e cole o código." : "Leia o QR code ou cole o código copiado.", "Confira o valor e o recebedor antes de confirmar."].map((instruction, index) => (
+                    <li key={instruction} className="flex items-start gap-3">
+                      <span aria-hidden="true" className="grid size-6 shrink-0 place-items-center rounded-full bg-muted text-xs font-medium">{index + 1}</span>
+                      <span className="pt-0.5 text-muted-foreground">{instruction}</span>
+                    </li>
+                  ))}
+                </ol>
+                <div className="rounded-xl border px-4 py-3 text-sm">
+                  <p className="text-xs text-muted-foreground">Recebedor no app do banco</p>
+                  <p className="mt-1 break-words font-medium">{charge.receiverName}</p>
+                </div>
+                <p role="status" className="flex items-center gap-2 rounded-xl bg-muted/60 px-4 py-3 text-sm">
+                  <span aria-hidden="true" className={cn("size-2 shrink-0 rounded-full", offline ? "bg-amber-500" : "bg-emerald-500 motion-safe:animate-pulse")} />
+                  {offline ? "Sem conexão. Tentando novamente…" : "Aguardando confirmação do pagamento"}
+                </p>
+              </>
+            )}
+          </div>
         </div>
       </div>
-
-      <div className="flex flex-wrap justify-between gap-2 border-t pt-5">
+      <div className={cn(footerClass, "flex flex-wrap justify-between gap-2")}>
         <Button type="button" variant="ghost" className="h-11 rounded-xl" disabled={creating} onClick={onBack}>
           Alterar contribuição
         </Button>
@@ -424,6 +428,7 @@ export function ContributeDialog({
   const amountId = useId();
   const amountErrorId = useId();
   const amountHintId = useId();
+  const profileFormId = useId();
   const titleRef = useRef<HTMLHeadingElement>(null);
 
   const [grow, setGrow] = useState(false);
@@ -438,7 +443,8 @@ export function ContributeDialog({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
-  const [profileEdit, setProfileEdit] = useState({ dirty: false, busy: false });
+  const [profileEdit, setProfileEdit] = useState({ dirty: false, busy: false, ready: false, error: null as string | null });
+  const [buildingTab, setBuildingTab] = useState("information");
   const [appearanceBusy, setAppearanceBusy] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
 
@@ -459,6 +465,7 @@ export function ContributeDialog({
     const { contribution } = active.charge;
     onPaid(contribution, result.donationId);
     setEditingCharge(false);
+    setBuildingTab("information");
     setFlow({ step: "done", userId: active.userId, contribution, donationId: result.donationId });
     if (!open) {
       toast.success("Pagamento confirmado.", {
@@ -587,7 +594,7 @@ export function ContributeDialog({
   }
 
   function finish(donationId: number) {
-    setProfileEdit({ dirty: false, busy: false });
+    setProfileEdit({ dirty: false, busy: false, ready: false, error: null });
     setConfirmExit(false);
     onOpenChange(false);
     onFinish(donationId);
@@ -603,10 +610,10 @@ export function ContributeDialog({
   // Edições pendentes pedem confirmação antes de serem descartadas.
   function handleOpenChange(next: boolean) {
     if (!next && active?.step === "done") return leaveProfile();
+    if (next && active?.step === "done") setBuildingTab("information");
     onOpenChange(next);
   }
 
-  const doneOngName = active?.step === "done" ? ongNameOf(active.contribution) : undefined;
   const doneGrew = active?.step === "done" && active.contribution.donationId !== null;
 
   return (
@@ -622,7 +629,7 @@ export function ContributeDialog({
       </DialogTrigger>
       {/* text-foreground: o body da cena pinta texto branco, que sumiria no tema claro. */}
       <DialogContent
-        className={cn("max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] gap-6 overflow-y-auto overscroll-contain rounded-3xl p-5 text-foreground sm:max-h-[calc(100dvh-3rem)] sm:w-[calc(100%-3rem)] sm:max-w-3xl sm:p-8 lg:max-w-4xl lg:p-10", step === "done" && "lg:max-w-6xl")}
+        className={cn("flex max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden rounded-3xl p-0 text-foreground sm:max-h-[calc(100dvh-3rem)] sm:w-[calc(100%-3rem)] sm:max-w-3xl sm:p-0 lg:max-w-4xl", step === "done" && "h-[min(50rem,calc(100dvh-1rem))] sm:h-[min(50rem,calc(100dvh-3rem))] lg:max-w-6xl")}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           titleRef.current?.focus();
@@ -634,28 +641,30 @@ export function ContributeDialog({
         // Etapa 3: clique fora não descarta o que foi digitado.
         onInteractOutside={step === "done" ? (event) => event.preventDefault() : undefined}
       >
-        <DialogHeader className="pr-6 text-left">
+        <DialogHeader className={cn("shrink-0 px-5 pb-5 pt-5 pr-12 text-left sm:px-8 sm:pt-8 sm:pr-12 lg:px-10 lg:pt-10 lg:pr-14", step === "done" && "gap-1 pb-3 pt-3 sm:pt-4 lg:pt-4")}>
           <DialogTitle
             ref={titleRef}
             tabIndex={-1}
-            className="flex items-center gap-3 text-2xl leading-tight outline-none sm:text-3xl"
+            className={cn("flex items-center gap-3 text-2xl leading-tight outline-none sm:text-3xl", step === "done" && "gap-2 text-xl sm:text-xl")}
           >
-            <span className={cn("grid size-11 shrink-0 place-items-center rounded-2xl", step === "done" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : "bg-primary/10 text-primary")}>
-              {step === "done" ? <CircleCheck aria-hidden="true" className="size-6" /> : <HeartHandshake aria-hidden="true" className="size-6" />}
+            <span className={cn("grid size-11 shrink-0 place-items-center rounded-2xl", step === "done" ? "size-8 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : "bg-primary/10 text-primary")}>
+              {step === "done" ? <CircleCheck aria-hidden="true" className="size-5" /> : <HeartHandshake aria-hidden="true" className="size-6" />}
             </span>
-            {step === "form" ? "Faça sua contribuição" : step === "pay" ? "Pagamento com Pix" : "Pagamento confirmado"}
+            {step === "form" ? "Faça sua contribuição" : step === "pay" ? "Pagamento com Pix" : "Seu edifício"}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className={step === "done" ? "text-xs leading-5" : undefined}>
             {step === "form"
               ? "Apoie uma ONG e tenha seu edifício na cidade."
               : step === "pay"
                 ? "Esta tela atualiza sozinha quando o pagamento for confirmado."
-                : `Sua contribuição ${doneOngName ? `para ${doneOngName} ` : ""}foi confirmada e seu edifício ${
+                : `Pagamento confirmado. Seu edifício ${
                     doneGrew ? "cresceu." : "já está na cidade."
                   }`}
           </DialogDescription>
         </DialogHeader>
-        <Stepper current={STEP_INDEX[step]} />
+        <div className="shrink-0 px-5 sm:px-8 lg:px-10">
+          <Stepper current={STEP_INDEX[step]} />
+        </div>
 
         {active?.step === "pay" && !editingCharge ? (
           <PixPayment
@@ -674,171 +683,192 @@ export function ContributeDialog({
             onClose={() => onOpenChange(false)}
           />
         ) : active?.step === "done" ? (open && customization && (
-          <div className="space-y-6">
-            <Suspense fallback={<p role="status" className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 aria-hidden className="size-5 animate-spin" />Carregando personalização…</p>}>
-              <BuildingCustomizer
-                catalog={catalog}
-                customization={customization}
-                textureSettings={textureSettings}
-                onChange={(patch) => onCustomizationChange(active.donationId, patch)}
-                onBusyChange={setAppearanceBusy}
+          <Tabs.Root value={buildingTab} onValueChange={setBuildingTab} className="flex min-h-0 flex-1 flex-col">
+            <Tabs.List aria-label="Editar edifício" className="mx-5 mt-3 grid shrink-0 grid-cols-2 gap-1 rounded-xl bg-muted p-1 sm:mx-8 lg:mx-10">
+              <Tabs.Trigger value="information" disabled={editBusy} className="min-h-11 rounded-lg px-4 text-sm font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm sm:min-h-10">Informações</Tabs.Trigger>
+              <Tabs.Trigger value="appearance" disabled={editBusy} className="min-h-11 rounded-lg px-4 text-sm font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm sm:min-h-10">Aparência</Tabs.Trigger>
+            </Tabs.List>
+            <Tabs.Content value="information" forceMount className={cn(scrollClass, "py-3 outline-none data-[state=inactive]:hidden sm:py-3")}>
+              <BuildingProfileForm
+                id={profileFormId}
+                donationId={active.donationId}
+                showActions={false}
+                disabled={appearanceBusy}
+                submitLabel="Entrar na cidade"
+                onDone={() => finish(active.donationId)}
+                onSkip={leaveProfile}
+                onEditStateChange={setProfileEdit}
               />
-            </Suspense>
-            <BuildingProfileForm
-              donationId={active.donationId}
-              collapsible
-              disabled={appearanceBusy}
-              submitLabel="Entrar na cidade"
-              onDone={() => finish(active.donationId)}
-              onSkip={leaveProfile}
-              onEditStateChange={setProfileEdit}
-            />
-          </div>
+            </Tabs.Content>
+            <Tabs.Content value="appearance" className={cn(scrollClass, "py-3 outline-none [container-type:size] sm:py-3")}>
+              <Suspense fallback={<p role="status" className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 aria-hidden className="size-5 animate-spin" />Carregando personalização…</p>}>
+                <BuildingCustomizer
+                  catalog={catalog}
+                  customization={customization}
+                  textureSettings={textureSettings}
+                  onChange={(patch) => onCustomizationChange(active.donationId, patch)}
+                  onBusyChange={setAppearanceBusy}
+                />
+              </Suspense>
+            </Tabs.Content>
+            <div className={cn(footerClass, "space-y-2 py-2")}>
+              {profileEdit.error && (profileEdit.ready || buildingTab === "appearance") && <p role="alert" className="text-sm text-destructive">{profileEdit.error}{!profileEdit.ready && " Tente novamente na aba Informações."}</p>}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Button type="button" variant="ghost" className="h-11 rounded-xl sm:h-10" disabled={editBusy} onClick={leaveProfile}>Agora não</Button>
+                <Button type="submit" form={profileFormId} className="h-11 rounded-xl sm:h-10 sm:min-w-44" disabled={!profileEdit.ready || editBusy}>
+                  {profileEdit.busy && <Loader2 aria-hidden="true" className="animate-spin" />}
+                  {profileEdit.busy ? "Aguarde…" : "Entrar na cidade"}
+                </Button>
+              </div>
+            </div>
+          </Tabs.Root>
         )) : (
-          <form onSubmit={handleSubmit} aria-busy={creating} className="space-y-6">
-            {pendingChargeId && (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-muted/50 px-4 py-3 text-sm">
-                <p className="flex items-center gap-2"><Clock aria-hidden="true" className="size-4 shrink-0" />Você tem um Pix pendente.</p>
-                <Button type="button" variant="outline" disabled={creating} onClick={() => {
-                  setEditingCharge(false);
-                  setError(null);
-                }}>Voltar ao Pix</Button>
-                <p className="w-full text-xs text-muted-foreground">Ao gerar outro Pix, o código anterior será substituído.</p>
-              </div>
-            )}
-            <fieldset disabled={creating} className="grid min-w-0 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:gap-8">
-              <div className="min-w-0 space-y-6">
-                {buildings.length > 0 && (
-                  <div>
-                    <p id={`${amountId}-building`} className={labelClass}>Edifício</p>
-                    <RadioGroup.Root
-                      aria-labelledby={`${amountId}-building`}
-                      value={growing ? "grow" : "new"}
-                      onValueChange={(next) => setGrow(next === "grow")}
-                      className="grid grid-cols-2 gap-2"
-                    >
-                      <RadioGroup.Item value="new" disabled={atBuildingLimit} className={cn(chipClass, "min-h-14 disabled:cursor-not-allowed disabled:opacity-50")}>
-                        Novo edifício
-                      </RadioGroup.Item>
-                      <RadioGroup.Item value="grow" className={cn(chipClass, "min-h-14")}>
-                        Aumentar edifício
-                      </RadioGroup.Item>
-                    </RadioGroup.Root>
-                    {atBuildingLimit && <p className="mt-2 text-xs text-muted-foreground">Limite de 3 edifícios por conta.</p>}
-                    {growing && (
-                      <Select value={pickedBuilding} onValueChange={setBuildingId}>
-                        <SelectTrigger aria-label="Qual edifício" className={`mt-4 ${selectClass}`}>
-                          <SelectValue placeholder="Qual edifício?" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {buildings.map((building, index) => (
-                            <SelectItem key={building.id} value={String(building.id)}>
-                              Edifício {index + 1} · {formatBRL(building.value)}
-                              {building.ongName && ` · ${building.ongName}`}
-                              {building.place && ` · ${building.place}`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
-                )}
-                <div>
-                  <label htmlFor={ongFieldId} className={labelClass}>
-                    ONG
-                  </label>
-                  <OngCombobox id={ongFieldId} ongs={ongs} value={pickedOng} onChange={setOngId} />
+          <form onSubmit={handleSubmit} aria-busy={creating} className="flex min-h-0 flex-1 flex-col">
+            <div className={cn(scrollClass, "space-y-6")}>
+              {pendingChargeId && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-muted/50 px-4 py-3 text-sm">
+                  <p className="flex items-center gap-2"><Clock aria-hidden="true" className="size-4 shrink-0" />Você tem um Pix pendente.</p>
+                  <Button type="button" variant="outline" disabled={creating} onClick={() => {
+                    setEditingCharge(false);
+                    setError(null);
+                  }}>Voltar ao Pix</Button>
+                  <p className="w-full text-xs text-muted-foreground">Ao gerar outro Pix, o código anterior será substituído.</p>
                 </div>
-                {!growing && (
-                  <div>
-                    <label htmlFor={cityFieldId} className={labelClass}>
-                      Cidade do edifício
-                    </label>
-                    <CityCombobox id={cityFieldId} value={pickedCity} onChange={setCity} className="h-12 rounded-xl bg-background" />
-                    <p className="mt-2 text-xs text-muted-foreground">Seu edifício aparecerá nesta cidade.</p>
-                  </div>
-                )}
-                <div className="flex items-start gap-3 rounded-2xl bg-muted/40 p-4 text-sm text-muted-foreground">
-                  <BuildingComplexPlus className="mt-0.5 size-5 shrink-0 text-foreground" />
-                  <p>{growing ? "Sua contribuição aumenta o valor do edifício escolhido." : "Após o pagamento, escolha o nome e a imagem do seu edifício."}</p>
-                </div>
-              </div>
-              <div className="min-w-0 rounded-2xl border bg-muted/30 p-5 sm:p-6">
-                <label htmlFor={amountId} className={labelClass}>
-                  Valor da contribuição
-                </label>
-                <div className="relative mb-4">
-                  <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-4 grid place-items-center text-xl font-medium text-muted-foreground">
-                    R$
-                  </span>
-                  <Input
-                    id={amountId}
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    spellCheck={false}
-                    placeholder="0,00"
-                    className="h-24 rounded-2xl bg-background pl-14 pr-4 text-4xl font-semibold tracking-tight tabular-nums md:text-4xl"
-                    value={amount}
-                    aria-invalid={amountError ? true : undefined}
-                    aria-describedby={`${amountHintId}${amountError ? ` ${amountErrorId}` : ""}`}
-                    onFocus={(event) => event.target.select()}
-                    onChange={(event) => {
-                      const next = formatMoneyInput(event.target.value);
-                      if (next !== null) setAmount(next);
-                    }}
-                    onPaste={(event) => {
-                      event.preventDefault();
-                      const next = normalizeMoneyInput(event.clipboardData.getData("text"));
-                      if (next !== null) setAmount(next);
-                    }}
-                    onBlur={() => setAmountBlurred(true)}
-                  />
-                </div>
-                <RadioGroup.Root
-                  aria-label="Valores sugeridos"
-                  value={value !== null && PRESETS.includes(value) ? String(value) : ""}
-                  onValueChange={(preset) => {
-                    setAmount(`${preset},00`);
-                    setAmountBlurred(false);
-                  }}
-                  className="grid grid-cols-2 gap-2 min-[380px]:grid-cols-4"
-                >
-                  {PRESETS.map((preset) => (
-                    <RadioGroup.Item key={preset} value={String(preset)} className={chipClass}>
-                      {formatBRL(preset)}
-                    </RadioGroup.Item>
-                  ))}
-                </RadioGroup.Root>
-                <p id={amountHintId} className="mt-3 text-xs text-muted-foreground">Mínimo de {formatBRL(MIN_VALUE)}. Você pode digitar outro valor.</p>
-                {amountError && (
-                  <p id={amountErrorId} role="alert" className="mt-2 text-sm text-destructive">
-                    {amountError}
-                  </p>
-                )}
-                <dl className="mt-5 space-y-3 border-t pt-5 text-sm">
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">ONG</dt>
-                    <dd className="min-w-0 break-words text-right font-medium">{destinationName ?? "Selecione uma ONG"}</dd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">Cidade</dt>
-                    <dd className="min-w-0 break-words text-right font-medium">{destinationPlace ?? (growing ? selectedBuilding ? "Cidade do edifício" : "Selecione um edifício" : "Selecione uma cidade")}</dd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">Pagamento</dt>
-                    <dd className="font-medium">Pix</dd>
-                  </div>
-                  {growing && selectedBuilding && value !== null && (
-                    <div className="flex justify-between gap-4 border-t pt-3">
-                      <dt className="text-muted-foreground">Edifício após a contribuição</dt>
-                      <dd className="font-medium tabular-nums">{formatBRL(selectedBuilding.value + value)}</dd>
+              )}
+              <fieldset disabled={creating} className="grid min-w-0 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:gap-8">
+                <div className="min-w-0 space-y-6">
+                  {buildings.length > 0 && (
+                    <div>
+                      <p id={`${amountId}-building`} className={labelClass}>Edifício</p>
+                      <RadioGroup.Root
+                        aria-labelledby={`${amountId}-building`}
+                        value={growing ? "grow" : "new"}
+                        onValueChange={(next) => setGrow(next === "grow")}
+                        className="grid grid-cols-2 gap-2"
+                      >
+                        <RadioGroup.Item value="new" disabled={atBuildingLimit} className={cn(chipClass, "min-h-14 disabled:cursor-not-allowed disabled:opacity-50")}>
+                          Novo edifício
+                        </RadioGroup.Item>
+                        <RadioGroup.Item value="grow" className={cn(chipClass, "min-h-14")}>
+                          Aumentar edifício
+                        </RadioGroup.Item>
+                      </RadioGroup.Root>
+                      {atBuildingLimit && <p className="mt-2 text-xs text-muted-foreground">Limite de 3 edifícios por conta.</p>}
+                      {growing && (
+                        <Select value={pickedBuilding} onValueChange={setBuildingId}>
+                          <SelectTrigger aria-label="Qual edifício" className={`mt-4 ${selectClass}`}>
+                            <SelectValue placeholder="Qual edifício?" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {buildings.map((building, index) => (
+                              <SelectItem key={building.id} value={String(building.id)}>
+                                Edifício {index + 1} · {formatBRL(building.value)}
+                                {building.ongName && ` · ${building.ongName}`}
+                                {building.place && ` · ${building.place}`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
                   )}
-                </dl>
-              </div>
-            </fieldset>
-            <div className="flex flex-col gap-4 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <label htmlFor={ongFieldId} className={labelClass}>
+                      ONG
+                    </label>
+                    <OngCombobox id={ongFieldId} ongs={ongs} value={pickedOng} onChange={setOngId} />
+                  </div>
+                  {!growing && (
+                    <div>
+                      <label htmlFor={cityFieldId} className={labelClass}>
+                        Cidade do edifício
+                      </label>
+                      <CityCombobox id={cityFieldId} value={pickedCity} onChange={setCity} className="h-12 rounded-xl bg-background" />
+                      <p className="mt-2 text-xs text-muted-foreground">Seu edifício aparecerá nesta cidade.</p>
+                    </div>
+                  )}
+                  <div className="flex items-start gap-3 rounded-2xl bg-muted/40 p-4 text-sm text-muted-foreground">
+                    <BuildingComplexPlus className="mt-0.5 size-5 shrink-0 text-foreground" />
+                    <p>{growing ? "Sua contribuição aumenta o valor do edifício escolhido." : "Após o pagamento, escolha o nome e a imagem do seu edifício."}</p>
+                  </div>
+                </div>
+                <div className="min-w-0 rounded-2xl border bg-muted/30 p-5 sm:p-6">
+                  <label htmlFor={amountId} className={labelClass}>
+                    Valor da contribuição
+                  </label>
+                  <div className="relative mb-4">
+                    <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-4 grid place-items-center text-xl font-medium text-muted-foreground">
+                      R$
+                    </span>
+                    <Input
+                      id={amountId}
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      spellCheck={false}
+                      placeholder="0,00"
+                      className="h-24 rounded-2xl bg-background pl-14 pr-4 text-4xl font-semibold tracking-tight tabular-nums md:text-4xl"
+                      value={amount}
+                      aria-invalid={amountError ? true : undefined}
+                      aria-describedby={`${amountHintId}${amountError ? ` ${amountErrorId}` : ""}`}
+                      onFocus={(event) => event.target.select()}
+                      onChange={(event) => {
+                        const next = formatMoneyInput(event.target.value);
+                        if (next !== null) setAmount(next);
+                      }}
+                      onPaste={(event) => {
+                        event.preventDefault();
+                        const next = normalizeMoneyInput(event.clipboardData.getData("text"));
+                        if (next !== null) setAmount(next);
+                      }}
+                      onBlur={() => setAmountBlurred(true)}
+                    />
+                  </div>
+                  <RadioGroup.Root
+                    aria-label="Valores sugeridos"
+                    value={value !== null && PRESETS.includes(value) ? String(value) : ""}
+                    onValueChange={(preset) => {
+                      setAmount(`${preset},00`);
+                      setAmountBlurred(false);
+                    }}
+                    className="grid grid-cols-2 gap-2 min-[380px]:grid-cols-4"
+                  >
+                    {PRESETS.map((preset) => (
+                      <RadioGroup.Item key={preset} value={String(preset)} className={chipClass}>
+                        {formatBRL(preset)}
+                      </RadioGroup.Item>
+                    ))}
+                  </RadioGroup.Root>
+                  <p id={amountHintId} className="mt-3 text-xs text-muted-foreground">Mínimo de {formatBRL(MIN_VALUE)}. Você pode digitar outro valor.</p>
+                  {amountError && (
+                    <p id={amountErrorId} role="alert" className="mt-2 text-sm text-destructive">
+                      {amountError}
+                    </p>
+                  )}
+                  <dl className="mt-5 space-y-3 border-t pt-5 text-sm">
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-muted-foreground">ONG</dt>
+                      <dd className="min-w-0 break-words text-right font-medium">{destinationName ?? "Selecione uma ONG"}</dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-muted-foreground">Cidade</dt>
+                      <dd className="min-w-0 break-words text-right font-medium">{destinationPlace ?? (growing ? selectedBuilding ? "Cidade do edifício" : "Selecione um edifício" : "Selecione uma cidade")}</dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-muted-foreground">Pagamento</dt>
+                      <dd className="font-medium">Pix</dd>
+                    </div>
+                    {growing && selectedBuilding && value !== null && (
+                      <div className="flex justify-between gap-4 border-t pt-3">
+                        <dt className="text-muted-foreground">Edifício após a contribuição</dt>
+                        <dd className="font-medium tabular-nums">{formatBRL(selectedBuilding.value + value)}</dd>
+                      </div>
+                    )}
+                  </dl>
+                </div>
+              </fieldset>
+            </div>
+            <div className={cn(footerClass, "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between")}>
               <div className="text-sm text-muted-foreground">
                 {error ? <p role="alert" className="text-destructive">{error}</p>
                   : !contribution ? <p>{growing && !selectedBuilding ? "Escolha o edifício para continuar." : !selectedOng ? "Escolha uma ONG para continuar." : !growing && !pickedCity ? "Escolha uma cidade para continuar." : "Informe um valor a partir de R$ 5."}</p>

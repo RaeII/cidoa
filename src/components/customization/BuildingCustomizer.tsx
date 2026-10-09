@@ -102,19 +102,19 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
     }
   }
   return (
-    <section aria-label="Personalizar seu edifício" className="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.4fr)]">
-      <div className="min-w-0 space-y-3 lg:sticky lg:top-0">
-        <Suspense fallback={<div role="status" className="grid h-72 place-items-center rounded-2xl bg-muted sm:h-96 lg:h-[28rem]"><Loader2 aria-hidden className="size-6 animate-spin" /><span className="sr-only">Carregando prévia 3D…</span></div>}>
+    <section aria-label="Personalizar seu edifício" className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.4fr)]">
+      <div className="flex min-w-0 flex-col gap-2 lg:sticky lg:top-0 lg:h-[100cqh] lg:min-h-0">
+        <Suspense fallback={<div role="status" className="grid h-48 max-h-[calc(100cqh-2.5rem)] place-items-center rounded-2xl bg-muted sm:h-80 lg:h-auto lg:max-h-none lg:min-h-0 lg:flex-1"><Loader2 aria-hidden className="size-6 animate-spin" /><span className="sr-only">Carregando prévia 3D…</span></div>}>
           <Preview customization={customization} textureSettings={textureSettings} />
         </Suspense>
-        <p className="text-center text-xs text-muted-foreground">As mudanças de aparência são salvas automaticamente.</p>
+        <p className="shrink-0 text-center text-xs text-muted-foreground">As mudanças de aparência são salvas automaticamente.</p>
       </div>
       <div className="min-w-0">
         {!catalog ? <p role="status" className="flex items-center gap-2 py-8 text-sm text-muted-foreground"><Loader2 aria-hidden className="size-4 animate-spin" />Carregando personalizações…</p> : (
-          <Tabs.Root value={activeCategory} onValueChange={setCategory} className="space-y-5">
+          <Tabs.Root value={activeCategory} onValueChange={setCategory} className="space-y-3">
             <Tabs.List aria-label="Categorias de personalização" className="flex gap-1 overflow-x-auto rounded-xl bg-muted p-1">
               {[...categories, ...(catalog.features.sign ? [{ key: "sign", label: "Letreiro" }] : []), ...(catalog.features.hologram ? [{ key: "hologram", label: "Holograma" }] : [])].map((item) => (
-                <Tabs.Trigger key={item.key} value={item.key} className="min-h-11 shrink-0 rounded-lg px-3 text-sm font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">{item.label}</Tabs.Trigger>
+                <Tabs.Trigger key={item.key} value={item.key} className="min-h-11 shrink-0 rounded-lg px-3 text-sm font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm sm:min-h-10">{item.label}</Tabs.Trigger>
               ))}
             </Tabs.List>
             {categories.map((item) => {

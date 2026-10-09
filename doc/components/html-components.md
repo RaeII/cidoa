@@ -130,7 +130,9 @@ Barra de filtros das doações. Presentacional — recebe listas e filtro, emite
 
 `html/donate/`. Pílula **Contribuir** (creme, ícone `building-complex-plus`, rodapé central) + modal em **3 etapas**. Pagamento e perfil passam por [[contribution-api]] (mock hoje).
 
-**Layout** — contribuição/Pix até **896 px** (`lg:max-w-4xl`); etapa do edifício até **1152 px** (`lg:max-w-6xl`), com prévia 3D e inventário lado a lado no desktop. Padding 40 px; tablet até 768 px; celular empilha. Etapas numeradas; título recebe foco na abertura/troca de etapa. Altura limitada por `100dvh`, rolagem interna, tokens claro/escuro.
+**Layout** — contribuição/Pix até **896 px** (`lg:max-w-4xl`); etapa do edifício até **1152 px** (`lg:max-w-6xl`), altura estável até **800 px**, limitada por `100dvh`. Cabeçalho, etapas, abas e **ações no rodapé ficam visíveis**; somente conteúdo central rola (`min-h-0` + `overflow-y-auto`). Modal usa flex, `overflow-hidden` e rodapé `shrink-0`, sem sobrepor campos. Margens/padding responsivos; celular empilha; tokens claro/escuro.
+
+**Seu edifício** usa cabeçalho compacto (título de 20 px, ícone de 32 px, descrição de 12 px), etapas menores e conteúdo com padding vertical de 12 px. Rodapé tem padding vertical de 8 px; botões de 40 px no desktop e 44 px no celular, preservando a área de toque. A aba Aparência define `container-type: size` para limitar a prévia pela altura disponível.
 
 ```mermaid
 flowchart LR
@@ -139,9 +141,11 @@ flowchart LR
   F -- createPixCharge --> Pay[2 Pague com Pix]
   Pay -- poll 3 s + visibilitychange --> S{status}
   S -- expired --> X[Este código expirou → Gerar novo código]
-  S -- paid --> D[3 Pagamento confirmado]
-  D --> Editor[BuildingCustomizer + prévia 3D]
-  Editor -- Entrar na cidade / X / Esc --> Fim[foco + BuildingCustomizePanel]
+  S -- paid --> D[3 Seu edifício]
+  D --> Info[Informações abertas]
+  Info <-- abas --> Editor[Aparência + prévia 3D]
+  Info -- Entrar na cidade / X / Esc --> Fim[foco + BuildingCustomizePanel]
+  Editor -- Entrar na cidade / X / Esc --> Fim
   Fim -- Voltar à edição --> D
 ```
 
@@ -161,13 +165,17 @@ flowchart LR
 - Grafia **Pix**, nunca "PIX" (manual da marca BCB)
 - Expirado: cartão próprio, **Gerar novo código** mantém contribuição. **Alterar contribuição** retorna ao formulário sem descartar cobrança nem parar poll (`editingCharge`); banner **Voltar ao Pix**, novo código substitui anterior conforme contrato. **Continuar depois** fecha modal e mantém acompanhamento
 
-**Etapa 3 — Pagamento confirmado** → [[#BuildingCustomizer.tsx]]: personalização estilo criação de personagem, com edifício 3D no próprio modal e inventário por categoria. [[#BuildingProfileForm.tsx]] fica em **Nome, descrição e imagem**, seção recolhível; **Entrar na cidade** salva o perfil e foca o edifício. A aparência usa o salvamento automático já existente no editor. O rodapé da cena exibe apenas **Voltar à edição**, que reabre a etapa com o perfil e aparência preservados. Clique fora bloqueado; saída com alterações pendentes no perfil abre `AlertDialog` **Sair sem salvar?**. Salvar/processar imagem do perfil ou ler o holograma bloqueia X/Esc e ações de saída.
+**Etapa 3 — Seu edifício** — pagamento confirmado no cabeçalho; abas Radix **Informações** e **Aparência**, separadas do inventário de personalização. **Informações abre primeiro**, inclusive ao retornar à edição: [[#BuildingProfileForm.tsx]] mostra imagem, nome e descrição diretamente, sem `<details>` nem rolar pelo editor 3D. **Aparência** contém [[#BuildingCustomizer.tsx]], com prévia e inventário lado a lado no desktop.
 
-**Carregamento** — `BuildingCustomizer` entra por `lazy`/`Suspense` e só monta com pagamento confirmado **e modal aberto**; seu `BuildingPreview` também tem import dinâmico. Fechar desmonta imediatamente o menu e o canvas. `useMemo` preserva a referência da aparência entre atualizações das estatísticas da cidade, sem reconstruir a prévia.
+- Perfil usa `forceMount` + aba inativa oculta: alternar não perde texto/imagem ainda não salvos. Aparência desmonta ao sair da aba; escolhas continuam no estado do editor, com salvamento automático existente
+- Rodapé comum, fora dos painéis roláveis: **Agora não** / **Entrar na cidade**. Botão usa `form={profileFormId}` nativo para salvar perfil em qualquer aba; carregamento/processamento bloqueia concluir. Erro ao salvar aparece no rodapé, inclusive na aba Aparência
+- Rodapé da cena: **Voltar à edição** reabre Informações do mesmo edifício. Clique fora bloqueado; saída com alterações pendentes abre `AlertDialog` **Sair sem salvar?**. Salvar/processar imagem ou ler holograma bloqueia abas, X/Esc e saída
+
+**Carregamento** — `BuildingCustomizer` entra por `lazy`/`Suspense` e só monta com pagamento confirmado, **modal aberto e aba Aparência ativa**; seu `BuildingPreview` também tem import dinâmico. Fechar ou voltar a Informações desmonta menu/canvas. `useMemo` preserva referência da aparência entre atualizações das estatísticas da cidade, sem reconstruir prévia.
 
 **Estado** — `Flow` (`form` | `pay` | `done`) vive **fora** do `DialogContent`: fechar o modal não perde o Pix nem a etapa do edifício pago. `finish` fecha e foca sem reiniciar o fluxo. Ao retornar, `BuildingProfileForm` recarrega o perfil salvo do mesmo `donationId`; as personalizações da cena continuam no estado do editor. Poll segue fechado; pílula vira **Pix pendente** (ícone relógio). Pago com modal fechado → toast "Pagamento confirmado." com **Continuar** (reabre na etapa 3). `Flow` guarda `userId`: troca de conta ignora a cobrança e oculta o retorno à edição anterior. `getPendingCharge` ao logar/remontar retoma Pix pendente. Troca de etapa foca o título.
 
-**Verificação** — `node scripts/check-contribution.mjs`: máscara fixa de 2 casas a cada tecla, Backspace/apagar tudo, BRL colado, entradas inválidas, precisão e valores preservados; retorno à etapa 3 após visualizar, bloqueio durante salvamento e confirmação de descarte. Sem servidor/navegador.
+**Verificação** — `node scripts/check-contribution.mjs`: máscara/centavos, colagem, precisão; retorno à etapa 3, bloqueio durante salvamento, descarte; render React da seção real: Informações inicial, campos abertos, perfil mantido na aba Aparência, envio externo, botão desabilitado e erro visível. Prévia 3D simulada; sem servidor/navegador.
 
 | Prop | Tipo | Descrição |
 |---|---|---|
@@ -190,12 +198,12 @@ Copy sem "Doar"/"Construir"/"prédio". Decisões (login, R$ 25, validade, Pix pe
 
 `html/donate/`. **Imagem** (4:3, `resizeImage(file, 800)` → JPEG, descarta EXIF), **Nome do edifício** (≤ 40), **Descrição** (textarea ≤ 160 + contador). Tudo opcional, público para quem clicar no edifício.
 
-- Preview de imagem ocupa largura disponível; formatos/limite de 10 MB visíveis. Campos 48 px, textarea 4 linhas. Fluxo de contribuição usa duas colunas no desktop: imagem + textos
+- Imagem compacta no celular, até 256 px no desktop; formatos/limite de 10 MB visíveis. Campos 48 px, textarea 3 linhas. Fluxo de contribuição usa duas colunas no desktop: imagem + textos
 - Carrega perfil atual antes de liberar campos — save substitui tudo, começar vazio apagaria o existente. Falha → "Não foi possível carregar." + Tentar de novo
 - Só salva se mudou; trim, `""` → `null`
-- `onSkip` opcional mostra **Agora não**; `onEditStateChange({ dirty, busy })` informa diálogo sobre alterações/processamento. Loading e salvamento têm feedback; Enter não envia durante carregamento/processamento
+- `onSkip` opcional mostra **Agora não**; `onEditStateChange({ dirty, busy, ready, error })` informa diálogo sobre alterações, processamento e resultado. Loading/salvamento têm feedback; Enter não envia durante carregamento/processamento
 - `BuildingProfileDialog` (mesmo arquivo): "Editar nome e imagem" aberto do [[#BuildingInfoModal.tsx]]; `donationId` null = fechado
-- `collapsible` mostra os campos em `<details>` nativo e mantém as ações visíveis; mensagens de carregamento/erro ficam fora da seção recolhida. `disabled` impede concluir enquanto o holograma está sendo lido.
+- `id` associa formulário ao botão externo; `showActions={false}` deixa rodapé com o chamador. Campos sempre abertos. `disabled` bloqueia campos/conclusão enquanto holograma está sendo lido. `BuildingProfileDialog` também separa conteúdo rolável e botão Salvar fixo no rodapé
 
 ---
 
@@ -203,7 +211,7 @@ Copy sem "Doar"/"Construir"/"prédio". Decisões (login, R$ 25, validade, Pix pe
 
 `components/customization/`. Menu reutilizável de aparência: recebe `catalog`, `customization`, `textureSettings`, `onChange(patch)` e `onBusyChange` opcional. Não cria cobranças nem consulta/persiste dados por conta própria; o chamador mantém o estado.
 
-- Prévia [[three-components#BuildingPreview.tsx|BuildingPreview]] à esquerda; inventário à direita. Celular empilha; desktop mantém a prévia no topo durante a rolagem.
+- Prévia [[three-components#BuildingPreview.tsx|BuildingPreview]] à esquerda; inventário à direita, com intervalo de 16 px. Celular empilha e mantém a prévia compacta; desktop mantém a coluna da prévia no topo durante a rolagem e ocupa toda a altura disponível na aba (`100cqh`). Prévia e placeholder crescem com `flex-1`, deixando somente o espaço necessário para a indicação de salvamento automático e eliminando a sobra em branco abaixo.
 - Abas Radix com teclado: **Formato, Cor, Fachada, Topo, LED, Letreiro, Holograma**. Categorias inativas/vazias somem; só a aba atual monta seus itens.
 - Cartões em grade de 2–4 colunas, com `CustomizationImage` usado pelo [[passe-admin-ui|Passe do admin]], nome, **Disponível**, **Em uso** ou **Bloqueado**. Bloqueados ficam desabilitados e mostram `formatUnlockCta` inteiro no cartão, inclusive regras AND/OR.
 - Fachada oferece **Padrão** para herdar a global. Letreiro mantém texto de até 30 caracteres e 1–4 lados. Holograma mantém upload PNG/JPG/WebP/GIF de até 700 KB, remover, cor e opacidade; valida tipo/tamanho e cancela a leitura no unmount.

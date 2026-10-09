@@ -25,21 +25,23 @@ const textareaClass =
  * começar vazio apagaria o que já existe.
  */
 export function BuildingProfileForm({
+  id,
   donationId,
   submitLabel,
   onDone,
   onSkip,
   onEditStateChange,
-  collapsible = false,
+  showActions = true,
   disabled = false,
 }: {
+  id?: string;
   donationId: number;
   submitLabel: string;
   /** Salvo (ou nada mudou). */
   onDone: (profile: BuildingProfile) => void;
   onSkip?: () => void;
-  onEditStateChange?: (state: { dirty: boolean; busy: boolean }) => void;
-  collapsible?: boolean;
+  onEditStateChange?: (state: { dirty: boolean; busy: boolean; ready: boolean; error: string | null }) => void;
+  showActions?: boolean;
   disabled?: boolean;
 }) {
   const nameId = useId();
@@ -60,8 +62,8 @@ export function BuildingProfileForm({
     (description.trim() || null) !== initial.description || image !== initial.image;
 
   useEffect(() => {
-    onEditStateChange?.({ dirty, busy: saving || imageBusy });
-  }, [dirty, saving, imageBusy, onEditStateChange]);
+    onEditStateChange?.({ dirty, busy: saving || imageBusy, ready: loadState === "ready", error: saveError ?? (loadState === "error" ? "Não foi possível carregar as informações." : null) });
+  }, [dirty, saving, imageBusy, loadState, saveError, onEditStateChange]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -125,39 +127,40 @@ export function BuildingProfileForm({
   const fields = (
     <>
       <div>
-        {!collapsible && <h3 className="font-semibold">Seu edifício</h3>}
-        <p className="mt-1 text-sm text-muted-foreground">Informações opcionais, visíveis para quem clicar no edifício.</p>
+        <p className="text-sm text-muted-foreground">Informações opcionais, visíveis para quem clicar no edifício.</p>
       </div>
-      <fieldset disabled={loadState !== "ready" || saving || imageBusy} className={cn("min-w-0 space-y-6", onSkip && "md:grid md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] md:gap-8 md:space-y-0")}>
+      <fieldset disabled={loadState !== "ready" || saving || imageBusy || disabled} className={cn("min-w-0 space-y-5", onSkip && "md:grid md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] md:gap-8 md:space-y-0")}>
         <div>
           <p className={labelClass}>Imagem</p>
-          <div className="space-y-3">
+          <div className="flex items-start gap-3 md:block md:space-y-3">
             <button
               type="button"
               aria-label={image ? "Trocar imagem" : "Adicionar imagem"}
               disabled={imageBusy}
               onClick={() => fileRef.current?.click()}
-              className="grid aspect-[4/3] w-full place-items-center overflow-hidden rounded-2xl border border-dashed bg-muted/40 text-muted-foreground outline-none transition-colors hover:bg-muted/70 focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-wait"
+              className="grid aspect-[4/3] w-28 shrink-0 place-items-center overflow-hidden rounded-2xl border border-dashed bg-muted/40 text-muted-foreground outline-none transition-colors hover:bg-muted/70 focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-wait md:w-full md:max-w-64"
             >
               {imageBusy ? (
                 <Loader2 className="size-5 animate-spin" />
               ) : image ? (
                 <img src={image} alt="" className="size-full object-cover" />
               ) : (
-                <span className="flex flex-col items-center gap-2"><ImagePlus aria-hidden="true" className="size-8" /><span className="text-sm">Adicionar imagem</span></span>
+                <ImagePlus aria-hidden="true" className="size-8" />
               )}
             </button>
-            {image ? (
-              <div className="flex flex-wrap justify-center gap-2">
-                <Button type="button" variant="outline" className="h-11 rounded-xl" disabled={imageBusy} onClick={() => fileRef.current?.click()}>
-                  Trocar
-                </Button>
-                <Button type="button" variant="ghost" className="h-11 rounded-xl" disabled={imageBusy} onClick={() => setImage(null)}>
-                  Remover
-                </Button>
-              </div>
-            ) : null}
-            <p className="text-center text-xs text-muted-foreground">JPG, PNG ou WebP. Até 10 MB.</p>
+            <div className="min-w-0 space-y-2">
+              {image ? (
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" className="h-11 rounded-xl" disabled={imageBusy} onClick={() => fileRef.current?.click()}>
+                    Trocar
+                  </Button>
+                  <Button type="button" variant="ghost" className="h-11 rounded-xl" disabled={imageBusy} onClick={() => setImage(null)}>
+                    Remover
+                  </Button>
+                </div>
+              ) : <Button type="button" variant="outline" className="min-h-11 rounded-xl whitespace-normal px-3" onClick={() => fileRef.current?.click()}>Adicionar imagem</Button>}
+              <p className="text-xs text-muted-foreground">JPG, PNG ou WebP. Até 10 MB.</p>
+            </div>
             <input
               ref={fileRef}
               type="file"
@@ -175,7 +178,7 @@ export function BuildingProfileForm({
             </p>
           )}
         </div>
-        <div className="min-w-0 space-y-6">
+        <div className="min-w-0 space-y-5">
           <div>
             <label htmlFor={nameId} className={labelClass}>
               Nome do edifício
@@ -193,7 +196,7 @@ export function BuildingProfileForm({
             </div>
             <textarea
               id={descriptionId}
-              rows={4}
+              rows={3}
               maxLength={DESCRIPTION_MAX}
               aria-describedby={counterId}
               className={textareaClass}
@@ -207,33 +210,32 @@ export function BuildingProfileForm({
   );
 
   return (
-    <form onSubmit={handleSubmit} aria-busy={loadState === "loading" || saving || imageBusy || disabled} className="space-y-6">
-      {loadState === "loading" && <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 aria-hidden="true" className="size-4 animate-spin" />Carregando informações…</p>}
-      {loadState === "error" && (
-        <p role="alert" className="text-sm text-destructive">
-          Não foi possível carregar.{" "}
-          <button type="button" className="font-medium underline underline-offset-4" onClick={() => {
-            setLoadState("loading");
-            setAttempt((n) => n + 1);
-          }}>Tentar de novo</button>
-        </p>
-      )}
-      {collapsible ? <details className="rounded-2xl border bg-muted/20 p-4 sm:p-5">
-        <summary className="cursor-pointer text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring">Nome, descrição e imagem</summary>
-        <div className="mt-5 space-y-6">{fields}</div>
-      </details> : fields}
-      {saveError && (
-        <p role="alert" className="text-sm text-destructive">
-          {saveError}
-        </p>
-      )}
-      <div className="flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
+    <form id={id} onSubmit={handleSubmit} aria-busy={loadState === "loading" || saving || imageBusy || disabled} className={showActions ? "flex min-h-0 flex-1 flex-col" : "space-y-5"}>
+      <div className={cn("space-y-5", showActions && "min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-8")}>
+        {loadState === "loading" && <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 aria-hidden="true" className="size-4 animate-spin" />Carregando informações…</p>}
+        {loadState === "error" && (
+          <p role="alert" className="text-sm text-destructive">
+            Não foi possível carregar.{" "}
+            <button type="button" className="font-medium underline underline-offset-4" onClick={() => {
+              setLoadState("loading");
+              setAttempt((n) => n + 1);
+            }}>Tentar de novo</button>
+          </p>
+        )}
+        {fields}
+        {saveError && (showActions || !onEditStateChange) && (
+          <p role="alert" className="text-sm text-destructive">
+            {saveError}
+          </p>
+        )}
+      </div>
+      {showActions && <div className="flex shrink-0 flex-col-reverse gap-3 border-t bg-background px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8">
         {onSkip && <Button type="button" variant="ghost" className="h-12 rounded-xl" disabled={saving || imageBusy || disabled} onClick={onSkip}>Agora não</Button>}
         <Button type="submit" size="lg" className={cn("h-12 rounded-xl", onSkip ? "sm:min-w-52" : "w-full")} disabled={loadState !== "ready" || saving || imageBusy || disabled}>
           {saving && <Loader2 aria-hidden="true" className="animate-spin" />}
           {saving ? "Salvando…" : submitLabel}
         </Button>
-      </div>
+      </div>}
     </form>
   );
 }
@@ -252,10 +254,10 @@ export function BuildingProfileDialog({
     <Dialog open={donationId !== null} onOpenChange={(open) => !open && onClose()}>
       {/* text-foreground: o body da cena pinta texto branco, que sumiria no tema claro. */}
       <DialogContent
-        className="max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl text-foreground sm:max-w-lg sm:p-8"
+        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden rounded-3xl p-0 text-foreground sm:max-w-lg sm:p-0"
         aria-describedby={undefined}
       >
-        <DialogHeader>
+        <DialogHeader className="shrink-0 px-5 pb-2 pt-6 sm:px-8 sm:pt-8">
           <DialogTitle>Seu edifício</DialogTitle>
         </DialogHeader>
         {donationId !== null && (

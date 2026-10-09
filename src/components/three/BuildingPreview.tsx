@@ -45,6 +45,7 @@ export function BuildingPreview({ customization, textureSettings }: {
     renderer.domElement.style.cssText = "display:block;width:100%;height:100%;touch-action:none";
     const controls = new OrbitControls(new THREE.PerspectiveCamera(), renderer.domElement);
     controls.enablePan = false;
+    controls.maxPolarAngle = Math.PI / 2;
     controls.enableDamping = true;
     controls.autoRotate = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     controls.autoRotateSpeed = 1;
@@ -138,7 +139,7 @@ export function BuildingPreview({ customization, textureSettings }: {
   }, [customization, textureSettings]);
 
   return (
-    <div className="relative h-72 overflow-hidden rounded-2xl bg-[#101923] sm:h-96 lg:h-[28rem]">
+    <div className="relative h-48 max-h-[calc(100cqh-2.5rem)] overflow-hidden rounded-2xl bg-[#101923] sm:h-80 lg:h-auto lg:max-h-none lg:min-h-0 lg:flex-1">
       <div ref={containerRef} role="img" aria-label="Prévia 3D do seu edifício personalizado" className="size-full" />
       {error && <p role="status" className="absolute inset-0 grid place-items-center p-6 text-center text-sm text-white/70">A prévia 3D não está disponível neste dispositivo. Você pode continuar personalizando.</p>}
       {!error && <p className="pointer-events-none absolute inset-x-0 bottom-4 text-center text-xs text-white/60">Arraste para girar · Role para aproximar</p>}
