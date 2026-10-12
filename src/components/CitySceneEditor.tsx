@@ -19,6 +19,7 @@ import { saveDonationCustomization } from "../api/donationApi";
 import { useCustomizationCatalog } from "./hooks/useCustomizationCatalog";
 import { DonationLoadOverlay } from "./html/DonationLoadOverlay";
 import { DonationFilterBar } from "./html/DonationFilterBar";
+import { DonationInfoSection } from "./html/DonationInfoSection";
 import { ContributeDialog } from "./html/donate/ContributeDialog";
 import { BuildingProfileDialog } from "./html/donate/BuildingProfileForm";
 import {
@@ -27,6 +28,7 @@ import {
 } from "../api/contributionApi";
 import { toast } from "./ui/toast";
 import { Button } from "./ui/button";
+import { PixelChevronDown } from "./ui/pixel-icon";
 import { DEFAULT_SCENE_STATS } from "../scene/config/citySceneConfig";
 import { createDefaultBlockLayoutSettings } from "../scene/config/blockLayoutConfig";
 import { createDefaultBuildingSettings } from "../scene/config/buildingConfig";
@@ -61,6 +63,7 @@ const SAVE_DEBOUNCE_MS = 500;
 
 export function CitySceneEditor() {
   const canvasRef = useRef<CitySceneCanvasHandle>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const [buildingSettings, setBuildingSettings] = useState(createDefaultBuildingSettings);
   const [textureSettings, setTextureSettings] = useState(createDefaultTextureSettings);
@@ -491,7 +494,8 @@ export function CitySceneEditor() {
   useKeyboardShortcuts(shortcuts);
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-background">
+    <div ref={scrollRef} className="h-screen w-full overflow-y-auto overflow-x-hidden bg-background">
+    <div id="city-scene" className="relative h-screen w-full overflow-hidden bg-background">
       <CitySceneCanvas
         ref={canvasRef}
         buildingSettings={buildingSettings}
@@ -656,6 +660,11 @@ export function CitySceneEditor() {
         />
       )}
       {!showControlPanel && (
+        <Button asChild variant="outline" size="icon-lg" className="absolute bottom-[4.75rem] right-4 z-30">
+          <a href="#donation-info" aria-label="Ver ONGs e contribuições" title="ONGs e contribuições"><PixelChevronDown /></a>
+        </Button>
+      )}
+      {!showControlPanel && (
         <Button
           variant="outline"
           size="icon-lg"
@@ -674,6 +683,20 @@ export function CitySceneEditor() {
           </svg>
         </Button>
       )}
+    </div>
+    <DonationInfoSection
+      donations={donations}
+      cities={cities}
+      ongs={ongs}
+      filter={filter}
+      loadState={loadState}
+      onFilterChange={setFilter}
+      onOpenDonation={(id) => {
+        scrollRef.current?.scrollTo({ top: 0 });
+        handleOpenDonation(id);
+      }}
+      onRetry={retry}
+    />
     </div>
   );
 }

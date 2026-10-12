@@ -57,6 +57,7 @@ scripts/
   check-city-search.mjs        ← busca de cidade (acento, prefixo antes de substring, UF, limite) sem navegador
   check-contribution.mjs       ← máscara monetária + confirmação libera novo pagamento; sem servidor/navegador
   check-building-management.mjs ← administração, posse, descarte e foco após filtro/pagamento; sem servidor/navegador
+  check-donation-info.mjs      ← totais, ONGs, filtros, paginação e acesso ao edifício; sem servidor/navegador
   check-building-shapes.mjs    ← checa os 12 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
   check-building-textures.mjs  ← troca de textura no destaque padrão; reuso de meshes/cache, sem navegador
   check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
@@ -126,6 +127,7 @@ src/
       BuildingLayoutCard.tsx       ← card flutuante: modo de layout + teto de edifícios na tela
       DonationLoadOverlay.tsx
       DonationFilterBar.tsx
+      DonationInfoSection.tsx     ← ONGs, totais e contribuições abaixo da cena; mesmo snapshot/filtros/acesso
       BuildingInfoModal.tsx          ← card só-leitura do prédio clicado; lápis só p/ dono/admin
       donate/
         ContributeDialog.tsx         ← contribuição → Pix → confirmação; sem edição
@@ -458,6 +460,7 @@ flowchart LR
 | Carregar/buscar doações do backend | [[donation-api]] |
 | Filtrar doações por região/UF/cidade/ONG | [[donation-api]] |
 | Overlay de carregamento / barra de filtros | [[html-components]] |
+| ONGs e contribuições abaixo da cena | [[html-components#DonationInfoSection.tsx]] |
 | Alterar geração dos prédios de doação | [[scene-managers]] |
 | Alterar loteamento / lotes vazios / asfalto | [[scene-managers#Loteamento e Lotes Vazios]] |
 | Ajustar destaque da quadra central (escala/altura das torres, prédio do centro) | [[scene-managers#Destaque da Quadra Central]] |

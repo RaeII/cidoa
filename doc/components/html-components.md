@@ -30,6 +30,20 @@ Esses componentes:
 
 ## Componentes Principais
 
+### `DonationInfoSection.tsx`
+
+Seção abaixo da cena pública, retomada da `video-2` com [[desingn-system-index|DS atual]]. Dados reais do mesmo `useDonations`; nenhum fetch extra ou ONG ilustrativa.
+
+- Resumo: soma em centavos, quantidade de edifícios, ONGs beneficiárias e cidades. Valores acompanham filtros da cena; teto de renderização vale só no canvas.
+- Cards de ONG: nome do snapshot + edifícios apoiando. Clique alterna `filter.ongId`, preserva localização; **Limpar filtros** reseta tudo. Edifício pode beneficiar várias ONGs, mas entra uma vez no total.
+- Contribuições: valor acumulado do edifício, cidade/UF e todas as ONGs; maiores valores primeiro, 10 itens por página, sem alterar array original.
+- **Ver na cidade**: retorna ao canvas e chama `handleOpenDonation`. Mesmo card, perfil sob demanda e administração só para dono/admin; edifício oculto pelo teto usa revelação existente.
+- Loading = `BlockLoader`; erro + retry; estados vazios explícitos. Sem estimar percentual/repasse por ONG: snapshot só informa beneficiárias, não divisão dos valores.
+- `CitySceneEditor`: contêiner rolável, cena mantém `h-screen`; seta abre seção, **Voltar para a cidade** retorna à cena. Runtime, API e autenticação preservados.
+- Check: `node scripts/check-donation-info.mjs`; render React + callbacks reais, sem servidor/navegador.
+
+---
+
 ### `BuildingHeightInput.tsx`
 
 Overlay fixo no centro superior da página — é o input de doação. Monta 3 sub-painéis empilhados, cada um liga/desliga independente via `visibility` (ver aba **tela** em [[#CityControlPanel.tsx]]):
