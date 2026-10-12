@@ -69,9 +69,12 @@ const bundle = await build({
     import { cn } from './src/lib/utils';
     import { formatBRL } from './src/lib/unlock';
     import { Building2, MapPin } from 'lucide-react';
+    import { BlockLoader, ErrorMark, PixelBuilding } from './src/components/ui/pixel-icon';
+    import { AuthContext } from './src/hooks/useAuth';
     const BuildingCustomizer = () => createElement('div', { 'data-preview': true }, 'Prévia de aparência');
     const Loader2 = () => null;
     const noop = () => {};
+    const tabClass = ${JSON.stringify(constant("tabClass"))};
     const scrollClass = ${JSON.stringify(constant("scrollClass"))};
     const footerClass = ${JSON.stringify(constant("footerClass"))};
     function Section({ buildingTab = 'information', ready = true, editBusy = false, error = null }) {
@@ -84,7 +87,7 @@ const bundle = await build({
       const onCustomizationChange = noop, setAppearanceBusy = noop;
       return (${buildingSection.getText(dialogAst)});
     }
-    export const render = (props) => renderToStaticMarkup(createElement(Section, props));
+    export const render = (props) => renderToStaticMarkup(createElement(AuthContext.Provider, { value: { user: { id: 1 } } }, createElement(Section, props)));
     function List({ donations }) {
       const panelClass = '', goldButton = '';
       const totalDonated = donations.reduce((total, donation) => total + donation.value, 0);
@@ -115,7 +118,7 @@ assert.match(render({ buildingTab: "appearance" }), /data-preview="true"/);
 for (const props of [{ ready: false }, { editBusy: true }]) {
   assert.match(render(props), /type="submit" form="building-profile"[^>]*disabled=""/, "Rodapé deve respeitar carregamento e salvamento");
 }
-assert.match(render({ buildingTab: "appearance", error: "Não foi possível salvar." }), /role="alert"[^>]*>Não foi possível salvar\./, "Falha ao salvar deve aparecer também na aba Aparência");
+assert.match(render({ buildingTab: "appearance", error: "Não foi possível salvar." }), /role="alert"[^>]*>[\s\S]*Não foi possível salvar\./, "Falha ao salvar deve aparecer também na aba Aparência");
 
 // Foco real: filtro/teto, chegada atrasada do edifício pago e sessão sem permissão.
 const editorSource = await readFile(new URL("../src/components/CitySceneEditor.tsx", import.meta.url), "utf8");
@@ -198,7 +201,7 @@ assert.equal(city.focusedId, null);
 
 const shortcuts = editor.body.statements.find((node) => ts.isVariableStatement(node) && node.declarationList.declarations.some((declaration) => declaration.name.getText(editorAst) === "shortcuts"));
 const keyboard = {
-  selectedBuildingId: 42, infoBuildingId: null, showShortcutsHelp: false, closed: false,
+  isAdmin: false, selectedBuildingId: 42, infoBuildingId: null, showShortcutsHelp: false, closed: false,
   setShowControlPanel() { keyboard.closed = true; },
 };
 vm.runInNewContext(ts.transpileModule(`${shortcuts.getText(editorAst)}\nshortcuts.find((shortcut) => shortcut.key === "Escape").handler();`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, keyboard);
@@ -209,7 +212,7 @@ const authSource = await readFile(new URL("../src/components/AuthMenu.tsx", impo
 const authAst = ts.createSourceFile("AuthMenu.tsx", authSource, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TSX);
 let ownButton;
 function findOwnButton(node) {
-  if (ts.isJsxElement(node) && node.openingElement.tagName.getText(authAst) === "button" && node.openingElement.attributes.properties.some((attribute) => attribute.name?.getText(authAst) === "aria-label" && attribute.initializer?.text === "Meus edifícios")) ownButton = node;
+  if (ts.isJsxElement(node) && ["button", "Button"].includes(node.openingElement.tagName.getText(authAst)) && node.openingElement.attributes.properties.some((attribute) => attribute.name?.getText(authAst) === "aria-label" && attribute.initializer?.text === "Meus edifícios")) ownButton = node;
   ts.forEachChild(node, findOwnButton);
 }
 findOwnButton(authAst);

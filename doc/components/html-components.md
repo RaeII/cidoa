@@ -32,7 +32,7 @@ Esses componentes:
 
 ### `DonationInfoSection.tsx`
 
-Seção abaixo da cena pública, mesma composição da `video-2` com [[desingn-system-index|DS atual]]: texto/foto → totais → ONGs em linhas. Dados reais do mesmo `useDonations`; nenhum fetch extra ou ONG ilustrativa.
+Seção abaixo da cena pública, mesma composição da `video-2` com [[desingn-system-index|DS atual]]: texto/foto → totais → ONGs em linhas. Snapshot público mais simulações locais do mesmo `useDonations`; valores rotulados como simulados, sem arrecadação real.
 
 - Resumo: soma em centavos, quantidade de edifícios, ONGs beneficiárias e cidades. Valores acompanham filtros da cena; teto de renderização vale só no canvas.
 - Foto: `public/cat_dog.jpeg`, cópia idêntica da `video-2` (1024 × 947), borda em pixel; sem mascotes substituindo imagem.
@@ -46,7 +46,7 @@ Seção abaixo da cena pública, mesma composição da `video-2` com [[desingn-s
 
 ### `BuildingHeightInput.tsx`
 
-Overlay fixo no centro superior da página — é o input de doação. Monta 3 sub-painéis empilhados, cada um liga/desliga independente via `visibility` (ver aba **tela** em [[#CityControlPanel.tsx]]):
+Componente de depuração preservado no código, não montado na versão de pré-lançamento. Criação pública usa simulação persistida em `ContributeDialog`. Monta 3 sub-painéis empilhados, cada um liga/desliga independente via `visibility` (ver aba **tela** em [[#CityControlPanel.tsx]]):
 
 1. **Doação individual** — `visibility.donationInput`
 2. **Geração em lote** (mín/máx/qtd) — `visibility.bulkInput`
@@ -76,6 +76,12 @@ Overlay fixo no centro superior da página — é o input de doação. Monta 3 s
 ---
 
 ### `BuildingLayoutCard.tsx`
+
+Pré-lançamento: apenas admin, no canto inferior esquerdo. Layout e limite de renderização persistem localmente.
+
+
+Pré-lançamento: apenas admin, no canto inferior esquerdo. Layout e limite de renderização persistem localmente.
+
 
 Card flutuante no canto superior esquerdo. Tira do painel os dois controles que mais se mexe ao compor a cidade: **modo de layout** e **quantos edifícios entram na cena**. Botão `×` no cabeçalho remove o card da tela (escreve `buildingLayoutCard: false`); aba **Tela** do painel devolve.
 
@@ -142,60 +148,21 @@ Barra de filtros das doações. Presentacional — recebe listas e filtro, emite
 
 ### `ContributeDialog.tsx`
 
-`html/donate/`. Botão **Contribuir** (`Button size="lg"` verde, ícone `PixelBuilding`, rodapé central) + contribuição → Pix → confirmação. Administração independente em [[#BuildingManageDialog.tsx]]; botão nunca vira retorno à edição.
+Pré-lançamento: **Simular contribuição** → formulário (ONG/cidade/valor, novo ou aumentar) → **Confirmar pagamento simulado** → **Ver meu edifício**. Login exigido; mínimo R$ 5, máximo 3 edifícios locais por conta/navegador. Nenhum Pix, QR, Copia e Cola ou polling. Criação/aumento chama `simulateContribution`, grava localStorage e atualiza cidade via evento local. Falha de armazenamento não confirma pagamento.
 
-**Layout** — largura até **896 px**; cabeçalho/etapas/rodapé fixos, centro rolável, margens responsivas e tokens claro/escuro.
+`Flow` (`form` | `pay` | `done`) captura conta. Outra sessão não reaproveita simulação. Fechar confirmação libera nova simulação; fechar pagamento mantém etapa somente em memória. Troca de etapa foca título. Administração independente no card/Meus edifícios.
 
-```mermaid
-flowchart LR
-  P[Contribuir] --> F[1 Contribuição]
-  F -- deslogado --> L[AuthDialog] --> F
-  F -- createPixCharge --> Pay[2 Pagamento Pix]
-  Pay -- poll 3 s + visibilitychange --> S{status}
-  S -- expired --> X[Gerar novo código]
-  S -- paid --> D[3 Confirmação]
-  D -- Nova contribuição --> F
-  D -- Ver meu edifício --> Card[Informações na cidade]
-  M[Meus edifícios] -- Ver na cidade --> Card
-  Card -- Administrar, dono/admin --> Editor[BuildingManageDialog]
-```
-
-**Etapa 1 — Contribuição**
-- **Novo edifício · Aumentar edifício** — chips; só com edifício próprio. Máximo **3 por conta**: ao atingir limite, Novo desabilita e Aumentar fica ativo; backend valida e banco impede quarto edifício. Aumentar = select do edifício (pré-selecionado se só 1); com 2 ou 3, seleção explícita obrigatória. Rótulos numerados distinguem edifícios com mesmo valor/cidade.
-- **ONG** — sempre visível e obrigatória, inclusive ao aumentar. Escolha independente das ONGs já apoiadas pelo edifício. `OngCombobox` local: digitar/buscar por nome, ignora acentos/caixa (`normalizeSearch` existente). Lista abre no foco; setas/Enter selecionam, Esc fecha só lista. Blur aceita resultado único/nome exato único; restante restaura seleção anterior. Pré-seleciona se só 1; catálogo vazio desabilita; busca vazia = todas, sem resultado = `Nenhuma ONG encontrada`
-- **Cidade do edifício** — aparece só ao erguer; aumentar mantém cidade existente. `CityCombobox` de [[#ProfileDetailsFields.tsx]]. `city === undefined` = não tocado → mostra `user.city` (login no meio do fluxo já preenche)
-- **Valor da contribuição** — input 96 px, prefixo R$, teclado numérico, **25,00 inicial**. `formatMoneyInput` em `src/lib/moneyInput.ts`: máscara a cada tecla, sempre vírgula + **2 casas**, milhar com ponto; dígitos entram como centavos (`1234` → `12,34`). Apagar tudo mantém `0,00`. Colagem passa por `normalizeMoneyInput`: `25` → `25,00`, `25.90` → `25,90`, `R$ 1.234,56` → `1.234,56`. Rejeita letras, sinal, expoente e valores fora da precisão segura; `parseMoney` converte para reais. Mínimo R$ 5 visível; blur só valida mínimo. Chips R$ 10/25/50/100; 2 colunas em telas menores que 380 px
-- **Resumo** — ONG, cidade, Pix; aumentar também mostra valor acumulado após contribuição. IDs de ONG/edifício precisam existir no catálogo atual
-- Pago: `CitySceneEditor` acrescenta `ongId` a `DonationRecord.ongIds` sem duplicar; filtro/card/menu reconhecem todas as ONGs apoiadas pelo edifício.
-- Botão: **Ir para pagamento**. Deslogado: `Entrar para continuar` → `onRequestLogin` (form fica preenchido). Rodapé explica campo pendente ou próxima etapa; carregamento bloqueia envios repetidos
-
-**Etapa 2 — Pague com Pix** (`PixPayment`, mesmo arquivo)
-- Resumo valor/ONG/cidade separado das instruções; QR 224 px no desktop. Celular (`useIsMobile`) esconde atrás de `Mostrar QR code`; **Copiar código Pix** = ação primária em ambos
-- `Pix Copia e Cola` (input só leitura) + 3 passos numerados + cartão **Recebedor no app do banco** (`receiverName`). Clipboard indisponível → seleciona código e orienta copiar manualmente
-- Status `role="status"` **Aguardando confirmação do pagamento** + **`Válido até HH:MM`** (sem cronômetro). 3 falhas seguidas → **Sem conexão. Tentando novamente…**
-- Grafia **Pix**, nunca "PIX" (manual da marca BCB)
-- Expirado: cartão próprio, **Gerar novo código** mantém contribuição. **Alterar contribuição** retorna ao formulário sem descartar cobrança nem parar poll (`editingCharge`); banner **Voltar ao Pix**, novo código substitui anterior conforme contrato. **Continuar depois** fecha modal e mantém acompanhamento
-
-**Etapa 3 — Confirmação** — título **Pagamento confirmado**; edifício já está na cidade ou cresceu. **Nova contribuição** retorna ao formulário; **Ver meu edifício** fecha confirmação e abre card na cidade pelo mesmo caminho do menu.
-
-**Estado** — `Flow` (`form` | `pay` | `done`) fora do `DialogContent`. Fechar Pix mantém poll/retomada. Fechar confirmação reseta para `form`; próximo clique em **Contribuir** inicia pagamento novo. Pago com modal fechado → `form` + toast com **Ver edifício**; não abre editor dentro do pagamento. Ícone relógio indica Pix pendente, rótulo permanece **Contribuir**. `userId` impede reaproveitar cobrança de outra conta; `getPendingCharge` retoma pendente no login/remount. Troca de etapa foca título.
-
-**Verificação** — `node scripts/check-contribution.mjs`: máscara/centavos, colagem, precisão; nova contribuição após confirmação, Pix preservado ao fechar, confirmação de outra cobrança ignorada e acesso pelo toast. Sem servidor/navegador.
-
-| Prop | Tipo | Descrição |
-|---|---|---|
-| `open` / `onOpenChange` | `boolean` / `(open) => void` | Controlado pelo editor |
-| `ongs` | `readonly Ong[]` | ONGs do snapshot |
-| `buildings` | `readonly MyDonation[]` | Edifícios próprios: destinos para aumentar |
-| `onRequestLogin` | `() => void` | Abre `AuthDialog` |
-| `onPaid` | `(c, donationId) => void` | Relê `/donation/me`, mescla edifício novo/maior e atualiza catálogo ([[donation-api#Edifícios do usuário no login]]) |
-| `onViewBuilding` | `(donationId) => void` | Mesmo `handleOpenDonation` usado por Meus edifícios; revela, foca e abre informações |
-
-Copy sem "Doar"/"Construir"/"prédio". Decisões (login, R$ 25, validade, Pix pendente) vêm da pesquisa + supervisão — ver [[contribution-api]].
+Checks: `node scripts/check-contribution.mjs` e `node scripts/check-prelaunch.mjs`. Sem servidor/navegador.
 
 ---
 
 ### `BuildingProfileForm.tsx`
+
+Pré-lançamento: perfil local da conta tem prioridade. `fetchBuildingProfile` não consulta ID negativo; `saveBuildingProfile` recebe conta e salva localmente. Informações opcionais não publicadas.
+
+
+Pré-lançamento: perfil local da conta tem prioridade. `fetchBuildingProfile` não consulta ID negativo; `saveBuildingProfile` recebe conta e salva localmente. Informações opcionais não publicadas.
+
 
 `html/donate/`. **Imagem** (4:3, `resizeImage(file, 800)` → JPEG, descarta EXIF), **Nome do edifício** (≤ 40), **Descrição** (textarea ≤ 160 + contador). Tudo opcional, público para quem clicar no edifício.
 
@@ -316,14 +283,14 @@ Campos compartilhados entre [[#OnboardingDialog.tsx|OnboardingDialog]] e aba Per
 
 ### `BuildingManageDialog.tsx`
 
-Administração do edifício selecionado, independente de contribuição/Pix. Abre por **Meus edifícios → Ver na cidade → Administrar**, ou pelo card de edifício clicado. `canEdit` limita dono/admin; gate no render remove diálogo quando sessão perde permissão. Substitui painel lateral antigo.
+Administração do edifício selecionado, independente da simulação de contribuição. Abre por **Meus edifícios → Ver na cidade → Administrar**, ou pelo card de edifício clicado. `canEdit` limita dono/admin; gate no render remove diálogo quando sessão perde permissão. Substitui painel lateral antigo.
 
 - **Informações** abre primeiro: [[#BuildingProfileForm.tsx]] com imagem, nome e descrição. `forceMount` preserva campos ao trocar aba.
 - **Aparência**: [[#BuildingCustomizer.tsx]] com inventário por categoria, requisitos e prévia 3D. Fachada inclui **Padrão** para herdar textura global. Mudanças atualizam cidade e salvam automaticamente (debounce 500 ms).
 - **Layout**: até **1152 px**, altura estável até **800 px**, limitada por `100dvh`. Cabeçalho/abas/rodapé fixos; centro rolável. Prévia usa `container-type: size`. Botões 44 px no celular/40 px no desktop.
 - **Rodapé**: **Ver na cidade** retorna ao card focado; **Salvar** envia perfil por `form={profileFormId}`, inclusive na aba Aparência. Falha visível no rodapé. Nome/imagem/descrição pendentes → **Sair sem salvar?**; clique fora bloqueado. Salvar/processar imagem ou ler holograma bloqueia abas, X/Esc e saída.
 - **Carregamento**: aparência `lazy`/`Suspense`, só monta na aba ativa. Fechar/trocar para Informações desmonta prévia. `selectedCustomization` memoizado evita reconstrução nas atualizações das estatísticas.
-- **Rebuild**: atualização do dataset mantém card/foco e administração aberta enquanto edifício continua visível; evita descartar campos durante confirmação de Pix em segundo plano.
+- **Rebuild**: atualização do dataset mantém card/foco e administração aberta enquanto edifício continua visível; evita descartar campos durante confirmação da simulação.
 - **Verificação**: `node scripts/check-building-management.mjs` — render React, abas, campos preservados, envio externo, falha/bloqueios/descarte, posse e foco após filtro/teto ou pagamento atrasado. Sem servidor/navegador.
 
 | Prop | Tipo | Descrição |
@@ -340,9 +307,9 @@ Administração do edifício selecionado, independente de contribuição/Pix. Ab
 > Menu ou clique → `focusOnDonation` → `BuildingInfoModal` → **Administrar** (só dono/admin) → `BuildingManageDialog`. Perfil salvo via [[contribution-api]]; aparência via `updateCustomization` e `canvasRef.updateDonationCustomization`. Nenhuma cobrança criada.
 
 > [!important] Personalização é permanente
-> O painel não mexe só no state: `updateCustomization` grava em `donation.customization` via `PUT /donation/:id/customization`. Recarregou a página, o prédio volta personalizado — o snapshot traz as personalizações salvas e o editor as reaplica na cena. Debounce, flush no unmount, toast de erro e limites de autorização em [[donation-api#Personalização persistida]].
+> O painel não mexe só no state: `updateCustomization` grava apenas no navegador no localStorage da conta. Recarregou a página, o prédio volta personalizado — a cópia local sobrepõe as personalizações públicas e o editor as reaplica na cena. Debounce, flush no unmount, toast de erro e limites de autorização em [[donation-api#Personalização persistida]].
 >
-> Valores iniciais do painel vêm do state do editor, que nasce do banco. Salvar exige login **e** ser dono do edifício; opção travada é recusada pelo servidor, não só escondida pelo botão desabilitado.
+> Valores iniciais: snapshot público mais edições locais da conta. Administrar exige login e posse local ou admin. Catálogo e conquistas reais continuam controlando opções disponíveis; edição da cidade não enviada ao servidor.
 
 > [!tip] Onde cada personalização é aplicada
 > - **Cor** → `InstancedBufferAttribute` (instanceColor) quando o prédio fica no `InstancedMesh`; clone de material quando o prédio vira mesh próprio
@@ -358,6 +325,12 @@ Administração do edifício selecionado, independente de contribuição/Pix. Ab
 ---
 
 ### `CityControlPanel.tsx`
+
+Pré-lançamento: botão, painel e `Ctrl+M` apenas para `isAdmin` da sessão da cena. Configurações persistem por conta no navegador; não alteram outras cidades. Geradores temporários de edifícios não montados.
+
+
+Pré-lançamento: botão, painel e `Ctrl+M` apenas para `isAdmin` da sessão da cena. Configurações persistem por conta no navegador; não alteram outras cidades. Geradores temporários de edifícios não montados.
+
 
 Componente que monta o painel completo de configuração da cena. **Escondido por padrão** — aberto via ícone de engrenagem no canto inferior direito. O ícone **desaparece** enquanto o painel está aberto; o fechamento é feito pelo **"X"** na barra de abas, que chama `onClose`.
 

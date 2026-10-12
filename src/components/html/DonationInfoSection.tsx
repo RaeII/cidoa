@@ -54,13 +54,13 @@ export function DonationInfoSection({
       <div className="mx-auto w-full max-w-5xl px-6 py-24 sm:px-10 sm:py-32">
         <header className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
           <div>
-            <p className="mono-label text-primary">O projeto</p>
+            <p className="mono-label text-primary">Pré-lançamento</p>
             <h2 id="donation-info-title" className="mt-5 text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-4xl">
-              Cada contribuição ergue um edifício. Cada edifício sustenta uma causa animal.
+              Conheça o Cidoa e teste sua cidade.
             </h2>
             <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground">
-              Cidoa transforma suas contribuições em edifícios e apoia ONGs de proteção animal:
-              resgate, castração, tratamento veterinário e adoção responsável.
+              Estamos preparando uma cidade para apoiar a proteção animal. Cadastre-se, indique amigos e
+              simule contribuições. Nesta versão, os edifícios que você cria ficam apenas neste navegador.
             </p>
           </div>
           <div className="pixel bevel-edge bg-card pb-1">
@@ -92,7 +92,7 @@ export function DonationInfoSection({
           <>
             <div className="grid gap-12 sm:grid-cols-[1.2fr_1fr] sm:items-end">
               <div>
-                <p className="mono-label text-muted-foreground">{hasFilter ? "Total neste recorte" : "Total arrecadado"}</p>
+                <p className="mono-label text-muted-foreground">{hasFilter ? "Valor simulado neste recorte" : "Valor simulado"}</p>
                 <p className="mt-3 break-words text-4xl font-semibold tracking-[-0.02em] text-primary sm:text-5xl">
                   {formatBRL(summary.totalRaised)}
                 </p>
@@ -100,7 +100,7 @@ export function DonationInfoSection({
               <dl className="grid grid-cols-3 gap-6">
                 {([
                   ["Edifícios", donations.length],
-                  ["ONGs apoiadas", summary.ongStats.size],
+                  ["ONGs na cidade", summary.ongStats.size],
                   ["Cidades", summary.cityCount],
                 ] as const).map(([label, count]) => (
                   <div key={label} className="flex flex-col-reverse">
@@ -115,8 +115,8 @@ export function DonationInfoSection({
 
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <p className="mono-label text-primary">ONGs apoiadas</p>
-                <h3 className="mt-4 text-2xl font-semibold tracking-[-0.01em]">Para onde vai a sua contribuição</h3>
+                <p className="mono-label text-primary">ONGs na cidade</p>
+                <h3 className="mt-4 text-2xl font-semibold tracking-[-0.01em]">Explore as ONGs da cidade</h3>
               </div>
               {hasFilter && <Button variant="ghost" onClick={() => onFilterChange({})}>Limpar filtros</Button>}
             </div>

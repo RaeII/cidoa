@@ -1,16 +1,9 @@
-import { useEffect, useEffectEvent, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import { ArrowRight, Clock, Copy, MapPin, Search } from "lucide-react";
+import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { ArrowRight, Search } from "lucide-react";
 import { RadioGroup } from "radix-ui";
-import {
-  createPixCharge,
-  getChargeStatus,
-  getPendingCharge,
-  type ChargeStatus,
-  type Contribution,
-  type PixCharge,
-} from "@/api/contributionApi";
+import type { Contribution } from "@/api/contributionApi";
+import { simulateContribution } from "@/lib/prelaunchCity";
 import type { Ong } from "@/api/donationApi";
-import { ApiError } from "@/api/http";
 import type { City } from "@/api/location/location.types";
 import type { MyDonation } from "@/components/GameMenu";
 import { CityCombobox } from "@/components/ProfileDetailsFields";
@@ -27,8 +20,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { BlockLoader, ErrorMark, PixelBuilding, PixelCheck, PixelChevronDown, PixelHeart } from "@/components/ui/pixel-icon";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "@/components/ui/toast";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
 import { formatCity, normalizeSearch } from "@/lib/citySearch";
 import { formatMoneyInput, normalizeMoneyInput } from "@/lib/moneyInput";
@@ -38,11 +29,10 @@ import { cn } from "@/lib/utils";
 const PRESETS = [10, 25, 50, 100];
 // Padrão baixo aumenta a taxa de conclusão (Goswami & Urminsky, 2016).
 const DEFAULT_AMOUNT = "25,00";
-// Só UI: o backend tem a palavra final (400 com `message` aparece na tela).
+// Mesmos limites básicos na simulação local.
 const MIN_VALUE = 5;
 const MAX_BUILDINGS = 3;
-const POLL_MS = 3_000;
-const STEPS = ["Contribuição", "Pagamento", "Confirmação"];
+const STEPS = ["Simulação", "Pagamento", "Confirmação"];
 const STEP_INDEX = { form: 0, pay: 1, done: 2 } as const;
 
 const labelClass = "mb-2 block mono-label text-foreground";
@@ -63,10 +53,10 @@ const radioMark = (
 const scrollClass = "min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-8 sm:py-6 lg:px-10";
 const footerClass = "shrink-0 border-t bg-background px-5 py-4 sm:px-8 lg:px-10";
 
-/** Estado do fluxo. Vive fora do `DialogContent`: fechar o modal não perde o Pix. */
+/** Fechar o modal mantém apenas a simulação em memória. */
 type Flow =
   | { step: "form" }
-  | { step: "pay"; userId: number; charge: PixCharge; expired: boolean }
+  | { step: "pay"; userId: number; contribution: Contribution; city: City | null }
   | { step: "done"; userId: number; contribution: Contribution; donationId: number };
 
 function Stepper({ current }: { current: number }) {
@@ -214,167 +204,7 @@ function OngCombobox({ id, ongs, value, onChange }: {
   );
 }
 
-/** Etapa 2: Copia e Cola é a ação primária no celular; QR em destaque no desktop. */
-function PixPayment({
-  charge,
-  ongName,
-  place,
-  expired,
-  offline,
-  creating,
-  error,
-  onRenew,
-  onBack,
-  onClose,
-}: {
-  charge: PixCharge;
-  ongName?: string;
-  place?: string;
-  expired: boolean;
-  offline: boolean;
-  creating: boolean;
-  error: string | null;
-  onRenew: () => void;
-  onBack: () => void;
-  onClose: () => void;
-}) {
-  const isMobile = useIsMobile();
-  const codeId = useId();
-  const codeRef = useRef<HTMLInputElement>(null);
-  const [showQr, setShowQr] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [copyFailed, setCopyFailed] = useState(false);
-
-  useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 2_000);
-    return () => clearTimeout(timer);
-  }, [copied]);
-
-  async function copyCode() {
-    try {
-      await navigator.clipboard.writeText(charge.copyPaste);
-      setCopyFailed(false);
-      setCopied(true);
-    } catch {
-      // Clipboard só existe em contexto seguro: sobra selecionar à mão.
-      codeRef.current?.select();
-      setCopyFailed(true);
-    }
-  }
-
-  const qr = <img src={charge.qrCodeImage} alt="QR code do Pix" className="mx-auto size-56 max-w-full bg-card p-3" />;
-  const validUntil = new Date(charge.expiresAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className={scrollClass}>
-        <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] md:gap-8">
-          <div className="flex flex-col items-center justify-center gap-5 pixel pixel-thin bg-card p-5 text-center sm:p-6">
-            <div className="space-y-2">
-              <p className="mono-label text-muted-foreground">Sua contribuição</p>
-              <p className="break-words text-4xl font-semibold tracking-[-0.02em] tabular-nums">{formatBRL(charge.contribution.value)}</p>
-              {ongName && <p className="break-words text-sm font-medium">{ongName}</p>}
-              {place && <p className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground"><MapPin aria-hidden="true" className="size-3.5 shrink-0" />{place}</p>}
-            </div>
-            {!expired && (isMobile ? (
-              <div className="space-y-3">
-                <Button type="button" variant="outline" aria-expanded={showQr} onClick={() => setShowQr((show) => !show)}>
-                  {showQr ? "Esconder QR code" : "Mostrar QR code"}
-                </Button>
-                {showQr && qr}
-              </div>
-            ) : qr)}
-            {!expired && <p className="mono-label flex items-center gap-1.5 text-muted-foreground"><Clock aria-hidden="true" className="size-3.5" />Válido até {validUntil}</p>}
-          </div>
-
-          <div className="min-w-0 space-y-5">
-            {expired ? (
-              <div className="space-y-4 pixel pixel-thin pixel-ink-ambar-700 bg-ambar-100 p-5 text-tinta">
-                <Clock aria-hidden="true" className="size-7 text-destructive" />
-                <h3 className="font-semibold">Este código expirou</h3>
-                <p className="text-sm text-muted-foreground">Gere outro Pix para continuar com a mesma contribuição.</p>
-                {error && (
-                  <p role="alert" className="flex gap-1.5 text-sm text-destructive">
-                    <ErrorMark />
-                    {error}
-                  </p>
-                )}
-                <Button size="lg" className="w-full" disabled={creating} onClick={onRenew}>
-                  {creating ? (
-                    <>
-                      <BlockLoader />
-                      Gerando Pix…
-                    </>
-                  ) : (
-                    "Gerar novo código"
-                  )}
-                </Button>
-              </div>
-            ) : (
-              <>
-                <div>
-                  <label htmlFor={codeId} className={labelClass}>
-                    Pix Copia e Cola
-                  </label>
-                  <Input
-                    ref={codeRef}
-                    id={codeId}
-                    readOnly
-                    value={charge.copyPaste}
-                    className="font-mono text-xs md:text-xs"
-                    onFocus={(event) => event.target.select()}
-                  />
-                  {copyFailed && <p className="mt-2 text-sm text-muted-foreground">Selecione o código e copie.</p>}
-                </div>
-                <Button
-                  type="button"
-                  size="lg"
-                  className="w-full"
-                  onClick={copyCode}
-                >
-                  {copied ? <PixelCheck /> : <Copy />}
-                  {copied ? "Código copiado" : "Copiar código Pix"}
-                </Button>
-                <span role="status" className="sr-only">
-                  {copied ? "Código copiado." : ""}
-                </span>
-                <ol className="space-y-4 text-sm">
-                  {["Abra o app do seu banco e entre em Pix.", isMobile ? "Escolha Pix Copia e Cola e cole o código." : "Leia o QR code ou cole o código copiado.", "Confira o valor e o recebedor antes de confirmar."].map((instruction, index) => (
-                    <li key={instruction} className="flex items-start gap-3">
-                      <span aria-hidden="true" className="grid size-6 shrink-0 place-items-center bg-secondary font-mono text-xs text-secondary-foreground">{index + 1}</span>
-                      <span className="pt-0.5 text-muted-foreground">{instruction}</span>
-                    </li>
-                  ))}
-                </ol>
-                <div className="bg-card px-4 py-3 text-sm">
-                  <p className="mono-label text-muted-foreground">Recebedor no app do banco</p>
-                  <p className="mt-1 break-words font-semibold">{charge.receiverName}</p>
-                </div>
-                <p role="status" className={cn("flex items-center gap-2 px-4 py-3 text-sm", offline ? "bg-ambar-100 text-tinta" : "bg-secondary text-secondary-foreground")}>
-                  {offline ? <ErrorMark /> : <BlockLoader className="text-primary" />}
-                  {offline ? "Sem conexão. Tentando novamente…" : "Aguardando confirmação do pagamento"}
-                </p>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-      <div className={cn(footerClass, "flex flex-wrap justify-between gap-2")}>
-        <Button type="button" variant="ghost" className="h-11" disabled={creating} onClick={onBack}>
-          Alterar contribuição
-        </Button>
-        <Button type="button" variant="outline" className="h-11" disabled={creating} onClick={onClose}>
-          Continuar depois
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Contribuição → Pix → confirmação. Administração do edifício fica na cidade.
- */
+/** Simulação → confirmação local; sem cobrança real. */
 export function ContributeDialog({
   open,
   onOpenChange,
@@ -390,7 +220,7 @@ export function ContributeDialog({
   /** Edifícios do usuário; sem nenhum, a escolha novo/aumentar some. */
   buildings: readonly MyDonation[];
   onRequestLogin: () => void;
-  /** Pagamento confirmado pelo servidor: o edifício entra ou cresce na cidade. */
+  /** Simulação salva no navegador: o edifício entra ou cresce na cidade local. */
   onPaid: (contribution: Contribution, donationId: number) => void;
   onViewBuilding: (donationId: number) => void;
 }) {
@@ -411,86 +241,12 @@ export function ContributeDialog({
   const [amount, setAmount] = useState(DEFAULT_AMOUNT);
   const [amountBlurred, setAmountBlurred] = useState(false);
   const [flow, setFlow] = useState<Flow>({ step: "form" });
-  const [editingCharge, setEditingCharge] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [offline, setOffline] = useState(false);
 
-  // Cobrança de outra sessão (logout/troca de conta) nunca é reaproveitada.
+  // Troca de conta não reaproveita a simulação anterior.
   const active = flow.step === "form" || flow.userId !== userId ? null : flow;
-  const step = active?.step === "pay" && editingCharge ? "form" : active?.step ?? "form";
-  const pendingChargeId = active?.step === "pay" && !active.expired ? active.charge.id : null;
-
-  const ongNameOf = (contribution: Contribution) =>
-    ongs.find((ong) => ong.id === contribution.ongId)?.name;
-
-  const handleStatus = useEffectEvent((chargeId: string, result: ChargeStatus) => {
-    if (active?.step !== "pay" || active.charge.id !== chargeId) return;
-    if (result.status === "expired") setFlow({ ...active, expired: true });
-    if (result.status !== "paid") return;
-    const { contribution } = active.charge;
-    onPaid(contribution, result.donationId);
-    setEditingCharge(false);
-    setFlow(open
-      ? { step: "done", userId: active.userId, contribution, donationId: result.donationId }
-      : { step: "form" });
-    if (!open) {
-      toast.success("Pagamento confirmado.", {
-        description: contribution.donationId === null ? "Seu edifício já está na cidade." : "Seu edifício cresceu.",
-        duration: 10_000,
-        action: { label: "Ver edifício", onClick: () => onViewBuilding(result.donationId) },
-      });
-    }
-  });
-
-  // Status ao vivo, com o modal aberto ou fechado. Aba escondida não consulta;
-  // voltar do app do banco (visibilitychange) consulta na hora.
-  useEffect(() => {
-    if (!pendingChargeId) return;
-    const chargeId = pendingChargeId;
-    const controller = new AbortController();
-    let failures = 0;
-    let busy = false;
-    async function check() {
-      if (busy || document.hidden) return;
-      busy = true;
-      try {
-        const result = await getChargeStatus(chargeId, controller.signal);
-        failures = 0;
-        if (!controller.signal.aborted) handleStatus(chargeId, result);
-      } catch {
-        failures += 1;
-      } finally {
-        busy = false;
-      }
-      if (!controller.signal.aborted) setOffline(failures >= 3);
-    }
-    const timer = setInterval(check, POLL_MS);
-    document.addEventListener("visibilitychange", check);
-    return () => {
-      controller.abort();
-      clearInterval(timer);
-      document.removeEventListener("visibilitychange", check);
-    };
-  }, [pendingChargeId]);
-
-  // Retoma o Pix pendente da conta (remount após retry; com o backend, recarregar a página).
-  useEffect(() => {
-    if (!userId) return;
-    const controller = new AbortController();
-    getPendingCharge(controller.signal).then(
-      (charge) => {
-        if (!charge || controller.signal.aborted) return;
-        setFlow((current) =>
-          current.step !== "form" && current.userId === userId
-            ? current
-            : { step: "pay", userId, charge, expired: false },
-        );
-      },
-      () => {},
-    );
-    return () => controller.abort();
-  }, [userId]);
+  const step = active?.step ?? "form";
 
   // Troca de etapa leva o foco ao título; a 1ª abertura fica com o autofocus do Radix.
   const lastStep = useRef(step);
@@ -523,44 +279,29 @@ export function ContributeDialog({
     }
   }
 
-  async function startCharge(input: Contribution) {
-    if (creating) return;
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!contribution) return;
     if (!user) return onRequestLogin();
+    setError(null);
+    setFlow({ step: "pay", userId: user.id, contribution, city: pickedCity });
+  }
+
+  function confirmSimulation() {
+    if (creating || active?.step !== "pay" || !user) return;
     setCreating(true);
     setError(null);
     try {
-      const charge = await createPixCharge(input);
-      setOffline(false);
-      setEditingCharge(false);
-      setFlow({ step: "pay", userId: user.id, charge, expired: false });
-    } catch (err) {
-      const status = err instanceof ApiError ? err.status : 0;
-      if (status === 401) {
-        setError("Sua sessão expirou. Entre de novo.");
-        onRequestLogin();
-      } else {
-        setError(
-          (status === 400 || status === 503) && err instanceof ApiError ? err.message : "Não foi possível gerar o Pix. Tente de novo.",
-        );
-      }
+      const donationId = simulateContribution(user.id, active.contribution, active.city);
+      onPaid(active.contribution, donationId);
+      setFlow({ step: "done", userId: user.id, contribution: active.contribution, donationId });
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Não foi possível salvar neste navegador.");
     } finally {
       setCreating(false);
     }
   }
 
-  function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    if (!contribution) return;
-    if (!user) return onRequestLogin();
-    void startCharge(contribution);
-  }
-
-  function backToForm() {
-    setEditingCharge(true);
-    setError(null);
-  }
-
-  // Fechar a confirmação libera outra contribuição; Pix pendente continua acompanhado.
   function handleOpenChange(next: boolean) {
     if (!next && active?.step === "done") setFlow({ step: "form" });
     onOpenChange(next);
@@ -573,8 +314,8 @@ export function ContributeDialog({
       <DialogTrigger asChild>
         {/* Centrado sem translate: o `press` do botão usa a propriedade translate. */}
         <Button type="button" size="lg" className="absolute inset-x-0 bottom-6 z-30 mx-auto w-fit">
-          {pendingChargeId ? <Clock aria-hidden="true" /> : <PixelBuilding />}
-          Contribuir
+          <PixelBuilding />
+          Simular contribuição
         </Button>
       </DialogTrigger>
       {/* text-foreground: o body da cena pinta texto branco, que sumiria no tema claro. */}
@@ -598,15 +339,15 @@ export function ContributeDialog({
             <span className={cn("grid size-11 shrink-0 place-items-center", step === "done" ? "size-8 bg-primary text-primary-foreground" : "bg-secondary text-primary")}>
               {step === "done" ? <PixelCheck /> : <PixelHeart className="size-6" />}
             </span>
-            {step === "form" ? "Faça sua contribuição" : step === "pay" ? "Pagamento com Pix" : "Pagamento confirmado"}
+            {step === "form" ? "Simule sua contribuição" : step === "pay" ? "Simular pagamento" : "Simulação concluída"}
           </DialogTitle>
           <DialogDescription className={step === "done" ? "text-xs leading-5" : undefined}>
             {step === "form"
-              ? "Apoie uma ONG e tenha seu edifício na cidade."
+              ? "Pré-lançamento: teste a criação de um edifício sem pagar."
               : step === "pay"
-                ? "Esta tela atualiza sozinha quando o pagamento for confirmado."
+                ? "Nenhuma cobrança real. Seu edifício fica salvo apenas neste navegador."
                 : `Seu edifício ${
-                    doneGrew ? "cresceu." : "já está na cidade."
+                    doneGrew ? "cresceu nesta simulação." : "foi salvo neste navegador."
                   }`}
           </DialogDescription>
         </DialogHeader>
@@ -614,29 +355,25 @@ export function ContributeDialog({
           <Stepper current={STEP_INDEX[step]} />
         </div>
 
-        {active?.step === "pay" && !editingCharge ? (
-          <PixPayment
-            key={active.charge.id}
-            charge={active.charge}
-            ongName={ongNameOf(active.charge.contribution)}
-            place={active.charge.contribution.donationId === null
-              ? pickedCity?.id === active.charge.contribution.cityId ? formatCity(pickedCity) : undefined
-              : buildings.find((building) => building.id === active.charge.contribution.donationId)?.place}
-            expired={active.expired}
-            offline={offline}
-            creating={creating}
-            error={error}
-            onRenew={() => void startCharge(active.charge.contribution)}
-            onBack={backToForm}
-            onClose={() => onOpenChange(false)}
-          />
+        {active?.step === "pay" ? (
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className={scrollClass}>
+              <p className="text-3xl font-semibold">{formatBRL(active.contribution.value)}</p>
+              <p className="mt-3 text-sm text-muted-foreground">A simulação não envia dinheiro à ONG nem altera a cidade de outras pessoas.</p>
+              {error && <p role="alert" className="mt-4 flex gap-1.5 text-sm text-destructive"><ErrorMark />{error}</p>}
+            </div>
+            <div className={cn(footerClass, "flex flex-wrap justify-between gap-2")}>
+              <Button type="button" variant="ghost" disabled={creating} onClick={() => { setFlow({ step: "form" }); setError(null); }}>Alterar simulação</Button>
+              <Button type="button" disabled={creating} onClick={confirmSimulation}>Confirmar pagamento simulado</Button>
+            </div>
+          </div>
         ) : active?.step === "done" ? (
           <div className="flex min-h-0 flex-1 flex-col">
             <div className={scrollClass}>
               <p className="text-sm text-muted-foreground">Veja e administre seu edifício em Meus edifícios.</p>
             </div>
             <div className={cn(footerClass, "flex flex-wrap justify-end gap-2")}>
-              <Button type="button" variant="outline" className="h-11" onClick={() => setFlow({ step: "form" })}>Nova contribuição</Button>
+              <Button type="button" variant="outline" className="h-11" onClick={() => setFlow({ step: "form" })}>Nova simulação</Button>
               <Button type="button" className="h-11" onClick={() => {
                 handleOpenChange(false);
                 onViewBuilding(active.donationId);
@@ -646,16 +383,6 @@ export function ContributeDialog({
         ) : (
           <form onSubmit={handleSubmit} aria-busy={creating} className="flex min-h-0 flex-1 flex-col">
             <div className={cn(scrollClass, "space-y-6")}>
-              {pendingChargeId && (
-                <div className="flex flex-wrap items-center justify-between gap-3 bg-secondary px-4 py-3 text-sm">
-                  <p className="flex items-center gap-2"><Clock aria-hidden="true" className="size-4 shrink-0" />Você tem um Pix pendente.</p>
-                  <Button type="button" variant="outline" disabled={creating} onClick={() => {
-                    setEditingCharge(false);
-                    setError(null);
-                  }}>Voltar ao Pix</Button>
-                  <p className="w-full text-xs text-muted-foreground">Ao gerar outro Pix, o código anterior será substituído.</p>
-                </div>
-              )}
               <fieldset disabled={creating} className="grid min-w-0 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:gap-8">
                 <div className="min-w-0 space-y-6">
                   {buildings.length > 0 && (
@@ -712,12 +439,12 @@ export function ContributeDialog({
                   )}
                   <div className="flex items-center gap-3 bg-secondary p-3 text-sm text-foreground">
                     <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center bg-primary text-primary-foreground"><PixelBuilding /></span>
-                    <p>{growing ? "Sua contribuição aumenta o valor do edifício escolhido." : "Após o pagamento, administre seu edifício em Meus edifícios."}</p>
+                    <p>{growing ? "Sua contribuição aumenta o valor do edifício escolhido." : "Após a simulação, administre seu edifício em Meus edifícios."}</p>
                   </div>
                 </div>
                 <div className="min-w-0 bg-card p-5 sm:p-6">
                   <label htmlFor={amountId} className={labelClass}>
-                    Valor da contribuição
+                    Valor simulado
                   </label>
                   {/* Campo com prefixo (DS): grupo `field`, R$ em bloco verde-100, input sem moldura. */}
                   <div className="field mb-4 flex h-14 items-stretch">
@@ -781,7 +508,7 @@ export function ContributeDialog({
                     </div>
                     <div className="flex justify-between gap-4">
                       <dt className="text-muted-foreground">Pagamento</dt>
-                      <dd className="font-medium">Pix</dd>
+                      <dd className="font-medium">Simulado · sem cobrança</dd>
                     </div>
                     {growing && selectedBuilding && value !== null && (
                       <div className="flex justify-between gap-4 border-t pt-3">
@@ -798,19 +525,19 @@ export function ContributeDialog({
                 {error ? <p role="alert" className="flex gap-1.5 text-destructive"><ErrorMark />{error}</p>
                   : !contribution ? <p>{growing && !selectedBuilding ? "Escolha o edifício para continuar." : !selectedOng ? "Escolha uma ONG para continuar." : !growing && !pickedCity ? "Escolha uma cidade para continuar." : "Informe um valor a partir de R$ 5."}</p>
                   : !user ? <p>Entre para vincular o edifício à sua conta.</p>
-                  : <p>Na próxima etapa, você recebe o código Pix.</p>}
+                  : <p>Seu edifício fica apenas neste navegador.</p>}
               </div>
               <Button type="submit" size="lg" className="w-full px-6 sm:w-auto sm:min-w-52" disabled={!contribution || creating || isLoading}>
                 {creating ? (
                   <>
                     <BlockLoader />
-                    Gerando Pix…
+                    Salvando…
                   </>
                 ) : !user ? (
                   "Entrar para continuar"
                 ) : (
                   <>
-                    Ir para pagamento
+                    Ir para simulação
                     <ArrowRight aria-hidden="true" />
                   </>
                 )}

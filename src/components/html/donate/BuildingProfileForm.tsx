@@ -1,3 +1,4 @@
+import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { ImagePlus } from "lucide-react";
 import {
@@ -45,6 +46,7 @@ export function BuildingProfileForm({
   showActions?: boolean;
   disabled?: boolean;
 }) {
+  const { user } = useAuth();
   const nameId = useId();
   const descriptionId = useId();
   const counterId = useId();
@@ -68,7 +70,7 @@ export function BuildingProfileForm({
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchBuildingProfile(donationId, controller.signal).then(
+    fetchBuildingProfile(donationId, controller.signal, user?.id).then(
       (profile) => {
         if (controller.signal.aborted) return;
         const loaded = profile ?? EMPTY_PROFILE;
@@ -83,7 +85,7 @@ export function BuildingProfileForm({
       },
     );
     return () => controller.abort();
-  }, [donationId, attempt]);
+  }, [donationId, attempt, user?.id]);
 
   async function handleFile(file: File | undefined) {
     if (!file) return;
@@ -116,10 +118,11 @@ export function BuildingProfileForm({
     setSaving(true);
     setSaveError(null);
     try {
-      await saveBuildingProfile(donationId, profile);
+      if (!user) throw new Error("Entre na sua conta para salvar.");
+      await saveBuildingProfile(user.id, donationId, profile);
       onDone(profile);
-    } catch {
-      setSaveError("Não foi possível salvar. Tente de novo.");
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Não foi possível salvar. Tente de novo.");
     } finally {
       setSaving(false);
     }
@@ -128,7 +131,7 @@ export function BuildingProfileForm({
   const fields = (
     <>
       <div>
-        <p className="text-sm text-muted-foreground">Informações opcionais, visíveis para quem clicar no edifício.</p>
+        <p className="text-sm text-muted-foreground">Informações opcionais, salvas apenas neste navegador.</p>
       </div>
       <fieldset disabled={loadState !== "ready" || saving || imageBusy || disabled} className={cn("min-w-0 space-y-5", onSkip && "md:grid md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] md:gap-8 md:space-y-0")}>
         <div>

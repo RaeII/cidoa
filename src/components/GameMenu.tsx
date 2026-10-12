@@ -156,7 +156,7 @@ export function GameMenu({
               <div className="mx-auto max-w-2xl">
                 <p className="mb-5 text-muted-foreground">
                   <span className="block text-3xl font-semibold tracking-[-0.02em] text-foreground">{formatBRL(totalDonated)}</span>
-                  doados em {donations.length} {donations.length === 1 ? "edifício" : "edifícios"}
+                  simulados em {donations.length} {donations.length === 1 ? "edifício" : "edifícios"}
                 </p>
                 {donations.length === 0 ? (
                   <p className="bg-card px-4 py-8 text-center text-sm text-muted-foreground">

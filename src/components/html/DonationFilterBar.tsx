@@ -45,7 +45,7 @@ export function DonationFilterBar({
     filter.ongId !== undefined;
 
   return (
-    <div className="absolute left-1/2 top-4 z-30 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-wrap items-center gap-3">
+    <div className="flex flex-wrap items-center gap-3">
       <select
         className={selectClass}
         value={filter.region ?? ""}

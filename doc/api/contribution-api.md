@@ -1,76 +1,32 @@
 ---
-title: Contribuição e Pix (API)
-tags:
-  - api
-  - contribuicao
-  - pix
-aliases:
-  - contribution-api
+title: Contribuições — Pré-lançamento
+tags: [cidoa, api, beta]
 ---
 
-# Contribuição e Pix — `src/api/contributionApi.ts`
+# Contribuições no pré-lançamento
 
-API compartilhada: cobrança Pix em [[html-components#ContributeDialog.tsx|Contribuir]]; perfil em [[html-components#BuildingManageDialog.tsx|administração do edifício]] (imagem, nome, descrição). Fluxos de interface independentes.
+`beta`: simulação local. API de cobrança Pix removida do frontend; sem `createPixCharge`, `getChargeStatus`, `getPendingCharge`, `PixCharge` ou `ChargeStatus`.
 
-> [!info] Gravado no banco
-> Cobrança, pagamento e perfil vivem no backend (`donation_charge`, `donation_profile`, migration `0019`). Pago = edifício gravado em `donation`; recarregar/relogar mantém. Sem PSP: back só gera Pix com `PIX_SIMULATED=1` (dev, nunca produção); desligado → `503` com mensagem na tela.
+## Contratos
 
-## Contrato
+`Contribution`: novo `{ donationId: null, ongId, cityId, value }`; aumento `{ donationId, ongId, value }`. Valor em reais com duas casas. `BuildingProfile`: `{ name: string | null, description: string | null, image: string | null }`.
 
-```ts
-type Contribution =
-  | { donationId: null; ongId: number; cityId: number; value: number } // erguer
-  | { donationId: number; ongId: number; value: number };              // aumentar (mantém cidade)
+| Função | Destino | Uso |
+|---|---|---|
+| `simulateContribution(userId, contribution, city?)` | localStorage da conta | Confirmação explícita; retorna ID negativo. Mínimo R$ 5, máximo 3 edifícios locais. Aumento exige edifício da própria simulação; acumula beneficiárias e valor em centavos. |
+| `fetchBuildingProfile(id, signal?, userId?)` | Perfil local primeiro; `GET /donation/:id/profile` para ID público sem edição local | Card e formulário. ID negativo nunca consulta backend. |
+| `saveBuildingProfile(userId, id, profile)` | localStorage da conta | Salva nome, descrição e imagem somente no navegador. Nenhum PUT. |
 
-type PixCharge = {
-  id: string;
-  contribution: Contribution; // eco do pedido: resumo + retomada
-  copyPaste: string;          // Pix Copia e Cola
-  qrCodeImage: string;        // data URL, nunca URL externa
-  expiresAt: string;          // ISO 8601; tela mostra "Válido até HH:MM"
-  receiverName: string;       // nome que o app do banco mostra
-};
+## Interface
 
-type ChargeStatus =
-  | { status: "pending" }
-  | { status: "paid"; donationId: number } // edifício novo ou o aumentado
-  | { status: "expired" };                 // vencida ou cancelada
+`ContributeDialog`: formulário → pagamento simulado → confirmação. Exige login antes de confirmar. ONG/cidade selecionadas nos catálogos existentes; aumentar mantém cidade. Sem QR, Copia e Cola, recebedor, consulta periódica ou retomada de cobrança no backend.
 
-type BuildingProfile = {
-  name: string | null;        // ≤ 40
-  description: string | null; // ≤ 160
-  image: string | null;       // data URL JPEG de resizeImage(file, 800)
-};
-```
+`Flow` em memória, associado a `userId`. Fechar confirmação libera nova simulação; fechar etapa de pagamento preserva somente essa etapa em memória. Reload preserva edifícios confirmados, não pagamento pendente. Falha de armazenamento mantém etapa de pagamento e exibe erro; não confirma criação.
 
-| Função | Rota | Quem chama | Regra no back |
-|---|---|---|---|
-| `createPixCharge(c)` | `POST /donation/charges` → `201 PixCharge` | etapa 1 / "Gerar novo código" | Sessão, máximo 3 edifícios, destino próprio, ONG ativa/cidade existente. Cancela pendente anterior. `400`/`503` com `message` na tela; `401` abre login |
-| `getChargeStatus(id, signal)` | `GET /donation/charges/:id` | poll 3 s + `visibilitychange` | Só dono (`404` resto). Lê **nosso** banco, nunca o PSP. Simulado: aqui vira `paid` e grava edifício |
-| `getPendingCharge(signal)` | `GET /donation/charges/pending` → `{ data }` | ao logar / remontar | 1 pendente no prazo por usuário; `null` = nenhuma |
-| `fetchBuildingProfile(id, signal)` | `GET /donation/:id/profile` → `{ data }` | administração, card do edifício | Público, `no-store`. Fora do snapshot (imagem incharia toda carga) |
-| `saveBuildingProfile(id, p)` | `PUT /donation/:id/profile` → `204` | administração, "Editar nome e imagem" | Dono ou admin (`404` resto). Substitui tudo; vazio vira `null` |
+`BuildingProfileForm` conserva limites de nome/descrição, validação e redimensionamento de imagem. Erro local exibido no formulário; dados de perfil da conta continuam usando API real de usuário.
 
-Pago → `onPaid` → editor relê `/donation/me` e mescla na cidade — ver [[donation-api#Edifícios do usuário no login]].
+## Verificação
 
-## Backend
+`node scripts/check-contribution.mjs`: centavos/máscara, transição local, falha de armazenamento e ausência de sessão. `node scripts/check-prelaunch.mjs`: criação/aumento, isolamento, reload, perfil/aparência e nenhuma mutação HTTP.
 
-- `donationId: null` ergue; `donationId` positivo aumenta edifício próprio escolhido. `ongId` obrigatório nos dois casos; não precisa coincidir com ONG anterior.
-- `donation` mantém valor total/cidade/dono. `donation_beneficiary` acumula por edifício + ONG. `building_slot` + índice único bloqueiam quarto edifício mesmo sob concorrência.
-- Confirmação trava a cobrança (`FOR UPDATE`): polls simultâneos gravam edifício uma vez só. Destino sumiu entre Pix e pagamento (ONG desligada, limite) → simulado marca `expired`.
-- Validade 1 h (MP aceita 30 min–30 dias; padrão BCB 24 h).
-- Imagem do perfil = mesma regra Zod do `hologramImage`: só data URL, sem SVG, teto 1.000.000 chars.
-
-### Falta para produção
-
-- **PSP real**: webhook com assinatura verificada trava cobrança, chama `recordPaidContribution` + `markChargePaid` na mesma transação. Nunca descartar pagamento recebido (simulado expira; real precisa estorno/destino).
-- **PSP sem CPF obrigatório** de preferência (Asaas exige `cpfCnpj`; Efí, devedor opcional). Campo a mais = abandono.
-- **Moderação** de imagem/texto públicos bloqueia produção.
-
-## Pix simulado (testar à mão)
-
-`PIX_SIMULATED=1` no `.env` do back.
-
-- QR = SVG "TESTE"; recebedor "Cidoa"; validade 60 min.
-- `getChargeStatus` → `paid` 6 s depois de criar; edifício gravado no banco.
-- **Valor R$ 13** nunca paga e expira em 15 s → testa tela "Este código expirou.".
+Relacionado: [[index#Pré-lançamento]], [[donation-api]], [[html-components]].

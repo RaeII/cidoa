@@ -7,6 +7,9 @@ import {
   type DonationRecord,
   type Ong,
 } from "../../api/donationApi";
+import { useAuth } from "@/hooks/useAuth";
+import type { LocalBuilding } from "@/lib/prelaunchCity";
+import { useLocalCityValue, useLocalSceneState } from "./useLocalCity";
 import { UF_REGION, type Region } from "../../api/regions";
 import type { BuildingCustomization } from "../../scene/types";
 
@@ -25,7 +28,9 @@ export type DonationsLoadState =
 const EMPTY_DONATIONS: DonationRecord[] = [];
 const EMPTY_CITIES: City[] = [];
 const EMPTY_ONGS: Ong[] = [];
-const EMPTY_CUSTOMIZATIONS = new Map<number, BuildingCustomization>();
+const EMPTY_LOCAL_BUILDINGS: LocalBuilding[] = [];
+const EMPTY_LOCAL_CUSTOMIZATIONS: Record<string, BuildingCustomization> = {};
+const createDefaultFilter = (): DonationFilter => ({});
 
 /**
  * Carrega doações + personalizações atuais do backend e aplica o filtro client-side.
@@ -35,13 +40,17 @@ const EMPTY_CUSTOMIZATIONS = new Map<number, BuildingCustomization>();
  * é só escolher o que renderizar. Filtrar 100k registros custa ~5ms.
  */
 export function useDonations() {
+  const { user } = useAuth();
+  const userId = user?.id;
+  const localBuildings = useLocalCityValue("buildings", EMPTY_LOCAL_BUILDINGS);
+  const localCustomizations = useLocalCityValue("customizations", EMPTY_LOCAL_CUSTOMIZATIONS);
   const [loadState, setLoadState] = useState<DonationsLoadState>({
     status: "loading",
     loadedBytes: 0,
     totalBytes: null,
   });
   const [dataset, setDataset] = useState<DonationDataset | null>(null);
-  const [filter, setFilter] = useState<DonationFilter>({});
+  const [filter, setFilter] = useLocalSceneState("filter", createDefaultFilter);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -74,35 +83,28 @@ export function useDonations() {
     setReloadKey((key) => key + 1);
   }, []);
 
-  /**
-   * Troca pelo id ou acrescenta (edifícios do usuário, mais novos que o snapshot
-   * cacheado). Nada mudou = mesmo dataset: sem rebuild da cidade.
-   */
-  const upsertDonations = useCallback((records: readonly DonationRecord[]) => {
-    setDataset((prev) => {
-      if (!prev) return prev;
-      let donations = prev.donations;
-      for (const record of records) {
-        const old = donations.find((donation) => donation.id === record.id);
-        if (
-          old &&
-          old.value === record.value &&
-          old.cityId === record.cityId &&
-          old.ongIds.join() === record.ongIds.join()
-        ) continue;
-        donations = old
-          ? donations.map((donation) => (donation.id === record.id ? record : donation))
-          : [...donations, record];
-      }
-      return donations === prev.donations ? prev : { ...prev, donations };
-    });
-  }, []);
+  const allDonations = useMemo(() => {
+    const publicDonations = dataset?.donations ?? EMPTY_DONATIONS;
+    return userId && localBuildings.length ? [...publicDonations, ...localBuildings] : publicDonations;
+  }, [dataset, userId, localBuildings]);
+  const cities = useMemo(() => {
+    const publicCities = dataset?.cities ?? EMPTY_CITIES;
+    if (!userId || !localBuildings.length) return publicCities;
+    const byId = new Map(publicCities.map((city) => [city.id, city]));
+    for (const building of localBuildings) byId.set(building.cityId, building.city);
+    return [...byId.values()];
+  }, [dataset, userId, localBuildings]);
+  const savedCustomizations = useMemo(() => {
+    const merged = new Map(dataset?.customizations);
+    if (userId) for (const [id, customization] of Object.entries(localCustomizations)) merged.set(Number(id), customization);
+    return merged;
+  }, [dataset, userId, localCustomizations]);
 
   const cityById = useMemo(() => {
     const map = new Map<number, City>();
-    dataset?.cities.forEach((city) => map.set(city.id, city));
+    cities.forEach((city) => map.set(city.id, city));
     return map;
-  }, [dataset]);
+  }, [cities]);
 
   // Filtro AND: ONG combina com qualquer nível de local; local usa o mais
   // específico presente (cidade > UF > região). Região deriva da UF (UF_REGION).
@@ -110,9 +112,9 @@ export function useDonations() {
     if (!dataset) return [];
     const { region, uf, cityId, ongId } = filter;
     if (region === undefined && uf === undefined && cityId === undefined && ongId === undefined) {
-      return dataset.donations;
+      return allDonations;
     }
-    return dataset.donations.filter((donation) => {
+    return allDonations.filter((donation) => {
       if (ongId !== undefined && !donation.ongIds.includes(ongId)) return false;
       if (cityId !== undefined) return donation.cityId === cityId;
       if (uf !== undefined) return cityById.get(donation.cityId)?.uf === uf;
@@ -122,19 +124,18 @@ export function useDonations() {
       }
       return true;
     });
-  }, [dataset, filter, cityById]);
+  }, [dataset, allDonations, filter, cityById]);
 
   return {
     loadState,
     donations,
     /** Dataset sem filtro (ex.: listar as doações do usuário mesmo fora do filtro). */
-    allDonations: dataset?.donations ?? EMPTY_DONATIONS,
-    cities: dataset?.cities ?? EMPTY_CITIES,
+    allDonations,
+    cities,
     ongs: dataset?.ongs ?? EMPTY_ONGS,
-    savedCustomizations: dataset?.customizations ?? EMPTY_CUSTOMIZATIONS,
+    savedCustomizations,
     filter,
     setFilter,
     retry,
-    upsertDonations,
   };
 }

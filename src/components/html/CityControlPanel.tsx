@@ -97,7 +97,7 @@ export function CityControlPanel({
   const [activeTab, setActiveTab] = useState<Tab>("geral");
 
   return (
-    <div className="pixel bevel-edge absolute right-0 top-0 z-20 flex h-screen w-full max-w-[360px] flex-col bg-background text-foreground">
+    <div className="pixel bevel-edge absolute right-0 top-0 z-[35] flex h-screen w-full max-w-[360px] flex-col bg-background text-foreground">
       <div className="flex items-start border-b border-border">
         {/* 7 abas não cabem em 360px numa linha: quebram em duas. */}
         <div className="flex flex-1 flex-wrap">

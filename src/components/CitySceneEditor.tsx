@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { CitySceneCanvas, type CitySceneCanvasHandle } from "./three/CitySceneCanvas";
 import { AuthMenu } from "./AuthMenu";
-import { BuildingHeightInput } from "./html/BuildingHeightInput";
 import { BuildingManageDialog } from "./html/BuildingManageDialog";
 import { BuildingInfoModal } from "./html/BuildingInfoModal";
 import { BuildingLayoutCard } from "./html/BuildingLayoutCard";
@@ -12,9 +11,9 @@ import {
   type KeyboardShortcut,
 } from "./hooks/useKeyboardShortcuts";
 import { useDonations } from "./hooks/useDonations";
+import { useLocalSceneState } from "./hooks/useLocalCity";
 import { useOwnedDonationIds } from "./hooks/useOwnedDonationIds";
 import { useAuth } from "@/hooks/useAuth";
-import { ApiError } from "../api/http";
 import { saveDonationCustomization } from "../api/donationApi";
 import { useCustomizationCatalog } from "./hooks/useCustomizationCatalog";
 import { DonationLoadOverlay } from "./html/DonationLoadOverlay";
@@ -39,10 +38,7 @@ import { createDefaultLightSettings } from "../scene/config/lightConfig";
 import { createDefaultReflectionSettings } from "../scene/config/reflectionConfig";
 import { createDefaultTextureSettings } from "../scene/config/textureConfig";
 import { createDefaultHorizonSettings } from "../scene/config/horizonConfig";
-import {
-  loadUIVisibilitySettings,
-  saveUIVisibilitySettings,
-} from "../scene/config/uiVisibilityConfig";
+import { createDefaultUIVisibilitySettings } from "../scene/config/uiVisibilityConfig";
 import type {
   BuildingCustomization,
   CameraDebugInfo,
@@ -57,32 +53,33 @@ import { getLightMetrics } from "../scene/utils/lighting";
 
 const formatCameraValue = (value: number) => value.toFixed(2);
 
-// Cor e opacidade disparam a cada frame de arrasto — sem isso um slider vira
-// dezenas de PUTs. Só o estado final de cada edifício chega no banco.
+// Arrasto de slider salva apenas o estado final no navegador.
 const SAVE_DEBOUNCE_MS = 500;
+const createDefaultGrain = () => 0;
+const createDefaultVisibleLimit = (): number | null => null;
 
 export function CitySceneEditor() {
   const canvasRef = useRef<CitySceneCanvasHandle>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [inInfo, setInInfo] = useState(false);
 
-  const [buildingSettings, setBuildingSettings] = useState(createDefaultBuildingSettings);
-  const [textureSettings, setTextureSettings] = useState(createDefaultTextureSettings);
-  const [groundSettings, setGroundSettings] = useState(createDefaultGroundSettings);
-  const [terrainSettings, setTerrainSettings] = useState(createDefaultTerrainSettings);
-  const [lightSettings, setLightSettings] = useState(createDefaultLightSettings);
-  const [environmentSettings, setEnvironmentSettings] = useState(createDefaultEnvironmentSettings);
-  const [reflectionSettings, setReflectionSettings] = useState(createDefaultReflectionSettings);
-  const [horizonSettings, setHorizonSettings] = useState(createDefaultHorizonSettings);
-  const [blockLayoutSettings, setBlockLayoutSettings] = useState(createDefaultBlockLayoutSettings);
+  const [buildingSettings, setBuildingSettings] = useLocalSceneState("building", createDefaultBuildingSettings);
+  const [textureSettings, setTextureSettings] = useLocalSceneState("texture", createDefaultTextureSettings);
+  const [groundSettings, setGroundSettings] = useLocalSceneState("ground", createDefaultGroundSettings);
+  const [terrainSettings, setTerrainSettings] = useLocalSceneState("terrain", createDefaultTerrainSettings);
+  const [lightSettings, setLightSettings] = useLocalSceneState("light", createDefaultLightSettings);
+  const [environmentSettings, setEnvironmentSettings] = useLocalSceneState("environment", createDefaultEnvironmentSettings);
+  const [reflectionSettings, setReflectionSettings] = useLocalSceneState("reflection", createDefaultReflectionSettings);
+  const [horizonSettings, setHorizonSettings] = useLocalSceneState("horizon", createDefaultHorizonSettings);
+  const [blockLayoutSettings, setBlockLayoutSettings] = useLocalSceneState("blockLayout", createDefaultBlockLayoutSettings);
   const [sceneStats, setSceneStats] = useState<SceneStats>({ ...DEFAULT_SCENE_STATS });
   const [cameraDebugInfo, setCameraDebugInfo] = useState<CameraDebugInfo | null>(null);
   const [hoverInfo, setHoverInfo] = useState<{ value: number; x: number; y: number } | null>(null);
   const [showControlPanel, setShowControlPanel] = useState(false);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
-  const [uiVisibility, setUIVisibility] = useState(loadUIVisibilitySettings);
-  // Granulado de renderização zerado por padrão: cena sempre abre na resolução nativa.
-  const [grain, setGrain] = useState(0);
+  const [uiVisibility, setUIVisibility] = useLocalSceneState("visibility", createDefaultUIVisibilitySettings);
+  // Granulado zerado por padrão; preferência restaura por conta.
+  const [grain, setGrain] = useLocalSceneState("grain", createDefaultGrain);
   // Clique abre informações; administração só para dono ou admin.
   const [infoBuildingId, setInfoBuildingId] = useState<number | null>(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState<number | null>(null);
@@ -94,7 +91,7 @@ export function CitySceneEditor() {
   const customizationsRef = useRef(buildingCustomizations);
   // donationId → debounce pendente. Guarda o payload junto p/ o flush do unmount.
   const pendingSaves = useRef(
-    new Map<number, { timer: ReturnType<typeof setTimeout>; customization: BuildingCustomization }>(),
+    new Map<number, { timer: ReturnType<typeof setTimeout>; customization: BuildingCustomization; userId: number }>(),
   );
 
   // Doações vêm do snapshot cacheado; personalizações, da leitura no-store.
@@ -109,44 +106,45 @@ export function CitySceneEditor() {
     filter,
     setFilter,
     retry,
-    upsertDonations,
   } = useDonations();
   const [customizationRevision, setCustomizationRevision] = useState(0);
   const customizationCatalog = useCustomizationCatalog(customizationRevision);
   const { user, isAdmin } = useAuth();
-  const { ids: ownedDonationIds, records: ownedRecords, refresh: refreshOwned } = useOwnedDonationIds();
+  const { ids: ownedDonationIds } = useOwnedDonationIds();
 
-  // Login/pagamento: os edifícios do usuário vêm do banco na hora e entram na
-  // cidade mesmo que o snapshot cacheado (≤30 s) ainda não os tenha.
-  useEffect(() => {
-    if (loadState.status === "ready" && ownedRecords.length > 0) upsertDonations(ownedRecords);
-  }, [ownedRecords, loadState.status, upsertDonations]);
-  // Só UX: o backend recusa (404) o PUT em edifício alheio de qualquer jeito.
+  // Admin edita a cópia local do cenário público; contas comuns, suas simulações.
   const canEdit = (donationId: number) => isAdmin || ownedDonationIds.has(donationId);
   const [donationsApplied, setDonationsApplied] = useState(false);
   // Teto de edifícios na cena (null = todos). Corta as doações de menor valor.
-  const [visibleLimit, setVisibleLimit] = useState<number | null>(null);
+  const [visibleLimit, setVisibleLimit] = useLocalSceneState("visibleLimit", createDefaultVisibleLimit);
   const [contributeOpen, setContributeOpen] = useState(false);
   // Login controlado aqui: o modal de contribuição também pede login.
   const [authOpen, setAuthOpen] = useState(false);
   const [profileEditId, setProfileEditId] = useState<number | null>(null);
-  const [infoProfile, setInfoProfile] = useState<{ id: number; profile: BuildingProfile | null } | null>(null);
+  const [infoProfile, setInfoProfile] = useState<{ id: number; userId: number | undefined; profile: BuildingProfile | null } | null>(null);
   // Edifício a focar quando o rebuild da cena terminar (ex.: recém-erguido fora do filtro).
   const pendingFocusRef = useRef<number | null>(null);
 
   useEffect(() => {
     pendingFocusRef.current = null;
+    // Troca de conta remove seleção e perfil da cidade anterior.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setInfoBuildingId(null);
+    setSelectedBuildingId(null);
+    setProfileEditId(null);
+    setInfoProfile(null);
   }, [user?.id]);
 
-  // Personalização salva no banco vira o estado inicial do painel. Só muda
-  // quando o dataset chega (load/retry) — que é justamente quando descartar
-  // edições locais é o certo.
+  // Sobrepõe as edições locais da conta à personalização pública.
   useEffect(() => {
     const saved = new Map(savedCustomizations);
+    for (const [id, entry] of pendingSaves.current) {
+      if (entry.userId === user?.id) saved.set(id, entry.customization);
+    }
     customizationsRef.current = saved;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setBuildingCustomizations(saved);
-  }, [savedCustomizations]);
+  }, [savedCustomizations, user?.id]);
 
   useEffect(() => {
     customizationsRef.current = buildingCustomizations;
@@ -222,18 +220,6 @@ export function CitySceneEditor() {
 
   const lightMetrics = getLightMetrics(lightSettings);
 
-  useEffect(() => {
-    saveUIVisibilitySettings(uiVisibility);
-  }, [uiVisibility]);
-
-  const handleDonation = (value: number) => {
-    canvasRef.current?.addDonation(value);
-  };
-
-  const handleBulkDonation = (values: number[]) => {
-    canvasRef.current?.addDonations(values);
-  };
-
   const handleHoverChange = useCallback(
     (value: number | null, x: number, y: number) => {
       setHoverInfo(value !== null ? { value, x, y } : null);
@@ -272,13 +258,6 @@ export function CitySceneEditor() {
     setSelectedBuildingId(null);
   }, [selectedBuildingId]);
 
-  // Pagamento confirmado: o back já gravou; relê os edifícios próprios e o
-  // efeito acima põe o novo (ou maior) na cidade sem recarregar o snapshot.
-  const handlePaid = () => {
-    refreshOwned();
-    setCustomizationRevision((revision) => revision + 1);
-  };
-
   // Acesso pelo menu ou confirmação: revela o edifício mesmo fora do filtro/teto.
   const handleOpenDonation = (donationId: number) => {
     const visible = visibleDonations.some((d) => d.id === donationId);
@@ -296,14 +275,14 @@ export function CitySceneEditor() {
   useEffect(() => {
     if (infoBuildingId === null) return;
     const controller = new AbortController();
-    fetchBuildingProfile(infoBuildingId, controller.signal).then(
+    fetchBuildingProfile(infoBuildingId, controller.signal, user?.id).then(
       (profile) => {
-        if (!controller.signal.aborted) setInfoProfile({ id: infoBuildingId, profile });
+        if (!controller.signal.aborted) setInfoProfile({ id: infoBuildingId, userId: user?.id, profile });
       },
       () => {},
     );
     return () => controller.abort();
-  }, [infoBuildingId]);
+  }, [infoBuildingId, user?.id]);
 
   // Tudo que o modal mostra já veio no snapshot público — sem request no clique.
   const infoBuilding = useMemo(() => {
@@ -361,37 +340,21 @@ export function CitySceneEditor() {
     [selectedBuildingId, getExistingCustomization],
   );
 
-  const flushSave = useCallback((donationId: number, customization: BuildingCustomization) => {
+  const flushSave = useCallback((donationId: number, customization: BuildingCustomization, ownerId: number) => {
     pendingSaves.current.delete(donationId);
     // Um toast por edifício: falhas seguidas (arrasto de slider) substituem
     // em vez de empilhar; o próximo save ok fecha.
     const toastId = `save-customization-${donationId}`;
     function save(data: BuildingCustomization) {
-      saveDonationCustomization(donationId, data)
+      saveDonationCustomization(ownerId, donationId, data)
         .then(() => toast.dismiss(toastId))
         .catch((err: unknown) => {
-          // O interceptor do `http` rejeita com ApiError, nunca AxiosError.
-          const status = err instanceof ApiError ? err.status : 0;
-          // 400/403 vêm com a razão exata do backend (opção travada, item
-          // desligado) — repetir a mensagem dele é melhor que genérico.
-          const reason =
-            err instanceof ApiError && (status === 400 || status === 403)
-              ? err.message
-              : status === 401
-                ? "Entre na sua conta para salvar a personalização."
-                : status === 404
-                  ? "Este edifício não é seu — a mudança não foi salva."
-                  : undefined;
-          toast.error(reason ?? "Não foi possível salvar a personalização.", {
+          toast.error(err instanceof Error ? err.message : "Não foi possível salvar neste navegador.", {
             id: toastId,
-            // Rede/servidor é transitório: repete com o estado ATUAL do edifício,
-            // não o da tentativa que falhou.
-            action: reason
-              ? undefined
-              : {
-                  label: "Tentar de novo",
-                  onClick: () => save(customizationsRef.current.get(donationId) ?? data),
-                },
+            action: {
+              label: "Tentar de novo",
+              onClick: () => save(data),
+            },
           });
         });
     }
@@ -401,23 +364,32 @@ export function CitySceneEditor() {
   // Um debounce por edifício: editar A e depois B não pode cancelar o save de A.
   const queueSave = useCallback(
     (donationId: number, customization: BuildingCustomization) => {
-      clearTimeout(pendingSaves.current.get(donationId)?.timer);
+      if (!user) return;
+      const previous = pendingSaves.current.get(donationId);
+      clearTimeout(previous?.timer);
+      if (previous && previous.userId !== user.id) flushSave(donationId, previous.customization, previous.userId);
       pendingSaves.current.set(donationId, {
         customization,
-        timer: setTimeout(() => flushSave(donationId, customization), SAVE_DEBOUNCE_MS),
+        userId: user.id,
+        timer: setTimeout(() => flushSave(donationId, customization, user.id), SAVE_DEBOUNCE_MS),
       });
     },
-    [flushSave],
+    [flushSave, user],
   );
 
-  // Desmontar dentro da janela do debounce não pode comer a última edição.
+  // Recarregar/fechar a aba também preserva a última edição do slider.
   useEffect(() => {
     const pending = pendingSaves.current;
-    return () => {
+    const flushPending = () => {
       for (const [donationId, entry] of pending) {
         clearTimeout(entry.timer);
-        flushSave(donationId, entry.customization);
+        flushSave(donationId, entry.customization, entry.userId);
       }
+    };
+    window.addEventListener("pagehide", flushPending);
+    return () => {
+      window.removeEventListener("pagehide", flushPending);
+      flushPending();
     };
   }, [flushSave]);
 
@@ -451,25 +423,12 @@ export function CitySceneEditor() {
   );
 
   const shortcuts: KeyboardShortcut[] = [
-    {
+    ...(isAdmin ? [{
       key: "m",
       ctrl: true,
       description: "Abrir/fechar painel de controle",
       handler: () => setShowControlPanel((open) => !open),
-    },
-    {
-      key: "b",
-      ctrl: true,
-      description: "Mostrar/esconder input de doação",
-      handler: () =>
-        setUIVisibility((prev) => ({ ...prev, donationInput: !prev.donationInput })),
-    },
-    {
-      key: "j",
-      ctrl: true,
-      description: "Mostrar/esconder log da câmera",
-      handler: () => setUIVisibility((prev) => ({ ...prev, cameraLog: !prev.cameraLog })),
-    },
+    }] : []),
     {
       key: "?",
       shift: true,
@@ -559,30 +518,36 @@ export function CitySceneEditor() {
         facadeTexturePool={facadeTexturePool}
         grain={grain}
         onStatsChange={setSceneStats}
-        onCameraDebugChange={uiVisibility.cameraLog ? setCameraDebugInfo : undefined}
+        onCameraDebugChange={isAdmin && uiVisibility.cameraLog ? setCameraDebugInfo : undefined}
         onHoverChange={handleHoverChange}
         onBuildingClick={handleBuildingClick}
       />
-      <div className="absolute right-4 top-4 z-20">
-        <AuthMenu
-          night={environmentSettings.night}
-          onNightChange={(night) => setEnvironmentSettings((prev) => ({ ...prev, night }))}
-          myDonations={myDonations}
-          catalog={customizationCatalog}
-          onOpenDonation={handleOpenDonation}
-          authOpen={authOpen}
-          onAuthOpenChange={setAuthOpen}
-          onboardingBlocked={contributeOpen || infoBuildingId !== null || selectedBuildingId !== null || profileEditId !== null}
-        />
+      <div className="absolute inset-x-4 top-4 z-30 flex flex-col gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="bg-background px-3 py-2 text-foreground">
+            <p className="mono-label text-primary">Pré-lançamento</p>
+            <p className="mt-1 text-xs">Pagamentos simulados. Cidade salva só neste navegador.</p>
+          </div>
+          <AuthMenu
+            night={environmentSettings.night}
+            onNightChange={(night) => setEnvironmentSettings((prev) => ({ ...prev, night }))}
+            myDonations={myDonations}
+            catalog={customizationCatalog}
+            onOpenDonation={handleOpenDonation}
+            authOpen={authOpen}
+            onAuthOpenChange={setAuthOpen}
+            onboardingBlocked={contributeOpen || infoBuildingId !== null || selectedBuildingId !== null || profileEditId !== null}
+          />
+        </div>
+        {loadState.status === "ready" && uiVisibility.donationFilter && (
+          <DonationFilterBar
+            cities={cities}
+            ongs={ongs}
+            filter={filter}
+            onChange={setFilter}
+          />
+        )}
       </div>
-      {loadState.status === "ready" && uiVisibility.donationFilter && (
-        <DonationFilterBar
-          cities={cities}
-          ongs={ongs}
-          filter={filter}
-          onChange={setFilter}
-        />
-      )}
       {loadState.status === "ready" && (
         <ContributeDialog
           open={contributeOpen}
@@ -590,14 +555,14 @@ export function CitySceneEditor() {
           ongs={ongs}
           buildings={myDonations}
           onRequestLogin={() => setAuthOpen(true)}
-          onPaid={handlePaid}
+          onPaid={() => setCustomizationRevision((revision) => revision + 1)}
           onViewBuilding={handleOpenDonation}
         />
       )}
       {(loadState.status !== "ready" || !donationsApplied) && (
         <DonationLoadOverlay state={loadState} onRetry={retry} />
       )}
-      {uiVisibility.cameraLog && cameraDebugInfo && (
+      {isAdmin && uiVisibility.cameraLog && cameraDebugInfo && (
         <div className="pixel bevel-edge absolute bottom-4 left-4 z-30 w-[min(21rem,calc(100vw-2rem))] select-text bg-background px-3 pt-2 pb-3 font-mono text-[11px] leading-5 text-muted-foreground">
           <div className="mb-1 font-sans text-xs font-semibold text-foreground">Camera default</div>
           <div>
@@ -623,7 +588,7 @@ export function CitySceneEditor() {
           })}
         </div>
       )}
-      {loadState.status === "ready" && uiVisibility.buildingLayoutCard && (
+      {isAdmin && loadState.status === "ready" && uiVisibility.buildingLayoutCard && (
         <BuildingLayoutCard
           settings={blockLayoutSettings}
           onChange={setBlockLayoutSettings}
@@ -635,13 +600,6 @@ export function CitySceneEditor() {
           }
         />
       )}
-      <BuildingHeightInput
-        onSubmit={handleDonation}
-        onBulkSubmit={handleBulkDonation}
-        blockLayoutSettings={blockLayoutSettings}
-        onBlockLayoutChange={setBlockLayoutSettings}
-        visibility={uiVisibility}
-      />
       {infoBuildingId !== null && infoBuilding && (
         <BuildingInfoModal
           value={infoBuilding.value}
@@ -649,30 +607,30 @@ export function CitySceneEditor() {
           place={infoBuilding.place}
           isOwn={ownedDonationIds.has(infoBuildingId)}
           onManage={canEdit(infoBuildingId) ? handleManageFromInfo : undefined}
-          profile={infoProfile?.id === infoBuildingId ? infoProfile.profile : null}
+          profile={infoProfile?.id === infoBuildingId && infoProfile.userId === user?.id ? infoProfile.profile : null}
           onEditProfile={canEdit(infoBuildingId) ? () => setProfileEditId(infoBuildingId) : undefined}
           onClose={handleCloseInfo}
         />
       )}
       <BuildingProfileDialog
-        donationId={profileEditId}
+        donationId={profileEditId !== null && canEdit(profileEditId) ? profileEditId : null}
         onClose={() => setProfileEditId(null)}
-        onSaved={(id, profile) => setInfoProfile({ id, profile })}
+        onSaved={(id, profile) => setInfoProfile({ id, userId: user?.id, profile })}
       />
       {/* Gate no render: sessão que cai (logout/401) fecha o painel sozinha. */}
       {selectedBuildingId !== null && selectedCustomization && canEdit(selectedBuildingId) && (
         <BuildingManageDialog
-          key={selectedBuildingId}
+          key={`${user?.id}:${selectedBuildingId}`}
           donationId={selectedBuildingId}
           catalog={customizationCatalog}
           customization={selectedCustomization}
           textureSettings={textureSettings}
           onCustomizationChange={updateCustomization}
-          onSaved={(id, profile) => setInfoProfile({ id, profile })}
+          onSaved={(id, profile) => setInfoProfile({ id, userId: user?.id, profile })}
           onClose={handleCloseManagement}
         />
       )}
-      {showControlPanel && (
+      {isAdmin && showControlPanel && (
         <CityControlPanel
           buildingSettings={buildingSettings}
           textureSettings={textureSettings}
@@ -708,12 +666,12 @@ export function CitySceneEditor() {
           onClose={() => setShowShortcutsHelp(false)}
         />
       )}
-      {!showControlPanel && (
+      {(!isAdmin || !showControlPanel) && (
         <Button variant="outline" size="icon-lg" onClick={scrollToInfo} aria-label="Ver ONGs e contribuições" title="ONGs e contribuições" className="absolute bottom-[4.75rem] right-4 z-30">
           <PixelChevronDown />
         </Button>
       )}
-      {!showControlPanel && (
+      {isAdmin && !showControlPanel && (
         <Button
           variant="outline"
           size="icon-lg"

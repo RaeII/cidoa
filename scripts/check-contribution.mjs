@@ -57,10 +57,9 @@ const source = await readFile(new URL("../src/components/html/donate/ContributeD
 const ast = ts.createSourceFile("ContributeDialog.tsx", source, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TSX);
 const dialog = ast.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "ContributeDialog");
 const handleOpenChange = dialog.body.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "handleOpenChange");
-const handleStatus = dialog.body.statements.find((node) => ts.isVariableStatement(node) && node.declarationList.declarations.some((declaration) => declaration.name.getText(ast) === "handleStatus"));
 const paidFlow = { step: "done", userId: 1, contribution: { donationId: null, ongId: 2, cityId: 3, value: 25 }, donationId: 42 };
 const state = {
-  active: paidFlow, flow: paidFlow, open: true, paid: 0, editingCharge: false, toast: null, viewedId: null,
+  Error, active: paidFlow, flow: paidFlow, open: true, paid: 0, editingCharge: false, toast: null, viewedId: null,
   setFlow(value) { state.flow = value; },
   onOpenChange(value) { state.open = value; },
   setEditingCharge(value) { state.editingCharge = value; },
@@ -69,7 +68,7 @@ const state = {
   useEffectEvent: (handler) => handler,
 };
 state.toast = { success(_message, options) { state.notification = options; } };
-vm.runInNewContext(ts.transpileModule(`${handleOpenChange.getText(ast)}\n${handleStatus.getText(ast)}\nglobalThis.handleStatus = handleStatus;`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, state);
+vm.runInNewContext(ts.transpileModule(handleOpenChange.getText(ast), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, state);
 state.handleOpenChange(false);
 assert.equal(state.open, false);
 assert.equal(state.flow.step, "form", "Fechar confirmação libera nova contribuição");
@@ -77,22 +76,38 @@ state.active = null;
 state.handleOpenChange(true);
 assert.equal(state.open, true);
 assert.equal(state.flow.step, "form", "Contribuir reabre formulário, não edição");
-const pending = { step: "pay", userId: 1, charge: { id: "pix", contribution: paidFlow.contribution }, expired: false };
+const pending = { step: "pay", userId: 1, contribution: paidFlow.contribution, city: { id: 3, name: "Cidade", uf: "SP" } };
 state.active = pending;
 state.flow = pending;
 state.handleOpenChange(false);
-assert.equal(state.flow, pending, "Fechar Pix mantém acompanhamento");
-state.handleStatus("outra-cobranca", { status: "paid", donationId: 99 });
-assert.equal(state.paid, 0, "Não reaproveita confirmação de outra cobrança/sessão");
-state.handleStatus("pix", { status: "paid", donationId: 42 });
+assert.equal(state.flow, pending, "Fechar mantém a simulação apenas em memória");
+const confirm = dialog.body.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "confirmSimulation");
+Object.assign(state, {
+  creating: false, user: { id: 1 }, error: null,
+  setCreating(value) { state.creating = value; },
+  setError(value) { state.error = value; },
+  simulateContribution(userId, contribution, city) {
+    assert.equal(userId, 1);
+    assert.equal(contribution, paidFlow.contribution);
+    assert.equal(city.id, 3);
+    return -1;
+  },
+});
+vm.runInNewContext(ts.transpileModule(confirm.getText(ast), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, state);
+state.confirmSimulation();
 assert.equal(state.paid, 1);
-assert.equal(state.flow.step, "form", "Pagamento com modal fechado deixa Contribuir pronto");
-assert.equal(state.notification.action.label, "Ver edifício");
-state.notification.action.onClick();
-assert.equal(state.viewedId, 42, "Toast abre edifício pela administração independente");
-state.open = true;
-state.handleStatus("pix", { status: "paid", donationId: 42 });
 assert.equal(state.flow.step, "done");
-assert.equal(state.flow.donationId, 42);
+assert.equal(state.flow.donationId, -1);
+state.flow = pending;
+state.simulateContribution = () => { throw new Error("Armazenamento cheio"); };
+state.confirmSimulation();
+assert.equal(state.flow, pending, "Falha local não confirma simulação");
+assert.equal(state.error, "Armazenamento cheio");
+assert.equal(state.creating, false);
+state.user = null;
+state.error = null;
+state.confirmSimulation();
+assert.equal(state.error, null, "Sem sessão não confirma");
+assert.doesNotMatch(source, /createPixCharge|getChargeStatus|getPendingCharge|PixPayment/);
 assert.doesNotMatch(source, /BuildingProfileForm|BuildingCustomizer|Voltar à edição/);
-console.log("Contribuição: centavos/máscara OK; confirmação libera novo pagamento, Pix pendente preservado e edifício acessado pela cidade.");
+console.log("Contribuição: centavos/máscara OK; confirmação local, falha de armazenamento e sessão ausente OK.");

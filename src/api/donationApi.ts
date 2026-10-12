@@ -1,4 +1,5 @@
 import { http } from "./http";
+import { saveLocalCustomization } from "../lib/prelaunchCity";
 import type { BuildingCustomization } from "../scene/types";
 
 export type DonationRecord = {
@@ -88,28 +89,11 @@ export async function fetchDonationSnapshot(
   };
 }
 
-/**
- * Edifícios do usuário logado, sempre atuais (`no-store`). Decidem quais
- * edifícios abrem o painel e entram na cidade mesmo antes do snapshot
- * cacheado alcançar um pagamento recente. Só UX: o PUT abaixo continua
- * recusando (404) o que não é dele.
- */
-export async function fetchMyDonations(
-  opts: { signal?: AbortSignal } = {},
-): Promise<DonationRecord[]> {
-  const { data } = await http.get<{ data: DonationRecord[] }>("/donation/me", {
-    signal: opts.signal,
-  });
-  return data.data;
-}
-
-/**
- * Persiste a personalização de UM edifício. Exige sessão: o back só aceita do
- * dono da doação (ou admin) e responde 404 no resto — ver donation.controller.
- */
+/** Pré-lançamento: personalização salva somente neste navegador. */
 export async function saveDonationCustomization(
+  userId: number,
   donationId: number,
   customization: BuildingCustomization,
 ): Promise<void> {
-  await http.put(`/donation/${donationId}/customization`, customization);
+  saveLocalCustomization(userId, donationId, customization);
 }

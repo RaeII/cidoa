@@ -19,6 +19,37 @@ Cidoa é uma cena 3D de cidade procedural feita com `React 19`, `Three.js`, `Typ
 > [!important] Estilo de escrita
 > Toda escrita aqui = modo homem das cavernas. Corta artigo, enchimento, hedge. Fragmento OK. Termo técnico exato. Code block, wikilink, Mermaid ficam intactos.
 
+## Pré-lançamento
+
+Cadastro, login, perfil da conta e indicações continuam reais, conectados ao backend. Cidade funciona como simulação individual no navegador. Nenhuma configuração de ambiente habilita pagamentos reais nesta branch.
+
+### Dados da cidade
+
+- Cenário inicial: leitura pública de `/donation/snapshot` e `/donation/customizations`.
+- Criar/aumentar: `simulateContribution(userId, contribution, city)` em `src/lib/prelaunchCity.ts`. Sem Pix, cobrança, polling ou gravação no banco.
+- Máximo 3 edifícios por conta/navegador; mínimo R$ 5; valores somados em centavos.
+- IDs negativos exclusivos da simulação; IDs públicos positivos preservados.
+- Chaves: `cidoa:prelaunch:v1:<userId>:<area>`. Áreas `buildings`, `customizations`, `profiles` e `scene:<setting>`. Visitante usa `guest` somente para preferências.
+- `LocalBuilding` inclui cidade (`id`, nome, UF) para restaurar filtros e localização mesmo se ausente do snapshot.
+- `useLocalCityValue` usa `useSyncExternalStore`, eventos locais e `storage`: atualiza componentes e outras abas da mesma conta/navegador. Logout/troca de conta remove os edifícios e edições da conta anterior do render.
+- `useLocalSceneState`: iluminação, terreno, texturas, ambiente/noite, reflexos, horizonte, layout, visibilidade, granulado, limite de renderização e filtros. Restaura valores por conta; não publica alterações.
+- Personalização: debounce 500 ms por edifício; payload captura a conta que editou. Flush no unmount e `pagehide`. Nome/descrição/imagem salvam pelo formulário.
+- Armazenamento bloqueado/cheio: erro visível, sem confirmar pagamento nem apagar valores anteriores. JSON inválido preservado, erro exibido.
+
+### Interface
+
+**Pré-lançamento** no título e no HUD público. **Simular contribuição → Confirmar pagamento simulado → Ver meu edifício**. Valores apresentados como simulados; nenhum dinheiro enviado à ONG.
+
+Botão, painel e atalho `Ctrl+M` das configurações da cena exclusivos de `isAdmin` da sessão da cena. Card de layout e log de câmera também exclusivos de admin. Geradores manuais temporários do canvas deixam de ser montados; criação pública passa pelo fluxo local persistido. Administração do edifício continua disponível para dono local ou admin; admin altera apenas sua cópia no navegador.
+
+### Limites
+
+Limpar dados do site remove a cidade simulada; outro navegador/dispositivo não recebe esses dados. Não existe migração automática para edifícios reais. Backend e suas rotas administrativas continuam existentes; este frontend remove o caminho público de pagamento e escrita da cidade, sem mudar administração do backend.
+
+### Verificação
+
+`npm run build`, `npm run lint`, `node scripts/check-prelaunch.mjs`, `node scripts/check-contribution.mjs`, `node scripts/check-building-management.mjs`, `node scripts/check-donation-info.mjs`. Sem servidor ou navegador.
+
 ## Como a Documentação Está Organizada
 
 As páginas ficam em pastas que **espelham as pastas do código** — assim você acha o doc pelo mesmo caminho do arquivo.
@@ -55,7 +86,7 @@ scripts/
   encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`)
   check-pass.mjs               ← ordenação do passe sem servidor/navegador
   check-city-search.mjs        ← busca de cidade (acento, prefixo antes de substring, UF, limite) sem navegador
-  check-contribution.mjs       ← máscara monetária + confirmação libera novo pagamento; sem servidor/navegador
+  check-contribution.mjs       ← máscara monetária + confirmação da simulação local; sem servidor/navegador
   check-building-management.mjs ← administração, posse, descarte e foco após filtro/pagamento; sem servidor/navegador
   check-donation-info.mjs      ← foto, totais, 5 ONGs em linhas, filtros e transição cena/seção; sem servidor/navegador
   check-building-shapes.mjs    ← checa os 12 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
@@ -86,7 +117,7 @@ src/
       location.types.ts           ← `City { id, name, uf }`
     customizationApi.ts             ← catálogo de personalizações + conquistas do usuário
     donationApi.ts                  ← snapshot + personalizações atuais + edifícios próprios completos + PUT da personalização
-    contributionApi.ts              ← Pix (cobrança/status/pendente) + perfil do edifício, gravados no back
+    contributionApi.ts              ← leitura de perfil público + edição local no pré-lançamento
     regions.ts
   pages/admin/
     Pass.tsx                    ← página dedicada /dale/passe
@@ -130,7 +161,7 @@ src/
       DonationInfoSection.tsx     ← texto/foto, totais e 5 ONGs em linhas; composição da video-2, DS atual
       BuildingInfoModal.tsx          ← card só-leitura do prédio clicado; lápis só p/ dono/admin
       donate/
-        ContributeDialog.tsx         ← contribuição → Pix → confirmação; sem edição
+        ContributeDialog.tsx         ← simulação → pagamento simulado → confirmação local; sem edição
         BuildingProfileForm.tsx      ← imagem/nome/descrição do edifício + dialog de edição
       BuildingManageDialog.tsx   ← administração independente: informações + aparência/prévia 3D
       BuildingControls.tsx
@@ -163,7 +194,7 @@ src/
       useKeyboardShortcuts.ts
       useDonations.ts
       useCustomizationCatalog.ts   ← catálogo 1×, conquistas atualizadas após pagamento
-      useOwnedDonationIds.ts       ← edifícios da sessão (quem pode editar + mescla no snapshot); `refresh()` pós-pagamento
+      useOwnedDonationIds.ts       ← edifícios locais da conta (posse e lista sem API de doações próprias)
     three/
       CitySceneCanvas.tsx
       CustomizationPreview.tsx     ← miniatura + preview 3D de formato/topo/LED (admin)
@@ -227,7 +258,7 @@ doc/
     donation-api.md
     referral.md                  ← links, código, confirmação e compartilhamento
     customization-api.md         ← catálogo, conquistas do usuário, formatação do requisito
-    contribution-api.md          ← Pix + perfil do edifício: contrato, rotas, Pix simulado, falta p/ produção
+    contribution-api.md          ← simulação local + leitura/edição de perfil do edifício
   components/                    ← espelha src/components (interface React)
     html-components.md
     three-components.md
@@ -296,7 +327,7 @@ Também gerencia:
 
 - Doações do backend via `useDonations` (snapshot cacheado + personalizações `no-store`) → `canvasRef.setDonations(donations)` quando `loadState.status === "ready"`. Ver [[donation-api]]
 - Meus edifícios: lista própria sem filtro, Ver na cidade revela/foca e abre informações; Administrar edita sem criar cobrança. Foco pendente aguarda edifício no rebuild; trocar conta/fechar card cancela. Rebuild mantém administração se edifício continua visível.
-- Contribuição: botão sempre dedicado ao pagamento; fechar confirmação permite nova contribuição. ONG escolhida a cada pagamento; mesmo edifício apoia várias ONGs. Máximo 3 edifícios por conta, validado no backend/banco. Aumentar com vários exige escolher destino. Pago = edifício gravado no banco; Pix simulado no back (`PIX_SIMULATED`) até PSP real; ver [[contribution-api]].
+- Contribuição no pré-lançamento: máximo 3 edifícios locais por conta/navegador, mínimo R$ 5; aumento mantém cidade e acumula ONGs. Confirmação grava somente localStorage; nunca cria cobrança ou edifício no banco. Ver [[contribution-api]].
 - Teto de edifícios na cena (`visibleLimit`, padrão `null` = todos): ordena por valor desc e corta antes do `setDonations`, então o corte fica com as maiores doações. Controlado pelo [[html-components#BuildingLayoutCard.tsx|BuildingLayoutCard]]
 - Doações manuais via `canvasRef.addDonation(value)` e `canvasRef.addDonations(values)`
 - Foco em edifício via `canvasRef.focusOnDonation(id)` e `canvasRef.clearFocus()`
@@ -409,8 +440,8 @@ flowchart LR
 | Limitar quantos edifícios aparecem na tela       | [[html-components#BuildingLayoutCard.tsx]] · `visibleLimit` no `CitySceneEditor` |
 | Visualizar/administrar edifícios próprios       | [[html-components#BuildingManageDialog.tsx]]    |
 | Botão Contribuir / fluxo de contribuição         | [[html-components#ContributeDialog.tsx]]          |
-| Busca de ONG / campo de valor / resumo do Pix     | [[html-components#ContributeDialog.tsx]] · `src/lib/moneyInput.ts` · `scripts/check-contribution.mjs` |
-| Pagamento Pix / contrato pro backend / Pix simulado | [[contribution-api]]                            |
+| Busca de ONG / campo de valor / resumo da simulação     | [[html-components#ContributeDialog.tsx]] · `src/lib/moneyInput.ts` · `scripts/check-contribution.mjs` |
+| Pagamento simulado / persistência local | [[contribution-api]]                            |
 | Edifício do usuário aparecer no login            | [[donation-api#Edifícios do usuário no login]]    |
 | Imagem, nome e descrição do edifício             | [[html-components#BuildingProfileForm.tsx]]       |
 | Card de info do prédio / quem pode editar        | [[html-components#BuildingInfoModal.tsx]] · [[donation-api#Quem pode editar]] |

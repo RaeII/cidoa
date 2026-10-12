@@ -24,10 +24,10 @@ Antes: prédios nasciam no front (`INITIAL_TEST_DONATIONS`, 10 valores hardcoded
 | Arquivo | Papel |
 | --- | --- |
 | `src/api/http.ts` | Instância axios. `baseURL = VITE_API_URL ?? "/api"`. Normaliza erro → `ApiError {status, message}`. |
-| `src/api/donationApi.ts` | `fetchDonationSnapshot()` — busca snapshot + personalizações atuais em paralelo, mapeia tuplas → objetos. `fetchMyDonations()` — `GET /donation/me`, edifícios da sessão completos (`DonationRecord[]`). `saveDonationCustomization()` — PUT da personalização. Tipos `DonationRecord`/`City`/`Ong`/`DonationDataset`. |
+| `src/api/donationApi.ts` | `fetchDonationSnapshot()` — busca snapshot + personalizações atuais em paralelo, mapeia tuplas → objetos. `saveDonationCustomization(userId, id, customization)` — gravação local; nenhuma escrita HTTP. Tipos `DonationRecord`/`City`/`Ong`/`DonationDataset`. |
 | `src/api/regions.ts` | `UF_REGION` (27 UFs → 5 regiões) + `REGIONS`. Região é função fixa da UF — não vem do backend. |
 | `src/components/hooks/useDonations.ts` | Hook. Carrega snapshot, guarda dataset, aplica filtro (`useMemo`), expõe `loadState`/`donations`/`allDonations` (sem filtro)/`cities`/`ongs`/`savedCustomizations`/`filter`/`setFilter`/`retry`. |
-| `src/components/hooks/useOwnedDonationIds.ts` | Hook. `ids` (`Set`) + `records` da sessão via `fetchMyDonations`; `refresh()` relê após pagamento. Refaz ao trocar `user.id`; vazio sem login, carregando ou em erro. Ver [[#Quem pode editar]] e [[#Edifícios do usuário no login]]. |
+| `src/components/hooks/useOwnedDonationIds.ts` | Hook. `ids` (`Set`) + `records` locais da conta; assina alterações após simulação. Vazio sem login; outra conta usa outras chaves. Ver [[#Quem pode editar]] e [[#Edifícios do usuário no login]]. |
 
 ## Contrato do snapshot
 
@@ -86,50 +86,22 @@ Editor chama `setDonations(donations)` a cada mudança de `donations` (load inic
 
 ## Personalização persistida
 
-Antes: painel mexia só no state do React — recarregou a página, sumiu. Agora vai pro banco (`donation.customization`).
-
-**Leitura** — vem de `/donation/customizations`, sem cache, em paralelo ao snapshot pesado. `useDonations` só fica `ready` quando ambas terminam e expõe `savedCustomizations`. O editor atualiza state + ref no mesmo efeito e reaplica na cena logo depois de cada `setDonations` (replace-all só preserva o que já estava na cena, então o que veio do banco — e o que voltou pelo filtro — precisa ser reaplicado).
-
-**Escrita** — `updateCustomization` do editor é o ponto único: aplica na cena, guarda no state e agenda `saveDonationCustomization`. Debounce de 500ms **por edifício** (`pendingSaves`): cor e opacidade disparam a cada frame de arrasto; sem isso um slider vira dezenas de PUTs. Um timer por `donationId` — editar A e depois B não pode cancelar o save de A. Desmontar dentro da janela do debounce dispara os pendentes em vez de descartá-los.
-
-**Erro** — toast ([[componentes-html#Notificações (toast)]]), id `save-customization-<donationId>`: falhas seguidas do mesmo prédio substituem em vez de empilhar; próximo save ok fecha. Status lido de `ApiError` (interceptor do `http` nunca rejeita com `AxiosError` — checar `axios.isAxiosError` aqui dava sempre falso e todo erro caía no genérico). `400`/`403` repetem a mensagem do backend (opção travada, item desligado); `401` pede login; `404` = prédio de outro usuário. Rede/5xx → genérico + botão **Tentar de novo**, que regrava o estado **atual** do prédio (`customizationsRef`), não o da tentativa falha.
+Pré-lançamento: edição salva no localStorage, nunca em `donation.customization`. `savedCustomizations` mescla personalização pública com a cópia local da conta. Editor reaplica após `setDonations`, preserva payloads pendentes e salva ao fechar/recarregar (`pagehide`). Debounce 500 ms por edifício; conta capturada no payload evita salvar uma edição na conta seguinte.
 
 ### Quem pode editar
 
-`canEdit(id) = isAdmin || ownedDonationIds.has(id)` no `CitySceneEditor`. Clique no prédio abre [[html-components#BuildingInfoModal.tsx|BuildingInfoModal]] (só leitura) pra todos; **Administrar** só aparece se `canEdit`. [[html-components#BuildingManageDialog.tsx|Administração]] também tem gate no render: sessão cai (logout/401) → diálogo some sozinho. Não depende de Pix nem cria cobrança.
-
-`GET /donation/me` (JWT, `no-store`) → `{ data: DonationRecord[] }` (`id`, `value`, `cityId`, `ongId`, `ongIds`), edifícios ativos da sessão. Só UX: autorização real continua no `WHERE` do PUT (404 em prédio alheio). Pagamento confirmado → `refresh()` relê lista.
+`canEdit(id) = isAdmin || ownedDonationIds.has(id)`. Conta comum administra apenas IDs negativos da própria simulação. Admin altera cópia local de edifícios públicos. Logout/401 remove acesso à administração. Configurações da cena, botão e `Ctrl+M` apenas para admin.
 
 ### Edifícios do usuário no login
 
-Snapshot público tem cache ≤30 s no back + `max-age=30` no HTTP: edifício pago agora pode faltar nele. `CitySceneEditor` mescla `records` de `/donation/me` no dataset via `upsertDonations` assim que snapshot fica `ready` e a cada releitura (login, troca de conta, pagamento). Registro igual ao do snapshot = no-op, sem rebuild da cidade. Edifício maior/novo entra na hora.
-
-> [!note] Local sem dono
-> Prédios de teste (`/admin/test-buildings`) nascem com `user_id NULL`: ninguém além do admin edita. Pra testar fluxo de dono: `UPDATE donation SET user_id = <userId> WHERE id = <donationId>;`
-
-> [!warning] Otimista de propósito
-> A cena muda antes do PUT responder. Falhou, o toast avisa mas a cena **não** volta atrás — recarregar a página restaura o que o banco tem. Reverter exigiria desfazer o state local do painel, que tem cópia própria dos valores.
-
-Contrato da rota, autorização e cobrança de liberação: `doc/modulos/personalizacoes/personalizacoes.md` no vault do backend.
+`useOwnedDonationIds`: lê edifícios locais, sem `/donation/me`. `useDonations`: mescla edifícios da conta no snapshot para renderização, sem incorporá-los ao dataset público. Troca de conta/logout remove registros anteriores imediatamente; a próxima conta restaura suas próprias chaves. Filtros usam cidades do snapshot mais cidades dos edifícios locais.
 
 ## Estados de carga
 
-`DonationsLoadState`: `loading` (bytes) → `ready` (count) | `error` (message). `retry()` reseta pra `loading` e refaz o fetch (dep `reloadKey`). `AbortController` cancela no unmount (StrictMode roda 2× em dev — abort ignora).
-
-## Segurança
-
-- Endpoints de leitura aceitam **zero input** (sem body/params/query) — superfície de injeção nula.
-- Proxy Vite = DX de dev (mata CORS local), **não** é segurança. Produção: reverse proxy same-origin ou `VITE_API_URL` + `CORS_ORIGINS` estrito no back.
-- Nunca confiar no front pra esconder dado: se algo deixar de ser público, sai do snapshot no backend — não se filtra pra esconder.
-
-## Relacionado
-
-- [[html-components#DonationLoadOverlay.tsx]] — overlay de carregamento
-- [[html-components#DonationFilterBar.tsx]] — barra de filtros
-- [[scene-managers#setDonations]] — replace-all na cena
-- [[customization-api]] — catálogo de opções e regra de liberação
-- [[three-components]] — handle `setDonations`
+Snapshot continua com loading/progresso/erro/retry. Mutação local dispara evento específico da chave; outras abas recebem `storage`. Armazenamento inválido/cheio/bloqueado exibe erro e mantém dados gravados anteriormente.
 
 ## Acesso aos próprios edifícios
 
-**Meus edifícios** no `AuthMenu` abre lista própria do `GameMenu`, sem filtro da cena. **Ver na cidade** usa `handleOpenDonation`: oculta por filtro/teto → limpa ambos, aguarda rebuild, foca e abre informações. `pendingFocusRef` só consumido quando edifício existe; suporta resposta atrasada de `/donation/me` após pagamento. Troca de conta/fechar card cancela. **Administrar** abre informações/aparência com posse validada; Pix fica em **Contribuir**.
+**Meus edifícios** abre lista local sem filtro. **Ver na cidade** limpa filtro/teto se necessário, aguarda rebuild, foca e abre informações. Troca de conta/fechar card cancela foco pendente. **Administrar** mantém abas Informações/Aparência. Valores do menu e da seção pública rotulados como simulados.
+
+Detalhes: [[index#Pré-lançamento]], [[contribution-api]], [[html-components]].

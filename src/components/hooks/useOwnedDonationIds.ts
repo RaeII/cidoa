@@ -1,44 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
-import axios from "axios";
+import { useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { fetchMyDonations, type DonationRecord } from "../../api/donationApi";
+import type { LocalBuilding } from "@/lib/prelaunchCity";
+import { useLocalCityValue } from "./useLocalCity";
 
-const EMPTY = new Set<number>();
-const EMPTY_RECORDS: DonationRecord[] = [];
+const EMPTY: LocalBuilding[] = [];
 
-/**
- * Doações da sessão atual. Vazio sem login, durante a carga ou em erro — na
- * dúvida o edifício fica só-leitura, nunca editável por engano.
- */
-export function useOwnedDonationIds(): {
-  ids: ReadonlySet<number>;
-  /** Registros atuais do banco, para mesclar no snapshot cacheado. */
-  records: readonly DonationRecord[];
-  /** Pagamento confirmado: relê do banco o edifício novo ou maior. */
-  refresh: () => void;
-} {
+/** Edifícios simulados da conta neste navegador; nenhum registro do banco é editável por posse local. */
+export function useOwnedDonationIds() {
   const { user } = useAuth();
-  const userId = user?.id;
-  const [owned, setOwned] = useState<{ userId: number; ids: Set<number>; records: DonationRecord[] } | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
-
-  useEffect(() => {
-    if (!userId) return;
-    const controller = new AbortController();
-    fetchMyDonations({ signal: controller.signal })
-      .then((records) => {
-        if (!controller.signal.aborted) setOwned({ userId, ids: new Set(records.map((r) => r.id)), records });
-      })
-      .catch((err: unknown) => {
-        if (controller.signal.aborted || axios.isCancel(err)) return;
-        console.error("Falha ao carregar suas doações", err);
-      });
-    return () => controller.abort();
-  }, [userId, reloadKey]);
-
-  const refresh = useCallback(() => setReloadKey((key) => key + 1), []);
-
-  // Nunca reaproveita a lista de outra sessão durante login/logout.
-  const current = userId && owned?.userId === userId ? owned : null;
-  return { ids: current?.ids ?? EMPTY, records: current?.records ?? EMPTY_RECORDS, refresh };
+  const buildings = useLocalCityValue("buildings", EMPTY);
+  const records = user ? buildings : EMPTY;
+  const ids = useMemo(() => new Set(records.map((record) => record.id)), [records]);
+  return { ids, records };
 }
