@@ -62,6 +62,17 @@ export function CidoaLogo({ className, ...props }: IconProps) {
   )
 }
 
+/** Foto indisponível (DS 5.7): moldura, sol âmbar, morro verde. ×4 da grade 8×8. */
+export function PixelPhoto({ className, ...props }: IconProps) {
+  return (
+    <svg viewBox="0 0 8 8" width={32} height={32} shapeRendering="crispEdges" aria-hidden="true" className={cn("shrink-0", className)} {...props}>
+      <path fill="var(--color-foreground)" d="M0 0h8v1h-8zM0 1h1v6h-1zM7 1h1v6h-1zM0 7h8v1h-8z" />
+      <path fill="var(--color-ambar)" d="M5 2h1v1h-1z" />
+      <path fill="var(--color-verde)" d="M2 4h1v1h-1zM1 5h3v1h-3zM5 5h1v1h-1zM1 6h6v1h-6z" />
+    </svg>
+  )
+}
+
 /** Marca de erro do DS: "!" âmbar sobre tinta — sem vermelho. Decorativa: o texto ao lado diz o erro. */
 export function ErrorMark({ className }: { className?: string }) {
   return (
@@ -74,7 +85,7 @@ export function ErrorMark({ className }: { className?: string }) {
   )
 }
 
-/** Gato em pixel espiando por cima de um modal (DS 5.7). Pelagem real, não cor da marca. Posicione com absolute. */
+/** Gato em pixel espiando por cima de um modal (DS 6.7). Pelagem real, não cor da marca. Posicione com absolute. */
 export function PixelCat({ className, ...props }: IconProps) {
   return (
     <svg viewBox="0 0 29 16" width={87} height={48} shapeRendering="crispEdges" aria-hidden="true" className={cn("pointer-events-none shrink-0", className)} {...props}>
@@ -91,7 +102,7 @@ export function PixelCat({ className, ...props }: IconProps) {
   )
 }
 
-/** Cachorro em pixel espiando por cima de um card (DS 5.6). Posicione com absolute. */
+/** Cachorro em pixel espiando por cima de um card (DS 6.6). Posicione com absolute. */
 export function PixelDog({ className, ...props }: IconProps) {
   return (
     <svg viewBox="0 0 16 13" width={64} height={52} shapeRendering="crispEdges" aria-hidden="true" className={cn("pointer-events-none shrink-0", className)} {...props}>

@@ -22,7 +22,7 @@ export function RequireAdmin() {
 
   if (isLoading) {
     return (
-      <p role="status" className="flex min-h-svh items-center justify-center gap-3 bg-background text-sm text-muted-foreground">
+      <p role="status" className="flex min-h-svh items-center justify-center gap-3 bg-background pattern-paws text-sm text-muted-foreground">
         <BlockLoader />
         Carregando sessão…
       </p>

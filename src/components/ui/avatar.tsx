@@ -5,6 +5,8 @@ import { Avatar as AvatarPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 
+// DS 5.6: quadrado, nunca círculo; moldura de 2px. sm 32 (HUD), default 48 (listas), lg 72 (perfil).
+// Sem foto: iniciais em mono sobre verde-100.
 function Avatar({
   className,
   size = "default",
@@ -17,7 +19,7 @@ function Avatar({
       data-slot="avatar"
       data-size={size}
       className={cn(
-        "group/avatar relative flex size-8 shrink-0 overflow-hidden select-none data-[size=lg]:size-10 data-[size=sm]:size-6",
+        "group/avatar pixel pixel-thin relative flex size-12 shrink-0 overflow-hidden bg-muted select-none data-[size=lg]:size-[72px] data-[size=sm]:size-8",
         className
       )}
       {...props}
@@ -32,7 +34,7 @@ function AvatarImage({
   return (
     <AvatarPrimitive.Image
       data-slot="avatar-image"
-      className={cn("aspect-square size-full", className)}
+      className={cn("aspect-square size-full object-cover", className)}
       {...props}
     />
   )
@@ -46,7 +48,7 @@ function AvatarFallback({
     <AvatarPrimitive.Fallback
       data-slot="avatar-fallback"
       className={cn(
-        "flex size-full items-center justify-center bg-secondary font-semibold text-secondary-foreground text-sm group-data-[size=sm]/avatar:text-xs",
+        "flex size-full items-center justify-center bg-secondary font-mono text-sm text-secondary-foreground group-data-[size=lg]/avatar:text-xl group-data-[size=sm]/avatar:text-[11px]",
         className
       )}
       {...props}

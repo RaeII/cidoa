@@ -117,9 +117,9 @@ function MoreSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
 
         <div className="border-t p-2">
           <div className="flex items-center gap-3 py-2 pr-3 pl-6">
-            <Avatar className="size-8">
-              {user?.profile_image && <AvatarImage src={user.profile_image} alt="" className="object-cover" />}
-              <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground">
+            <Avatar size="sm">
+              {user?.profile_image && <AvatarImage src={user.profile_image} alt="" />}
+              <AvatarFallback>
                 {initials(name)}
               </AvatarFallback>
             </Avatar>

@@ -139,7 +139,7 @@ export function BuildingProfileForm({
               aria-label={image ? "Trocar imagem" : "Adicionar imagem"}
               disabled={imageBusy}
               onClick={() => fileRef.current?.click()}
-              className="grid aspect-[4/3] w-28 shrink-0 place-items-center overflow-hidden pixel pixel-thin bg-card text-muted-foreground transition-colors hover:bg-accent disabled:cursor-wait md:w-full md:max-w-64"
+              className="grid aspect-[3/2] w-28 shrink-0 place-items-center overflow-hidden pixel pixel-thin raised press bg-muted text-muted-foreground hover:pixel-ink-verde disabled:cursor-wait md:w-full md:max-w-64 md:[--pixel-w:3px]"
             >
               {imageBusy ? (
                 <BlockLoader />

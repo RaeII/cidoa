@@ -12,7 +12,7 @@ export function BuildingControls({ value, onChange }: BuildingControlsProps) {
   return (
     <PanelSection
       title="Edifícios e material"
-      description="A cor é aplicada diretamente no material dos prédios em tempo real."
+      description="A cor é aplicada diretamente no material dos edifícios em tempo real."
     >
       <ColorField
         label="Cor dos edifícios"

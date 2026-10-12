@@ -22,7 +22,7 @@ const Users = lazy(() => import("./pages/admin/Users"));
 
 function PageFallback() {
   return (
-    <div className="flex min-h-svh items-center justify-center gap-3 bg-background text-muted-foreground">
+    <div className="flex min-h-svh items-center justify-center gap-3 bg-background pattern-paws text-muted-foreground">
       <BlockLoader />
       <span className="text-sm">Carregando…</span>
     </div>

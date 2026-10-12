@@ -23,7 +23,7 @@ const buttonVariants = cva(
         secondary:
           "pixel raised press bevel-edge bg-card text-card-foreground hover:bg-accent hover:text-accent-foreground",
         ghost: "text-secondary-foreground hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline decoration-2 underline-offset-3 hover:bg-accent",
+        link: "text-secondary-foreground underline decoration-2 underline-offset-3 hover:bg-accent hover:text-primary",
       },
       size: {
         default: "h-10 px-5 pb-1 text-sm has-[>svg]:px-4",

@@ -102,7 +102,7 @@ Tokens ficam em `src/index.css`: blocos `:root` (light) e `.dark` (dark), expost
 Regras de layout que convivem com a cena:
 
 - `body` fica com `overflow: hidden` (a **cena** ocupa a viewport inteira). Telas de `/dale` rolam **internamente** — o `Dashboard` usa `SidebarProvider` com altura `h-svh` e uma área de conteúdo `overflow-y-auto`.
-- `body` mantém fundo escuro (load da cena). As páginas admin pintam `bg-background` por cima, então respondem ao tema.
+- `body` pinta `bg-background` (papel; tinta no escuro). Páginas admin pintam `bg-background pattern-paws` por cima e respondem ao tema.
 
 ### Anti-FOUC
 

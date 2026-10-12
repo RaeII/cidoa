@@ -16,7 +16,7 @@ export function TextureControls({ value, facadeTextures, onChange }: TextureCont
     <>
     <PanelSection
       title="Texturas dos edifícios"
-      description="Controla as texturas PBR aplicadas nos prédios. Clay Render ativa o efeito de espelhamento nas superfícies."
+      description="Controla as texturas PBR aplicadas nos edifícios. Clay Render ativa o efeito de espelhamento nas superfícies."
     >
       {facadeTextures.length > 0 && (
         <div>

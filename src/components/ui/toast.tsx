@@ -40,7 +40,7 @@ const MAX_TOASTS = 3
 
 // Feedback do DS: quadrado sólido com o ícone. Sem vermelho — erro é "!" âmbar sobre tinta.
 const VARIANT: Record<ToastVariant, { box: string; mark: ReactNode }> = {
-  success: { box: "bg-primary text-primary-foreground", mark: <PixelCheck className="w-3.5" /> },
+  success: { box: "bg-primary text-primary-foreground", mark: <PixelCheck className="w-5" /> },
   error: { box: "bg-tinta text-ambar", mark: "!" },
   warning: { box: "bg-ambar text-tinta", mark: "!" },
   info: { box: "bg-secondary text-secondary-foreground", mark: "i" },
@@ -118,13 +118,13 @@ export function Toaster() {
             duration={item.duration}
             // pointer-events-auto: Dialog modal desliga o pointer do body; sem
             // isso o "x" não clica com um dialog aberto.
-            className="pointer-events-auto flex w-full items-center gap-3 pixel bevel-edge bg-card p-3 pb-4 text-sm text-card-foreground data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[swipe=move]:translate-x-(--radix-toast-swipe-move-x) data-[swipe=move]:transition-none data-[swipe=cancel]:translate-x-0 data-[swipe=cancel]:transition-transform data-[swipe=end]:translate-x-(--radix-toast-swipe-end-x) data-[swipe=end]:animate-out data-[swipe=end]:slide-out-to-right-full"
+            className="pointer-events-auto flex w-full items-center gap-4 pixel bevel-edge bg-card p-4 pb-[18px] text-base text-card-foreground data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[swipe=move]:translate-x-(--radix-toast-swipe-move-x) data-[swipe=move]:transition-none data-[swipe=cancel]:translate-x-0 data-[swipe=cancel]:transition-transform data-[swipe=end]:translate-x-(--radix-toast-swipe-end-x) data-[swipe=end]:animate-out data-[swipe=end]:slide-out-to-right-full"
           >
-            <span aria-hidden className={cn("grid size-8 shrink-0 place-items-center font-mono text-sm font-semibold", box)}>{mark}</span>
+            <span aria-hidden className={cn("grid size-11 shrink-0 place-items-center font-mono text-lg font-semibold", box)}>{mark}</span>
             <div className="min-w-0 flex-1">
               <ToastPrimitive.Title className="leading-5 font-semibold">{item.title}</ToastPrimitive.Title>
               {item.description && (
-                <ToastPrimitive.Description className="mt-0.5 text-xs text-muted-foreground">
+                <ToastPrimitive.Description className="mt-0.5 text-sm text-muted-foreground">
                   {item.description}
                 </ToastPrimitive.Description>
               )}

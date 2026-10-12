@@ -127,8 +127,8 @@ export function GameMenu({
                 <p className="truncate text-sm font-semibold">{displayName}</p>
                 <p className="truncate font-mono text-[11px] text-muted-foreground">@{user.username}</p>
               </div>
-              <Avatar className="size-10">
-                {user.profile_image && <AvatarImage src={user.profile_image} alt="" className="object-cover" />}
+              <Avatar>
+                {user.profile_image && <AvatarImage src={user.profile_image} alt="" />}
                 <AvatarFallback>{initials}</AvatarFallback>
               </Avatar>
             </div>
