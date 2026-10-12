@@ -57,7 +57,7 @@ scripts/
   check-city-search.mjs        ← busca de cidade (acento, prefixo antes de substring, UF, limite) sem navegador
   check-contribution.mjs       ← máscara monetária + confirmação libera novo pagamento; sem servidor/navegador
   check-building-management.mjs ← administração, posse, descarte e foco após filtro/pagamento; sem servidor/navegador
-  check-donation-info.mjs      ← totais, ONGs, filtros, paginação e acesso ao edifício; sem servidor/navegador
+  check-donation-info.mjs      ← foto, totais, 5 ONGs em linhas, filtros e transição cena/seção; sem servidor/navegador
   check-building-shapes.mjs    ← checa os 12 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
   check-building-textures.mjs  ← troca de textura no destaque padrão; reuso de meshes/cache, sem navegador
   check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
@@ -127,7 +127,7 @@ src/
       BuildingLayoutCard.tsx       ← card flutuante: modo de layout + teto de edifícios na tela
       DonationLoadOverlay.tsx
       DonationFilterBar.tsx
-      DonationInfoSection.tsx     ← ONGs, totais e contribuições abaixo da cena; mesmo snapshot/filtros/acesso
+      DonationInfoSection.tsx     ← texto/foto, totais e 5 ONGs em linhas; composição da video-2, DS atual
       BuildingInfoModal.tsx          ← card só-leitura do prédio clicado; lápis só p/ dono/admin
       donate/
         ContributeDialog.tsx         ← contribuição → Pix → confirmação; sem edição

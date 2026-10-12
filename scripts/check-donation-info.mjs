@@ -1,5 +1,6 @@
-// node scripts/check-donation-info.mjs — dados e acessos da seção, sem servidor/navegador.
+// node scripts/check-donation-info.mjs — seção e navegação, sem servidor/navegador.
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import vm from "node:vm";
@@ -12,96 +13,134 @@ const bundle = await build({
   entryPoints: ["src/components/html/DonationInfoSection.tsx"],
   bundle: true, format: "cjs", platform: "node", packages: "external", jsx: "automatic", write: false,
 });
-let pagination;
 const require = createRequire(import.meta.url);
 const module = { exports: {} };
 new Function("require", "module", "exports", bundle.outputFiles[0].text)(
-  (name) => name === "react" ? {
-    ...React,
-    useMemo: (calculate) => calculate(),
-    useState: (initial) => [pagination ?? initial, (next) => { pagination = next; }],
-  } : require(name), module, module.exports,
+  (name) => name === "react" ? { ...React, useMemo: (calculate) => calculate() } : require(name),
+  module, module.exports,
 );
 const { DonationInfoSection } = module.exports;
 function find(node, predicate) {
   if (Array.isArray(node)) return node.flatMap((child) => find(child, predicate));
   if (!React.isValidElement(node)) return [];
-  return [...(predicate(node.props, node.type) ? [node.props] : []), ...find(node.props.children, predicate)];
+  return [...(predicate(node.props) ? [node.props] : []), ...find(node.props.children, predicate)];
 }
-let opened, filter, retried = false;
 const donations = [
-  { id: 1, value: 0.1, cityId: 10, ongId: 20, ongIds: [20] },
+  { id: 1, value: 0.1, cityId: 10, ongId: 20, ongIds: [20, 20] },
   { id: 2, value: 0.2, cityId: 10, ongId: 20, ongIds: [20, 30] },
 ];
+let viewed, filter, retried = false;
 const props = {
-  donations,
-  cities: [{ id: 10, name: "São Paulo", uf: "SP" }],
-  ongs: [{ id: 20, name: "Patas" }, { id: 30, name: "Abrigo" }],
+  donations, ongs: [{ id: 20, name: "Patas" }, { id: 30, name: "Abrigo" }],
   filter: {}, loadState: { status: "ready", count: 2 },
   onFilterChange: (next) => { filter = next; },
-  onOpenDonation: (id) => { opened = id; },
+  onViewOng: (id) => { viewed = id; },
   onRetry: () => { retried = true; },
 };
 const tree = DonationInfoSection(props);
 const html = renderToStaticMarkup(tree);
-assert.match(html, /R\$.*0,30/, "Soma em centavos, sem arredondar valores ilustrativos");
-assert.match(html, /São Paulo · SP/);
-assert.match(html, /Patas, Abrigo/, "Exibe todas as ONGs do edifício");
+assert.match(html, /src="\/cat_dog.jpeg"[^>]*width="1024" height="947"/);
+assert.match(html, /max-w-5xl/, "Mesma largura da referência");
+assert.ok(html.indexOf("<header") < html.indexOf("Total arrecadado"));
+assert.ok(html.indexOf("Total arrecadado") < html.indexOf("<ul"));
+assert.doesNotMatch(html, /data-slot="card"|Páginas de contribuições|Edifício #/, "Layout em linhas, sem cards ou lista individual");
+assert.match(html, /R\$.*0,30/, "Total em centavos, sem duplicar edifício multiongs");
 assert.match(html, /ONGs apoiadas<\/dt><dd[^>]*>2<\/dd>/);
-assert.match(html, />2<\/span> edifícios apoiando/, "Não conta contribuição multiongs como dois edifícios");
-assert.deepEqual(donations.map((donation) => donation.id), [1, 2], "Ordenar não altera dados da cena");
-const access = find(tree, (item) => item["aria-label"]?.startsWith("Ver informações do edifício"));
-assert.equal(access.length, 2);
-access[0].onClick();
-assert.equal(opened, 2, "Maior valor primeiro; acesso repassa id real ao editor");
-find(tree, (item) => item["aria-label"] === "Ver contribuições para Abrigo")[0].onClick();
-assert.equal(filter.ongId, 30);
-const filtered = DonationInfoSection({ ...props, filter: { cityId: 10, ongId: 30 } });
-find(filtered, (item) => item["aria-label"] === "Ver contribuições para Abrigo")[0].onClick();
-assert.equal(filter.cityId, 10, "Alternar ONG preserva filtros geográficos");
-assert.equal(filter.ongId, undefined);
-assert.match(renderToStaticMarkup(filtered), /Total neste recorte/);
+assert.match(html, />2 edifícios<\/p>/, "ONG repetida no registro não duplica contagem");
+assert.match(html, /1 cidade representada/);
+const actions = find(tree, (item) => item["aria-label"]?.startsWith("Ver edifícios de"));
+assert.equal(actions.length, 2);
+actions[0].onClick();
+assert.equal(viewed, 20, "ONG com mais edifícios primeiro; callback usa id real");
 
-const many = Array.from({ length: 11 }, (_, id) => ({ ...donations[0], id: id + 1, value: id + 1 }));
-const pagedProps = { ...props, donations: many };
-let paged = DonationInfoSection(pagedProps);
-assert.equal(find(paged, (item) => item["aria-label"]?.startsWith("Ver informações do edifício")).length, 10);
-find(paged, (_, type) => type.name === "PaginationNext")[0].onClick();
-paged = DonationInfoSection(pagedProps);
-assert.equal(find(paged, (item) => item["aria-label"]?.startsWith("Ver informações do edifício")).length, 1);
-assert.equal(find(paged, (_, type) => type.name === "PaginationNext")[0].disabled, true);
-assert.equal(find(DonationInfoSection(props), (item) => item["aria-label"]?.startsWith("Ver informações do edifício")).length, 2, "Novo recorte volta à primeira página");
-assert.equal(find(DonationInfoSection(pagedProps), (item) => item["aria-label"]?.startsWith("Ver informações do edifício")).length, 10, "Limpar filtro também volta à primeira página");
-assert.match(renderToStaticMarkup(DonationInfoSection({ ...props, donations: [] })), /Nenhuma contribuição ainda/);
-assert.match(renderToStaticMarkup(DonationInfoSection({ ...props, donations: [], filter: { ongId: 30 } })), /Nenhum edifício encontrado/);
+const manyOngs = Array.from({ length: 12 }, (_, index) => ({ id: index + 20, name: "ONG " + index }));
+const limited = DonationInfoSection({ ...props, ongs: manyOngs });
+assert.equal(find(limited, (item) => item["aria-label"]?.startsWith("Ver edifícios de")).length, 5);
+assert.match(renderToStaticMarkup(limited), /5 de 12 ONGs/);
+assert.deepEqual(manyOngs.map((ong) => ong.id), Array.from({ length: 12 }, (_, index) => index + 20), "Ordenação não altera snapshot");
+const selected = DonationInfoSection({ ...props, ongs: manyOngs, filter: { cityId: 10, ongId: 31 } });
+const selectedActions = find(selected, (item) => item["aria-label"]?.startsWith("Ver edifícios de"));
+assert.equal(selectedActions.length, 5);
+assert.equal(selectedActions[0]["data-active"], true, "ONG selecionada fora das primeiras cinco permanece acessível");
+assert.match(renderToStaticMarkup(selected), /Total neste recorte/);
+find(selected, (item) => item.children === "Limpar filtros")[0].onClick();
+assert.deepEqual(filter, {});
+assert.match(renderToStaticMarkup(DonationInfoSection({ ...props, ongs: [], donations: [] })), /Nenhuma ONG disponível/);
+assert.match(renderToStaticMarkup(DonationInfoSection({ ...props, donations: [] })), /Nenhum edifício encontrado/);
 assert.match(renderToStaticMarkup(DonationInfoSection({ ...props, loadState: { status: "loading" } })), /role="status"/);
 const failed = DonationInfoSection({ ...props, loadState: { status: "error", message: "Falha" } });
 assert.match(renderToStaticMarkup(failed), /role="alert"/);
 find(failed, (item) => item.onClick === props.onRetry)[0].onClick();
 assert.equal(retried, true);
+const photo = await readFile(new URL("../public/cat_dog.jpeg", import.meta.url));
+const photoBlob = createHash("sha1").update("blob " + photo.length + "\0").update(photo).digest("hex");
+assert.equal(photoBlob, "5209301eacc8a04d45c3ff6d8346d278d51acca7", "Foto idêntica à video-2");
 
-// Mesmo acesso da cena, inclusive quando o teto esconde o edifício da lista.
+// Executa as funções e listeners reais, com scroll/DOM simulados.
 const source = await readFile(new URL("../src/components/CitySceneEditor.tsx", import.meta.url), "utf8");
 const ast = ts.createSourceFile("CitySceneEditor.tsx", source, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TSX);
 const editor = ast.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "CitySceneEditor");
-const accessDeclaration = editor.body.statements.find((node) => ts.isVariableStatement(node) && node.declarationList.declarations.some((item) => item.name.getText(ast) === "handleOpenDonation"));
-const city = {
-  visibleDonations: donations, donationsApplied: true, pendingFocusRef: { current: null },
-  opened: null, filter: { cityId: 10 }, limit: 1,
-  handleBuildingClick(id) { city.opened = id; },
-  setFilter(next) { city.filter = next; },
-  setVisibleLimit(next) { city.limit = next; },
+const scrollFunctions = editor.body.statements.filter((node) => ts.isVariableStatement(node)
+  && node.declarationList.declarations.some((item) => ["scrollToInfo", "scrollToScene"].includes(item.name.getText(ast))));
+const effect = editor.body.statements.find((node) => ts.isExpressionStatement(node)
+  && node.getText(ast).includes('el.addEventListener("wheel"'));
+class Element {
+  parentElement = null;
+  overflowY = "visible";
+  scrollHeight = 0;
+  clientHeight = 0;
+}
+const el = Object.assign(new Element(), { clientHeight: 800, scrollTop: 0 });
+const listeners = new Map();
+const scrolls = [];
+el.scrollTo = (options) => scrolls.push(options);
+el.addEventListener = (name, callback, options) => listeners.set(name, { callback, options });
+el.removeEventListener = (name, callback) => {
+  assert.equal(callback, listeners.get(name).callback);
+  listeners.delete(name);
 };
-const accessCode = ts.transpileModule(`${accessDeclaration.getText(ast)}\nglobalThis.openDonation = handleOpenDonation;`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-vm.runInNewContext(accessCode, city);
-city.openDonation(2);
-assert.equal(city.opened, 2);
-assert.equal(city.filter.cityId, 10, "Edifício visível mantém filtro da cena");
-city.visibleDonations = [];
-city.openDonation(1);
-assert.equal(Object.keys(city.filter).length, 0);
-assert.equal(city.limit, null, "Lista pode revelar edifício fora do teto");
-assert.equal(city.pendingFocusRef.current, 1, "Rebuild conserva o foco pedido");
+let inInfo = false, cleanup;
+const context = {
+  scrollRef: { current: el }, HTMLElement: Element,
+  getComputedStyle: (node) => ({ overflowY: node.overflowY }),
+  useCallback: (callback) => callback,
+  useEffect: (callback) => { cleanup = callback(); },
+  setInInfo: (value) => { inInfo = value; },
+};
+const run = (code) => vm.runInNewContext(ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context);
+run(scrollFunctions.map((node) => node.getText(ast)).join("\n") + "\nObject.assign(globalThis, { scrollToInfo, scrollToScene });");
+run(effect.getText(ast));
+context.scrollToInfo();
+assert.equal(scrolls.at(-1).top, 800);
+assert.equal(scrolls.at(-1).behavior, "smooth");
+context.scrollToScene();
+assert.equal(scrolls.at(-1).top, 0);
+assert.equal(scrolls.at(-1).behavior, "smooth");
+assert.equal(listeners.get("wheel").options.passive, false);
+function wheel(deltaY, target = el) {
+  let prevented = false;
+  const before = scrolls.length;
+  listeners.get("wheel").callback({ deltaY, target, preventDefault() { prevented = true; } });
+  return { prevented, scrolled: scrolls.length > before };
+}
+assert.deepEqual(wheel(100), { prevented: true, scrolled: false }, "Roda para baixo não sai da cena");
+assert.deepEqual(wheel(-100), { prevented: false, scrolled: false });
+el.scrollTop = 800;
+assert.deepEqual(wheel(-100), { prevented: true, scrolled: true }, "Roda para cima no topo da seção retorna suavemente");
+assert.equal(scrolls.at(-1).behavior, "smooth");
+el.scrollTop = 1000;
+assert.deepEqual(wheel(-100), { prevented: false, scrolled: false }, "Conteúdo da seção rola normalmente");
+const panel = Object.assign(new Element(), { parentElement: el, overflowY: "auto", scrollHeight: 900, clientHeight: 300 });
+const panelChild = Object.assign(new Element(), { parentElement: panel });
+el.scrollTop = 800;
+assert.deepEqual(wheel(-100, panelChild), { prevented: false, scrolled: false }, "Painéis internos não perdem sua rolagem");
+el.scrollTop = 401;
+listeners.get("scroll").callback();
+assert.equal(inInfo, true, "Retorno aparece após metade da viewport");
+el.scrollTop = 400;
+listeners.get("scroll").callback();
+assert.equal(inInfo, false);
+
 let section;
 function findSection(node) {
   if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(ast) === "DonationInfoSection") section = node;
@@ -109,13 +148,14 @@ function findSection(node) {
 }
 findSection(editor);
 const attributes = section.attributes.properties;
-assert.equal(attributes.find((item) => item.name?.getText(ast) === "onFilterChange").initializer.expression.getText(ast), "setFilter");
-const openSection = attributes.find((item) => item.name?.getText(ast) === "onOpenDonation").initializer.expression;
-let scrollTop;
-vm.runInNewContext(`(${openSection.getText(ast)})(2)`, {
-  scrollRef: { current: { scrollTo: ({ top }) => { scrollTop = top; } } },
-  handleOpenDonation: (id) => { opened = id; },
-});
-assert.equal(scrollTop, 0, "Ver na cidade retorna ao canvas");
-assert.equal(opened, 2);
-console.log("Seção de ONGs: totais, beneficiárias, filtros, paginação, estados e acesso ao edifício OK.");
+const viewOng = attributes.find((item) => item.name?.getText(ast) === "onViewOng").initializer.expression;
+context.filter = { cityId: 10 };
+context.setFilter = (value) => { filter = value; };
+run("(" + viewOng.getText(ast) + ")(30)");
+assert.equal(filter.cityId, 10);
+assert.equal(filter.ongId, 30, "Ver na cidade aplica ONG mantendo localização");
+assert.equal(scrolls.at(-1).top, 0);
+assert.equal(scrolls.at(-1).behavior, "smooth");
+cleanup();
+assert.equal(listeners.size, 0, "Unmount remove listeners");
+console.log("Seção: composição video-2, foto original, 5 ONGs em linhas, totais, filtros e navegação suave OK.");

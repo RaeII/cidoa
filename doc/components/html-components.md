@@ -32,15 +32,15 @@ Esses componentes:
 
 ### `DonationInfoSection.tsx`
 
-Seção abaixo da cena pública, retomada da `video-2` com [[desingn-system-index|DS atual]]. Dados reais do mesmo `useDonations`; nenhum fetch extra ou ONG ilustrativa.
+Seção abaixo da cena pública, mesma composição da `video-2` com [[desingn-system-index|DS atual]]: texto/foto → totais → ONGs em linhas. Dados reais do mesmo `useDonations`; nenhum fetch extra ou ONG ilustrativa.
 
 - Resumo: soma em centavos, quantidade de edifícios, ONGs beneficiárias e cidades. Valores acompanham filtros da cena; teto de renderização vale só no canvas.
-- Cards de ONG: nome do snapshot + edifícios apoiando. Clique alterna `filter.ongId`, preserva localização; **Limpar filtros** reseta tudo. Edifício pode beneficiar várias ONGs, mas entra uma vez no total.
-- Contribuições: valor acumulado do edifício, cidade/UF e todas as ONGs; maiores valores primeiro, 10 itens por página, sem alterar array original.
-- **Ver na cidade**: retorna ao canvas e chama `handleOpenDonation`. Mesmo card, perfil sob demanda e administração só para dono/admin; edifício oculto pelo teto usa revelação existente.
+- Foto: `public/cat_dog.jpeg`, cópia idêntica da `video-2` (1024 × 947), borda em pixel; sem mascotes substituindo imagem.
+- ONGs: no máximo **5 linhas**, por quantidade de edifícios apoiando; ONG selecionada permanece visível, desempate pelo nome. Nome, cidades representadas e edifícios; sem cards ou lista individual de edifícios.
+- **Ver na cidade**: aplica `filter.ongId`, preserva localização e retorna suavemente ao canvas. Informações/perfil e administração continuam no acesso existente da cena. **Limpar filtros** reseta tudo.
 - Loading = `BlockLoader`; erro + retry; estados vazios explícitos. Sem estimar percentual/repasse por ONG: snapshot só informa beneficiárias, não divisão dos valores.
-- `CitySceneEditor`: contêiner rolável, cena mantém `h-screen`; seta abre seção, **Voltar para a cidade** retorna à cena. Runtime, API e autenticação preservados.
-- Check: `node scripts/check-donation-info.mjs`; render React + callbacks reais, sem servidor/navegador.
+- `CitySceneEditor`: mesma navegação da `video-2`. Setas usam `scrollTo` suave; botão **Voltar para a cena** fixo aparece após metade da viewport. Roda para baixo não tira usuário da cena; roda para cima no topo da seção retorna automaticamente. Painéis com scroll mantêm seu gesto; listeners removidos no unmount. Scrollbar oculta; runtime, API e autenticação preservados.
+- Check: `node scripts/check-donation-info.mjs`; composição, foto, limite de ONGs, totais, filtros e eventos reais de navegação, sem servidor/navegador.
 
 ---
 

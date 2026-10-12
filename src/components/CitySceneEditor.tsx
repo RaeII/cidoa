@@ -64,6 +64,7 @@ const SAVE_DEBOUNCE_MS = 500;
 export function CitySceneEditor() {
   const canvasRef = useRef<CitySceneCanvasHandle>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [inInfo, setInInfo] = useState(false);
 
   const [buildingSettings, setBuildingSettings] = useState(createDefaultBuildingSettings);
   const [textureSettings, setTextureSettings] = useState(createDefaultTextureSettings);
@@ -493,8 +494,56 @@ export function CitySceneEditor() {
 
   useKeyboardShortcuts(shortcuts);
 
+  const scrollToInfo = useCallback(() => {
+    const el = scrollRef.current;
+    el?.scrollTo({ top: el.clientHeight, behavior: "smooth" });
+  }, []);
+
+  const scrollToScene = useCallback(() => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const onWheel = (event: WheelEvent) => {
+      // Painel rolável mantém o gesto; navegação não bloqueia seu conteúdo.
+      let node = event.target instanceof HTMLElement ? event.target : null;
+      while (node && node !== el) {
+        const overflowY = getComputedStyle(node).overflowY;
+        if ((overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight) {
+          return;
+        }
+        node = node.parentElement;
+      }
+
+      const viewport = el.clientHeight;
+      const atScene = el.scrollTop < viewport / 2;
+      if (atScene) {
+        if (event.deltaY > 0) event.preventDefault();
+        return;
+      }
+      if (event.deltaY < 0 && el.scrollTop <= viewport) {
+        event.preventDefault();
+        el.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    };
+
+    const onScroll = () => {
+      setInInfo(el.scrollTop > el.clientHeight / 2);
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("scroll", onScroll);
+    };
+  }, []);
+
   return (
-    <div ref={scrollRef} className="h-screen w-full overflow-y-auto overflow-x-hidden bg-background">
+    <div ref={scrollRef} className="h-screen w-full overflow-y-auto overflow-x-hidden bg-background [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
     <div id="city-scene" className="relative h-screen w-full overflow-hidden bg-background">
       <CitySceneCanvas
         ref={canvasRef}
@@ -660,8 +709,8 @@ export function CitySceneEditor() {
         />
       )}
       {!showControlPanel && (
-        <Button asChild variant="outline" size="icon-lg" className="absolute bottom-[4.75rem] right-4 z-30">
-          <a href="#donation-info" aria-label="Ver ONGs e contribuições" title="ONGs e contribuições"><PixelChevronDown /></a>
+        <Button variant="outline" size="icon-lg" onClick={scrollToInfo} aria-label="Ver ONGs e contribuições" title="ONGs e contribuições" className="absolute bottom-[4.75rem] right-4 z-30">
+          <PixelChevronDown />
         </Button>
       )}
       {!showControlPanel && (
@@ -686,17 +735,22 @@ export function CitySceneEditor() {
     </div>
     <DonationInfoSection
       donations={donations}
-      cities={cities}
       ongs={ongs}
       filter={filter}
       loadState={loadState}
       onFilterChange={setFilter}
-      onOpenDonation={(id) => {
-        scrollRef.current?.scrollTo({ top: 0 });
-        handleOpenDonation(id);
+      onViewOng={(ongId) => {
+        setFilter({ ...filter, ongId });
+        scrollToScene();
       }}
       onRetry={retry}
     />
+    {inInfo && (
+      <Button variant="outline" onClick={scrollToScene} title="Voltar para a cena" aria-label="Voltar para a cena" className="fixed bottom-4 right-4 z-40">
+        <PixelChevronDown className="rotate-180" />
+        <span className="hidden sm:inline">Voltar para a cena</span>
+      </Button>
+    )}
     </div>
   );
 }
