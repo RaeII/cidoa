@@ -7,7 +7,7 @@ export type BuildingInfoModalProps = {
   place?: string;
   isOwn: boolean;
   /** Ausente = só leitura: edifício de outra pessoa (ou sem sessão). */
-  onCustomize?: () => void;
+  onManage?: () => void;
   /** Imagem, nome e descrição; chega depois do clique (null = sem perfil). */
   profile?: BuildingProfile | null;
   /** Ausente = só leitura. */
@@ -23,7 +23,7 @@ export function BuildingInfoModal({
   ongName,
   place,
   isOwn,
-  onCustomize,
+  onManage,
   profile,
   onEditProfile,
   onClose,
@@ -74,14 +74,14 @@ export function BuildingInfoModal({
           </div>
         )}
 
-        <div className="mt-4 flex items-end justify-between gap-3">
+        <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
           <div className="text-3xl font-semibold tracking-tight">{formatCurrency(value)}</div>
-          {onCustomize && (
+          {onManage && (
             <button
-              onClick={onCustomize}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#c9a86a]/40 bg-[#c9a86a]/10 text-[#c9a86a] transition-colors hover:bg-[#c9a86a]/20 hover:text-[#e4c98b]"
-              title="Personalizar edifício"
-              aria-label="Personalizar edifício"
+              onClick={onManage}
+              className="flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#c9a86a]/40 bg-[#c9a86a]/10 px-3 text-xs text-[#c9a86a] transition-colors hover:bg-[#c9a86a]/20 hover:text-[#e4c98b]"
+              title="Administrar edifício"
+              aria-label="Administrar edifício"
             >
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path
@@ -92,6 +92,7 @@ export function BuildingInfoModal({
                   strokeLinejoin="round"
                 />
               </svg>
+              Administrar
             </button>
           )}
         </div>

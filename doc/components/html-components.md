@@ -128,25 +128,22 @@ Barra de filtros das doações. Presentacional — recebe listas e filtro, emite
 
 ### `ContributeDialog.tsx`
 
-`html/donate/`. Pílula **Contribuir** (creme, ícone `building-complex-plus`, rodapé central) + modal em **3 etapas**. Pagamento e perfil passam por [[contribution-api]] (mock hoje).
+`html/donate/`. Pílula **Contribuir** (creme, ícone `building-complex-plus`, rodapé central) + contribuição → Pix → confirmação. Administração independente em [[#BuildingManageDialog.tsx]]; botão nunca vira retorno à edição.
 
-**Layout** — contribuição/Pix até **896 px** (`lg:max-w-4xl`); etapa do edifício até **1152 px** (`lg:max-w-6xl`), altura estável até **800 px**, limitada por `100dvh`. Cabeçalho, etapas, abas e **ações no rodapé ficam visíveis**; somente conteúdo central rola (`min-h-0` + `overflow-y-auto`). Modal usa flex, `overflow-hidden` e rodapé `shrink-0`, sem sobrepor campos. Margens/padding responsivos; celular empilha; tokens claro/escuro.
-
-**Seu edifício** usa cabeçalho compacto (título de 20 px, ícone de 32 px, descrição de 12 px), etapas menores e conteúdo com padding vertical de 12 px. Rodapé tem padding vertical de 8 px; botões de 40 px no desktop e 44 px no celular, preservando a área de toque. A aba Aparência define `container-type: size` para limitar a prévia pela altura disponível.
+**Layout** — largura até **896 px**; cabeçalho/etapas/rodapé fixos, centro rolável, margens responsivas e tokens claro/escuro.
 
 ```mermaid
 flowchart LR
-  P[Pílula] --> F[1 Contribuição]
-  F -- deslogado --> L[AuthDialog empilhado] --> F
-  F -- createPixCharge --> Pay[2 Pague com Pix]
+  P[Contribuir] --> F[1 Contribuição]
+  F -- deslogado --> L[AuthDialog] --> F
+  F -- createPixCharge --> Pay[2 Pagamento Pix]
   Pay -- poll 3 s + visibilitychange --> S{status}
-  S -- expired --> X[Este código expirou → Gerar novo código]
-  S -- paid --> D[3 Seu edifício]
-  D --> Info[Informações abertas]
-  Info <-- abas --> Editor[Aparência + prévia 3D]
-  Info -- Entrar na cidade / X / Esc --> Fim[foco + BuildingCustomizePanel]
-  Editor -- Entrar na cidade / X / Esc --> Fim
-  Fim -- Voltar à edição --> D
+  S -- expired --> X[Gerar novo código]
+  S -- paid --> D[3 Confirmação]
+  D -- Nova contribuição --> F
+  D -- Ver meu edifício --> Card[Informações na cidade]
+  M[Meus edifícios] -- Ver na cidade --> Card
+  Card -- Administrar, dono/admin --> Editor[BuildingManageDialog]
 ```
 
 **Etapa 1 — Contribuição**
@@ -165,30 +162,20 @@ flowchart LR
 - Grafia **Pix**, nunca "PIX" (manual da marca BCB)
 - Expirado: cartão próprio, **Gerar novo código** mantém contribuição. **Alterar contribuição** retorna ao formulário sem descartar cobrança nem parar poll (`editingCharge`); banner **Voltar ao Pix**, novo código substitui anterior conforme contrato. **Continuar depois** fecha modal e mantém acompanhamento
 
-**Etapa 3 — Seu edifício** — pagamento confirmado no cabeçalho; abas Radix **Informações** e **Aparência**, separadas do inventário de personalização. **Informações abre primeiro**, inclusive ao retornar à edição: [[#BuildingProfileForm.tsx]] mostra imagem, nome e descrição diretamente, sem `<details>` nem rolar pelo editor 3D. **Aparência** contém [[#BuildingCustomizer.tsx]], com prévia e inventário lado a lado no desktop.
+**Etapa 3 — Confirmação** — título **Pagamento confirmado**; edifício já está na cidade ou cresceu. **Nova contribuição** retorna ao formulário; **Ver meu edifício** fecha confirmação e abre card na cidade pelo mesmo caminho do menu.
 
-- Perfil usa `forceMount` + aba inativa oculta: alternar não perde texto/imagem ainda não salvos. Aparência desmonta ao sair da aba; escolhas continuam no estado do editor, com salvamento automático existente
-- Rodapé comum, fora dos painéis roláveis: **Agora não** / **Entrar na cidade**. Botão usa `form={profileFormId}` nativo para salvar perfil em qualquer aba; carregamento/processamento bloqueia concluir. Erro ao salvar aparece no rodapé, inclusive na aba Aparência
-- Rodapé da cena: **Voltar à edição** reabre Informações do mesmo edifício. Clique fora bloqueado; saída com alterações pendentes abre `AlertDialog` **Sair sem salvar?**. Salvar/processar imagem ou ler holograma bloqueia abas, X/Esc e saída
+**Estado** — `Flow` (`form` | `pay` | `done`) fora do `DialogContent`. Fechar Pix mantém poll/retomada. Fechar confirmação reseta para `form`; próximo clique em **Contribuir** inicia pagamento novo. Pago com modal fechado → `form` + toast com **Ver edifício**; não abre editor dentro do pagamento. Ícone relógio indica Pix pendente, rótulo permanece **Contribuir**. `userId` impede reaproveitar cobrança de outra conta; `getPendingCharge` retoma pendente no login/remount. Troca de etapa foca título.
 
-**Carregamento** — `BuildingCustomizer` entra por `lazy`/`Suspense` e só monta com pagamento confirmado, **modal aberto e aba Aparência ativa**; seu `BuildingPreview` também tem import dinâmico. Fechar ou voltar a Informações desmonta menu/canvas. `useMemo` preserva referência da aparência entre atualizações das estatísticas da cidade, sem reconstruir prévia.
-
-**Estado** — `Flow` (`form` | `pay` | `done`) vive **fora** do `DialogContent`: fechar o modal não perde o Pix nem a etapa do edifício pago. `finish` fecha e foca sem reiniciar o fluxo. Ao retornar, `BuildingProfileForm` recarrega o perfil salvo do mesmo `donationId`; as personalizações da cena continuam no estado do editor. Poll segue fechado; pílula vira **Pix pendente** (ícone relógio). Pago com modal fechado → toast "Pagamento confirmado." com **Continuar** (reabre na etapa 3). `Flow` guarda `userId`: troca de conta ignora a cobrança e oculta o retorno à edição anterior. `getPendingCharge` ao logar/remontar retoma Pix pendente. Troca de etapa foca o título.
-
-**Verificação** — `node scripts/check-contribution.mjs`: máscara/centavos, colagem, precisão; retorno à etapa 3, bloqueio durante salvamento, descarte; render React da seção real: Informações inicial, campos abertos, perfil mantido na aba Aparência, envio externo, botão desabilitado e erro visível. Prévia 3D simulada; sem servidor/navegador.
+**Verificação** — `node scripts/check-contribution.mjs`: máscara/centavos, colagem, precisão; nova contribuição após confirmação, Pix preservado ao fechar, confirmação de outra cobrança ignorada e acesso pelo toast. Sem servidor/navegador.
 
 | Prop | Tipo | Descrição |
 |---|---|---|
 | `open` / `onOpenChange` | `boolean` / `(open) => void` | Controlado pelo editor |
-| `ongs` | `readonly Ong[]` | ONGs do snapshot (back sem rota de ONGs) |
-| `buildings` | `readonly MyDonation[]` | `myDonations` do editor |
-| `catalog` | `CustomizationCatalog \| null` | Catálogo com `isUnlocked` da sessão |
-| `textureSettings` | `TextureSettings` | Textura global herdada pela prévia |
-| `getCustomization` | `(id) => BuildingCustomization` | Aparência completa atual do edifício |
-| `onCustomizationChange` | `(id, patch) => void` | Atualiza cena/estado e agenda o salvamento existente |
-| `onRequestLogin` | `() => void` | Abre `AuthDialog` (estado `authOpen` no editor) |
-| `onPaid` | `(c, donationId) => void` | Editor faz `upsertDonation` + `addOwned` → edifício entra/cresce na cena |
-| `onFinish` | `(donationId) => void` | Editor foca + abre painel sem apagar a etapa 3; fora do filtro/teto → limpa ambos e foca no fim do rebuild (`pendingFocusRef`, rAF do `setDonations`) |
+| `ongs` | `readonly Ong[]` | ONGs do snapshot |
+| `buildings` | `readonly MyDonation[]` | Edifícios próprios: destinos para aumentar |
+| `onRequestLogin` | `() => void` | Abre `AuthDialog` |
+| `onPaid` | `(c, donationId) => void` | Relê `/donation/me`, mescla edifício novo/maior e atualiza catálogo ([[donation-api#Edifícios do usuário no login]]) |
+| `onViewBuilding` | `(donationId) => void` | Mesmo `handleOpenDonation` usado por Meus edifícios; revela, foca e abre informações |
 
 Copy sem "Doar"/"Construir"/"prédio". Decisões (login, R$ 25, validade, Pix pendente) vêm da pesquisa + supervisão — ver [[contribution-api]].
 
@@ -198,7 +185,7 @@ Copy sem "Doar"/"Construir"/"prédio". Decisões (login, R$ 25, validade, Pix pe
 
 `html/donate/`. **Imagem** (4:3, `resizeImage(file, 800)` → JPEG, descarta EXIF), **Nome do edifício** (≤ 40), **Descrição** (textarea ≤ 160 + contador). Tudo opcional, público para quem clicar no edifício.
 
-- Imagem compacta no celular, até 256 px no desktop; formatos/limite de 10 MB visíveis. Campos 48 px, textarea 3 linhas. Fluxo de contribuição usa duas colunas no desktop: imagem + textos
+- Imagem compacta no celular, até 256 px no desktop; formatos/limite de 10 MB visíveis. Campos 48 px, textarea 3 linhas. Administração usa duas colunas no desktop: imagem + textos
 - Carrega perfil atual antes de liberar campos — save substitui tudo, começar vazio apagaria o existente. Falha → "Não foi possível carregar." + Tentar de novo
 - Só salva se mudou; trim, `""` → `null`
 - `onSkip` opcional mostra **Agora não**; `onEditStateChange({ dirty, busy, ready, error })` informa diálogo sobre alterações, processamento e resultado. Loading/salvamento têm feedback; Enter não envia durante carregamento/processamento
@@ -224,7 +211,7 @@ Copy sem "Doar"/"Construir"/"prédio". Decisões (login, R$ 25, validade, Pix pe
 
 Card só-leitura do edifício clicado. Canto superior direito, sem dim: cena segue interativa. Visual herdado da branch `video-2`.
 
-Mostra valor (BRL), `Cidade · UF`, chip da ONG — do snapshot público. Imagem 4:3, nome e descrição vêm do perfil ([[contribution-api]], `fetchBuildingProfile` no clique; aparece quando chega). Rótulo **Seu edifício** quando dono; senão **Edifício**. Quem pode editar vê link **Adicionar/Editar nome e imagem** → [[#BuildingProfileForm.tsx|BuildingProfileDialog]]. Dono do prédio (e admin) vê lápis **Personalizar** → abre [[#BuildingCustomizePanel.tsx|BuildingCustomizePanel]]. Prédio alheio ou sem login: sem lápis. Regra em [[donation-api#Quem pode editar]].
+Mostra valor (BRL), `Cidade · UF`, chip da ONG — do snapshot público. Imagem 4:3, nome e descrição vêm do perfil ([[contribution-api]], `fetchBuildingProfile` no clique; aparece quando chega). Rótulo **Seu edifício** quando dono; senão **Edifício**. Quem pode editar vê link **Adicionar/Editar nome e imagem** → [[#BuildingProfileForm.tsx|BuildingProfileDialog]]. Dono do prédio (e admin) vê **Administrar** → [[#BuildingManageDialog.tsx|BuildingManageDialog]]. Edifício alheio ou sem login: sem administração. Regra em [[donation-api#Quem pode editar]].
 
 | Prop | Tipo | Descrição |
 |---|---|---|
@@ -232,7 +219,7 @@ Mostra valor (BRL), `Cidade · UF`, chip da ONG — do snapshot público. Imagem
 | `ongName` | `string?` | Nome da ONG |
 | `place` | `string?` | `"Cidade · UF"` |
 | `isOwn` | `boolean` | Doação da sessão atual |
-| `onCustomize` | `() => void` opcional | Ausente = só leitura (sem lápis) |
+| `onManage` | `() => void` opcional | Abre administração; ausente = só leitura |
 | `profile` | `BuildingProfile \| null` opcional | Imagem, nome, descrição |
 | `onEditProfile` | `() => void` opcional | Ausente = sem link de edição |
 | `onClose` | `() => void` | Fecha e limpa o foco |
@@ -241,19 +228,19 @@ Mostra valor (BRL), `Cidade · UF`, chip da ONG — do snapshot público. Imagem
 
 ### `GameMenu.tsx`
 
-Menu do usuário logado, estilo menu de pausa do GTA V. Abre pelo botão avatar + nome do `AuthMenu` (canto superior direito). Deslogado não existe — `AuthMenu` mostra "Entrar". Substituiu dropdown antigo + `ProfileDialog`.
+Menu do usuário logado, estilo menu de pausa do GTA V. Abre por **Meus edifícios** ou pelo botão avatar + nome do `AuthMenu` (canto superior direito). Deslogado não existe — `AuthMenu` mostra "Entrar". Substituiu dropdown antigo + `ProfileDialog`.
 
 - **Fundo** — `DialogOverlay` com tinta `#04283d` + `backdrop-blur` + `backdrop-saturate-50`, fade 500 ms: cena muda de cor ao abrir.
 - **Visual** — mesmo vocabulário da cena: vidro escuro (`bg-black/60` + `backdrop-blur-xl`, `border-white/10`), cantos `rounded-2xl`/`rounded-3xl`, dourado `#c9a86a` como destaque (anel do avatar, "Ver na cidade", código, barra de progresso).
 - **Topo** — sem título visível (`DialogTitle` só `sr-only`); à direita switch sol/lua dia/noite (`NightToggle`, `onNightChange`) e, ao lado dele, pílula com nome, `@username` (some no celular) e avatar redondo.
-- **Abas** — Radix `Tabs` (setas ←/→ navegam), pílulas com ícone dentro do cartão. Abre em Doações; Perfil por último. Ativa = branca. Celular: inativa mostra só ícone.
+- **Abas** — Radix `Tabs` (setas ←/→ navegam), pílulas com ícone dentro do cartão. Primeiro acesso em Meus edifícios; botão próprio sempre retorna à lista, avatar preserva aba escolhida. Perfil por último. Ativa = branca. Celular: inativa mostra só ícone.
 - **Conteúdo** — coluna centralizada com largura máxima (perfil `max-w-xl`, doações `max-w-2xl`, indicações `max-w-md`). Perfil e indicações centralizam também na vertical.
 - **Rodapé** — só **Esc Voltar** à direita.
 - **Tema** — Content leva classe `dark`: tokens shadcn escuros só dentro do menu.
 
 | Aba | Conteúdo |
 |---|---|
-| Doações | Total doado + doações da sessão, maior valor 1º. **Ver na cidade** fecha menu e chama `handleBuildingClick` (foco + [[#BuildingInfoModal.tsx\|card]]). Fora do filtro/teto atual → "Fora do filtro", sem botão. |
+| Meus edifícios | Total doado + edifícios próprios numerados, maior valor 1º. **Ver na cidade** sempre disponível: fecha menu e chama `handleOpenDonation` (foco + [[#BuildingInfoModal.tsx\|card]]). Oculto por filtro/teto → limpa ambos e aguarda rebuild. Não cria cobrança. |
 | Personalizações | Catálogo agrupado (formato, topo, LED, cor, textura, letreiro/holograma) com `isUnlocked`. Travado mostra requisito via `formatUnlockRequirement` ([[passe-formatacao]]). |
 | Indicações | Topo: "Faltam apenas N indicações para desbloquear sua recompensa" + barra. Meta fixa `REFERRAL_GOAL = 2` (recompensas do banco ajustadas depois); N = meta − `referral_count`; barra começa com 1 segmento bônus (`(count+1)/(meta+1)`). Meta batida → total indicado. Depois: código (quebra linha se não cabe) + `SharePanel` inline (redes + copiar link, sem modal), quem indicou ([[referral]]). Some p/ admin. |
 | Perfil | `ProfilePanel.tsx`: avatar + nome + e-mail no topo; nome e username lado a lado (sm+); abaixo [[#ProfileDetailsFields.tsx\|Cidade + Como conheceu]], mesmo formulário e mesmo Salvar (`PUT /user/me`). `hasChanges` conta cidade, origem e texto de "Outro" (só com "Outro" escolhido). Salvar → toast. Canto inferior direito: **Sair** discreto (texto cinza, hover vermelho; fecha + `logout()`). |
@@ -261,13 +248,14 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre pelo botão avatar 
 | Prop | Tipo | Descrição |
 |---|---|---|
 | `open` / `onOpenChange` | `boolean` / `(open) => void` | Controlado pelo `AuthMenu` |
+| `tab` / `onTabChange` | `string` / `(tab) => void` | Aba controlada pelo `AuthMenu`; Meus edifícios seleciona `donations` |
 | `night` / `onNightChange` | `boolean` / `(night) => void` | Toggle dia/noite do topo |
-| `donations` | `MyDonation[]` | `{ id, value, ongName?, place?, inScene }` |
+| `donations` | `MyDonation[]` | `{ id, value, ongName?, place? }` |
 | `catalog` | `CustomizationCatalog \| null` | Mesmo do `useCustomizationCatalog`; `null` = carregando |
 | `onOpenDonation` | `(id) => void` | Foca edifício + abre card |
 | `referralSummary` / `referralError` | | Vêm do `AuthMenu` |
 
-`myDonations` montado no `CitySceneEditor`: `allDonations` (dataset sem filtro, do `useDonations`) ∩ `ownedDonationIds`; `inScene` = está em `visibleDonations`.
+`myDonations` montado no `CitySceneEditor`: `allDonations` (dataset sem filtro, do `useDonations`) ∩ `ownedDonationIds`. Lista não depende do filtro/teto da cena. `handleOpenDonation` mantém `pendingFocusRef` até edifício existir no rebuild; chegada atrasada após pagamento não perde seleção. Fechar card/trocar conta cancela foco pendente.
 
 ---
 
@@ -275,7 +263,7 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre pelo botão avatar 
 
 Perfil progressivo do 1º login: **Cidade** + **Como conheceu o Cidoa?**. Tudo opcional. Montado no `AuthMenu` (ramo logado).
 
-- **Quando abre** — `user.onboarding_completed_at === null` e `blocked` falso. `AuthMenu` passa `blocked` = indicação pendente (`?ref=`) || `GameMenu` aberto || `ShareDialog` aberto || `onboardingBlocked` do editor (modal Contribuir ou painel de personalização abertos). `AuthDialog` nem existe no ramo logado. Não empilha modal.
+- **Quando abre** — `user.onboarding_completed_at === null` e `blocked` falso. `AuthMenu` passa `blocked` = indicação pendente (`?ref=`) || `GameMenu` aberto || `ShareDialog` aberto || `onboardingBlocked` do editor (contribuição, card do edifício, administração ou edição de perfil abertos). `AuthDialog` nem existe no ramo logado. Não empilha modal.
 - **Uma vez por conta** — estado do servidor (`onboarding_completed_at`), não `localStorage`. Conta antiga também vê uma vez (sem backfill no back).
 - **Copy** — título "Complete seu perfil"; frase de valor "Com sua cidade, sugerimos ONGs perto de você."; botões **Pular** (ghost) e **Salvar**.
 - **Salvar** — desabilitado até ter cidade ou origem. `completeOnboarding({ city_id, discovery_source, discovery_source_other })` → `POST /user/me/onboarding`. Sucesso preenche `onboarding_completed_at` → fecha sozinho. Erro → `role="alert"`, continua aberto.
@@ -313,59 +301,30 @@ Campos compartilhados entre [[#OnboardingDialog.tsx|OnboardingDialog]] e aba Per
 
 ---
 
-### `BuildingCustomizePanel.tsx`
+### `BuildingManageDialog.tsx`
 
-Painel de personalização de um edifício individual, aberto pelo lápis do [[#BuildingInfoModal.tsx|BuildingInfoModal]] — só para dono ou admin. Posicionado no canto superior direito com scroll interno para caber em telas menores.
+Administração do edifício selecionado, independente de contribuição/Pix. Abre por **Meus edifícios → Ver na cidade → Administrar**, ou pelo card de edifício clicado. `canEdit` limita dono/admin; gate no render remove diálogo quando sessão perde permissão. Substitui painel lateral antigo.
 
-**Responsabilidades:**
-- Exibir campos de personalização para o edifício selecionado
-- Atualizar cor, formato, letreiro, acessório de topo e LED de arestas em tempo real
-- Botão de fechar (X) para desselecionar o edifício
-
-> [!important] Opções vêm do backend (catálogo)
-> Nada de lista hardcoded. Opções (Formato/Topo/LED/Cor/Textura) vêm do catálogo do backend via [[customization-api]] (prop `catalog`). Cada seção só aparece se a categoria estiver **ativa** e tiver opção. Cor = **paleta cadastrada pelo admin** (não hex livre). `catalog = null` → mostra "Carregando personalizações…". Keys (`twisted`, `helipad`…) = contrato com builders do front; admin não cria formato novo sem deploy. Gestão em [[personalizacoes]].
-
-**Props:**
+- **Informações** abre primeiro: [[#BuildingProfileForm.tsx]] com imagem, nome e descrição. `forceMount` preserva campos ao trocar aba.
+- **Aparência**: [[#BuildingCustomizer.tsx]] com inventário por categoria, requisitos e prévia 3D. Fachada inclui **Padrão** para herdar textura global. Mudanças atualizam cidade e salvam automaticamente (debounce 500 ms).
+- **Layout**: até **1152 px**, altura estável até **800 px**, limitada por `100dvh`. Cabeçalho/abas/rodapé fixos; centro rolável. Prévia usa `container-type: size`. Botões 44 px no celular/40 px no desktop.
+- **Rodapé**: **Ver na cidade** retorna ao card focado; **Salvar** envia perfil por `form={profileFormId}`, inclusive na aba Aparência. Falha visível no rodapé. Nome/imagem/descrição pendentes → **Sair sem salvar?**; clique fora bloqueado. Salvar/processar imagem ou ler holograma bloqueia abas, X/Esc e saída.
+- **Carregamento**: aparência `lazy`/`Suspense`, só monta na aba ativa. Fechar/trocar para Informações desmonta prévia. `selectedCustomization` memoizado evita reconstrução nas atualizações das estatísticas.
+- **Rebuild**: atualização do dataset mantém card/foco e administração aberta enquanto edifício continua visível; evita descartar campos durante confirmação de Pix em segundo plano.
+- **Verificação**: `node scripts/check-building-management.mjs` — render React, abas, campos preservados, envio externo, falha/bloqueios/descarte, posse e foco após filtro/teto ou pagamento atrasado. Sem servidor/navegador.
 
 | Prop | Tipo | Descrição |
 |---|---|---|
-| `donationId` | `number` | ID da doação selecionada |
-| `catalog` | `CustomizationCatalog \| null` | Catálogo de opções do backend (ver [[customization-api]]). `null` = carregando |
-| `initialColor` | `string` | Cor atual do edifício (customizada ou global) |
-| `initialBuildingShape` | `BuildingShape` | Formato atual (`"default"`, `"twisted"`, `"octagonal"`, `"setback"`, `"tapered"`, `"chrysler"`, `"hearst"`, `"empire"`, `"taipei"`, `"one-trade"`, `"yachthouse"` ou `"residential"`) |
-| `initialTextureKey` | `string \| null` | Textura de fachada do edifício. `null` = "Padrão" (herda a global). Seção **Textura** lista `catalog.textures` + botão "Padrão". Ver [[scene-textures]] |
-| `initialTilingScale` | `number` | Multiplicador de tiling da textura (1.0 = sem alteração) |
-| `initialTextureTransform` | `BuildingTextureTransform` | Ajuste manual de escala/offset da textura |
-| `initialRooftopType` | `RooftopType` | Estado atual do acessório de topo |
-| `initialSignText` | `string` | Texto atual do letreiro na fachada |
-| `initialSignSides` | `number` | Quantidade de lados com letreiro (1–4) |
-| `initialEdgeLightType` | `EdgeLightType` | Estado atual do LED nas arestas (`"none"` ou `"led"`) |
-| `onColorChange` | `(id: number, color: string) => void` | Callback de troca de cor |
-| `onBuildingShapeChange` | `(id: number, shape: BuildingShape) => void` | Callback de troca de formato |
-| `onTextureKeyChange` | `(id: number, textureKey: string \| null) => void` | Callback de troca de textura do edifício |
-| `onTilingScaleChange` | `(id: number, tilingScale: number) => void` | Callback de troca de tiling |
-| `onTextureTransformChange` | `(id: number, textureTransform: BuildingTextureTransform) => void` | Callback de ajuste manual da textura |
-| `onRooftopChange` | `(id: number, type: RooftopType) => void` | Callback de troca do acessório de topo |
-| `onSignTextChange` | `(id: number, text: string) => void` | Callback de troca de texto do letreiro |
-| `onSignSidesChange` | `(id: number, sides: number) => void` | Callback de troca de lados do letreiro |
-| `onEdgeLightTypeChange` | `(id: number, type: EdgeLightType) => void` | Callback de toggle do LED |
-| `onClose` | `() => void` | Fecha o painel e limpa o foco |
+| `donationId` | `number` | Edifício selecionado; `key` reseta estado ao trocar |
+| `catalog` | `CustomizationCatalog \| null` | Inventário e `isUnlocked` da sessão |
+| `customization` | `BuildingCustomization` | Aparência completa atual, memoizada no editor |
+| `textureSettings` | `TextureSettings` | Textura global herdada na prévia |
+| `onCustomizationChange` | `(id, patch) => void` | `updateCustomization`: cena, estado e persistência |
+| `onSaved` | `(id, profile) => void` | Atualiza informações exibidas no card |
+| `onClose` | `() => void` | Fecha administração e retorna às informações do edifício focado |
 
-**Seções do painel:**
-
-Cada seção renderiza a partir de `catalog` (só se categoria ativa + tem opção):
-
-| Seção | Controles | Fonte |
-|---|---|---|
-| **Cor** | Grid de swatches | `catalog.colors` — paleta cadastrada pelo admin (value = hex). Não é hex livre |
-| **Formato** | Botões | `catalog.shapes` — key casa com builder (`twisted`, `chrysler`…) |
-| **Letreiro** | Input texto + seletor de lados | Feature `catalog.features.sign`. Marca/empresa (máx 30). Lados (1–4) quando há texto |
-| **Topo** | Botões | `catalog.rooftops` — nenhum, holofotes, heliponto, jardim, helicóptero |
-| **LED de arestas** | Botões | `catalog.edgeLights` — liga/desliga LED |
-| **Holograma** | Upload + cor + opacidade | Feature `catalog.features.hologram`. Arquivo máx. **700 KB** (~956 KB em base64, cabe no body limit de 1 MB do back). Cor do holograma segue hex livre (tint cyberpunk, não é cor do prédio) |
-
-> [!note] Fluxo de personalização
-> Clique no edifício → `onBuildingClick(donationId)` → `CitySceneEditor` chama `focusOnDonation` (destaque visual) e abre `BuildingInfoModal` → lápis (só `canEdit`) abre `BuildingCustomizePanel` → cada mudança chama `updateCustomization` que monta o `BuildingCustomization` completo, envia ao runtime via `canvasRef.updateDonationCustomization(id, {...})` **e agenda a gravação no banco** (debounce 500ms por edifício).
+> [!note] Fluxo de administração
+> Menu ou clique → `focusOnDonation` → `BuildingInfoModal` → **Administrar** (só dono/admin) → `BuildingManageDialog`. Perfil salvo via [[contribution-api]]; aparência via `updateCustomization` e `canvasRef.updateDonationCustomization`. Nenhuma cobrança criada.
 
 > [!important] Personalização é permanente
 > O painel não mexe só no state: `updateCustomization` grava em `donation.customization` via `PUT /donation/:id/customization`. Recarregou a página, o prédio volta personalizado — o snapshot traz as personalizações salvas e o editor as reaplica na cena. Debounce, flush no unmount, toast de erro e limites de autorização em [[donation-api#Personalização persistida]].
@@ -509,7 +468,7 @@ Configurações de textura PBR das fachadas:
 | `metalnessIntensity` | Multiplicador do mapa de metalness (0–3, padrão 2) |
 | `emissiveIntensity` | Brilho/glow nas fachadas usando o colorMap como emissiveMap |
 
-**Seletor "Textura da fachada"** (topo da seção): prop `facadeTextures` = `catalog.textures` ativas do backend. Clicar seta `textureSettings.textureKey` = `value` da opção → troca a fachada de **toda a cena**. Por edifício: seção **Textura** do [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]]. Só aparece se houver textura ativa no catálogo.
+**Seletor "Textura da fachada"** (topo da seção): prop `facadeTextures` = `catalog.textures` ativas do backend. Clicar seta `textureSettings.textureKey` = `value` da opção → troca a fachada de **toda a cena**. Por edifício: aba **Aparência → Fachada** do [[html-components#BuildingManageDialog.tsx|BuildingManageDialog]]. Só aparece se houver textura ativa no catálogo.
 
 Assets no front (`src/assets/texture/`), em **KTX2** (comprimido na GPU), carregados **lazy + assíncrono + cache** pelo loader — ver [[scene-textures]]. Cadastro/controle das texturas em [[personalizacoes]]. Mapas por pasta: color, normal, roughness, metalness, displacement.
 
@@ -701,6 +660,6 @@ Consumidor atual: `/dale/passe` ([[passe-admin-ui]]), com configuração e prév
 
 ## Benefícios de cadastro e cadeados
 
-`EarlySignups.tsx` administra combo e primeiros N inscritos; detalhes em [[primeiros-inscritos]]. `BuildingCustomizePanel` recebe `isUnlocked` resolvido pelo hook: opções bloqueadas continuam visíveis, botões desabilitados, cadeado e requisito (`formatUnlockCta`). Letreiro/holograma usam `fieldset disabled`. Grátis disponível sem login; conquistas permanentes dispensam requisitos. Ver [[passe-cena]].
+`EarlySignups.tsx` administra combo e primeiros N inscritos; detalhes em [[primeiros-inscritos]]. `BuildingManageDialog` passa catálogo ao `BuildingCustomizer`: opções bloqueadas continuam visíveis, botões desabilitados, cadeado e requisito (`formatUnlockCta`). Letreiro/holograma usam `fieldset disabled`. Grátis disponível sem login; conquistas permanentes dispensam requisitos. Ver [[passe-cena]].
 
 Passe: `UnlockDialog` permite doação, indicação, doação + indicação e doação ou indicação. Com ambos os eixos ligados, radios selecionam `all`/`any`; cartão mostra `+`/`ou`. Ver [[passe-admin-ui]].

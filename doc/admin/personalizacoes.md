@@ -60,7 +60,7 @@ Categoria **Textura** não usa dialog de digitar caminho. Compara pastas do repo
 
 Textura nova = dropar pasta em `src/assets/texture/` + `npm run textures:ktx2` → aparece como não-cadastrada, sem editar código. Backend não valida asset (front só oferece pasta existente).
 
-Textura cadastrada aparece em dois lugares: seletor **global** da cena ([[html-components#TextureControls.tsx|TextureControls]]) e seletor **por edifício** ([[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]], seção Textura).
+Textura cadastrada aparece em dois lugares: seletor **global** da cena ([[html-components#TextureControls.tsx|TextureControls]]) e seletor **por edifício** ([[html-components#BuildingManageDialog.tsx|BuildingManageDialog]], aba Aparência → Fachada).
 
 ## Regra-chave
 

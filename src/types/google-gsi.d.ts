@@ -12,6 +12,7 @@ interface GoogleIdConfiguration {
   client_id: string;
   callback: (response: GoogleCredentialResponse) => void;
   auto_select?: boolean;
+  use_fedcm_for_button?: boolean;
 }
 
 interface GoogleButtonOptions {

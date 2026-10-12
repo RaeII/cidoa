@@ -24,10 +24,10 @@ Antes: prédios nasciam no front (`INITIAL_TEST_DONATIONS`, 10 valores hardcoded
 | Arquivo | Papel |
 | --- | --- |
 | `src/api/http.ts` | Instância axios. `baseURL = VITE_API_URL ?? "/api"`. Normaliza erro → `ApiError {status, message}`. |
-| `src/api/donationApi.ts` | `fetchDonationSnapshot()` — busca snapshot + personalizações atuais em paralelo, mapeia tuplas → objetos. `fetchMyDonationIds()` — `GET /donation/me`, ids das doações da sessão. `saveDonationCustomization()` — PUT da personalização. Tipos `DonationRecord`/`City`/`Ong`/`DonationDataset`. |
+| `src/api/donationApi.ts` | `fetchDonationSnapshot()` — busca snapshot + personalizações atuais em paralelo, mapeia tuplas → objetos. `fetchMyDonations()` — `GET /donation/me`, edifícios da sessão completos (`DonationRecord[]`). `saveDonationCustomization()` — PUT da personalização. Tipos `DonationRecord`/`City`/`Ong`/`DonationDataset`. |
 | `src/api/regions.ts` | `UF_REGION` (27 UFs → 5 regiões) + `REGIONS`. Região é função fixa da UF — não vem do backend. |
 | `src/components/hooks/useDonations.ts` | Hook. Carrega snapshot, guarda dataset, aplica filtro (`useMemo`), expõe `loadState`/`donations`/`allDonations` (sem filtro)/`cities`/`ongs`/`savedCustomizations`/`filter`/`setFilter`/`retry`. |
-| `src/components/hooks/useOwnedDonationIds.ts` | Hook. `Set` dos ids da sessão atual via `fetchMyDonationIds`. Refaz ao trocar `user.id`; vazio sem login, carregando ou em erro. Ver [[#Quem pode editar]]. |
+| `src/components/hooks/useOwnedDonationIds.ts` | Hook. `ids` (`Set`) + `records` da sessão via `fetchMyDonations`; `refresh()` relê após pagamento. Refaz ao trocar `user.id`; vazio sem login, carregando ou em erro. Ver [[#Quem pode editar]] e [[#Edifícios do usuário no login]]. |
 
 ## Contrato do snapshot
 
@@ -96,9 +96,13 @@ Antes: painel mexia só no state do React — recarregou a página, sumiu. Agora
 
 ### Quem pode editar
 
-`canEdit(id) = isAdmin || ownedDonationIds.has(id)` no `CitySceneEditor`. Clique no prédio abre [[html-components#BuildingInfoModal.tsx|BuildingInfoModal]] (só leitura) pra todos; lápis **Personalizar** só aparece se `canEdit`. Painel também tem gate no render: sessão cai (logout/401) → painel some sozinho.
+`canEdit(id) = isAdmin || ownedDonationIds.has(id)` no `CitySceneEditor`. Clique no prédio abre [[html-components#BuildingInfoModal.tsx|BuildingInfoModal]] (só leitura) pra todos; **Administrar** só aparece se `canEdit`. [[html-components#BuildingManageDialog.tsx|Administração]] também tem gate no render: sessão cai (logout/401) → diálogo some sozinho. Não depende de Pix nem cria cobrança.
 
-`GET /donation/me` (JWT, `no-store`) → `{ data: number[] }`, doações ativas da sessão. Só UX: autorização real continua no `WHERE` do PUT (404 em prédio alheio). Lista não refaz sozinha quando doação nova é vinculada — recarregar ou relogar.
+`GET /donation/me` (JWT, `no-store`) → `{ data: DonationRecord[] }` (`id`, `value`, `cityId`, `ongId`, `ongIds`), edifícios ativos da sessão. Só UX: autorização real continua no `WHERE` do PUT (404 em prédio alheio). Pagamento confirmado → `refresh()` relê lista.
+
+### Edifícios do usuário no login
+
+Snapshot público tem cache ≤30 s no back + `max-age=30` no HTTP: edifício pago agora pode faltar nele. `CitySceneEditor` mescla `records` de `/donation/me` no dataset via `upsertDonations` assim que snapshot fica `ready` e a cada releitura (login, troca de conta, pagamento). Registro igual ao do snapshot = no-op, sem rebuild da cidade. Edifício maior/novo entra na hora.
 
 > [!note] Local sem dono
 > Prédios de teste (`/admin/test-buildings`) nascem com `user_id NULL`: ninguém além do admin edita. Pra testar fluxo de dono: `UPDATE donation SET user_id = <userId> WHERE id = <donationId>;`
@@ -125,3 +129,7 @@ Contrato da rota, autorização e cobrança de liberação: `doc/modulos/persona
 - [[scene-managers#setDonations]] — replace-all na cena
 - [[customization-api]] — catálogo de opções e regra de liberação
 - [[three-components]] — handle `setDonations`
+
+## Acesso aos próprios edifícios
+
+**Meus edifícios** no `AuthMenu` abre lista própria do `GameMenu`, sem filtro da cena. **Ver na cidade** usa `handleOpenDonation`: oculta por filtro/teto → limpa ambos, aguarda rebuild, foca e abre informações. `pendingFocusRef` só consumido quando edifício existe; suporta resposta atrasada de `/donation/me` após pagamento. Troca de conta/fechar card cancela. **Administrar** abre informações/aparência com posse validada; Pix fica em **Contribuir**.

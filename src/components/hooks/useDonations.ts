@@ -74,15 +74,27 @@ export function useDonations() {
     setReloadKey((key) => key + 1);
   }, []);
 
-  /** Troca o registro pelo id ou acrescenta (pagamento confirmado: edifício novo ou maior). */
-  const upsertDonation = useCallback((record: DonationRecord) => {
+  /**
+   * Troca pelo id ou acrescenta (edifícios do usuário, mais novos que o snapshot
+   * cacheado). Nada mudou = mesmo dataset: sem rebuild da cidade.
+   */
+  const upsertDonations = useCallback((records: readonly DonationRecord[]) => {
     setDataset((prev) => {
       if (!prev) return prev;
-      const exists = prev.donations.some((donation) => donation.id === record.id);
-      const donations = exists
-        ? prev.donations.map((donation) => (donation.id === record.id ? record : donation))
-        : [...prev.donations, record];
-      return { ...prev, donations };
+      let donations = prev.donations;
+      for (const record of records) {
+        const old = donations.find((donation) => donation.id === record.id);
+        if (
+          old &&
+          old.value === record.value &&
+          old.cityId === record.cityId &&
+          old.ongIds.join() === record.ongIds.join()
+        ) continue;
+        donations = old
+          ? donations.map((donation) => (donation.id === record.id ? record : donation))
+          : [...donations, record];
+      }
+      return donations === prev.donations ? prev : { ...prev, donations };
     });
   }, []);
 
@@ -123,6 +135,6 @@ export function useDonations() {
     filter,
     setFilter,
     retry,
-    upsertDonation,
+    upsertDonations,
   };
 }

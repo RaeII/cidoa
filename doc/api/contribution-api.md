@@ -10,10 +10,10 @@ aliases:
 
 # Contribuição e Pix — `src/api/contributionApi.ts`
 
-Costura do fluxo [[html-components#ContributeDialog.tsx|Contribuir]]: cobrança Pix + perfil do edifício (imagem, nome, descrição).
+API compartilhada: cobrança Pix em [[html-components#ContributeDialog.tsx|Contribuir]]; perfil em [[html-components#BuildingManageDialog.tsx|administração do edifício]] (imagem, nome, descrição). Fluxos de interface independentes.
 
-> [!warning] Hoje = mock em memória
-> Pagamento e perfil seguem mock (`ponytail:`). Backend valida contribuição antes de gerar Pix simulado. Recarregar página zera edifícios locais; novo ganha id **negativo** e some no reload. Aumento de id negativo fica só no mock; remover desvio quando PSP entrar.
+> [!info] Gravado no banco
+> Cobrança, pagamento e perfil vivem no backend (`donation_charge`, `donation_profile`, migration `0019`). Pago = edifício gravado em `donation`; recarregar/relogar mantém. Sem PSP: back só gera Pix com `PIX_SIMULATED=1` (dev, nunca produção); desligado → `503` com mensagem na tela.
 
 ## Contrato
 
@@ -43,30 +43,34 @@ type BuildingProfile = {
 };
 ```
 
-| Função | Quem chama | Regra no back |
-|---|---|---|
-| `createPixCharge(c)` | etapa 1 / "Gerar novo código" | `POST /donation/contributions/validate` exige sessão, máximo 3 edifícios, destino próprio, ONG ativa/cidade existente. 400 com `message` aparece na tela; 401 abre login. Pix continua simulado |
-| `getChargeStatus(id, signal)` | poll 3 s + `visibilitychange` | Só dono. Lê **nosso** banco, nunca o PSP |
-| `getPendingCharge(signal)` | ao logar / remontar | 1 pendente por usuário; null = nenhuma |
-| `fetchBuildingProfile(id, signal)` | etapa 3, card do edifício | Público. Fora do snapshot (imagem por edifício incharia o JSONB baixado em toda carga) |
-| `saveBuildingProfile(id, p)` | etapa 3, "Editar nome e imagem" | Dono ou admin. Substitui tudo |
+| Função | Rota | Quem chama | Regra no back |
+|---|---|---|---|
+| `createPixCharge(c)` | `POST /donation/charges` → `201 PixCharge` | etapa 1 / "Gerar novo código" | Sessão, máximo 3 edifícios, destino próprio, ONG ativa/cidade existente. Cancela pendente anterior. `400`/`503` com `message` na tela; `401` abre login |
+| `getChargeStatus(id, signal)` | `GET /donation/charges/:id` | poll 3 s + `visibilitychange` | Só dono (`404` resto). Lê **nosso** banco, nunca o PSP. Simulado: aqui vira `paid` e grava edifício |
+| `getPendingCharge(signal)` | `GET /donation/charges/pending` → `{ data }` | ao logar / remontar | 1 pendente no prazo por usuário; `null` = nenhuma |
+| `fetchBuildingProfile(id, signal)` | `GET /donation/:id/profile` → `{ data }` | administração, card do edifício | Público, `no-store`. Fora do snapshot (imagem incharia toda carga) |
+| `saveBuildingProfile(id, p)` | `PUT /donation/:id/profile` → `204` | administração, "Editar nome e imagem" | Dono ou admin (`404` resto). Substitui tudo; vazio vira `null` |
 
-## Para o backend
+Pago → `onPaid` → editor relê `/donation/me` e mescla na cidade — ver [[donation-api#Edifícios do usuário no login]].
+
+## Backend
 
 - `donationId: null` ergue; `donationId` positivo aumenta edifício próprio escolhido. `ongId` obrigatório nos dois casos; não precisa coincidir com ONG anterior.
-- `donation` mantém valor total/cidade/dono. `donation_beneficiary` acumula valores por edifício + ONG. `building_slot` + índice único bloqueiam quarto edifício mesmo sob concorrência. Migration `0018_building_contributions.sql` no backend.
-- `recordPaidContribution` disponível no backend para futura confirmação do PSP; não existe rota pública para marcar pagamento. Reusa transação ativa do webhook; chamador deve garantir idempotência da cobrança.
-- **Pago = webhook do PSP** (assinatura verificada) marca cobrança e cria/aumenta edifício no servidor. Front nunca confirma pagamento.
-- **Validade recomendada 1 h** (MP aceita 30 min–30 dias; padrão BCB 24 h).
-- **Imagem do perfil** = mesma regra Zod do `hologramImage`: só data URL, sem SVG, teto 1.000.000 chars (cabe no `json({ limit: "1mb" })`).
+- `donation` mantém valor total/cidade/dono. `donation_beneficiary` acumula por edifício + ONG. `building_slot` + índice único bloqueiam quarto edifício mesmo sob concorrência.
+- Confirmação trava a cobrança (`FOR UPDATE`): polls simultâneos gravam edifício uma vez só. Destino sumiu entre Pix e pagamento (ONG desligada, limite) → simulado marca `expired`.
+- Validade 1 h (MP aceita 30 min–30 dias; padrão BCB 24 h).
+- Imagem do perfil = mesma regra Zod do `hologramImage`: só data URL, sem SVG, teto 1.000.000 chars.
+
+### Falta para produção
+
+- **PSP real**: webhook com assinatura verificada trava cobrança, chama `recordPaidContribution` + `markChargePaid` na mesma transação. Nunca descartar pagamento recebido (simulado expira; real precisa estorno/destino).
 - **PSP sem CPF obrigatório** de preferência (Asaas exige `cpfCnpj`; Efí, devedor opcional). Campo a mais = abandono.
-- `Idempotency-Key` no back.
-- **Moderação** de imagem/texto públicos bloqueia ir pra produção.
-- Ao confirmar: recarregar `fetchMyUnlocks` (passe) — mock não muda desbloqueios.
-- Remover guarda `donationId < 0` do `flushSave` no [[html-components#ContributeDialog.tsx|CitySceneEditor]].
+- **Moderação** de imagem/texto públicos bloqueia produção.
 
-## Mock (testar à mão)
+## Pix simulado (testar à mão)
 
-- `createPixCharge` espera 600 ms; QR = SVG "TESTE"; recebedor "Cidoa"; validade 60 min.
-- `getChargeStatus` → `paid` 6 s depois de criar.
+`PIX_SIMULATED=1` no `.env` do back.
+
+- QR = SVG "TESTE"; recebedor "Cidoa"; validade 60 min.
+- `getChargeStatus` → `paid` 6 s depois de criar; edifício gravado no banco.
 - **Valor R$ 13** nunca paga e expira em 15 s → testa tela "Este código expirou.".

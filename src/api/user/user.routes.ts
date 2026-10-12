@@ -2,7 +2,8 @@ import { http } from "../http";
 import type { ProfileDetailsInput, UpdateOwnProfileInput, User } from "./user.types";
 
 export async function getOwnSession() {
-  const { data } = await http.get<{ data: User; expiresIn: number }>("/user/me");
+  // Visitante (sem cookie) → `{ data: null }`, sem 401
+  const { data } = await http.get<{ data: User | null; expiresIn?: number }>("/user/me");
   return data;
 }
 

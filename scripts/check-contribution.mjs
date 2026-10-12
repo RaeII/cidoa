@@ -1,9 +1,7 @@
 // node scripts/check-contribution.mjs — campo monetário, sem servidor ou navegador.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { createRequire } from "node:module";
 import vm from "node:vm";
-import { build } from "esbuild";
 import ts from "typescript";
 
 async function load(path) {
@@ -54,121 +52,47 @@ for (const [input, expected] of [["25", 25], ["R$ 1.234,56", 1234.56], ["25.90",
 assert.equal(parseMoney(normalizeMoneyInput("0,00")), null);
 assert.equal(parseMoney(normalizeMoneyInput("")), null);
 
-// Executa os handlers reais do modal sem montar a cena nem abrir um navegador.
-const dialogSource = await readFile(new URL("../src/components/html/donate/ContributeDialog.tsx", import.meta.url), "utf8");
-const dialogAst = ts.createSourceFile("ContributeDialog.tsx", dialogSource, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TSX);
-const dialog = dialogAst.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "ContributeDialog");
-const tabState = dialog.body.statements.filter(ts.isVariableStatement)
-  .flatMap((node) => [...node.declarationList.declarations])
-  .find((node) => ts.isArrayBindingPattern(node.name) && node.name.elements[0].name.getText(dialogAst) === "buildingTab");
-assert.equal(tabState.initializer.arguments[0].text, "information", "Informações precisa ser a aba inicial");
-const handlers = ["finish", "leaveProfile", "handleOpenChange"];
-const declarations = dialog.body.statements.filter((node) => ts.isFunctionDeclaration(node) && handlers.includes(node.name?.text));
-assert.equal(declarations.length, handlers.length);
-const { outputText: handlerCode } = ts.transpileModule(declarations.map((node) => node.getText(dialogAst)).join("\n"), {
-  compilerOptions: { target: ts.ScriptTarget.ES2022 },
-});
+// Executa a transição real: confirmação nunca mantém o botão preso à edição.
+const source = await readFile(new URL("../src/components/html/donate/ContributeDialog.tsx", import.meta.url), "utf8");
+const ast = ts.createSourceFile("ContributeDialog.tsx", source, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TSX);
+const dialog = ast.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "ContributeDialog");
+const handleOpenChange = dialog.body.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "handleOpenChange");
+const handleStatus = dialog.body.statements.find((node) => ts.isVariableStatement(node) && node.declarationList.declarations.some((declaration) => declaration.name.getText(ast) === "handleStatus"));
 const paidFlow = { step: "done", userId: 1, contribution: { donationId: null, ongId: 2, cityId: 3, value: 25 }, donationId: 42 };
-let views = 0;
 const state = {
-  active: paidFlow,
-  flow: paidFlow,
-  profileEdit: { dirty: false, busy: false },
-  appearanceBusy: false,
-  get editBusy() { return state.profileEdit.busy || state.appearanceBusy; },
-  confirmExit: false,
-  buildingTab: "appearance",
-  open: true,
-  focusedId: null,
-  onOpenChange: (open) => { state.open = open; },
-  onFinish: (id) => { state.focusedId = id; views += 1; },
+  active: paidFlow, flow: paidFlow, open: true, paid: 0, editingCharge: false, toast: null, viewedId: null,
+  setFlow(value) { state.flow = value; },
+  onOpenChange(value) { state.open = value; },
+  setEditingCharge(value) { state.editingCharge = value; },
+  onPaid() { state.paid += 1; },
+  onViewBuilding(id) { state.viewedId = id; },
+  useEffectEvent: (handler) => handler,
 };
-for (const field of ["flow", "profileEdit", "confirmExit", "buildingTab"]) {
-  state[`set${field[0].toUpperCase()}${field.slice(1)}`] = (value) => { state[field] = value; };
-}
-vm.runInNewContext(handlerCode, state);
-state.finish(paidFlow.donationId);
+state.toast = { success(_message, options) { state.notification = options; } };
+vm.runInNewContext(ts.transpileModule(`${handleOpenChange.getText(ast)}\n${handleStatus.getText(ast)}\nglobalThis.handleStatus = handleStatus;`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, state);
+state.handleOpenChange(false);
 assert.equal(state.open, false);
-assert.equal(state.focusedId, 42);
-assert.equal(state.flow, paidFlow, "Ver meu edifício deve preservar o pagamento e a etapa de edição");
+assert.equal(state.flow.step, "form", "Fechar confirmação libera nova contribuição");
+state.active = null;
 state.handleOpenChange(true);
 assert.equal(state.open, true);
-assert.equal(state.buildingTab, "information", "Retornar à edição deve abrir as informações primeiro");
-assert.equal(state.flow, paidFlow, "Voltar deve reabrir Seu edifício, sem iniciar outro pagamento");
-assert.equal(views, 1);
-state.appearanceBusy = true;
+assert.equal(state.flow.step, "form", "Contribuir reabre formulário, não edição");
+const pending = { step: "pay", userId: 1, charge: { id: "pix", contribution: paidFlow.contribution }, expired: false };
+state.active = pending;
+state.flow = pending;
 state.handleOpenChange(false);
-assert.equal(state.open, true, "Ler holograma bloqueia saída");
-state.appearanceBusy = false;
-state.profileEdit = { dirty: true, busy: true };
-state.handleOpenChange(false);
-assert.equal(state.open, true, "Salvar/processar imagem bloqueia saída");
-assert.equal(state.confirmExit, false);
-state.profileEdit.busy = false;
-state.handleOpenChange(false);
-assert.equal(state.open, true, "Edições pendentes exigem confirmação");
-assert.equal(state.confirmExit, true);
-assert.equal(state.flow, paidFlow);
-state.finish(paidFlow.donationId);
-assert.equal(state.confirmExit, false);
-assert.equal(state.flow, paidFlow, "Confirmar descarte não apaga o pagamento");
-
-// Renderiza a seção real do edifício: informações abertas, perfil preservado na outra aba
-// e envio pelo rodapé externo. A prévia 3D fica fora deste check, sem GPU/navegador.
-let buildingSection;
-function findSection(node) {
-  if (ts.isJsxElement(node) && node.openingElement.tagName.getText(dialogAst) === "Tabs.Root") buildingSection = node;
-  ts.forEachChild(node, findSection);
-}
-findSection(dialog);
-assert.ok(buildingSection, "Informações e aparência precisam de navegação própria");
-const constant = (name) => dialogAst.statements
-  .filter(ts.isVariableStatement)
-  .flatMap((node) => [...node.declarationList.declarations])
-  .find((node) => node.name.getText(dialogAst) === name).initializer.text;
-const bundle = await build({
-  stdin: { contents: `
-    import { createElement, Suspense } from 'react';
-    import { renderToStaticMarkup } from 'react-dom/server';
-    import { Tabs } from 'radix-ui';
-    import { BuildingProfileForm } from './src/components/html/donate/BuildingProfileForm';
-    import { Button } from './src/components/ui/button';
-    import { cn } from './src/lib/utils';
-    const BuildingCustomizer = () => createElement('div', { 'data-preview': true }, 'Prévia de aparência');
-    const Loader2 = () => null;
-    const noop = () => {};
-    const scrollClass = ${JSON.stringify(constant("scrollClass"))};
-    const footerClass = ${JSON.stringify(constant("footerClass"))};
-    function Section({ buildingTab = 'information', ready = true, editBusy = false, error = null }) {
-      const profileFormId = 'building-profile';
-      const profileEdit = { ready, busy: editBusy, error };
-      const appearanceBusy = false;
-      const active = { donationId: 42 };
-      const customization = {}, catalog = null, textureSettings = {};
-      const setBuildingTab = noop, finish = noop, leaveProfile = noop, setProfileEdit = noop;
-      const onCustomizationChange = noop, setAppearanceBusy = noop;
-      return (${buildingSection.getText(dialogAst)});
-    }
-    export const render = (props) => renderToStaticMarkup(createElement(Section, props));
-  `, resolveDir: process.cwd(), loader: "tsx" },
-  bundle: true, format: "cjs", platform: "node", packages: "external", jsx: "automatic", write: false,
-  define: { "import.meta.env": "{}" },
-});
-const renderModule = { exports: {} };
-new Function("require", "module", "exports", bundle.outputFiles[0].text)(createRequire(import.meta.url), renderModule, renderModule.exports);
-const { render } = renderModule.exports;
-const informationHtml = render({});
-assert.match(informationHtml, /aria-selected="true"[^>]*>Informações<\/button>/);
-assert.match(informationHtml, /Nome do edifício/);
-assert.match(informationHtml, /Descrição/);
-assert.doesNotMatch(informationHtml, /<details|data-preview/, "Informações não ficam recolhidas nem depois da prévia");
-assert.match(informationHtml, /type="submit" form="building-profile"/);
-assert.match(render({ buildingTab: "appearance" }), /<form id="building-profile"/, "Alternar de aba não desmonta o perfil nem perde os campos");
-assert.match(render({ buildingTab: "appearance" }), /data-preview="true"/);
-for (const props of [{ ready: false }, { editBusy: true }]) {
-  assert.match(render(props), /type="submit" form="building-profile"[^>]*disabled=""/, "Rodapé deve respeitar carregamento e salvamento");
-}
-assert.match(render({ buildingTab: "appearance", error: "Não foi possível salvar." }), /role="alert"[^>]*>Não foi possível salvar\./, "Falha ao salvar deve aparecer também na aba Aparência");
-console.log("Contribuição: máscara fixa de 2 casas, digitação, exclusão, colagem em reais e valores preservados OK.");
-console.log("Seu edifício: visualizar, retornar à edição, bloqueio durante salvamento e confirmação de descarte OK.");
-console.log("Informações: aba inicial, campos abertos, perfil preservado ao alternar e envio pelo rodapé OK.");
+assert.equal(state.flow, pending, "Fechar Pix mantém acompanhamento");
+state.handleStatus("outra-cobranca", { status: "paid", donationId: 99 });
+assert.equal(state.paid, 0, "Não reaproveita confirmação de outra cobrança/sessão");
+state.handleStatus("pix", { status: "paid", donationId: 42 });
+assert.equal(state.paid, 1);
+assert.equal(state.flow.step, "form", "Pagamento com modal fechado deixa Contribuir pronto");
+assert.equal(state.notification.action.label, "Ver edifício");
+state.notification.action.onClick();
+assert.equal(state.viewedId, 42, "Toast abre edifício pela administração independente");
+state.open = true;
+state.handleStatus("pix", { status: "paid", donationId: 42 });
+assert.equal(state.flow.step, "done");
+assert.equal(state.flow.donationId, 42);
+assert.doesNotMatch(source, /BuildingProfileForm|BuildingCustomizer|Voltar à edição/);
+console.log("Contribuição: centavos/máscara OK; confirmação libera novo pagamento, Pix pendente preservado e edifício acessado pela cidade.");

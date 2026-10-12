@@ -89,13 +89,15 @@ export async function fetchDonationSnapshot(
 }
 
 /**
- * Ids das doações do usuário logado — decide quais edifícios abrem o painel.
- * Só UX: o PUT abaixo continua recusando (404) o que não é dele.
+ * Edifícios do usuário logado, sempre atuais (`no-store`). Decidem quais
+ * edifícios abrem o painel e entram na cidade mesmo antes do snapshot
+ * cacheado alcançar um pagamento recente. Só UX: o PUT abaixo continua
+ * recusando (404) o que não é dele.
  */
-export async function fetchMyDonationIds(
+export async function fetchMyDonations(
   opts: { signal?: AbortSignal } = {},
-): Promise<number[]> {
-  const { data } = await http.get<{ data: number[] }>("/donation/me", {
+): Promise<DonationRecord[]> {
+  const { data } = await http.get<{ data: DonationRecord[] }>("/donation/me", {
     signal: opts.signal,
   });
   return data.data;

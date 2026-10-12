@@ -67,10 +67,10 @@ Backend envia `mode`; ausente no catálogo antigo = `all`. Regras grátis contin
 | `fetchMyUnlocks()` | ✅ escrito, ainda sem consumidor |
 | `lib/unlock.ts` | ✅ [[passe-formatacao]] |
 | UI admin (página Passe, trilha visual, dialog) | ✅ [[passe-admin-ui]] |
-| Cadeado no `BuildingCustomizePanel` | ⏳ [[passe-cena]] |
+| Cadeado no `BuildingManageDialog` | ⏳ [[passe-cena]] |
 
 ## Relacionado
 
 - [[customization-api]] — camada de dados
 - [[personalizacoes]] — CRUD do catálogo (ativo/inativo, cor, textura)
-- [[html-components#BuildingCustomizePanel.tsx]] — painel que vai ganhar cadeado
+- [[html-components#BuildingManageDialog.tsx]] — painel que vai ganhar cadeado

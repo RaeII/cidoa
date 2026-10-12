@@ -72,6 +72,8 @@ export function AuthDialog({
   // Handler do callback do Google guardado em ref: o GIS chama fora do ciclo do
   // React, então lemos sempre a versão mais recente sem reinicializar o botão.
   const handleGoogleRef = useRef<(credential: string) => void>(() => {});
+  // GIS avisa se `initialize` roda de novo — uma vez basta, o callback lê o ref acima.
+  const googleInitRef = useRef(false);
 
   const [step, setStep] = useState<Step>("email");
   const [name, setName] = useState("");
@@ -170,10 +172,16 @@ export function AuthDialog({
       const id = window.google?.accounts?.id;
       const el = googleBtnRef.current;
       if (!id || !el) return false;
-      id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: (r) => handleGoogleRef.current(r.credential),
-      });
+      if (!googleInitRef.current) {
+        id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: (r) => handleGoogleRef.current(r.credential),
+          // Diálogo nativo do navegador (FedCM) em vez do popup — o popup gera aviso
+          // de COOP no console. Navegador sem FedCM cai no popup sozinho.
+          use_fedcm_for_button: true,
+        });
+        googleInitRef.current = true;
+      }
       // Botão real do GIS: fica invisível (opacity 0) sobre o botão custom, então
       // o visual não importa — só precisa cobrir a área do clique. `width` casa
       // com a largura do wrapper pra o iframe receber o clique inteiro.

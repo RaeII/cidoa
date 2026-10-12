@@ -189,7 +189,7 @@ Acabamento automático das coberturas planas. `createParapetGeometry(shape, vari
 
 ### `createRooftopMesh.ts`
 
-Factory para acessórios de topo dos edifícios. Chamado pelo [[scene-managers|DonationManager]] quando o usuário personaliza um edifício via [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]].
+Factory para acessórios de topo dos edifícios. Chamado pelo [[scene-managers|DonationManager]] quando o usuário personaliza um edifício via [[html-components#BuildingManageDialog.tsx|BuildingManageDialog]].
 
 **Opção disponível:**
 
@@ -235,7 +235,7 @@ disposeRooftopSharedResources(): void                       // limpa geometrias 
 
 ### `createSignMesh.ts`
 
-Factory para letreiros de fachada nos edifícios. Renderiza texto via `CanvasTexture` em um plano fino com material emissivo (estilo LED corporativo). Chamado pelo [[scene-managers|DonationManager]] quando o usuário digita um texto no [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]].
+Factory para letreiros de fachada nos edifícios. Renderiza texto via `CanvasTexture` em um plano fino com material emissivo (estilo LED corporativo). Chamado pelo [[scene-managers|DonationManager]] quando o usuário digita um texto no [[html-components#BuildingManageDialog.tsx|BuildingManageDialog]].
 
 **Características visuais:**
 
@@ -284,7 +284,7 @@ disposeSignMesh(group: THREE.Group): void  // limpa texturas, materiais e geomet
 
 ### `createEdgeLightMesh.ts`
 
-Factory para o efeito de **LED nas arestas** do edifício — 4 arestas verticais nos cantos (chão → topo) + 4 arestas no topo formando um retângulo. Chamado pelo [[scene-managers|DonationManager]] quando o usuário escolhe a opção LED no [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]].
+Factory para o efeito de **LED nas arestas** do edifício — 4 arestas verticais nos cantos (chão → topo) + 4 arestas no topo formando um retângulo. Chamado pelo [[scene-managers|DonationManager]] quando o usuário escolhe a opção LED no [[html-components#BuildingManageDialog.tsx|BuildingManageDialog]].
 
 **Estrutura (3 `InstancedMesh` por grupo):**
 

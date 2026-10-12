@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// Campo no padrão dos painéis da cena (BuildingCustomizePanel): vidro claro, canto suave.
+// Campo no padrão dos painéis da cena: vidro claro, canto suave.
 const fieldClass = "rounded-xl border-white/10 bg-white/5 dark:bg-white/5 focus-visible:border-[#c9a86a]/60 focus-visible:ring-[#c9a86a]/20";
 
 /** Aba "Perfil" do GameMenu: nome, username, imagem, cidade e como conheceu. */

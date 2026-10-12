@@ -35,7 +35,7 @@ Página admin (`/dale/usuarios`) pra **visualizar e administrar as contas da apl
 | Entrar no painel `/dale` | Login próprio em `/dale/login` (só conta admin) → `RequireAdmin` + `adminGuard` em cada rota. Ver [[area-admin#Duas sessões (cena × painel)]] |
 | Usar **toda** personalização sem cumprir passe | Só quando a conta admin loga **na cena** (código/Google), à parte do painel: `useAuth().isAdmin` → `canUseCustomization(..., isAdmin)` em [[passe-formatacao]] · tabela em [[passe-cena]] |
 
-Admin logado na cena nem chega a pedir `/customization/me`: `useCustomizationCatalog` pula o fetch de conquistas e marca tudo `isUnlocked`. Sem cadeado, sem requisito, sem `fieldset` desabilitado no [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]].
+Admin logado na cena nem chega a pedir `/customization/me`: `useCustomizationCatalog` pula o fetch de conquistas e marca tudo `isUnlocked`. Sem cadeado, sem requisito, sem `fieldset` desabilitado no [[html-components#BuildingManageDialog.tsx|BuildingManageDialog]].
 
 ---
 

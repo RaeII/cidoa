@@ -54,7 +54,8 @@ scripts/
   encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`)
   check-pass.mjs               ← ordenação do passe sem servidor/navegador
   check-city-search.mjs        ← busca de cidade (acento, prefixo antes de substring, UF, limite) sem navegador
-  check-contribution.mjs       ← máscara monetária: 2 casas fixas, digitação/exclusão, colagem BRL e validação; sem servidor/navegador
+  check-contribution.mjs       ← máscara monetária + confirmação libera novo pagamento; sem servidor/navegador
+  check-building-management.mjs ← administração, posse, descarte e foco após filtro/pagamento; sem servidor/navegador
   check-building-shapes.mjs    ← checa os 12 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
   check-building-textures.mjs  ← troca de textura no destaque padrão; reuso de meshes/cache, sem navegador
   check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
@@ -82,8 +83,8 @@ src/
       location.routes.ts          ← `getCities()`: catálogo IBGE, 1 requisição memoizada por carga
       location.types.ts           ← `City { id, name, uf }`
     customizationApi.ts             ← catálogo de personalizações + conquistas do usuário
-    donationApi.ts                  ← snapshot + personalizações atuais + doações próprias + PUT da personalização
-    contributionApi.ts              ← costura Pix + perfil do edifício (mock em memória até o back)
+    donationApi.ts                  ← snapshot + personalizações atuais + edifícios próprios completos + PUT da personalização
+    contributionApi.ts              ← Pix (cobrança/status/pendente) + perfil do edifício, gravados no back
     regions.ts
   pages/admin/
     Pass.tsx                    ← página dedicada /dale/passe
@@ -93,7 +94,7 @@ src/
       PassTrack.tsx             ← trilha/grade reutilizável, um cartão por recompensa
     customization/
       CustomizationImage.tsx    ← miniatura compartilhada com catálogo
-      BuildingCustomizer.tsx   ← menu reutilizável por categorias, grade e prévia 3D; lazy no pagamento
+      BuildingCustomizer.tsx   ← menu reutilizável por categorias, grade e prévia 3D; lazy na administração do edifício
     admin/
       UnlockDialog.tsx          ← editor de requisitos compartilhado
     ui/
@@ -102,10 +103,10 @@ src/
       pagination.tsx                ← Pagination shadcn; botão no lugar de <a> (página é estado, não URL)
       select.tsx                    ← Select shadcn; filtro de personalização no admin
       toast.tsx                     ← notificações: toast.* + <Toaster /> (Radix Toast), cena e admin
-    AuthMenu.tsx                  ← botão do usuário na cena: Entrar ou abre o GameMenu; fluxo de indicação; monta o onboarding
+    AuthMenu.tsx                  ← Entrar, Meus edifícios e menu do usuário na cena; fluxo de indicação; monta o onboarding
     OnboardingDialog.tsx          ← 1º login: cidade + como conheceu, opcional, uma vez por conta, "Pular"
     ProfileDetailsFields.tsx      ← campos compartilhados onboarding/Perfil: busca de cidade + chips de origem
-    GameMenu.tsx                  ← menu estilo GTA: abas perfil/doações/personalizações/indicações, dia/noite, sair
+    GameMenu.tsx                  ← menu estilo GTA: abas perfil/edifícios/personalizações/indicações, dia/noite, sair
     AuthDialog.tsx                ← login por e-mail ou Google; cadastro confirma nome + username
     AuthProvider.tsx              ← sessão da cena (cookie token_access), só na rota /
     AdminAuthProvider.tsx         ← sessão do painel (cookie token_admin), só em /dale/*
@@ -124,9 +125,9 @@ src/
       DonationFilterBar.tsx
       BuildingInfoModal.tsx          ← card só-leitura do prédio clicado; lápis só p/ dono/admin
       donate/
-        ContributeDialog.tsx         ← contribuição → Pix → criação do edifício com prévia 3D no modal
+        ContributeDialog.tsx         ← contribuição → Pix → confirmação; sem edição
         BuildingProfileForm.tsx      ← imagem/nome/descrição do edifício + dialog de edição
-      BuildingCustomizePanel.tsx
+      BuildingManageDialog.tsx   ← administração independente: informações + aparência/prévia 3D
       BuildingControls.tsx
       TextureControls.tsx
       ReflectionControls.tsx         ← aba reflexo: probe do envMap dos prédios
@@ -157,7 +158,7 @@ src/
       useKeyboardShortcuts.ts
       useDonations.ts
       useCustomizationCatalog.ts   ← catálogo 1×, conquistas atualizadas após pagamento
-      useOwnedDonationIds.ts       ← ids das doações da sessão (quem pode editar)
+      useOwnedDonationIds.ts       ← edifícios da sessão (quem pode editar + mescla no snapshot); `refresh()` pós-pagamento
     three/
       CitySceneCanvas.tsx
       CustomizationPreview.tsx     ← miniatura + preview 3D de formato/topo/LED (admin)
@@ -221,7 +222,7 @@ doc/
     donation-api.md
     referral.md                  ← links, código, confirmação e compartilhamento
     customization-api.md         ← catálogo, conquistas do usuário, formatação do requisito
-    contribution-api.md          ← Pix + perfil do edifício: contrato, mock, regras pro back
+    contribution-api.md          ← Pix + perfil do edifício: contrato, rotas, Pix simulado, falta p/ produção
   components/                    ← espelha src/components (interface React)
     html-components.md
     three-components.md
@@ -270,7 +271,7 @@ Ele guarda todos os estados:
 - `sceneStats`, `hoverInfo`
 - `showControlPanel` — toggle do painel de configuração (escondido por padrão)
 - `infoBuildingId` — edifício clicado; abre [[html-components#BuildingInfoModal.tsx|BuildingInfoModal]]
-- `selectedBuildingId` — edifício em personalização; painel só renderiza se `canEdit` (dono ou admin, ver [[donation-api#Quem pode editar]])
+- `selectedBuildingId` — edifício em administração; diálogo só renderiza se `canEdit` (dono ou admin, ver [[donation-api#Quem pode editar]])
 - `buildingCustomizations` — `Map<donationId, BuildingCustomization>` com cor, formato (default/twisted/octagonal/setback/tapered/chrysler/hearst/empire/taipei/one-trade/yachthouse/residential), acessório de topo (holofotes, heliponto, jardim suspenso ou helicóptero com casco único, vidros integrados e rotores proporcionais), letreiro, LED de arestas e holograma cyberpunk. **Persistido**: nasce do snapshot, cada mudança grava em `donation.customization` no banco — ver [[donation-api#Personalização persistida]]
 - Falha da gravação (sem login, prédio de outro, opção travada) → toast por edifício, ver [[donation-api#Personalização persistida]]
 
@@ -278,15 +279,16 @@ E entrega para:
 
 - [[three-components|CitySceneCanvas]] — monta a cena 3D
 - [[html-components|CityControlPanel]] — mostra os controles (abre pelo ícone de engrenagem, que some quando o painel está aberto; fecha pelo "X" na barra de abas)
-- [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]] — personalização do edifício selecionado com cor, formato, letreiro, topo, LED e holograma (upload de imagem ou GIF), sem controles de textura
-- [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] — mesma aparência no fluxo de pagamento, com grade por categoria e prévia 3D. `getExistingCustomization` entrega o objeto completo; `updateCustomization` compartilha estado e salvamento com a cidade. Menu/canvas montam somente na etapa 3 aberta.
+- [[html-components#BuildingManageDialog.tsx|BuildingManageDialog]] — informações e aparência do edifício selecionado, independente do pagamento. Abre pelo card → Administrar; dono/admin.
+- [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] — grade por categoria e prévia 3D na aba Aparência da administração. `selectedCustomization` memoizado; `updateCustomization` compartilha estado e salvamento com a cidade. Menu/canvas montam somente na aba ativa.
 - [[html-components#BuildingHeightInput.tsx|BuildingHeightInput]] — input de doação e layout
 - [[html-components#BuildingLayoutCard.tsx|BuildingLayoutCard]] — card flutuante: modo de layout + quantos edifícios entram na cena
 
 Também gerencia:
 
 - Doações do backend via `useDonations` (snapshot cacheado + personalizações `no-store`) → `canvasRef.setDonations(donations)` quando `loadState.status === "ready"`. Ver [[donation-api]]
-- Contribuição: ONG escolhida a cada pagamento; mesmo edifício apoia várias ONGs. Máximo 3 edifícios por conta, validado no backend/banco. Aumentar com vários exige escolher destino. Pix segue simulado; ver [[contribution-api]].
+- Meus edifícios: lista própria sem filtro, Ver na cidade revela/foca e abre informações; Administrar edita sem criar cobrança. Foco pendente aguarda edifício no rebuild; trocar conta/fechar card cancela. Rebuild mantém administração se edifício continua visível.
+- Contribuição: botão sempre dedicado ao pagamento; fechar confirmação permite nova contribuição. ONG escolhida a cada pagamento; mesmo edifício apoia várias ONGs. Máximo 3 edifícios por conta, validado no backend/banco. Aumentar com vários exige escolher destino. Pago = edifício gravado no banco; Pix simulado no back (`PIX_SIMULATED`) até PSP real; ver [[contribution-api]].
 - Teto de edifícios na cena (`visibleLimit`, padrão `null` = todos): ordena por valor desc e corta antes do `setDonations`, então o corte fica com as maiores doações. Controlado pelo [[html-components#BuildingLayoutCard.tsx|BuildingLayoutCard]]
 - Doações manuais via `canvasRef.addDonation(value)` e `canvasRef.addDonations(values)`
 - Foco em edifício via `canvasRef.focusOnDonation(id)` e `canvasRef.clearFocus()`
@@ -320,7 +322,7 @@ flowchart TD
     C --> E[CityControlPanel]
     C --> F[BuildingHeightInput]
     C --> BI[BuildingInfoModal]
-    C --> P[BuildingCustomizePanel]
+    C --> P[BuildingManageDialog]
     C --> BL[BuildingLayoutCard]
     D --> G[useCityScene]
     G --> H[createCitySceneRuntime]
@@ -352,9 +354,11 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    Click[Clique no edifício] --> Focus[focusOnDonation]
+    Menu[Meus edifícios] --> View[Ver na cidade, revela fora do filtro/teto]
+    View --> Focus[focusOnDonation]
+    Click[Clique no edifício] --> Focus
     Focus --> Info[BuildingInfoModal]
-    Info --> |lápis, só dono/admin| Panel[BuildingCustomizePanel]
+    Info --> |Administrar, só dono/admin| Panel[BuildingManageDialog]
     Panel --> |cor| UC[updateCustomization]
     Panel --> |formato| UC
     Panel --> |letreiro| UC
@@ -383,7 +387,7 @@ flowchart LR
 | Alterar valor padrão dos prédios                 | [[scene-config]]                                  |
 | Alterar a UI do painel de configuração           | [[html-components#CityControlPanel.tsx]]          |
 | Granulado de render sob carga (padrão `0`)       | aba **tela** em [[html-components#CityControlPanel.tsx]] · `setGrain` em [[scene-runtime#Granulado (setGrain)]] |
-| Menu do usuário (abas, perfil, doações, sair)    | [[html-components#GameMenu.tsx]]                  |
+| Menu do usuário (abas, perfil, edifícios, sair)    | [[html-components#GameMenu.tsx]]                  |
 | Modo noite: toggle no menu do usuário            | [[area-admin#Modo noite (menu do usuário)]]       |
 | Modo noite: céu escuro e estrelas                | [[scene-builders#loadEnvironment.ts]]             |
 | Modo noite: luz, IBL e névoa                     | [[scene-runtime#Modo noite]] · `NIGHT_PRESET` em [[scene-config#environmentConfig.ts]] |
@@ -394,10 +398,11 @@ flowchart LR
 | Mostrar/esconder componentes HTML da tela        | aba **Tela** → [[scene-config#uiVisibilityConfig.ts]] |
 | Trocar modo de layout (quadra × centro)          | [[html-components#BuildingLayoutCard.tsx]]        |
 | Limitar quantos edifícios aparecem na tela       | [[html-components#BuildingLayoutCard.tsx]] · `visibleLimit` no `CitySceneEditor` |
-| Alterar a UI de personalização de edifício       | [[html-components#BuildingCustomizePanel.tsx]]    |
+| Visualizar/administrar edifícios próprios       | [[html-components#BuildingManageDialog.tsx]]    |
 | Botão Contribuir / fluxo de contribuição         | [[html-components#ContributeDialog.tsx]]          |
 | Busca de ONG / campo de valor / resumo do Pix     | [[html-components#ContributeDialog.tsx]] · `src/lib/moneyInput.ts` · `scripts/check-contribution.mjs` |
-| Pagamento Pix / contrato pro backend / mock      | [[contribution-api]]                              |
+| Pagamento Pix / contrato pro backend / Pix simulado | [[contribution-api]]                            |
+| Edifício do usuário aparecer no login            | [[donation-api#Edifícios do usuário no login]]    |
 | Imagem, nome e descrição do edifício             | [[html-components#BuildingProfileForm.tsx]]       |
 | Card de info do prédio / quem pode editar        | [[html-components#BuildingInfoModal.tsx]] · [[donation-api#Quem pode editar]] |
 | Personalização salvar/carregar do banco          | [[donation-api#Personalização persistida]]        |
@@ -411,7 +416,7 @@ flowchart LR
 | Colocar cadeado na cena / painel do usuário      | [[passe-cena]]                                    |
 | Trocar textura da fachada (UI) / entender loading | [[scene-textures]] · aba **texturas** → [[html-components#TextureControls.tsx]] |
 | Cadastrar textura nova (dropar pasta + `npm run textures:ktx2` + admin) | [[scene-textures]] · [[personalizacoes]] |
-| Textura por edifício (usuário escolhe a dele)    | [[scene-textures#Por edifício]] · [[html-components#BuildingCustomizePanel.tsx]] |
+| Textura por edifício (usuário escolhe a dele)    | [[scene-textures#Por edifício]] · [[html-components#BuildingManageDialog.tsx]] |
 | Textura sorteada por edifício (cidade variada)   | [[scene-textures#Sorteio por edifício]] · [[scene-managers#Grupos de fachada]] |
 | Mexer no pipeline KTX2 (codec, tamanho, qualidade) | [[scene-textures#Pipeline KTX2]] · `scripts/encode-ktx2.mjs` |
 | Alterar o canvas ou a ligação com o hook         | [[three-components]]                              |

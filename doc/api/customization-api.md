@@ -64,7 +64,7 @@ Tipo e todas as funções de exibição vivem em [`src/lib/unlock.ts`](../../src
 
 ## `useCustomizationCatalog()`
 
-Hook: carrega catálogo 1× no mount, retorna `CustomizationCatalog | null`. `null` = carregando (ou falha logada). Consumido em [[html-components#CitySceneEditor|CitySceneEditor]], passado ao [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]] e ao [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] via prop `catalog`.
+Hook: carrega catálogo 1× no mount, retorna `CustomizationCatalog | null`. `null` = carregando (ou falha logada). Consumido em [[html-components#CitySceneEditor|CitySceneEditor]], passado ao [[html-components#BuildingManageDialog.tsx|BuildingManageDialog]] e ao [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] via prop `catalog`.
 
 Endpoint cacheado no backend (staleness ≤60s), mas o cache é **invalidado a cada escrita do admin** — mudança de regra aparece na cena na hora.
 
@@ -79,7 +79,7 @@ flowchart LR
   Editor[CitySceneEditor] --> Hook[useCustomizationCatalog]
   Hook --> API[fetchCustomizationCatalog]
   API --> BE[GET /customization/catalog]
-  Hook --> Panel[BuildingCustomizePanel]
+  Hook --> Panel[BuildingManageDialog]
   Hook --> Modal[BuildingCustomizer no pagamento]
   Panel --> |key as BuildingShape| Builders[create*BuildingMesh]
   Me[fetchMyUnlocks] --> BEME[GET /customization/me]

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Share2 } from "lucide-react";
+import { Building2, Share2 } from "lucide-react";
 import { ApiError } from "@/api/http";
 import {
   applyMyReferral,
@@ -36,7 +36,7 @@ type AuthMenuProps = {
   /** Modo noite da cena (`EnvironmentSettings.night`), controlado por aqui. */
   night: boolean;
   onNightChange: (night: boolean) => void;
-  /** Doações da sessão, p/ a aba "Doações" do menu. */
+  /** Edifícios próprios da sessão. */
   myDonations: readonly MyDonation[];
   catalog: CustomizationCatalog | null;
   onOpenDonation: (donationId: number) => void;
@@ -61,6 +61,7 @@ export function AuthMenu({
   const { isAuthenticated, user } = useAuth();
   const [initialCode] = useState(initialReferralCode);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuTab, setMenuTab] = useState("donations");
   const [referralCode, setReferralCode] = useState(initialCode);
   const [referralPreview, setReferralPreview] = useState<ReferrerPreview | null>(null);
   const [referralLoading, setReferralLoading] = useState(
@@ -215,6 +216,20 @@ export function AuthMenu({
     return (
       <>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className={overlayButton}
+            title="Meus edifícios"
+            aria-label="Meus edifícios"
+            aria-haspopup="dialog"
+            onClick={() => {
+              setMenuTab("donations");
+              setMenuOpen(true);
+            }}
+          >
+            <Building2 aria-hidden="true" />
+            <span className="hidden sm:inline">Meus edifícios</span>
+          </button>
           {summary && (
             <button
               type="button"
@@ -248,6 +263,8 @@ export function AuthMenu({
         <GameMenu
           open={menuOpen}
           onOpenChange={setMenuOpen}
+          tab={menuTab}
+          onTabChange={setMenuTab}
           night={night}
           onNightChange={onNightChange}
           donations={myDonations}

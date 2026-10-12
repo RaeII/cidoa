@@ -12,18 +12,19 @@ import { NightToggle } from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogClose, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog";
 
-/** Doação própria já resolvida p/ exibição. `inScene` = passa no filtro/teto atual da cena. */
+/** Edifício próprio já resolvido para exibição. */
 export type MyDonation = {
   id: number;
   value: number;
   ongName?: string;
   place?: string;
-  inScene: boolean;
 };
 
 type GameMenuProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  tab: string;
+  onTabChange: (tab: string) => void;
   night: boolean;
   onNightChange: (night: boolean) => void;
   donations: readonly MyDonation[];
@@ -87,6 +88,8 @@ function catalogGroups(catalog: CustomizationCatalog): { title: string; items: U
 export function GameMenu({
   open,
   onOpenChange,
+  tab,
+  onTabChange,
   night,
   onNightChange,
   donations,
@@ -131,10 +134,10 @@ export function GameMenu({
             </div>
           </header>
 
-          <Tabs.Root defaultValue="donations" className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl ${glass}`}>
+          <Tabs.Root value={tab} onValueChange={onTabChange} className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl ${glass}`}>
             <Tabs.List aria-label="Seções do menu" className="m-2 flex gap-1 rounded-2xl bg-white/5 p-1">
-              <Tabs.Trigger value="donations" className={tabClass} title="Doações">
-                <Building2 /><span className={tabLabel}>Doações</span>
+              <Tabs.Trigger value="donations" className={tabClass} title="Meus edifícios">
+                <Building2 /><span className={tabLabel}>Meus edifícios</span>
               </Tabs.Trigger>
               <Tabs.Trigger value="customizations" className={tabClass} title="Personalizações">
                 <Palette /><span className={tabLabel}>Personalizações</span>
@@ -157,37 +160,34 @@ export function GameMenu({
                 </p>
                 {donations.length === 0 ? (
                   <p className="rounded-2xl bg-white/5 px-4 py-8 text-center text-sm text-white/60">
-                    Nenhuma doação ainda.
+                    Nenhum edifício ainda.
                   </p>
                 ) : (
                   <ul className="space-y-2">
-                    {donations.map((donation) => (
+                    {donations.map((donation, index) => (
                       <li key={donation.id} className="flex items-center gap-3 rounded-2xl bg-white/5 p-3 pr-4 transition-colors hover:bg-white/[0.08]">
                         <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#c9a86a]/10 text-[#c9a86a]">
                           <Building2 className="size-5" />
                         </span>
                         <div className="min-w-0 flex-1">
+                          <p className="text-xs text-white/60">Edifício {index + 1}</p>
                           <p className="font-semibold">{formatBRL(donation.value)}</p>
                           <p className="line-clamp-2 text-sm text-white/60 sm:truncate">
                             {[donation.ongName, donation.place].filter(Boolean).join(" · ")}
                           </p>
                         </div>
-                        {donation.inScene ? (
-                          <button
-                            type="button"
-                            className={goldButton}
-                            onClick={() => {
-                              onOpenChange(false);
-                              onOpenDonation(donation.id);
-                            }}
-                          >
-                            <MapPin />
-                            <span className="hidden sm:inline">Ver na cidade</span>
-                            <span className="sr-only sm:hidden">Ver na cidade</span>
-                          </button>
-                        ) : (
-                          <span className="shrink-0 text-xs text-white/50">Fora do filtro</span>
-                        )}
+                        <button
+                          type="button"
+                          className={goldButton}
+                          onClick={() => {
+                            onOpenChange(false);
+                            onOpenDonation(donation.id);
+                          }}
+                        >
+                          <MapPin />
+                          <span className="hidden sm:inline">Ver na cidade</span>
+                          <span className="sr-only sm:hidden">Ver na cidade</span>
+                        </button>
                       </li>
                     ))}
                   </ul>

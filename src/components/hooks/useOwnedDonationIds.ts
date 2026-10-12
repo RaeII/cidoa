@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { useAuth } from "@/hooks/useAuth";
-import { fetchMyDonationIds } from "../../api/donationApi";
+import { fetchMyDonations, type DonationRecord } from "../../api/donationApi";
 
 const EMPTY = new Set<number>();
+const EMPTY_RECORDS: DonationRecord[] = [];
 
 /**
  * Doações da sessão atual. Vazio sem login, durante a carga ou em erro — na
@@ -11,38 +12,33 @@ const EMPTY = new Set<number>();
  */
 export function useOwnedDonationIds(): {
   ids: ReadonlySet<number>;
-  /** Pagamento confirmado: o edifício já é do usuário antes de recarregar a lista. */
-  addOwned: (donationId: number) => void;
+  /** Registros atuais do banco, para mesclar no snapshot cacheado. */
+  records: readonly DonationRecord[];
+  /** Pagamento confirmado: relê do banco o edifício novo ou maior. */
+  refresh: () => void;
 } {
   const { user } = useAuth();
   const userId = user?.id;
-  const [owned, setOwned] = useState<{ userId: number; ids: Set<number> } | null>(null);
+  const [owned, setOwned] = useState<{ userId: number; ids: Set<number>; records: DonationRecord[] } | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!userId) return;
     const controller = new AbortController();
-    fetchMyDonationIds({ signal: controller.signal })
-      .then((ids) => {
-        if (!controller.signal.aborted) setOwned({ userId, ids: new Set(ids) });
+    fetchMyDonations({ signal: controller.signal })
+      .then((records) => {
+        if (!controller.signal.aborted) setOwned({ userId, ids: new Set(records.map((r) => r.id)), records });
       })
       .catch((err: unknown) => {
         if (controller.signal.aborted || axios.isCancel(err)) return;
         console.error("Falha ao carregar suas doações", err);
       });
     return () => controller.abort();
-  }, [userId]);
+  }, [userId, reloadKey]);
 
-  const addOwned = useCallback(
-    (donationId: number) => {
-      if (!userId) return;
-      setOwned((prev) => ({
-        userId,
-        ids: new Set(prev?.userId === userId ? prev.ids : []).add(donationId),
-      }));
-    },
-    [userId],
-  );
+  const refresh = useCallback(() => setReloadKey((key) => key + 1), []);
 
   // Nunca reaproveita a lista de outra sessão durante login/logout.
-  return { ids: userId && owned?.userId === userId ? owned.ids : EMPTY, addOwned };
+  const current = userId && owned?.userId === userId ? owned : null;
+  return { ids: current?.ids ?? EMPTY, records: current?.records ?? EMPTY_RECORDS, refresh };
 }

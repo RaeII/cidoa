@@ -125,7 +125,7 @@ Textura por edifício **não** custa mesh dedicado: cada textura em uso tem o pr
 - O set do clone vive num `WeakMap<Material, FacadeTextureSet>` — **não** em `userData`, porque `Material.copy` serializa `userData` com JSON e estouraria com `THREE.Texture` dentro.
 - `applyFacadeFolder` (usado por `applyBuildingFacadeTexture` e pelos grupos) é **idempotente**: compara com a pasta já aplicada e sai cedo, então `syncCustomShapes` pode chamar em todo rebuild sem custo. Também guarda contra corrida: se a seleção mudar enquanto baixa, o resultado velho é descartado.
 - Trocar a textura **global** refaz os grupos (a pasta global é sempre o grupo 0) + `rebuildInstances()`.
-- UI: [[html-components#BuildingCustomizePanel.tsx|BuildingCustomizePanel]], seção **Textura** (opção "Padrão" = `null`).
+- UI: [[html-components#BuildingManageDialog.tsx|BuildingManageDialog]], aba **Aparência → Fachada** (opção "Padrão" = `null`).
 
 ### Sorteio por edifício
 
