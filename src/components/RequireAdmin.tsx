@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAdminAuth } from "../hooks/useAdminAuth";
+import { BlockLoader } from "./ui/pixel-icon";
 
 /**
  * Rota-layout que protege a área /dale. Só passa com sessão do painel
@@ -19,7 +20,14 @@ export function RequireAdmin() {
   const { user, isLoading } = useAdminAuth();
   const location = useLocation();
 
-  if (isLoading) return <p role="status">Carregando sessão…</p>;
+  if (isLoading) {
+    return (
+      <p role="status" className="flex min-h-svh items-center justify-center gap-3 bg-background text-sm text-muted-foreground">
+        <BlockLoader />
+        Carregando sessão…
+      </p>
+    );
+  }
 
   if (!user) {
     return <Navigate to="/dale/login" replace state={{ from: location }} />;

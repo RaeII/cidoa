@@ -97,7 +97,7 @@ Depois de rodar, confira `git status` de qualquer jeito: o arquivo tem que estar
 
 ## Renderização HTML & tema
 
-Tokens ficam em `src/index.css`: blocos `:root` (light) e `.dark` (dark), expostos como utilitários Tailwind via `@theme inline` (`bg-background`, `text-foreground`, `border-border`, `bg-primary`…). Light mantém paleta da marca; dark usa escala neutra padrão do shadcn. Azul-marinho e terracota não entram no dark; vermelho fica restrito ao token semântico `destructive`.
+Tokens ficam em `src/index.css`: blocos `:root` (light) e `.dark` (dark), expostos como utilitários Tailwind via `@theme inline` (`bg-background`, `text-foreground`, `border-border`, `bg-primary`…). Paleta = [[desingn-system-index]]: verde (marca/ação), papel (chão), âmbar (moeda). Light: chão papel, card papel claro. Dark: mesmas três cores, chão tinta. Sem vermelho — `destructive` aponta pra âmbar escuro. Raio do tema zerado; contorno = utilitário `pixel` (borda em pixel), volume = `bevel-*`.
 
 Regras de layout que convivem com a cena:
 
@@ -151,7 +151,7 @@ toast.dismiss("save-42")
 | Ação | `action` = botão extra; clicar também fecha |
 | Acessibilidade | `aria-live` do Radix anuncia; `F8` foca a pilha |
 
-Posição: rodapé central (`bottom-20` no mobile livra a `MobileNav`). Topo e cantos da cena já têm menu, filtros, painéis e engrenagem. Visual escuro fixo (vidro da cena), legível no admin claro e escuro.
+Posição: rodapé central (`bottom-20` no mobile livra a `MobileNav`). Topo e cantos da cena já têm menu, filtros, painéis e engrenagem. Visual = feedback do DS: placa de papel (`pixel bevel-edge bg-card`) + quadrado sólido com ícone (sucesso verde ✓, erro "!" âmbar sobre tinta, aviso âmbar, info verde-100). Ver [[desingn-system-index#Componentes]].
 
 Quando usar: resultado **transitório** de ação (salvou, copiou, falhou em segundo plano). Erro de campo/formulário e erro de carga com botão de retry continuam **inline** — somem quando o contexto some.
 

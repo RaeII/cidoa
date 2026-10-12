@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ErrorMark } from "@/components/ui/pixel-icon";
 
 /**
  * Perfil progressivo do primeiro login: cidade + como conheceu, tudo opcional.
@@ -68,7 +69,8 @@ export function OnboardingDialog({ blocked }: { blocked: boolean }) {
         <form onSubmit={handleSubmit} className="space-y-6">
           <ProfileDetailsFields value={details} onChange={setDetails} />
           {error && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="flex items-start gap-2.5 text-sm text-destructive">
+              <ErrorMark />
               {error}
             </p>
           )}

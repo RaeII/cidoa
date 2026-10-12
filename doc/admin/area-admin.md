@@ -160,7 +160,7 @@ Cidade de dia ou de noite. Estado é `environmentSettings.night` no `CitySceneEd
 - **O que muda na cena** — céu tingido + estrelas ([[scene-builders#loadEnvironment.ts]]), luz/IBL/névoa ([[scene-runtime#Modo noite]]), valores em `NIGHT_PRESET` ([[scene-config#environmentConfig.ts]]).
 - **Não persiste** — recarregar volta pro dia. Persistir = mesmo padrão de [[scene-config#uiVisibilityConfig.ts]].
 
-Estado nada a ver com `ThemeToggle`/`useTheme` do admin (tema claro/escuro do HTML). Só UI compartilhada: os dois usam mesmo switch interno `SunMoonSwitch`; `NightToggle` troca cores pro vidro escuro da cena.
+Estado nada a ver com `ThemeToggle`/`useTheme` do admin (tema claro/escuro do HTML). Só UI compartilhada: os dois usam mesmo switch interno `SunMoonSwitch`; `NightToggle` usa trilho em papel claro (placa do HUD).
 
 ---
 

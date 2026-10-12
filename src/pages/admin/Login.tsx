@@ -4,6 +4,7 @@ import { ApiError } from "@/api/http";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CidoaLogo, ErrorMark } from "@/components/ui/pixel-icon";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   Card,
@@ -49,10 +50,11 @@ function Login() {
   }
 
   return (
-    <div className="relative flex min-h-svh items-center justify-center bg-background px-6 text-foreground">
+    <div className="relative flex min-h-svh flex-col items-center justify-center gap-6 bg-background pattern-paws px-6 text-foreground">
       <div className="absolute right-6 top-6">
         <ThemeToggle />
       </div>
+      <CidoaLogo className="size-12" />
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="text-2xl tracking-tight">Admin</CardTitle>
@@ -63,7 +65,6 @@ function Login() {
             <Input
               id="identifier"
               label="Username ou email"
-              labelClassName="bg-card"
               type="text"
               required
               autoComplete="username"
@@ -74,7 +75,6 @@ function Login() {
             <Input
               id="password"
               label="Senha"
-              labelClassName="bg-card"
               type="password"
               required
               autoComplete="current-password"
@@ -83,7 +83,8 @@ function Login() {
             />
 
             {error && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="flex gap-2 text-sm text-destructive">
+                <ErrorMark />
                 {error}
               </p>
             )}

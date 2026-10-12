@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, CircleDashed, Loader2, MapPinned, RefreshCw } from "lucide-react";
+import { CheckCircle2, CircleDashed, MapPinned, RefreshCw } from "lucide-react";
 import { getIbgeStatus, syncIbge } from "@/api/admin/admin.routes";
 import type { IbgeStatus } from "@/api/admin/admin.types";
 import { ApiError } from "@/api/http";
@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { BlockLoader, ErrorMark } from "@/components/ui/pixel-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
@@ -28,8 +29,8 @@ function CountCard({ label, value }: { label: string; value: number | null }) {
   return (
     <Card>
       <CardHeader>
-        <CardDescription>{label}</CardDescription>
-        <CardTitle className="text-2xl tabular-nums">
+        <CardDescription className="mono-label text-xs">{label}</CardDescription>
+        <CardTitle className="text-3xl tracking-[-0.02em]">
           {value === null ? "—" : int.format(value)}
         </CardTitle>
       </CardHeader>
@@ -115,8 +116,11 @@ function Ibge() {
             {loading ? (
               <Skeleton className="mt-8 h-28 w-full" />
             ) : loadError ? (
-              <div className="mt-8 rounded-xl border border-destructive/40 bg-destructive/5 p-6">
-                <p className="text-sm text-destructive">{loadError}</p>
+              <div className="mt-8 pixel pixel-thin pixel-ink-ambar-700 bg-card p-6">
+                <p className="flex gap-2 text-sm text-destructive">
+                  <ErrorMark />
+                  {loadError}
+                </p>
                 <Button variant="outline" size="sm" className="mt-3" onClick={retry}>
                   Tentar de novo
                 </Button>
@@ -125,10 +129,10 @@ function Ibge() {
               <>
                 <Card className="mt-8">
                   <CardHeader>
-                    <CardDescription>Status do catálogo</CardDescription>
+                    <CardDescription className="mono-label text-xs">Status do catálogo</CardDescription>
                     <CardTitle
                       className={`flex items-center gap-2 text-2xl ${
-                        linked ? "text-accent" : "text-muted-foreground"
+                        linked ? "text-secondary-foreground" : "text-muted-foreground"
                       }`}
                     >
                       {linked ? (
@@ -160,11 +164,12 @@ function Ibge() {
               </CardHeader>
               <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Button onClick={() => void handleSync()} disabled={syncing || loading}>
-                  {syncing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+                  {syncing ? <BlockLoader /> : <RefreshCw />}
                   {syncing ? "Sincronizando…" : linked ? "Ressincronizar" : "Vincular dados do IBGE"}
                 </Button>
                 {feedback ? (
-                  <p className={feedback.ok ? "text-sm text-accent" : "text-sm text-destructive"}>
+                  <p className={`flex gap-2 text-sm ${feedback.ok ? "text-secondary-foreground" : "text-destructive"}`}>
+                    {!feedback.ok && <ErrorMark />}
                     {feedback.text}
                   </p>
                 ) : null}

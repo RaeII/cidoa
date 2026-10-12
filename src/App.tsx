@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom
 import { AdminAuthProvider } from "./components/AdminAuthProvider";
 import { AuthProvider } from "./components/AuthProvider";
 import { RequireAdmin } from "./components/RequireAdmin";
+import { BlockLoader } from "./components/ui/pixel-icon";
 import { Toaster } from "./components/ui/toast";
 
 // Code-split por página (doc/regras/04-performance do base_vite): a cena 3D
@@ -21,8 +22,9 @@ const Users = lazy(() => import("./pages/admin/Users"));
 
 function PageFallback() {
   return (
-    <div className="flex min-h-svh items-center justify-center bg-background">
-      <span className="text-sm text-muted-foreground">Carregando…</span>
+    <div className="flex min-h-svh items-center justify-center gap-3 bg-background text-muted-foreground">
+      <BlockLoader />
+      <span className="text-sm">Carregando…</span>
     </div>
   );
 }

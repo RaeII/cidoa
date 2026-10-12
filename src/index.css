@@ -5,103 +5,149 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
-  Paleta usada pela área /admin (shadcn/ui).
+  Sistema de design — regras em doc/desingn-system/desingn-system-index.md.
+  Três cores: verde = marca e ação, papel = chão, âmbar = moeda (só conquista/foco/alerta).
+  Profundidade = borda em pixel + bisel sólido. Sem degradê, sem blur, sem border-radius.
   A cena 3D não consome estes tokens; ela pinta o próprio canvas.
-  Light: paleta da marca. Dark: escala neutra padrão do shadcn.
 */
+@theme {
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --color-verde: #4e6b45;
+  --color-verde-hover: #5a7b50;
+  --color-verde-700: #3a5134;
+  --color-verde-100: #dce4d5;
+  --color-papel: #f2eee3;
+  --color-papel-claro: #fbf9f3;
+  --color-papel-300: #d9d3c2;
+  --color-ambar: #e3a33b;
+  --color-ambar-hover: #ebb257;
+  --color-ambar-700: #b47d22;
+  --color-ambar-800: #7d5414;
+  --color-ambar-100: #f6e3bf;
+  --color-tinta: #1e2a1b;
+  --color-tinta-2: #4a5446;
+
+  /* Canto em pixel substitui border-radius em tudo. `rounded-full` segue valendo. */
+  --radius: 0px;
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
+
+  /* Carregando em blocos: cada bloco acende na sua vez. */
+  --animate-block: block-blink 900ms steps(1, end) infinite;
+  @keyframes block-blink {
+    0% { opacity: 1; }
+    34%,
+    100% { opacity: 0.25; }
+  }
+}
+
 :root {
   color-scheme: light;
 
-  --radius: 0.5rem;
+  --background: var(--color-papel);
+  --foreground: var(--color-tinta);
 
-  --background: #fbf5e6;
-  --foreground: #05111d;
+  --card: var(--color-papel-claro);
+  --card-foreground: var(--color-tinta);
 
-  --card: #f3ebd3;
-  --card-foreground: #05111d;
+  --popover: var(--color-papel-claro);
+  --popover-foreground: var(--color-tinta);
+  --input: var(--color-papel-300);
 
-  --popover: #f3ebd3;
-  --popover-foreground: #05111d;
-  --input: #e2d6b6;
+  --muted: var(--color-papel-300);
+  --muted-foreground: var(--color-tinta-2);
 
-  --muted: #ece1c6;
-  --muted-foreground: #4b5563;
+  --border: var(--color-papel-300);
 
-  --border: #e2d6b6;
+  --primary: var(--color-verde);
+  --primary-foreground: var(--color-papel);
 
-  --primary: #04283d;
-  --primary-foreground: #f3ebd3;
+  --secondary: var(--color-verde-100);
+  --secondary-foreground: var(--color-verde-700);
 
-  --secondary: #e9dfc3;
-  --secondary-foreground: #04283d;
+  --accent: var(--color-verde-100);
+  --accent-foreground: var(--color-tinta);
 
-  --accent: #c46a4a;
-  --accent-foreground: #2b1206;
+  /* Sem vermelho: erro = âmbar escuro + "!" + frase clara. */
+  --destructive: var(--color-ambar-800);
+  --destructive-foreground: var(--color-papel);
 
-  --destructive: #b3261e;
-  --destructive-foreground: #fafafa;
+  --ring: var(--color-ambar);
 
-  --ring: #04283d;
+  /* Extras do DS: contorno em pixel, bisel das superfícies claras, placeholder, campo focado. */
+  --pixel-ink: var(--color-tinta);
+  --edge: var(--color-papel-300);
+  --placeholder: #7a8275;
+  --field-focus: #ffffff;
 
   --sidebar: var(--card);
   --sidebar-foreground: var(--foreground);
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: var(--secondary);
-  --sidebar-accent-foreground: var(--secondary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
 }
 
+/* Escuro (só /admin): mesmas três cores, chão vira tinta. */
 .dark {
   color-scheme: dark;
 
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
+  --background: var(--color-tinta);
+  --foreground: var(--color-papel);
 
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
+  --card: #2b3828;
+  --card-foreground: var(--color-papel);
 
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --input: oklch(1 0 0 / 15%);
+  --popover: #2b3828;
+  --popover-foreground: var(--color-papel);
+  --input: #3a4637;
 
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
+  --muted: #34412f;
+  --muted-foreground: #b4bbad;
 
-  --border: oklch(1 0 0 / 10%);
+  --border: #3a4637;
 
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  --primary: var(--color-verde);
+  --primary-foreground: var(--color-papel);
 
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
+  --secondary: var(--color-verde-700);
+  --secondary-foreground: var(--color-papel);
 
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --accent: var(--color-verde-700);
+  --accent-foreground: var(--color-papel);
 
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
+  --destructive: var(--color-ambar);
+  --destructive-foreground: var(--color-tinta);
 
-  --ring: oklch(0.556 0 0);
+  --ring: var(--color-ambar);
+
+  --pixel-ink: #0b110a;
+  --edge: #121a11;
+  --placeholder: #8e9688;
+  --field-focus: #24301f;
 
   --sidebar: var(--card);
   --sidebar-foreground: var(--foreground);
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: var(--secondary);
-  --sidebar-accent-foreground: var(--secondary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
 }
 
-/* Expõe os tokens como utilitários Tailwind: bg-primary, text-accent, border-border, … */
+/* Expõe os tokens como utilitários Tailwind: bg-primary, text-accent, bevel-edge, … */
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -121,6 +167,8 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-ring: var(--ring);
+  --color-edge: var(--edge);
+  --color-placeholder: var(--placeholder);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -129,6 +177,163 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+}
+
+/* ── Assinatura de jogo ─────────────────────────────────────────────────────
+   Vars sem herança: o bisel de um card não vaza para o input dentro dele. */
+@property --pixel-w { syntax: "*"; inherits: false; }
+@property --pixel-c { syntax: "*"; inherits: false; }
+@property --pixel-drop { syntax: "*"; inherits: false; }
+@property --bevel { syntax: "*"; inherits: false; }
+@property --bevel-w { syntax: "*"; inherits: false; }
+
+/* 1 · Canto em pixel: borda de 3px que pula o canto, como sprite. Substitui border + rounded.
+   Desenhada com box-shadow (fora da caixa): não mexe no layout, mas overflow corta —
+   dê respiro (p-1/p-2) dentro de áreas com scroll. Ordem: moldura, bisel, sombra dura
+   (a sombra por último deixa o "afundar" do botão interpolar). */
+@utility pixel {
+  box-shadow:
+    0 calc(var(--pixel-w, 3px) * -1) 0 0 var(--pixel-c, var(--pixel-ink)),
+    0 var(--pixel-w, 3px) 0 0 var(--pixel-c, var(--pixel-ink)),
+    calc(var(--pixel-w, 3px) * -1) 0 0 0 var(--pixel-c, var(--pixel-ink)),
+    var(--pixel-w, 3px) 0 0 0 var(--pixel-c, var(--pixel-ink)),
+    inset 0 calc(var(--bevel-w, 4px) * -1) 0 0 var(--bevel, #0000),
+    var(--pixel-drop, 0 0 #0000);
+}
+/* Borda de 2px (campos, selos, controles pequenos). */
+@utility pixel-thin {
+  --pixel-w: 2px;
+}
+/* Cor da borda: pixel-ink-verde (foco), pixel-ink-ambar-700 (erro). */
+@utility pixel-ink-* {
+  --pixel-c: --value(--color-*);
+}
+
+/* 2 · Bisel sólido: faixa no tom 700 na base (bevel-verde-700, bevel-edge, bevel-ambar-700). */
+@utility bevel-* {
+  --bevel: --value(--color-*);
+}
+/* Altura do bisel em px (padrão 4): bevel-w-6 em diálogos. */
+@utility bevel-w-* {
+  --bevel-w: calc(--value(integer) * 1px);
+}
+
+/* Sombra dura de 4px na diagonal, luz do canto superior esquerdo. Só botões. */
+@utility raised {
+  --pixel-drop:
+    4px 1px 0 0 var(--pixel-ink), 4px 7px 0 0 var(--pixel-ink),
+    1px 4px 0 0 var(--pixel-ink), 7px 4px 0 0 var(--pixel-ink);
+}
+
+/* Ao pressionar: anda 4px e a sombra vai a zero; o bisel não muda. */
+@utility press {
+  transition:
+    translate 70ms ease-out,
+    box-shadow 70ms ease-out,
+    background-color 70ms ease-out;
+  &:active:not(:disabled, [aria-disabled="true"]) {
+    translate: 4px 4px;
+    --pixel-drop:
+      0 -3px 0 0 var(--pixel-ink), 0 3px 0 0 var(--pixel-ink),
+      -3px 0 0 0 var(--pixel-ink), 3px 0 0 0 var(--pixel-ink);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+/* Campo: papel claro + borda de 2px. Foco = borda verde de 3px + fundo branco;
+   erro (aria-invalid) = borda âmbar escura + fundo âmbar claro. Serve em input,
+   select, textarea e no wrapper de um grupo (prefixo R$ + input) via :focus-within. */
+@utility field {
+  --pixel-w: 2px;
+  box-shadow:
+    0 calc(var(--pixel-w) * -1) 0 0 var(--pixel-c, var(--pixel-ink)),
+    0 var(--pixel-w) 0 0 var(--pixel-c, var(--pixel-ink)),
+    calc(var(--pixel-w) * -1) 0 0 0 var(--pixel-c, var(--pixel-ink)),
+    var(--pixel-w) 0 0 0 var(--pixel-c, var(--pixel-ink)),
+    inset 0 calc(var(--bevel-w, 3px) * -1) 0 0 var(--bevel, #0000);
+  background-color: var(--color-card);
+  color: var(--color-foreground);
+  &::placeholder {
+    color: var(--color-placeholder);
+    opacity: 1;
+  }
+  &:focus-within {
+    --pixel-w: 3px;
+    --pixel-c: var(--color-primary);
+    --bevel: var(--color-secondary);
+    background-color: var(--field-focus);
+  }
+  &:is([aria-invalid="true"], :has([aria-invalid="true"])) {
+    --pixel-w: 3px;
+    --pixel-c: var(--color-ambar-700);
+    background-color: var(--color-ambar-100);
+    color: var(--color-tinta);
+  }
+  &:is(:disabled, :has(:disabled)) {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+/* 3 · Cursor de menu ▸: marca a opção ativa ou destacada. Reserve pl-6 no item. */
+@utility menu-cursor {
+  position: relative;
+  &::before {
+    content: "";
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    width: 6px;
+    height: 10px;
+    margin-top: -5px;
+    background: var(--color-primary);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 7' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h1v7h-1zM1 1h1v5h-1zM2 2h1v3h-1zM3 3h1v1h-1z'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+    opacity: 0;
+  }
+  &:is(:hover, :focus-visible, [data-highlighted], [data-state="checked"], [data-state="active"], [data-active="true"], [aria-current="page"], [aria-selected="true"])::before {
+    opacity: 1;
+  }
+}
+
+/* Foco desenhado por dentro: para itens em área com overflow (aba rolável, lista), onde o contorno de fora seria cortado. */
+@utility focus-inset {
+  --focus-offset: -3px;
+}
+
+/* Aba (DS): bold (13px no chamador); ativa = régua verde de 4px embaixo. Foco por dentro — listas de aba rolam.
+   Some `menu-cursor pl-6` para a seta ▸ na ativa. */
+@utility tab {
+  --focus-offset: -3px;
+  font-weight: 700;
+  color: var(--color-muted-foreground);
+  transition: color 70ms ease-out, background-color 70ms ease-out;
+  &:hover {
+    color: var(--color-foreground);
+  }
+  &:is([data-state="active"], [data-active="true"]) {
+    color: var(--color-foreground);
+    box-shadow: inset 0 -4px 0 0 var(--color-primary);
+  }
+}
+
+/* Rótulo/placar em mono: rótulos de campo, contadores, kickers. Nunca parágrafo nem valor. */
+@utility mono-label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  letter-spacing: 0.04em;
+}
+
+/* Fundo de papel com pegadas (telas fora da cena). */
+@utility pattern-paws {
+  background-image: url("./assets/ui/paw-pattern.svg");
+  background-size: 420px 420px;
+  @variant dark {
+    background-image: none;
+  }
 }
 
 @layer base {
@@ -154,20 +359,141 @@
     min-width: 320px;
     /* Cena ocupa a viewport inteira; as telas de /admin rolam internamente. */
     overflow: hidden;
-    /* Fundo escuro da cena enquanto o Three carrega (o /admin pinta bg-background por cima). */
-    background: #05070a;
-    color: rgba(255, 255, 255, 0.95);
-    font-family:
-      Inter,
-      ui-sans-serif,
-      system-ui,
-      -apple-system,
-      BlinkMacSystemFont,
-      "Segoe UI",
-      sans-serif;
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  ::selection {
+    background: var(--color-ambar);
+    color: var(--color-tinta);
+  }
+
+  /* Ícones de linha (lucide) com terminação reta, mais perto do pixel. */
+  .lucide {
+    stroke-linecap: square;
+    stroke-linejoin: miter;
+  }
+
+  /* Controles nativos no vocabulário do DS: quadrados, borda em pixel, verde quando marcado. */
+  input[type="checkbox"],
+  input[type="radio"] {
+    appearance: none;
+    flex: none;
+    width: 18px;
+    height: 18px;
+    margin: 2px;
+    background: var(--color-card) center / 12px no-repeat;
+    box-shadow:
+      0 -2px 0 0 var(--pixel-ink), 0 2px 0 0 var(--pixel-ink),
+      -2px 0 0 0 var(--pixel-ink), 2px 0 0 0 var(--pixel-ink);
+  }
+  input[type="checkbox"]:checked {
+    background-color: var(--color-primary);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 8' shape-rendering='crispEdges'%3E%3Cpath fill='%23F2EEE3' d='M8 1h2v1h-2zM7 2h2v1h-2zM6 3h2v1h-2zM0 4h2v1h-2zM5 4h2v1h-2zM1 5h2v1h-2zM4 5h2v1h-2zM2 6h3v1h-3z'/%3E%3C/svg%3E");
+  }
+  input[type="radio"]:checked {
+    background-color: var(--color-primary);
+    box-shadow:
+      0 -2px 0 0 var(--pixel-ink), 0 2px 0 0 var(--pixel-ink),
+      -2px 0 0 0 var(--pixel-ink), 2px 0 0 0 var(--pixel-ink),
+      inset 0 0 0 4px var(--color-card);
+  }
+  input:is([type="checkbox"], [type="radio"]):disabled {
+    opacity: 0.5;
+  }
+
+  input[type="range"] {
+    appearance: none;
+    height: 20px;
+    background: transparent;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 8px;
+    background: var(--color-muted);
+    box-shadow:
+      0 -2px 0 0 var(--pixel-ink), 0 2px 0 0 var(--pixel-ink),
+      -2px 0 0 0 var(--pixel-ink), 2px 0 0 0 var(--pixel-ink);
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 12px;
+    height: 18px;
+    margin-top: -5px;
+    background: var(--color-primary);
+    box-shadow:
+      0 -2px 0 0 var(--pixel-ink), 0 2px 0 0 var(--pixel-ink),
+      -2px 0 0 0 var(--pixel-ink), 2px 0 0 0 var(--pixel-ink),
+      inset 0 -3px 0 0 var(--color-verde-700);
+  }
+  input[type="range"]::-moz-range-track {
+    height: 8px;
+    background: var(--color-muted);
+    box-shadow:
+      0 -2px 0 0 var(--pixel-ink), 0 2px 0 0 var(--pixel-ink),
+      -2px 0 0 0 var(--pixel-ink), 2px 0 0 0 var(--pixel-ink);
+  }
+  input[type="range"]::-moz-range-progress {
+    height: 8px;
+    background: var(--color-primary);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 12px;
+    height: 18px;
+    border: 0;
+    border-radius: 0;
+    background: var(--color-primary);
+    box-shadow:
+      0 -2px 0 0 var(--pixel-ink), 0 2px 0 0 var(--pixel-ink),
+      -2px 0 0 0 var(--pixel-ink), 2px 0 0 0 var(--pixel-ink),
+      inset 0 -3px 0 0 var(--color-verde-700);
+  }
+
+  input[type="color"] {
+    appearance: none;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow:
+      0 -2px 0 0 var(--pixel-ink), 0 2px 0 0 var(--pixel-ink),
+      -2px 0 0 0 var(--pixel-ink), 2px 0 0 0 var(--pixel-ink);
+  }
+  input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+  input[type="color"]::-webkit-color-swatch,
+  input[type="color"]::-moz-color-swatch {
+    border: 0;
+    border-radius: 0;
+  }
+
+  /* Select nativo: seta em pixel. Junte com `field` para a moldura. */
+  select {
+    appearance: none;
+    padding-right: 2.25rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 4' shape-rendering='crispEdges'%3E%3Cpath fill='%231E2A1B' d='M0 0h7v1h-7zM1 1h5v1h-5zM2 2h3v1h-3zM3 3h1v1h-1z'/%3E%3C/svg%3E");
+    background-position: right 0.75rem center;
+    background-size: 14px 8px;
+    background-repeat: no-repeat;
+  }
+}
+
+/* Fora de @layer de propósito: vence `outline-none` dos utilitários.
+   Foco de teclado = contorno âmbar de 3px. Campos (`field`) mostram foco pela moldura verde. */
+:focus-visible {
+  outline: 3px solid var(--color-ring);
+  outline-offset: var(--focus-offset, 4px);
+}
+:is(.field, .field *):focus-visible {
+  outline: none;
+}
+
+/* Cursor de pata em tudo que é clicável (assinatura do DS). */
+:is(a[href], button, select, summary, label[for], [role="button"], [role="checkbox"], [role="radio"], [role="switch"], [role="tab"], [role="menuitem"], [role="option"], input:is([type="checkbox"], [type="radio"], [type="range"], [type="color"])):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+  cursor: url("./assets/ui/paw-cursor.svg") 11 1, pointer;
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Gift } from "lucide-react";
 import { ApiError } from "@/api/http";
 import { requestLoginCode } from "@/api/auth/auth.routes";
@@ -6,8 +6,10 @@ import type { AuthChallenge, RegistrationRequiredResult } from "@/api/auth/auth.
 import type { ReferrerPreview } from "@/api/referral/referral.types";
 import { useAuth } from "@/hooks/useAuth";
 import { ReferralPerson } from "@/components/referral/ReferralPerson";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { BlockLoader, ErrorMark } from "@/components/ui/pixel-icon";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +29,16 @@ function GoogleG({ className }: { className?: string }) {
       <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
       <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
     </svg>
+  );
+}
+
+/** Erro do DS: "!" âmbar sobre tinta + frase clara. Sem vermelho. */
+function FormError({ children }: { children: ReactNode }) {
+  return (
+    <p role="alert" className="flex items-start gap-2.5 text-sm text-destructive">
+      <ErrorMark />
+      {children}
+    </p>
   );
 }
 
@@ -311,7 +323,7 @@ export function AuthDialog({
                 type="button"
                 aria-hidden
                 tabIndex={-1}
-                className="pointer-events-none absolute inset-0 flex items-center justify-center gap-3 rounded-md border border-input bg-transparent text-sm font-medium text-foreground transition-colors group-hover:bg-accent"
+                className={cn(buttonVariants({ variant: "outline" }), "pointer-events-none absolute inset-0 w-full gap-3 group-hover:bg-accent")}
               >
                 <GoogleG className="size-5" />
                 Continuar com Google
@@ -323,14 +335,13 @@ export function AuthDialog({
             </div>
             <div className="flex items-center gap-3">
               <span className="h-px flex-1 bg-border" />
-              <span className="text-xs text-muted-foreground">ou</span>
+              <span className="mono-label text-muted-foreground">ou</span>
               <span className="h-px flex-1 bg-border" />
             </div>
             <form onSubmit={handleEmailSubmit} className="space-y-4">
             <Input
               id="auth-email"
               label="E-mail"
-              labelClassName="bg-background"
               type="email"
               required
               autoComplete="email"
@@ -338,11 +349,7 @@ export function AuthDialog({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-            {error && (
-              <p role="alert" className="text-sm text-destructive">
-                {error}
-              </p>
-            )}
+            {error && <FormError>{error}</FormError>}
             <Button type="submit" disabled={submitting} className="w-full">
               {submitting ? "Enviando…" : "Continuar com E-mail"}
             </Button>
@@ -351,7 +358,7 @@ export function AuthDialog({
         ) : step === "code" ? (
           <form onSubmit={handleCodeSubmit} className="space-y-4">
             {challenge?.debugCode && (
-              <p className="rounded-md bg-muted px-3 py-2 text-center text-sm text-muted-foreground">
+              <p className="bg-secondary px-3 py-2 text-center text-sm text-secondary-foreground">
                 Código (dev):{" "}
                 <span className="font-mono font-semibold text-foreground">{challenge.debugCode}</span>
               </p>
@@ -359,7 +366,6 @@ export function AuthDialog({
             <Input
               id="auth-code"
               label="Código de 6 dígitos"
-              labelClassName="bg-background"
               inputMode="numeric"
               autoComplete="one-time-code"
               autoFocus
@@ -367,11 +373,7 @@ export function AuthDialog({
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
             />
-            {error && (
-              <p role="alert" className="text-sm text-destructive">
-                {error}
-              </p>
-            )}
+            {error && <FormError>{error}</FormError>}
             <Button
               type="submit"
               disabled={submitting || code.length !== 6}
@@ -380,24 +382,26 @@ export function AuthDialog({
               {submitting ? "Validando…" : "Continuar"}
             </Button>
             <div className="flex items-center justify-between text-sm">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   setStep("email");
                   setError(null);
                 }}
-                className="text-muted-foreground hover:text-foreground"
               >
                 Trocar e-mail
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 disabled={resendIn > 0 || submitting}
                 onClick={sendCode}
-                className="text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:hover:text-muted-foreground"
               >
                 {resendIn > 0 ? `Reenviar (${resendIn}s)` : "Reenviar código"}
-              </button>
+              </Button>
             </div>
           </form>
         ) : (
@@ -406,7 +410,6 @@ export function AuthDialog({
             <Input
               id="auth-confirm-email"
               label="E-mail"
-              labelClassName="bg-background"
               type="email"
               value={email}
               readOnly
@@ -415,7 +418,6 @@ export function AuthDialog({
             <Input
               id="auth-name"
               label="Nome"
-              labelClassName="bg-background"
               required
               minLength={2}
               maxLength={100}
@@ -427,7 +429,6 @@ export function AuthDialog({
             <Input
               id="auth-username"
               label="Nome de usuário"
-              labelClassName="bg-background"
               required
               minLength={3}
               maxLength={45}
@@ -437,23 +438,19 @@ export function AuthDialog({
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />
-            {error && (
-              <p role="alert" className="text-sm text-destructive">
-                {error}
-              </p>
-            )}
+            {error && <FormError>{error}</FormError>}
             <Button type="submit" disabled={submitting} className="w-full">
               {submitting ? "Criando conta…" : "Criar conta"}
             </Button>
           </form>
         )}
 
-        {/* Bloco de indicação destacado (borda tracejada + fundo primário) pra não se
-            confundir com os campos de login logo acima. */}
+        {/* Bloco de indicação destacado (fundo verde claro) pra não se confundir com os
+            campos de login logo acima. */}
         {referralOpen ? (
-          <div className="mt-3 space-y-4 rounded-xl border border-dashed border-primary/40 bg-primary/5 p-4">
+          <div className="mt-3 space-y-4 bg-secondary p-4">
             <div className="flex items-start gap-2.5">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <span className="flex size-8 shrink-0 items-center justify-center bg-primary text-primary-foreground">
                 <Gift className="size-4" aria-hidden />
               </span>
               <div className="space-y-0.5">
@@ -464,11 +461,10 @@ export function AuthDialog({
               </div>
             </div>
             <div className="space-y-2">
-              {/* Fundo sólido no input: o label flutuante corta a borda e precisa da mesma cor atrás. */}
               <Input
                 id="auth-referral-code"
                 label="Código de indicação"
-                className="bg-background font-mono tracking-[0.15em] dark:bg-background"
+                className="font-mono tracking-[0.15em]"
                 placeholder="A1B2C3D4E5F60718"
                 maxLength={16}
                 autoCapitalize="characters"
@@ -482,25 +478,22 @@ export function AuthDialog({
                 }}
               />
               {referralLoading && (
-                <p className="text-xs text-muted-foreground">Verificando indicação…</p>
+                <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <BlockLoader />
+                  Verificando indicação…
+                </p>
               )}
-              {showReferralError && referralError && (
-                <p role="alert" className="text-sm text-destructive">{referralError}</p>
-              )}
+              {showReferralError && referralError && <FormError>{referralError}</FormError>}
               {referralPreview && (
                 <ReferralPerson label="Você foi indicado por" person={referralPreview} />
               )}
             </div>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => setShowReferral(true)}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-primary/40 bg-primary/5 px-3 py-2.5 text-sm font-medium transition-colors hover:bg-primary/10"
-          >
-            <Gift className="size-4 text-primary" aria-hidden />
+          <Button type="button" variant="outline" className="mt-3 w-full" onClick={() => setShowReferral(true)}>
+            <Gift className="text-primary" aria-hidden />
             Tenho um código de indicação
-          </button>
+          </Button>
         )}
       </DialogContent>
     </Dialog>

@@ -19,19 +19,19 @@ export function TextureControls({ value, facadeTextures, onChange }: TextureCont
       description="Controla as texturas PBR aplicadas nos prédios. Clay Render ativa o efeito de espelhamento nas superfícies."
     >
       {facadeTextures.length > 0 && (
-        <div className="mb-3">
-          <span className="mb-2 block text-sm text-white/75">Textura da fachada</span>
-          <div className="grid grid-cols-2 gap-2">
+        <div>
+          <span className="mono-label mb-2 block text-foreground">Textura da fachada</span>
+          <div className="grid grid-cols-2 gap-2.5">
             {facadeTextures.map((tex) => {
               const selected = value.textureKey === tex.value;
               return (
                 <button
                   key={tex.id}
                   onClick={() => tex.value && onChange({ ...value, textureKey: tex.value })}
-                  className={`rounded-lg border px-3 py-2 text-xs transition-colors ${
+                  className={`pixel pixel-thin bevel-w-3 px-3 pt-1.5 pb-2 text-xs font-semibold transition-colors ${
                     selected
-                      ? "border-white/40 bg-white/15 text-white"
-                      : "border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70"
+                      ? "bevel-verde-700 bg-primary text-primary-foreground"
+                      : "bevel-edge bg-card text-foreground hover:bg-accent"
                   }`}
                 >
                   {tex.label}

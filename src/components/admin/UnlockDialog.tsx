@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Loader2, Trophy } from "lucide-react";
+import { Trophy } from "lucide-react";
 import { updateCustomizationCategory, updateCustomizationOption } from "@/api/admin/admin.routes";
 import { ApiError } from "@/api/http";
 import { formatUnlockCta, parseMoney, type UnlockRule } from "@/lib/unlock";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { BlockLoader, ErrorMark } from "@/components/ui/pixel-icon";
 import { Switch } from "@/components/ui/switch";
 
 import type { UnlockTarget } from "@/lib/adminUnlock";
@@ -83,10 +84,10 @@ export function UnlockDialog({
         </DialogHeader>
 
         <div className="space-y-3">
-          <div className="space-y-3 rounded-lg border p-3">
+          <div className="space-y-3 pixel pixel-thin bg-card p-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <span className="text-sm font-medium">Exigir doação</span>
+                <span className="text-sm font-semibold">Exigir doação</span>
                 <p className="text-xs text-muted-foreground">
                   Soma de tudo que o usuário já doou.
                 </p>
@@ -98,9 +99,11 @@ export function UnlockDialog({
               />
             </div>
             {requireDonation && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">R$</span>
-                <Input
+              // Campo com prefixo (DS): grupo `field`, R$ em bloco verde-100, input sem moldura.
+              <div className="field flex h-11 items-stretch">
+                <span aria-hidden="true" className="grid place-items-center bg-secondary px-3 font-mono text-sm text-secondary-foreground">R$</span>
+                <input
+                  className="min-w-0 flex-1 bg-transparent px-3.5 text-base outline-none placeholder:text-placeholder md:text-sm"
                   autoFocus
                   inputMode="decimal"
                   value={donation}
@@ -112,10 +115,10 @@ export function UnlockDialog({
             )}
           </div>
 
-          <div className="space-y-3 rounded-lg border p-3">
+          <div className="space-y-3 pixel pixel-thin bg-card p-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <span className="text-sm font-medium">Exigir indicações</span>
+                <span className="text-sm font-semibold">Exigir indicações</span>
                 <p className="text-xs text-muted-foreground">
                   Total histórico de pessoas que entraram pelo código dele.
                 </p>
@@ -138,8 +141,9 @@ export function UnlockDialog({
           </div>
 
           {requireDonation && requireReferral && (
-            <fieldset className="space-y-2 rounded-lg border p-3">
-              <legend className="px-1 text-sm font-medium">Como liberar</legend>
+            <fieldset className="space-y-2 pixel pixel-thin bg-card px-3 pb-3">
+              {/* Sem borda real, a legend encosta na moldura: o pt dá o respiro. */}
+              <legend className="pt-3 mono-label">Como liberar</legend>
               <label className="flex items-center gap-2 text-sm">
                 <input type="radio" name="unlock-mode" value="all" checked={mode === "all"} onChange={() => setMode("all")} />
                 Doação + indicação (cumprir as duas metas)
@@ -151,15 +155,15 @@ export function UnlockDialog({
             </fieldset>
           )}
 
-          <div className="rounded-lg bg-muted/50 p-3">
-            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          <div className="pixel pixel-thin bg-background p-3">
+            <span className="mono-label text-muted-foreground">
               O usuário vai ler
             </span>
             <p className="mt-1 text-sm font-medium">{formatUnlockCta(preview)}</p>
           </div>
 
           {target.unlockedCount > 0 && (
-            <p className="flex items-start gap-2 rounded-lg border border-accent/40 bg-accent/5 p-3 text-xs">
+            <p className="flex items-start gap-2 bg-secondary p-3 text-xs text-secondary-foreground">
               <Trophy className="mt-0.5 size-3.5 shrink-0" />
               <span>
                 <strong>{target.unlockedCount}</strong>{" "}
@@ -171,11 +175,17 @@ export function UnlockDialog({
           )}
 
           {incomplete && (
-            <p className="text-sm text-destructive">
+            <p className="flex gap-2 text-sm text-destructive">
+              <ErrorMark />
               Preencha um valor maior que zero, ou desligue a exigência.
             </p>
           )}
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p className="flex gap-2 text-sm text-destructive">
+              <ErrorMark />
+              {error}
+            </p>
+          )}
         </div>
 
         <DialogFooter className="sm:justify-between">
@@ -194,7 +204,7 @@ export function UnlockDialog({
               <Button variant="outline">Cancelar</Button>
             </DialogClose>
             <Button onClick={() => void handleSave()} disabled={saving || incomplete}>
-              {saving && <Loader2 className="animate-spin" />}
+              {saving && <BlockLoader />}
               Salvar
             </Button>
           </div>

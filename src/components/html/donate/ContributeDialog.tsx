@@ -1,5 +1,5 @@
-import { useEffect, useEffectEvent, useId, useRef, useState, type FormEvent, type KeyboardEvent, type SVGProps } from "react";
-import { ArrowRight, Check, ChevronDown, CircleCheck, Clock, Copy, HeartHandshake, Loader2, MapPin, Search } from "lucide-react";
+import { useEffect, useEffectEvent, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { ArrowRight, Clock, Copy, MapPin, Search } from "lucide-react";
 import { RadioGroup } from "radix-ui";
 import {
   createPixCharge,
@@ -20,10 +20,12 @@ import {
   DialogContent,
   DialogDescription,
   DialogHeader,
+  DialogKicker,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { BlockLoader, ErrorMark, PixelBuilding, PixelCheck, PixelChevronDown, PixelHeart } from "@/components/ui/pixel-icon";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/toast";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -43,10 +45,21 @@ const POLL_MS = 3_000;
 const STEPS = ["Contribuição", "Pagamento", "Confirmação"];
 const STEP_INDEX = { form: 0, pay: 1, done: 2 } as const;
 
-const labelClass = "mb-2.5 block text-sm font-medium text-foreground";
+const labelClass = "mb-2 block mono-label text-foreground";
+// Valor rápido (DS): papel com bisel; ativo = bloco verde.
 const chipClass =
-  "min-h-11 rounded-xl border border-input px-2 text-sm font-medium transition-colors outline-none data-[state=unchecked]:hover:bg-foreground/5 focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground";
-const selectClass = "w-full rounded-xl data-[size=default]:h-12";
+  "min-h-11 pixel pixel-thin bevel-edge bg-card px-2 pb-1 text-sm font-semibold transition-colors data-[state=unchecked]:hover:bg-accent data-[state=checked]:bevel-verde-700 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground";
+// Opção em card (DS): selecionada = verde-100 + moldura verde.
+const radioCardClass =
+  "flex min-h-14 items-center gap-3 pixel pixel-thin bg-card px-4 text-left text-sm font-semibold transition-colors data-[state=unchecked]:enabled:hover:bg-accent data-[state=checked]:pixel-ink-verde data-[state=checked]:bg-secondary disabled:cursor-not-allowed disabled:opacity-50";
+const selectClass = "w-full data-[size=default]:h-11";
+/** Erro do DS: "!" + frase em âmbar escuro, sem vermelho. */
+/** Radio do DS: quadrado com quadrado interno verde quando marcado. */
+const radioMark = (
+  <span aria-hidden="true" className="grid size-4 shrink-0 place-items-center pixel pixel-thin bg-card">
+    <RadioGroup.Indicator className="size-2 bg-primary" />
+  </span>
+);
 const scrollClass = "min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-8 sm:py-6 lg:px-10";
 const footerClass = "shrink-0 border-t bg-background px-5 py-4 sm:px-8 lg:px-10";
 
@@ -56,31 +69,6 @@ type Flow =
   | { step: "pay"; userId: number; charge: PixCharge; expired: boolean }
   | { step: "done"; userId: number; contribution: Contribution; donationId: number };
 
-// ponytail: cópia do lucide `building-complex-plus` (só existe no lucide-react ≥ 1.52); trocar pelo import ao atualizar.
-function BuildingComplexPlus(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      {...props}
-    >
-      <path d="M10 12h4" />
-      <path d="M10 21v-3a2 2 0 013.05-1.702" />
-      <path d="M10 8h4" />
-      <path d="M16 19h6" />
-      <path d="M18 7h2a2 2 0 012 2v4.355" />
-      <path d="M19 16v6" />
-      <path d="M6 10H4a2 2 0 00-2 2v7a2 2 0 002 2h8.535" />
-      <path d="M6 21V5a2 2 0 012-2h8a2 2 0 012 2v7.126" />
-    </svg>
-  );
-}
-
 function Stepper({ current }: { current: number }) {
   const compact = current === STEP_INDEX.done;
   return (
@@ -89,10 +77,10 @@ function Stepper({ current }: { current: number }) {
         <li
           key={label}
           aria-current={index === current ? "step" : undefined}
-          className={cn("flex flex-col items-start gap-2 text-[11px] sm:flex-row sm:items-center sm:text-sm", compact && "gap-1 sm:gap-2 sm:text-xs", index === current ? "font-medium text-foreground" : "text-muted-foreground")}
+          className={cn("flex flex-col items-start gap-2 text-[11px] sm:flex-row sm:items-center sm:text-sm", compact && "gap-1 sm:gap-2 sm:text-xs", index === current ? "font-semibold text-foreground" : "text-muted-foreground")}
         >
-          <span aria-hidden="true" className={cn("grid size-7 shrink-0 place-items-center rounded-full text-xs sm:size-8", compact && "size-5 text-[10px] sm:size-6", index <= current ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
-            {index < current ? <Check className={compact ? "size-3" : "size-4"} /> : index + 1}
+          <span aria-hidden="true" className={cn("grid size-7 shrink-0 place-items-center font-mono text-xs sm:size-8", compact && "size-5 text-[10px] sm:size-6", index <= current ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+            {index < current ? <PixelCheck className={compact ? "size-2.5" : "size-3"} /> : index + 1}
           </span>
           <span>{label}</span>
         </li>
@@ -155,7 +143,7 @@ function OngCombobox({ id, ongs, value, onChange }: {
 
   return (
     <div className="relative">
-      <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-4 size-4 text-muted-foreground" />
+      <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input
         ref={inputRef}
         id={id}
@@ -169,7 +157,7 @@ function OngCombobox({ id, ongs, value, onChange }: {
         spellCheck={false}
         disabled={!ongs.length}
         placeholder={ongs.length ? "Busque ou escolha uma ONG" : "Nenhuma ONG disponível"}
-        className="h-12 rounded-xl bg-background pl-10 pr-10"
+        className="pl-10 pr-10"
         value={query ?? selected?.name ?? ""}
         onFocus={(event) => {
           event.target.select();
@@ -192,14 +180,14 @@ function OngCombobox({ id, ongs, value, onChange }: {
         }}
         onKeyDown={handleKeyDown}
       />
-      <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3.5 top-4 size-4 text-muted-foreground" />
+      <PixelChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-foreground" />
       <ul
         ref={listRef}
         id={listId}
         role="listbox"
         aria-label="ONGs"
         hidden={!expanded}
-        className="absolute inset-x-0 top-full z-20 mt-2 max-h-60 overflow-y-auto rounded-xl border bg-popover p-1 text-popover-foreground shadow-lg"
+        className="absolute inset-x-0 top-full z-20 mt-2 max-h-60 overflow-y-auto pixel bg-popover p-1 text-popover-foreground"
       >
         {results.map((ong, index) => (
           <li
@@ -207,18 +195,18 @@ function OngCombobox({ id, ongs, value, onChange }: {
             id={`${listId}-${index}`}
             role="option"
             aria-selected={index === activeIndex}
-            className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm aria-selected:bg-muted"
+            className="menu-cursor flex min-h-11 cursor-pointer items-center justify-between gap-3 py-2.5 pr-3 pl-6 text-sm aria-selected:bg-accent"
             onMouseDown={(event) => event.preventDefault()}
             onMouseMove={() => setActive(index)}
             onClick={() => pick(ong)}
           >
             <span className="min-w-0 break-words">{ong.name}</span>
-            {String(ong.id) === value && <Check aria-hidden="true" className="size-4 shrink-0" />}
+            {String(ong.id) === value && <PixelCheck className="size-3 text-primary" />}
           </li>
         ))}
       </ul>
       {open && !results.length && (
-        <p role="status" className="absolute inset-x-0 top-full z-20 mt-2 rounded-xl border bg-popover px-4 py-3 text-sm text-muted-foreground shadow-lg">
+        <p role="status" className="absolute inset-x-0 top-full z-20 mt-2 pixel bg-popover px-4 py-3 text-sm text-muted-foreground">
           Nenhuma ONG encontrada.
         </p>
       )}
@@ -275,17 +263,17 @@ function PixPayment({
     }
   }
 
-  const qr = <img src={charge.qrCodeImage} alt="QR code do Pix" className="mx-auto size-56 max-w-full rounded-2xl bg-white p-3" />;
+  const qr = <img src={charge.qrCodeImage} alt="QR code do Pix" className="mx-auto size-56 max-w-full bg-card p-3" />;
   const validUntil = new Date(charge.expiresAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className={scrollClass}>
         <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] md:gap-8">
-          <div className="flex flex-col items-center justify-center gap-5 rounded-2xl border bg-muted/40 p-5 text-center sm:p-6">
+          <div className="flex flex-col items-center justify-center gap-5 pixel pixel-thin bg-card p-5 text-center sm:p-6">
             <div className="space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Sua contribuição</p>
-              <p className="break-words text-4xl font-semibold tracking-tight tabular-nums">{formatBRL(charge.contribution.value)}</p>
+              <p className="mono-label text-muted-foreground">Sua contribuição</p>
+              <p className="break-words text-4xl font-semibold tracking-[-0.02em] tabular-nums">{formatBRL(charge.contribution.value)}</p>
               {ongName && <p className="break-words text-sm font-medium">{ongName}</p>}
               {place && <p className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground"><MapPin aria-hidden="true" className="size-3.5 shrink-0" />{place}</p>}
             </div>
@@ -297,24 +285,25 @@ function PixPayment({
                 {showQr && qr}
               </div>
             ) : qr)}
-            {!expired && <p className="flex items-center gap-1.5 text-xs text-muted-foreground tabular-nums"><Clock aria-hidden="true" className="size-3.5" />Válido até {validUntil}</p>}
+            {!expired && <p className="mono-label flex items-center gap-1.5 text-muted-foreground"><Clock aria-hidden="true" className="size-3.5" />Válido até {validUntil}</p>}
           </div>
 
           <div className="min-w-0 space-y-5">
             {expired ? (
-              <div className="space-y-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
-                <Clock aria-hidden="true" className="size-7 text-amber-600 dark:text-amber-400" />
+              <div className="space-y-4 pixel pixel-thin pixel-ink-ambar-700 bg-ambar-100 p-5 text-tinta">
+                <Clock aria-hidden="true" className="size-7 text-destructive" />
                 <h3 className="font-semibold">Este código expirou</h3>
                 <p className="text-sm text-muted-foreground">Gere outro Pix para continuar com a mesma contribuição.</p>
                 {error && (
-                  <p role="alert" className="text-sm text-destructive">
+                  <p role="alert" className="flex gap-1.5 text-sm text-destructive">
+                    <ErrorMark />
                     {error}
                   </p>
                 )}
-                <Button size="lg" className="h-12 w-full rounded-xl" disabled={creating} onClick={onRenew}>
+                <Button size="lg" className="w-full" disabled={creating} onClick={onRenew}>
                   {creating ? (
                     <>
-                      <Loader2 className="animate-spin" />
+                      <BlockLoader />
                       Gerando Pix…
                     </>
                   ) : (
@@ -333,7 +322,7 @@ function PixPayment({
                     id={codeId}
                     readOnly
                     value={charge.copyPaste}
-                    className="h-12 rounded-xl bg-background font-mono text-xs md:text-xs"
+                    className="font-mono text-xs md:text-xs"
                     onFocus={(event) => event.target.select()}
                   />
                   {copyFailed && <p className="mt-2 text-sm text-muted-foreground">Selecione o código e copie.</p>}
@@ -341,10 +330,10 @@ function PixPayment({
                 <Button
                   type="button"
                   size="lg"
-                  className="h-12 w-full rounded-xl"
+                  className="w-full"
                   onClick={copyCode}
                 >
-                  {copied ? <Check /> : <Copy />}
+                  {copied ? <PixelCheck /> : <Copy />}
                   {copied ? "Código copiado" : "Copiar código Pix"}
                 </Button>
                 <span role="status" className="sr-only">
@@ -353,17 +342,17 @@ function PixPayment({
                 <ol className="space-y-4 text-sm">
                   {["Abra o app do seu banco e entre em Pix.", isMobile ? "Escolha Pix Copia e Cola e cole o código." : "Leia o QR code ou cole o código copiado.", "Confira o valor e o recebedor antes de confirmar."].map((instruction, index) => (
                     <li key={instruction} className="flex items-start gap-3">
-                      <span aria-hidden="true" className="grid size-6 shrink-0 place-items-center rounded-full bg-muted text-xs font-medium">{index + 1}</span>
+                      <span aria-hidden="true" className="grid size-6 shrink-0 place-items-center bg-secondary font-mono text-xs text-secondary-foreground">{index + 1}</span>
                       <span className="pt-0.5 text-muted-foreground">{instruction}</span>
                     </li>
                   ))}
                 </ol>
-                <div className="rounded-xl border px-4 py-3 text-sm">
-                  <p className="text-xs text-muted-foreground">Recebedor no app do banco</p>
-                  <p className="mt-1 break-words font-medium">{charge.receiverName}</p>
+                <div className="bg-card px-4 py-3 text-sm">
+                  <p className="mono-label text-muted-foreground">Recebedor no app do banco</p>
+                  <p className="mt-1 break-words font-semibold">{charge.receiverName}</p>
                 </div>
-                <p role="status" className="flex items-center gap-2 rounded-xl bg-muted/60 px-4 py-3 text-sm">
-                  <span aria-hidden="true" className={cn("size-2 shrink-0 rounded-full", offline ? "bg-amber-500" : "bg-emerald-500 motion-safe:animate-pulse")} />
+                <p role="status" className={cn("flex items-center gap-2 px-4 py-3 text-sm", offline ? "bg-ambar-100 text-tinta" : "bg-secondary text-secondary-foreground")}>
+                  {offline ? <ErrorMark /> : <BlockLoader className="text-primary" />}
                   {offline ? "Sem conexão. Tentando novamente…" : "Aguardando confirmação do pagamento"}
                 </p>
               </>
@@ -372,10 +361,10 @@ function PixPayment({
         </div>
       </div>
       <div className={cn(footerClass, "flex flex-wrap justify-between gap-2")}>
-        <Button type="button" variant="ghost" className="h-11 rounded-xl" disabled={creating} onClick={onBack}>
+        <Button type="button" variant="ghost" className="h-11" disabled={creating} onClick={onBack}>
           Alterar contribuição
         </Button>
-        <Button type="button" variant="outline" className="h-11 rounded-xl" disabled={creating} onClick={onClose}>
+        <Button type="button" variant="outline" className="h-11" disabled={creating} onClick={onClose}>
           Continuar depois
         </Button>
       </div>
@@ -582,30 +571,32 @@ export function ContributeDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <button
-          type="button"
-          className="absolute bottom-6 left-1/2 z-30 flex h-12 -translate-x-1/2 items-center gap-2 rounded-full bg-primary-foreground px-6 text-sm font-semibold text-primary shadow-lg outline-none transition-transform hover:scale-[1.03] focus-visible:ring-[3px] focus-visible:ring-ring/50 active:scale-100"
-        >
-          {pendingChargeId ? <Clock aria-hidden="true" className="size-5" /> : <BuildingComplexPlus className="size-5" />}
+        {/* Centrado sem translate: o `press` do botão usa a propriedade translate. */}
+        <Button type="button" size="lg" className="absolute inset-x-0 bottom-6 z-30 mx-auto w-fit">
+          {pendingChargeId ? <Clock aria-hidden="true" /> : <PixelBuilding />}
           Contribuir
-        </button>
+        </Button>
       </DialogTrigger>
       {/* text-foreground: o body da cena pinta texto branco, que sumiria no tema claro. */}
       <DialogContent
-        className="flex max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden rounded-3xl p-0 text-foreground sm:max-h-[calc(100dvh-3rem)] sm:w-[calc(100%-3rem)] sm:max-w-3xl sm:p-0 lg:max-w-4xl"
+        className="flex max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 pb-1.5 text-foreground sm:max-h-[calc(100dvh-3rem)] sm:w-[calc(100%-3rem)] sm:max-w-3xl lg:max-w-4xl"
+        showCloseButton={false}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           titleRef.current?.focus();
         }}
       >
-        <DialogHeader className={cn("shrink-0 px-5 pb-5 pt-5 pr-12 text-left sm:px-8 sm:pt-8 sm:pr-12 lg:px-10 lg:pt-10 lg:pr-14", step === "done" && "gap-1 pb-3 pt-3 sm:pt-4 lg:pt-4")}>
+        <DialogKicker className="shrink-0">
+          {STEP_INDEX[step] + 1}/{STEPS.length} · {STEPS[STEP_INDEX[step]]}
+        </DialogKicker>
+        <DialogHeader className={cn("shrink-0 px-5 pb-5 pt-5 text-left sm:px-8 sm:pt-6 lg:px-10 lg:pt-8", step === "done" && "gap-1 pb-3 pt-3 sm:pt-4 lg:pt-4")}>
           <DialogTitle
             ref={titleRef}
             tabIndex={-1}
             className={cn("flex items-center gap-3 text-2xl leading-tight outline-none sm:text-3xl", step === "done" && "gap-2 text-xl sm:text-xl")}
           >
-            <span className={cn("grid size-11 shrink-0 place-items-center rounded-2xl", step === "done" ? "size-8 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : "bg-primary/10 text-primary")}>
-              {step === "done" ? <CircleCheck aria-hidden="true" className="size-5" /> : <HeartHandshake aria-hidden="true" className="size-6" />}
+            <span className={cn("grid size-11 shrink-0 place-items-center", step === "done" ? "size-8 bg-primary text-primary-foreground" : "bg-secondary text-primary")}>
+              {step === "done" ? <PixelCheck /> : <PixelHeart className="size-6" />}
             </span>
             {step === "form" ? "Faça sua contribuição" : step === "pay" ? "Pagamento com Pix" : "Pagamento confirmado"}
           </DialogTitle>
@@ -645,8 +636,8 @@ export function ContributeDialog({
               <p className="text-sm text-muted-foreground">Veja e administre seu edifício em Meus edifícios.</p>
             </div>
             <div className={cn(footerClass, "flex flex-wrap justify-end gap-2")}>
-              <Button type="button" variant="outline" className="h-11 rounded-xl" onClick={() => setFlow({ step: "form" })}>Nova contribuição</Button>
-              <Button type="button" className="h-11 rounded-xl" onClick={() => {
+              <Button type="button" variant="outline" className="h-11" onClick={() => setFlow({ step: "form" })}>Nova contribuição</Button>
+              <Button type="button" className="h-11" onClick={() => {
                 handleOpenChange(false);
                 onViewBuilding(active.donationId);
               }}>Ver meu edifício</Button>
@@ -656,7 +647,7 @@ export function ContributeDialog({
           <form onSubmit={handleSubmit} aria-busy={creating} className="flex min-h-0 flex-1 flex-col">
             <div className={cn(scrollClass, "space-y-6")}>
               {pendingChargeId && (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-muted/50 px-4 py-3 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-secondary px-4 py-3 text-sm">
                   <p className="flex items-center gap-2"><Clock aria-hidden="true" className="size-4 shrink-0" />Você tem um Pix pendente.</p>
                   <Button type="button" variant="outline" disabled={creating} onClick={() => {
                     setEditingCharge(false);
@@ -674,12 +665,14 @@ export function ContributeDialog({
                         aria-labelledby={`${amountId}-building`}
                         value={growing ? "grow" : "new"}
                         onValueChange={(next) => setGrow(next === "grow")}
-                        className="grid grid-cols-2 gap-2"
+                        className="grid grid-cols-2 gap-3"
                       >
-                        <RadioGroup.Item value="new" disabled={atBuildingLimit} className={cn(chipClass, "min-h-14 disabled:cursor-not-allowed disabled:opacity-50")}>
+                        <RadioGroup.Item value="new" disabled={atBuildingLimit} className={radioCardClass}>
+                          {radioMark}
                           Novo edifício
                         </RadioGroup.Item>
-                        <RadioGroup.Item value="grow" className={cn(chipClass, "min-h-14")}>
+                        <RadioGroup.Item value="grow" className={radioCardClass}>
+                          {radioMark}
                           Aumentar edifício
                         </RadioGroup.Item>
                       </RadioGroup.Root>
@@ -713,31 +706,32 @@ export function ContributeDialog({
                       <label htmlFor={cityFieldId} className={labelClass}>
                         Cidade do edifício
                       </label>
-                      <CityCombobox id={cityFieldId} value={pickedCity} onChange={setCity} className="h-12 rounded-xl bg-background" />
+                      <CityCombobox id={cityFieldId} value={pickedCity} onChange={setCity} />
                       <p className="mt-2 text-xs text-muted-foreground">Seu edifício aparecerá nesta cidade.</p>
                     </div>
                   )}
-                  <div className="flex items-start gap-3 rounded-2xl bg-muted/40 p-4 text-sm text-muted-foreground">
-                    <BuildingComplexPlus className="mt-0.5 size-5 shrink-0 text-foreground" />
+                  <div className="flex items-center gap-3 bg-secondary p-3 text-sm text-foreground">
+                    <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center bg-primary text-primary-foreground"><PixelBuilding /></span>
                     <p>{growing ? "Sua contribuição aumenta o valor do edifício escolhido." : "Após o pagamento, administre seu edifício em Meus edifícios."}</p>
                   </div>
                 </div>
-                <div className="min-w-0 rounded-2xl border bg-muted/30 p-5 sm:p-6">
+                <div className="min-w-0 bg-card p-5 sm:p-6">
                   <label htmlFor={amountId} className={labelClass}>
                     Valor da contribuição
                   </label>
-                  <div className="relative mb-4">
-                    <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-4 grid place-items-center text-xl font-medium text-muted-foreground">
+                  {/* Campo com prefixo (DS): grupo `field`, R$ em bloco verde-100, input sem moldura. */}
+                  <div className="field mb-4 flex h-14 items-stretch">
+                    <span aria-hidden="true" className="grid place-items-center bg-secondary px-4 font-mono text-secondary-foreground">
                       R$
                     </span>
-                    <Input
+                    <input
                       id={amountId}
                       type="text"
                       inputMode="numeric"
                       autoComplete="off"
                       spellCheck={false}
                       placeholder="0,00"
-                      className="h-24 rounded-2xl bg-background pl-14 pr-4 text-4xl font-semibold tracking-tight tabular-nums md:text-4xl"
+                      className="min-w-0 flex-1 bg-transparent px-4 text-2xl font-semibold tracking-[-0.02em] tabular-nums outline-none placeholder:text-placeholder"
                       value={amount}
                       aria-invalid={amountError ? true : undefined}
                       aria-describedby={`${amountHintId}${amountError ? ` ${amountErrorId}` : ""}`}
@@ -761,7 +755,7 @@ export function ContributeDialog({
                       setAmount(`${preset},00`);
                       setAmountBlurred(false);
                     }}
-                    className="grid grid-cols-2 gap-2 min-[380px]:grid-cols-4"
+                    className="grid grid-cols-2 gap-3 min-[380px]:grid-cols-4"
                   >
                     {PRESETS.map((preset) => (
                       <RadioGroup.Item key={preset} value={String(preset)} className={chipClass}>
@@ -771,7 +765,8 @@ export function ContributeDialog({
                   </RadioGroup.Root>
                   <p id={amountHintId} className="mt-3 text-xs text-muted-foreground">Mínimo de {formatBRL(MIN_VALUE)}. Você pode digitar outro valor.</p>
                   {amountError && (
-                    <p id={amountErrorId} role="alert" className="mt-2 text-sm text-destructive">
+                    <p id={amountErrorId} role="alert" className="mt-2 flex gap-1.5 text-sm text-destructive">
+                      <ErrorMark />
                       {amountError}
                     </p>
                   )}
@@ -800,15 +795,15 @@ export function ContributeDialog({
             </div>
             <div className={cn(footerClass, "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between")}>
               <div className="text-sm text-muted-foreground">
-                {error ? <p role="alert" className="text-destructive">{error}</p>
+                {error ? <p role="alert" className="flex gap-1.5 text-destructive"><ErrorMark />{error}</p>
                   : !contribution ? <p>{growing && !selectedBuilding ? "Escolha o edifício para continuar." : !selectedOng ? "Escolha uma ONG para continuar." : !growing && !pickedCity ? "Escolha uma cidade para continuar." : "Informe um valor a partir de R$ 5."}</p>
                   : !user ? <p>Entre para vincular o edifício à sua conta.</p>
                   : <p>Na próxima etapa, você recebe o código Pix.</p>}
               </div>
-              <Button type="submit" size="lg" className="h-12 w-full rounded-xl px-6 sm:w-auto sm:min-w-52" disabled={!contribution || creating || isLoading}>
+              <Button type="submit" size="lg" className="w-full px-6 sm:w-auto sm:min-w-52" disabled={!contribution || creating || isLoading}>
                 {creating ? (
                   <>
-                    <Loader2 className="animate-spin" />
+                    <BlockLoader />
                     Gerando Pix…
                   </>
                 ) : !user ? (

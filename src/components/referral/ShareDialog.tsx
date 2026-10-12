@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PixelCheck } from "@/components/ui/pixel-icon";
 import { toast } from "@/components/ui/toast";
 
 // lucide 1.x não tem ícones de marca; glifos de simple-icons (CC0) e Feather (MIT, Facebook).
+// Cor de fundo = cor da marca (dado, não estilo); X usa tinta no lugar do preto.
 const networks = [
   {
     name: "WhatsApp",
@@ -26,7 +28,7 @@ const networks = [
   },
   {
     name: "X",
-    className: "bg-black dark:ring-1 dark:ring-white/20",
+    className: "bg-tinta",
     href: (url: string) => `https://x.com/intent/post?url=${url}`,
     path: "M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z",
   },
@@ -61,10 +63,10 @@ export function SharePanel({ url }: { url: string }) {
             href={network.href(encodedUrl)}
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex flex-col items-center gap-2 rounded-lg py-1 text-xs font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="group flex flex-col items-center gap-2 py-1 text-xs font-semibold"
           >
             <span
-              className={`grid size-14 place-items-center rounded-full text-white transition-transform group-hover:scale-105 ${network.className}`}
+              className={`pixel grid size-14 place-items-center text-papel transition-transform group-hover:-translate-y-0.5 ${network.className}`}
             >
               <svg viewBox="0 0 24 24" fill="currentColor" className="size-7" aria-hidden="true">
                 <path d={network.path} />
@@ -75,16 +77,16 @@ export function SharePanel({ url }: { url: string }) {
         ))}
       </div>
 
-      <div className="flex items-center gap-2 rounded-xl border bg-muted/40 p-1.5 pl-3">
+      <div className="field flex items-center gap-2 p-2 pl-3">
         <input
           readOnly
           value={url}
           aria-label="Link"
           onFocus={(event) => event.currentTarget.select()}
-          className="min-w-0 flex-1 truncate bg-transparent text-sm outline-none"
+          className="min-w-0 flex-1 truncate bg-transparent font-mono text-xs outline-none"
         />
         <Button type="button" size="sm" onClick={copyLink}>
-          {copied ? <Check /> : <Copy />}
+          {copied ? <PixelCheck /> : <Copy />}
           {copied ? "Copiado" : "Copiar"}
         </Button>
       </div>

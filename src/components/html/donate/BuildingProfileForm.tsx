@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
-import { ImagePlus, Loader2 } from "lucide-react";
+import { ImagePlus } from "lucide-react";
 import {
   fetchBuildingProfile,
   saveBuildingProfile,
@@ -9,15 +9,16 @@ import { resizeImage } from "@/lib/image";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { BlockLoader, ErrorMark } from "@/components/ui/pixel-icon";
 import { cn } from "@/lib/utils";
 
 const NAME_MAX = 40;
 const DESCRIPTION_MAX = 160;
 const EMPTY_PROFILE: BuildingProfile = { name: null, description: null, image: null };
 
-const labelClass = "mb-2.5 block text-sm font-medium text-foreground";
-const textareaClass =
-  "w-full min-w-0 resize-none rounded-xl border border-input bg-background px-3 py-3 text-base shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
+const labelClass = "mb-2 block mono-label text-foreground";
+const textareaClass = "field w-full min-w-0 resize-none px-3.5 py-3 text-base md:text-sm";
+/** Erro do DS: "!" + frase em âmbar escuro, sem vermelho. */
 
 /**
  * Imagem, nome e descrição do edifício — tudo opcional, público no card do edifício.
@@ -138,10 +139,10 @@ export function BuildingProfileForm({
               aria-label={image ? "Trocar imagem" : "Adicionar imagem"}
               disabled={imageBusy}
               onClick={() => fileRef.current?.click()}
-              className="grid aspect-[4/3] w-28 shrink-0 place-items-center overflow-hidden rounded-2xl border border-dashed bg-muted/40 text-muted-foreground outline-none transition-colors hover:bg-muted/70 focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-wait md:w-full md:max-w-64"
+              className="grid aspect-[4/3] w-28 shrink-0 place-items-center overflow-hidden pixel pixel-thin bg-card text-muted-foreground transition-colors hover:bg-accent disabled:cursor-wait md:w-full md:max-w-64"
             >
               {imageBusy ? (
-                <Loader2 className="size-5 animate-spin" />
+                <BlockLoader />
               ) : image ? (
                 <img src={image} alt="" className="size-full object-cover" />
               ) : (
@@ -151,14 +152,14 @@ export function BuildingProfileForm({
             <div className="min-w-0 space-y-2">
               {image ? (
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="outline" className="h-11 rounded-xl" disabled={imageBusy} onClick={() => fileRef.current?.click()}>
+                  <Button type="button" variant="outline" className="h-11" disabled={imageBusy} onClick={() => fileRef.current?.click()}>
                     Trocar
                   </Button>
-                  <Button type="button" variant="ghost" className="h-11 rounded-xl" disabled={imageBusy} onClick={() => setImage(null)}>
+                  <Button type="button" variant="ghost" className="h-11" disabled={imageBusy} onClick={() => setImage(null)}>
                     Remover
                   </Button>
                 </div>
-              ) : <Button type="button" variant="outline" className="min-h-11 rounded-xl whitespace-normal px-3" onClick={() => fileRef.current?.click()}>Adicionar imagem</Button>}
+              ) : <Button type="button" variant="outline" className="min-h-11 whitespace-normal px-3" onClick={() => fileRef.current?.click()}>Adicionar imagem</Button>}
               <p className="text-xs text-muted-foreground">JPG, PNG ou WebP. Até 10 MB.</p>
             </div>
             <input
@@ -173,7 +174,8 @@ export function BuildingProfileForm({
             />
           </div>
           {imageError && (
-            <p role="alert" className="mt-2 text-sm text-destructive">
+            <p role="alert" className="mt-2 flex gap-1.5 text-sm text-destructive">
+              <ErrorMark />
               {imageError}
             </p>
           )}
@@ -183,14 +185,14 @@ export function BuildingProfileForm({
             <label htmlFor={nameId} className={labelClass}>
               Nome do edifício
             </label>
-            <Input id={nameId} maxLength={NAME_MAX} className="h-12 rounded-xl bg-background" value={name} onChange={(event) => setName(event.target.value)} />
+            <Input id={nameId} maxLength={NAME_MAX} value={name} onChange={(event) => setName(event.target.value)} />
           </div>
           <div>
             <div className="mb-2 flex items-baseline justify-between">
-              <label htmlFor={descriptionId} className="text-sm font-medium">
+              <label htmlFor={descriptionId} className="mono-label text-foreground">
                 Descrição
               </label>
-              <span id={counterId} className="text-xs text-muted-foreground tabular-nums">
+              <span id={counterId} className="font-mono text-[11px] text-muted-foreground">
                 {description.length}/{DESCRIPTION_MAX}
               </span>
             </div>
@@ -212,11 +214,12 @@ export function BuildingProfileForm({
   return (
     <form id={id} onSubmit={handleSubmit} aria-busy={loadState === "loading" || saving || imageBusy || disabled} className={showActions ? "flex min-h-0 flex-1 flex-col" : "space-y-5"}>
       <div className={cn("space-y-5", showActions && "min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-8")}>
-        {loadState === "loading" && <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 aria-hidden="true" className="size-4 animate-spin" />Carregando informações…</p>}
+        {loadState === "loading" && <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><BlockLoader />Carregando informações…</p>}
         {loadState === "error" && (
-          <p role="alert" className="text-sm text-destructive">
+          <p role="alert" className="flex flex-wrap gap-1.5 text-sm text-destructive">
+            <ErrorMark />
             Não foi possível carregar.{" "}
-            <button type="button" className="font-medium underline underline-offset-4" onClick={() => {
+            <button type="button" className="font-semibold underline decoration-2 underline-offset-4" onClick={() => {
               setLoadState("loading");
               setAttempt((n) => n + 1);
             }}>Tentar de novo</button>
@@ -224,15 +227,16 @@ export function BuildingProfileForm({
         )}
         {fields}
         {saveError && (showActions || !onEditStateChange) && (
-          <p role="alert" className="text-sm text-destructive">
+          <p role="alert" className="flex gap-1.5 text-sm text-destructive">
+            <ErrorMark />
             {saveError}
           </p>
         )}
       </div>
       {showActions && <div className="flex shrink-0 flex-col-reverse gap-3 border-t bg-background px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8">
-        {onSkip && <Button type="button" variant="ghost" className="h-12 rounded-xl" disabled={saving || imageBusy || disabled} onClick={onSkip}>Agora não</Button>}
-        <Button type="submit" size="lg" className={cn("h-12 rounded-xl", onSkip ? "sm:min-w-52" : "w-full")} disabled={loadState !== "ready" || saving || imageBusy || disabled}>
-          {saving && <Loader2 aria-hidden="true" className="animate-spin" />}
+        {onSkip && <Button type="button" variant="ghost" className="h-12" disabled={saving || imageBusy || disabled} onClick={onSkip}>Agora não</Button>}
+        <Button type="submit" size="lg" className={onSkip ? "sm:min-w-52" : "w-full"} disabled={loadState !== "ready" || saving || imageBusy || disabled}>
+          {saving && <BlockLoader />}
           {saving ? "Salvando…" : submitLabel}
         </Button>
       </div>}
@@ -254,7 +258,7 @@ export function BuildingProfileDialog({
     <Dialog open={donationId !== null} onOpenChange={(open) => !open && onClose()}>
       {/* text-foreground: o body da cena pinta texto branco, que sumiria no tema claro. */}
       <DialogContent
-        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden rounded-3xl p-0 text-foreground sm:max-w-lg sm:p-0"
+        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 pb-1.5 text-foreground sm:max-w-lg"
         aria-describedby={undefined}
       >
         <DialogHeader className="shrink-0 px-5 pb-2 pt-6 sm:px-8 sm:pt-8">

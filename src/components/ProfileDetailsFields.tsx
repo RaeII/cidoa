@@ -1,11 +1,12 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { X } from "lucide-react";
 import { RadioGroup } from "radix-ui";
 import { getCities } from "@/api/location/location.routes";
 import type { City } from "@/api/location/location.types";
 import type { DiscoverySource, ProfileDetails } from "@/api/user/user.types";
 import { formatCity, indexCities, pickTypedCity, searchCities, type CityIndex } from "@/lib/citySearch";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ErrorMark, PixelClose } from "@/components/ui/pixel-icon";
 import { cn } from "@/lib/utils";
 
 /** Rótulos de "Como conheceu o Cidoa?" — lugar único; a ordem é a dos chips. */
@@ -21,12 +22,12 @@ const DISCOVERY_LABELS: Record<DiscoverySource, string> = {
   other: "Outro",
 };
 
-// Tokens do tema: claro no diálogo do onboarding, escuro dentro do GameMenu (`.dark`).
-const labelClass = "mb-2 block text-sm text-foreground/75";
-const popupClass =
-  "absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-lg";
+// Tokens do DS: rótulo mono acima do campo, popover em placa de papel, chip de seleção em pixel.
+const labelClass = "mono-label mb-2 block text-foreground";
+// mt-2.5: folga para a moldura do campo focado (3px) e a do popover (3px), ambas fora da caixa.
+const popupClass = "pixel absolute inset-x-0 top-full z-20 mt-2.5 bg-popover text-popover-foreground";
 const chipClass =
-  "h-10 rounded-full border border-input px-4 text-sm font-medium transition-colors outline-none data-[state=unchecked]:hover:bg-foreground/5 focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground";
+  "pixel pixel-thin h-10 bg-card px-4 text-sm font-semibold transition-colors data-[state=unchecked]:hover:bg-accent data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground";
 
 /**
  * Busca única "Campinas, SP": estado + cidade numa interação, sem cascata UF → cidade.
@@ -148,7 +149,7 @@ export function CityCombobox({
           <button
             type="button"
             aria-label="Limpar cidade"
-            className="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-r-md text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+            className="absolute inset-y-0 right-0 grid w-11 place-items-center text-muted-foreground transition-colors hover:text-foreground"
             // Mantém o foco no input: sem blur no meio do clique.
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => {
@@ -156,7 +157,7 @@ export function CityCombobox({
               inputRef.current?.focus();
             }}
           >
-            <X className="size-4" />
+            <PixelClose className="size-3" />
           </button>
         )}
         <ul ref={listRef} id={listId} role="listbox" aria-label="Cidades" hidden={!expanded} className={cn(popupClass, "py-1")}>
@@ -166,7 +167,7 @@ export function CityCombobox({
               id={`${listId}-${i}`}
               role="option"
               aria-selected={i === active}
-              className="cursor-pointer px-3 py-2.5 text-sm aria-selected:bg-muted"
+              className="menu-cursor py-2.5 pr-3 pl-6 text-sm aria-selected:bg-accent"
               onMouseDown={(event) => event.preventDefault()}
               // mousemove, não mouseenter: rolar a lista sob o mouse parado não troca a opção ativa.
               onMouseMove={() => setActive(i)}
@@ -184,18 +185,22 @@ export function CityCombobox({
         )}
       </div>
       {loadError && (
-        <p role="alert" className="mt-2 text-sm text-destructive">
-          Não foi possível carregar as cidades.{" "}
-          <button
-            type="button"
-            className="font-medium underline underline-offset-4"
-            onClick={() => {
-              setLoadError(false);
-              setAttempt((n) => n + 1);
-            }}
-          >
-            Tentar de novo
-          </button>
+        <p role="alert" className="mt-2 flex items-start gap-2.5 text-sm text-destructive">
+          <ErrorMark />
+          <span>
+            Não foi possível carregar as cidades.{" "}
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto p-0 text-sm"
+              onClick={() => {
+                setLoadError(false);
+                setAttempt((n) => n + 1);
+              }}
+            >
+              Tentar de novo
+            </Button>
+          </span>
         </p>
       )}
     </>
@@ -206,12 +211,9 @@ export function CityCombobox({
 export function ProfileDetailsFields({
   value,
   onChange,
-  fieldClassName,
 }: {
   value: ProfileDetails;
   onChange: (value: ProfileDetails) => void;
-  /** Estilo extra dos inputs de texto (ex.: vidro escuro da aba Perfil). */
-  fieldClassName?: string;
 }) {
   const cityId = useId();
   const sourceLabelId = useId();
@@ -226,7 +228,6 @@ export function ProfileDetailsFields({
           id={cityId}
           value={value.city}
           onChange={(city) => onChange({ ...value, city })}
-          className={fieldClassName}
         />
       </div>
       <div>
@@ -237,7 +238,7 @@ export function ProfileDetailsFields({
           aria-labelledby={sourceLabelId}
           value={value.discovery_source ?? ""}
           onValueChange={(source) => onChange({ ...value, discovery_source: source as DiscoverySource })}
-          className="flex flex-wrap gap-2"
+          className="flex flex-wrap gap-3"
         >
           {Object.entries(DISCOVERY_LABELS).map(([source, label]) => (
             <RadioGroup.Item key={source} value={source} className={chipClass}>
@@ -250,7 +251,7 @@ export function ProfileDetailsFields({
             aria-label="Onde conheceu o Cidoa"
             placeholder="Onde?"
             maxLength={100}
-            className={cn("mt-3", fieldClassName)}
+            className="mt-3"
             value={value.discovery_source_other ?? ""}
             onChange={(event) => onChange({ ...value, discovery_source_other: event.target.value })}
           />

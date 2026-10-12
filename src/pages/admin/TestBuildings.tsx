@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Blocks, Loader2, Plus, Trash2, TriangleAlert } from "lucide-react";
+import { Blocks, Plus, Trash2, TriangleAlert } from "lucide-react";
 import {
   createTestBuildings,
   deleteAllBuildings,
@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { BlockLoader, ErrorMark } from "@/components/ui/pixel-icon";
 import {
   Sheet,
   SheetContent,
@@ -40,7 +41,8 @@ function errMsg(err: unknown, fallback: string) {
 function FeedbackLine({ feedback }: { feedback: Feedback }) {
   if (!feedback) return null;
   return (
-    <p className={feedback.ok ? "text-sm text-accent" : "text-sm text-destructive"}>
+    <p className={`flex gap-2 text-sm ${feedback.ok ? "text-secondary-foreground" : "text-destructive"}`}>
+      {!feedback.ok && <ErrorMark />}
       {feedback.text}
     </p>
   );
@@ -132,8 +134,8 @@ function TestBuildings() {
             {/* Total atual */}
             <Card className="mt-8">
               <CardHeader>
-                <CardDescription>Edifícios no banco</CardDescription>
-                <CardTitle className="text-3xl tabular-nums">
+                <CardDescription className="mono-label text-xs">Edifícios no banco</CardDescription>
+                <CardTitle className="text-4xl tracking-[-0.02em]">
                   {total === null ? "—" : int.format(total)}
                 </CardTitle>
               </CardHeader>
@@ -145,12 +147,11 @@ function TestBuildings() {
                 <CardTitle>Criar edifícios</CardTitle>
                 <CardDescription>Quantidade por chamada: 1 a {int.format(MAX_COUNT)}.</CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-end">
                 <div className="sm:max-w-48">
                   <Input
                     type="number"
                     label="Quantidade"
-                    labelClassName="bg-card"
                     min={1}
                     max={MAX_COUNT}
                     step={1}
@@ -160,7 +161,7 @@ function TestBuildings() {
                   />
                 </div>
                 <Button onClick={() => void handleCreate()} disabled={creating}>
-                  {creating ? <Loader2 className="animate-spin" /> : <Plus />}
+                  {creating ? <BlockLoader /> : <Plus />}
                   Criar
                 </Button>
                 <FeedbackLine feedback={createFeedback} />
@@ -168,7 +169,7 @@ function TestBuildings() {
             </Card>
 
             {/* Zona de perigo */}
-            <Card className="mt-6 border-destructive/40">
+            <Card className="mt-6 pixel-ink-ambar-700">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-destructive">
                   <TriangleAlert className="size-5" />
@@ -220,7 +221,10 @@ function TestBuildings() {
               disabled={deleting}
             />
             {deleteFeedback && !deleteFeedback.ok ? (
-              <p className="text-sm text-destructive">{deleteFeedback.text}</p>
+              <p className="flex gap-2 text-sm text-destructive">
+                <ErrorMark />
+                {deleteFeedback.text}
+              </p>
             ) : null}
           </div>
 
@@ -230,7 +234,7 @@ function TestBuildings() {
               onClick={() => void handleDelete()}
               disabled={deleting || !password}
             >
-              {deleting ? <Loader2 className="animate-spin" /> : <Trash2 />}
+              {deleting ? <BlockLoader /> : <Trash2 />}
               Excluir tudo
             </Button>
             <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={deleting}>

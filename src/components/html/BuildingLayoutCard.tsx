@@ -1,5 +1,7 @@
 import { useState } from "react";
 import type { BlockLayoutSettings } from "../../scene/types";
+import { Button } from "@/components/ui/button";
+import { PixelClose } from "@/components/ui/pixel-icon";
 
 type BuildingLayoutCardProps = {
   settings: BlockLayoutSettings;
@@ -50,33 +52,33 @@ export function BuildingLayoutCard({
   const shown = visibleLimit === null ? total : Math.min(visibleLimit, total);
 
   return (
-    <div className="absolute left-4 top-4 z-30 w-64 rounded-xl border border-white/10 bg-black/60 p-3 shadow-2xl backdrop-blur-md">
+    <div className="pixel bevel-edge absolute left-4 top-4 z-30 w-64 bg-background p-3 pb-4">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-medium tracking-wide text-white/70">
+        <span className="mono-label text-foreground">
           Organização dos edifícios
         </span>
-        <button
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={onClose}
-          className="text-white/40 transition-colors hover:text-white"
+          className="-mr-1.5"
           title="Remover card da tela"
           aria-label="Remover card da tela"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-        </button>
+          <PixelClose className="size-3" />
+        </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-3">
         {MODES.map(({ mode, label, hint }) => (
           <button
             key={label}
             onClick={() => onChange({ ...settings, centerTallest: mode })}
             title={hint}
-            className={`rounded-lg border px-2 py-2 text-[11px] font-medium transition-colors ${
+            className={`pixel pixel-thin px-2 py-2 text-xs font-semibold transition-colors ${
               settings.centerTallest === mode
-                ? "border-white/60 bg-white/15 text-white"
-                : "border-white/10 bg-white/5 text-white/50 hover:text-white/80"
+                ? "pixel-ink-verde bg-secondary text-secondary-foreground"
+                : "bg-card text-muted-foreground hover:bg-accent hover:text-foreground"
             }`}
           >
             {label}
@@ -84,11 +86,11 @@ export function BuildingLayoutCard({
         ))}
       </div>
 
-      <div className="mt-3 border-t border-white/10 pt-3">
-        <label className="text-[11px] font-medium tracking-wide text-white/50">
+      <div className="mt-3 border-t border-border pt-3">
+        <label className="mono-label text-foreground">
           edifícios na tela
         </label>
-        <div className="mt-1.5 flex items-center gap-1.5">
+        <div className="mt-2 flex items-center gap-3">
           <input
             type="number"
             min={1}
@@ -97,26 +99,24 @@ export function BuildingLayoutCard({
             placeholder="todos"
             onChange={(e) => setLimitInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && applyLimit()}
-            className="min-w-0 flex-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-center text-sm text-white outline-none placeholder:text-white/20 focus:border-white/30 focus:bg-white/10"
+            className="field h-8 min-w-0 flex-1 px-2 text-center text-sm outline-none"
           />
-          <button
-            onClick={applyLimit}
-            className="rounded-md bg-white/10 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-white/20 active:bg-white/30"
-          >
+          <Button size="sm" onClick={applyLimit}>
             aplicar
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => {
               setLimitInput("");
               onVisibleLimitChange(null);
             }}
-            className="rounded-md bg-white/5 px-2.5 py-1 text-xs font-medium text-white/60 transition-colors hover:bg-white/15 hover:text-white"
             title="Mostrar todas as doações do filtro"
           >
             tudo
-          </button>
+          </Button>
         </div>
-        <p className="mt-2 text-[11px] leading-relaxed text-white/40">
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
           {shown.toLocaleString("pt-BR")} de {total.toLocaleString("pt-BR")} doações — as de maior
           valor primeiro.
         </p>

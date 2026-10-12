@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Building2, Share2 } from "lucide-react";
+import { Share2 } from "lucide-react";
 import { ApiError } from "@/api/http";
 import {
   applyMyReferral,
@@ -20,9 +20,8 @@ import { ReferralDialog } from "@/components/referral/ReferralDialog";
 import { ShareDialog } from "@/components/referral/ShareDialog";
 import { NightToggle } from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-
-const overlayButton =
-  "flex h-11 items-center gap-2 rounded-xl border border-white/10 bg-black/60 px-4 text-sm font-medium text-white/80 shadow-lg backdrop-blur-md transition-colors hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-50";
+import { Button } from "@/components/ui/button";
+import { PixelBuilding } from "@/components/ui/pixel-icon";
 
 function initialReferralCode() {
   return normalizeReferralCode(new URLSearchParams(window.location.search).get("ref") ?? "");
@@ -215,10 +214,10 @@ export function AuthMenu({
 
     return (
       <>
-        <div className="flex items-center gap-2">
-          <button
+        <div className="flex items-center gap-3">
+          <Button
             type="button"
-            className={overlayButton}
+            variant="outline"
             title="Meus edifícios"
             aria-label="Meus edifícios"
             aria-haspopup="dialog"
@@ -227,23 +226,25 @@ export function AuthMenu({
               setMenuOpen(true);
             }}
           >
-            <Building2 aria-hidden="true" />
+            <PixelBuilding />
             <span className="hidden sm:inline">Meus edifícios</span>
-          </button>
+          </Button>
           {summary && (
-            <button
+            <Button
               type="button"
-              className={overlayButton}
+              variant="outline"
+              size="icon"
               onClick={() => setShareOpen(true)}
               title="Compartilhar indicação"
               aria-label="Compartilhar indicação"
             >
               <Share2 />
-            </button>
+            </Button>
           )}
-          <button
+          <Button
             type="button"
-            className={`${overlayButton} max-w-[14rem]`}
+            variant="outline"
+            className="max-w-[14rem]"
             title={firstName}
             aria-haspopup="dialog"
             onClick={() => {
@@ -253,12 +254,12 @@ export function AuthMenu({
           >
             <Avatar className="size-6 shrink-0">
               {user.profile_image && <AvatarImage src={user.profile_image} alt="" className="object-cover" />}
-              <AvatarFallback className="bg-white/10 text-[10px] text-white">
+              <AvatarFallback className="text-[10px]">
                 {firstName.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <span className="truncate">{visibleName}</span>
-          </button>
+          </Button>
         </div>
         <GameMenu
           open={menuOpen}
@@ -296,12 +297,12 @@ export function AuthMenu({
 
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         {/* Deslogado não tem menu — o mesmo toggle fica ao lado do "Entrar". */}
         <NightToggle night={night} onNightChange={onNightChange} />
-        <button type="button" className={overlayButton} onClick={() => onAuthOpenChange(true)}>
+        <Button type="button" variant="outline" onClick={() => onAuthOpenChange(true)}>
           Entrar
-        </button>
+        </Button>
       </div>
       <AuthDialog
         open={effectiveAuthOpen}

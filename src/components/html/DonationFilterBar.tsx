@@ -2,9 +2,10 @@ import { useMemo } from "react";
 import type { City, Ong } from "../../api/donationApi";
 import { REGIONS, UF_REGION, type Region } from "../../api/regions";
 import type { DonationFilter } from "../hooks/useDonations";
+import { Button } from "@/components/ui/button";
 
-const selectClass =
-  "rounded-lg border border-white/10 bg-black/60 px-2.5 py-1.5 text-xs text-white/80 outline-none backdrop-blur-md transition-colors hover:bg-white/10 focus:border-white/30";
+// Só pl: o padding direito vem do select global (abre espaço para a seta em pixel).
+const selectClass = "field h-10 pl-3.5 text-sm";
 
 /**
  * Barra de filtros das doações (região → UF → cidade em cascata + ONG).
@@ -44,7 +45,7 @@ export function DonationFilterBar({
     filter.ongId !== undefined;
 
   return (
-    <div className="absolute left-1/2 top-4 z-30 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-wrap items-center gap-2">
+    <div className="absolute left-1/2 top-4 z-30 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-wrap items-center gap-3">
       <select
         className={selectClass}
         value={filter.region ?? ""}
@@ -109,12 +110,9 @@ export function DonationFilterBar({
       </select>
 
       {hasFilter && (
-        <button
-          onClick={() => onChange({})}
-          className="rounded-lg border border-white/10 bg-black/60 px-2.5 py-1.5 text-xs text-white/70 backdrop-blur-md transition-colors hover:bg-white/10 hover:text-white"
-        >
+        <Button variant="outline" onClick={() => onChange({})}>
           Limpar
-        </button>
+        </Button>
       )}
     </div>
   );

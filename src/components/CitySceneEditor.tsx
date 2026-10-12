@@ -26,6 +26,7 @@ import {
   type BuildingProfile,
 } from "../api/contributionApi";
 import { toast } from "./ui/toast";
+import { Button } from "./ui/button";
 import { DEFAULT_SCENE_STATS } from "../scene/config/citySceneConfig";
 import { createDefaultBlockLayoutSettings } from "../scene/config/blockLayoutConfig";
 import { createDefaultBuildingSettings } from "../scene/config/buildingConfig";
@@ -490,7 +491,7 @@ export function CitySceneEditor() {
   useKeyboardShortcuts(shortcuts);
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-[#05070a]">
+    <div className="relative h-screen w-full overflow-hidden bg-background">
       <CitySceneCanvas
         ref={canvasRef}
         buildingSettings={buildingSettings}
@@ -509,7 +510,6 @@ export function CitySceneEditor() {
         onHoverChange={handleHoverChange}
         onBuildingClick={handleBuildingClick}
       />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to from-black/35 to-transparent" />
       <div className="absolute right-4 top-4 z-20">
         <AuthMenu
           night={environmentSettings.night}
@@ -545,8 +545,8 @@ export function CitySceneEditor() {
         <DonationLoadOverlay state={loadState} onRetry={retry} />
       )}
       {uiVisibility.cameraLog && cameraDebugInfo && (
-        <div className="absolute bottom-4 left-4 z-30 w-[min(21rem,calc(100vw-2rem))] select-text rounded-lg border border-white/10 bg-black/70 px-3 py-2 font-mono text-[11px] leading-5 text-white/80 shadow-lg backdrop-blur-md">
-          <div className="mb-1 font-sans text-xs font-semibold text-white">Camera default</div>
+        <div className="pixel bevel-edge absolute bottom-4 left-4 z-30 w-[min(21rem,calc(100vw-2rem))] select-text bg-background px-3 pt-2 pb-3 font-mono text-[11px] leading-5 text-muted-foreground">
+          <div className="mb-1 font-sans text-xs font-semibold text-foreground">Camera default</div>
           <div>
             initialCameraPosition: {"{"} x: {formatCameraValue(cameraDebugInfo.position.x)}, y:{" "}
             {formatCameraValue(cameraDebugInfo.position.y)}, z:{" "}
@@ -561,7 +561,7 @@ export function CitySceneEditor() {
       )}
       {hoverInfo && (
         <div
-          className="pointer-events-none fixed z-50 rounded-lg border border-white/10 bg-black/80 px-3 py-1.5 text-sm text-white backdrop-blur-sm"
+          className="pointer-events-none fixed z-50 bg-tinta px-3 py-1.5 text-sm font-semibold text-papel"
           style={{ left: hoverInfo.x + 14, top: hoverInfo.y - 14 }}
         >
           {hoverInfo.value.toLocaleString("pt-BR", {
@@ -656,13 +656,15 @@ export function CitySceneEditor() {
         />
       )}
       {!showControlPanel && (
-        <button
+        <Button
+          variant="outline"
+          size="icon-lg"
           onClick={() => setShowControlPanel(true)}
-          className="absolute bottom-4 right-4 z-30 flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-black/60 text-white/70 shadow-lg backdrop-blur-md transition-colors hover:bg-white/10 hover:text-white"
+          className="absolute bottom-4 right-4 z-30"
           title="Configurações da cena"
           aria-label="Abrir painel de configurações"
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="size-5">
             <path
               fillRule="evenodd"
               clipRule="evenodd"
@@ -670,7 +672,7 @@ export function CitySceneEditor() {
               fill="currentColor"
             />
           </svg>
-        </button>
+        </Button>
       )}
     </div>
   );

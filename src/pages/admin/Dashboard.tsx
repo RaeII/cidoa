@@ -5,6 +5,7 @@ import { ApiError } from "@/api/http";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { AppSidebar } from "@/components/AppSidebar";
 import { MobileNav } from "@/components/MobileNav";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { ErrorMark } from "@/components/ui/pixel-icon";
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const int = new Intl.NumberFormat("pt-BR");
@@ -23,8 +25,8 @@ function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardDescription>{label}</CardDescription>
-        <CardTitle className="text-2xl tabular-nums">{value}</CardTitle>
+        <CardDescription className="mono-label text-xs">{label}</CardDescription>
+        <CardTitle className="text-3xl tracking-[-0.02em]">{value}</CardTitle>
       </CardHeader>
     </Card>
   );
@@ -77,8 +79,11 @@ function StatsGrid() {
 
   if (error) {
     return (
-      <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-6">
-        <p className="text-sm text-destructive">{error}</p>
+      <div className="pixel pixel-thin pixel-ink-ambar-700 bg-card p-6">
+        <p className="flex gap-2 text-sm text-destructive">
+          <ErrorMark />
+          {error}
+        </p>
         <Button variant="outline" size="sm" className="mt-3" onClick={retry}>
           Tentar de novo
         </Button>
@@ -125,28 +130,28 @@ function Dashboard() {
                 <CardTitle>Sessão</CardTitle>
                 <CardDescription>Administrador autenticado.</CardDescription>
               </CardHeader>
-              <CardContent className="grid gap-1 text-sm">
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Username</span>
+              <CardContent className="grid gap-2 text-sm">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="mono-label text-muted-foreground">Username</span>
                   <span className="font-medium">{user?.username ?? "—"}</span>
                 </div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Email</span>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="mono-label text-muted-foreground">Email</span>
                   <span className="font-medium">{user?.email ?? "—"}</span>
                 </div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">ID</span>
-                  <span className="font-medium tabular-nums">{user?.id ?? "—"}</span>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="mono-label text-muted-foreground">ID</span>
+                  <span className="font-medium">{user?.id ?? "—"}</span>
                 </div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Admin</span>
-                  <span className="font-medium text-accent">{user?.is_admin ? "sim" : "não"}</span>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="mono-label text-muted-foreground">Admin</span>
+                  <Badge variant={user?.is_admin ? "default" : "secondary"}>{user?.is_admin ? "sim" : "não"}</Badge>
                 </div>
               </CardContent>
             </Card>
 
             {/* Métricas agregadas (GET /api/admin/dashboard/stats) */}
-            <h2 className="mt-10 mb-4 text-sm font-medium text-muted-foreground">Métricas</h2>
+            <h2 className="mt-10 mb-4 mono-label text-muted-foreground">Métricas</h2>
             <StatsGrid />
           </main>
         </div>

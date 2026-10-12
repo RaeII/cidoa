@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { EllipsisVertical, Loader2, Lock, Palette, Pencil, Plus, Trash2, Trophy } from "lucide-react";
+import { EllipsisVertical, Lock, Palette, Pencil, Plus, Trash2, Trophy } from "lucide-react";
 import {
   createCustomizationOption,
   deleteCustomizationOption,
@@ -53,6 +53,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { BlockLoader, ErrorMark } from "@/components/ui/pixel-icon";
 import {
   Select,
   SelectContent,
@@ -182,8 +183,8 @@ function OptionDialog({
         </DialogHeader>
         <div className="space-y-4">
           {state.mode === "create" && (
-            <label className="block space-y-1.5">
-              <span className="text-sm font-medium">Identificador (key)</span>
+            <label className="block space-y-2">
+              <span className="block mono-label">Identificador (key)</span>
               <Input
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
@@ -194,20 +195,20 @@ function OptionDialog({
               </span>
             </label>
           )}
-          <label className="block space-y-1.5">
-            <span className="text-sm font-medium">Nome</span>
+          <label className="block space-y-2">
+            <span className="block mono-label">Nome</span>
             <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="ex: Azul Noite" />
           </label>
           {state.category.isExtensible && (
-            <label className="block space-y-1.5">
-              <span className="text-sm font-medium">{isColor ? "Cor (hex)" : "Valor / URL"}</span>
+            <label className="block space-y-2">
+              <span className="block mono-label">{isColor ? "Cor (hex)" : "Valor / URL"}</span>
               <div className="flex items-center gap-2">
                 {isColor && (
                   <input
                     type="color"
                     value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : "#8A8F94"}
                     onChange={(e) => setValue(e.target.value)}
-                    className="h-9 w-12 shrink-0 rounded border"
+                    className="h-11 w-12 shrink-0"
                   />
                 )}
                 <Input
@@ -218,14 +219,19 @@ function OptionDialog({
               </div>
             </label>
           )}
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p className="flex gap-2 text-sm text-destructive">
+              <ErrorMark />
+              {error}
+            </p>
+          )}
         </div>
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="outline">Cancelar</Button>
           </DialogClose>
           <Button onClick={() => void handleSave()} disabled={saving || !label.trim() || (state.mode === "create" && !key.trim())}>
-            {saving && <Loader2 className="animate-spin" />}
+            {saving && <BlockLoader />}
             Salvar
           </Button>
         </DialogFooter>
@@ -259,20 +265,20 @@ function OptionRow({
   // Estado base nunca é conquista: sem badge de regra e sem a ação no menu.
   const isBaseline = BASELINE_OPTION_KEYS.has(option.key);
   return (
-    <div className="flex items-center gap-3 rounded-lg border px-3 py-2">
+    <div className="flex items-center gap-3 border-b border-border/60 px-3 py-2.5 hover:bg-accent/50">
       {subject && (
         <button
           type="button"
           onClick={onPreview}
           title={`Ver ${option.label} em 3D`}
           aria-label={`Ver ${option.label} em 3D`}
-          className={`size-12 shrink-0 overflow-hidden rounded-md border bg-muted/40 transition-colors hover:border-foreground/40 ${option.isActive ? "" : "opacity-40"}`}
+          className={`size-12 shrink-0 overflow-hidden pixel pixel-thin bg-background transition-colors hover:bg-accent ${option.isActive ? "" : "opacity-40"}`}
         >
           <CustomizationImage categoryKey={categoryKey} optionKey={option.key} value={option.value} />
         </button>
       )}
       {!subject && (categoryKey === "color" || categoryKey === "texture") && (
-        <div className="size-12 shrink-0 overflow-hidden rounded-md border bg-muted/40">
+        <div className="size-12 shrink-0 overflow-hidden pixel pixel-thin bg-background">
           <CustomizationImage categoryKey={categoryKey} optionKey={option.key} value={option.value} />
         </div>
       )}
@@ -284,11 +290,11 @@ function OptionRow({
           {option.isCodeBound && <Lock className="size-3 text-muted-foreground" aria-label="Presa a código" />}
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">{option.key}{option.value ? ` · ${option.value}` : ""}</span>
+          <span className="font-mono text-[11px] text-muted-foreground">{option.key}{option.value ? ` · ${option.value}` : ""}</span>
           <UnlockBadge unlock={option.unlock} baseline={isBaseline} />
         </div>
       </div>
-      <span className="text-xs font-medium text-muted-foreground">
+      <span className="mono-label text-muted-foreground">
         {option.isActive ? "Ativa" : "Inativa"}
       </span>
       <Switch
@@ -427,7 +433,7 @@ function Customizations() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">
+            <span className="mono-label text-muted-foreground">
               {category.isActive ? "Ativa" : "Inativa"}
             </span>
             <Switch
@@ -484,10 +490,10 @@ function Customizations() {
               </p>
             )}
             {isTexture && unregistered.map((f) => (
-              <div key={f.folder} className="flex items-center gap-3 rounded-lg border border-dashed px-3 py-2">
+              <div key={f.folder} className="flex items-center gap-3 border-b border-dashed border-border px-3 py-2.5">
                 <div className="min-w-0 flex-1">
                   <span className="truncate text-sm font-medium text-muted-foreground">{f.label}</span>
-                  <span className="block text-xs text-muted-foreground">{f.folder} · não cadastrada</span>
+                  <span className="block font-mono text-[11px] text-muted-foreground">{f.folder} · não cadastrada</span>
                 </div>
                 <Button
                   variant="outline"
@@ -559,14 +565,18 @@ function Customizations() {
             </Button>
 
             {feedback && (
-              <p className={`mt-4 text-sm ${feedback.ok ? "text-accent" : "text-destructive"}`}>
+              <p className={`mt-4 flex gap-2 text-sm ${feedback.ok ? "text-secondary-foreground" : "text-destructive"}`}>
+                {!feedback.ok && <ErrorMark />}
                 {feedback.text}
               </p>
             )}
 
             {loadError ? (
-              <div className="mt-8 rounded-xl border border-destructive/40 bg-destructive/5 p-6">
-                <p className="text-sm text-destructive">{loadError}</p>
+              <div className="mt-8 pixel pixel-thin pixel-ink-ambar-700 bg-card p-6">
+                <p className="flex gap-2 text-sm text-destructive">
+                  <ErrorMark />
+                  {loadError}
+                </p>
                 <Button variant="outline" size="sm" className="mt-3" onClick={reload}>
                   Tentar de novo
                 </Button>
@@ -576,8 +586,8 @@ function Customizations() {
             ) : (
               <div className="mt-8 space-y-4">
                 <div className="flex flex-wrap items-end gap-3">
-                  <label className="block min-w-56 flex-1 space-y-1.5">
-                    <span className="text-sm font-medium">Personalização</span>
+                  <label className="block min-w-56 flex-1 space-y-2">
+                    <span className="block mono-label">Personalização</span>
                     <Select
                       value={selected ? String(selected.id) : undefined}
                       onValueChange={(v) => setSelectedId(Number(v))}
@@ -640,12 +650,12 @@ function Customizations() {
           </DialogHeader>
           {preview && (
             <Suspense
-              fallback={<Skeleton className="h-[55vh] w-full rounded-xl" />}
+              fallback={<Skeleton className="h-[55vh] w-full" />}
             >
               <PreviewCanvas
                 key={`${preview.subject.kind}:${preview.subject.key}`}
                 subject={preview.subject}
-                className="h-[55vh] w-full cursor-grab overflow-hidden rounded-xl border bg-muted/30 active:cursor-grabbing"
+                className="h-[55vh] w-full cursor-grab overflow-hidden pixel pixel-thin bg-muted/30 active:cursor-grabbing"
               />
             </Suspense>
           )}

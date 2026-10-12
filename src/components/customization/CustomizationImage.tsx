@@ -29,14 +29,14 @@ export function CustomizationImage({ categoryKey, optionKey, value }: {
       </Suspense>
     );
   } else if (categoryKey === "color" && value) {
-    content = <span className="size-2/3 rounded-2xl border border-black/10 shadow-lg" style={{ backgroundColor: value }} />;
+    content = <span className="size-2/3 pixel pixel-thin" style={{ backgroundColor: value }} />;
   } else if (categoryKey === "texture") {
     const url = textureImages.get(resolveFacadeFolder(value));
     content = url ? <img src={url} alt="" loading="lazy" className="size-full object-cover" /> : fallback;
   } else if (categoryKey === "sign") {
-    content = <Type className="size-16 text-sky-500" strokeWidth={1.25} aria-hidden />;
+    content = <Type className="size-16 text-primary" strokeWidth={1.25} aria-hidden />;
   } else if (categoryKey === "hologram") {
-    content = <ScanLine className="size-16 text-violet-500" strokeWidth={1.25} aria-hidden />;
+    content = <ScanLine className="size-16 text-primary" strokeWidth={1.25} aria-hidden />;
   } else {
     content = fallback;
   }

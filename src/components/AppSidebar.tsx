@@ -1,9 +1,10 @@
-import { Building2, ChevronsUpDown, LogOut, Palette } from "lucide-react";
+import { ChevronsUpDown, LogOut, Palette } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { navItems } from "@/lib/nav";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { CidoaLogo } from "@/components/ui/pixel-icon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,17 +44,15 @@ export function AppSidebar() {
           <SidebarMenuItem className="flex flex-col gap-2">
             {/* Logo — sempre visível; texto some ao recolher. */}
             <div className="flex w-full items-center gap-2 overflow-hidden group-data-[collapsible=icon]:justify-center">
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <Building2 className="size-4" />
-              </div>
+              <CidoaLogo className="size-8" />
               <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate font-semibold">Cidoa</span>
-                <span className="truncate text-xs text-muted-foreground">Admin</span>
+                <span className="truncate mono-label text-muted-foreground">Admin</span>
               </div>
             </div>
             {/* Linha do trigger: "Menu" à esquerda (aberto), botão à direita; texto some ao recolher. */}
             <div className="flex w-full items-center justify-between group-data-[collapsible=icon]:justify-center">
-              <span className="px-2 text-xs font-medium text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
+              <span className="px-2 mono-label text-muted-foreground group-data-[collapsible=icon]:hidden">
                 Menu
               </span>
               <SidebarTrigger className="size-8 shrink-0" />
@@ -89,9 +88,9 @@ export function AppSidebar() {
                   size="lg"
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
-                  <Avatar className="size-8 rounded-lg">
+                  <Avatar className="size-8">
                     {user?.profile_image && <AvatarImage src={user.profile_image} alt="" className="object-cover" />}
-                    <AvatarFallback className="rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                    <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground">
                       {initials(name)}
                     </AvatarFallback>
                   </Avatar>
@@ -103,16 +102,16 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
-                className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+                className="w-(--radix-dropdown-menu-trigger-width) min-w-56"
                 side={isMobile ? "bottom" : "right"}
                 align="end"
                 sideOffset={4}
               >
                 <DropdownMenuLabel className="p-0 font-normal">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left">
-                    <Avatar className="size-8 rounded-lg">
+                    <Avatar className="size-8">
                       {user?.profile_image && <AvatarImage src={user.profile_image} alt="" className="object-cover" />}
-                      <AvatarFallback className="rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                      <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground">
                         {initials(name)}
                       </AvatarFallback>
                     </Avatar>

@@ -4,31 +4,36 @@ import { Slot } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 
+// DS: botão com canto em pixel, bisel sólido na base e sombra dura na diagonal.
+// Ao pressionar anda 4px e a sombra zera (`press`). Ghost/link ficam sem moldura.
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 items-center justify-center gap-2 font-bold tracking-[0.04em] whitespace-nowrap outline-none disabled:pointer-events-none disabled:opacity-45 aria-invalid:pixel-ink-ambar-700 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        default:
+          "pixel raised press bevel-verde-700 bg-primary text-primary-foreground hover:bg-verde-hover",
+        // Âmbar = moeda: só para resgatar/conquistar.
+        reward: "pixel raised press bevel-ambar-700 bg-ambar text-tinta hover:bg-ambar-hover",
+        // Sem vermelho: ação destrutiva = âmbar claro com bisel âmbar escuro.
         destructive:
-          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
+          "pixel raised press bevel-ambar-700 bg-ambar-100 text-tinta hover:bg-ambar",
         outline:
-          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+          "pixel raised press bevel-edge bg-card text-card-foreground hover:bg-accent hover:text-accent-foreground",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost:
-          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-        link: "text-primary underline-offset-4 hover:underline",
+          "pixel raised press bevel-edge bg-card text-card-foreground hover:bg-accent hover:text-accent-foreground",
+        ghost: "text-secondary-foreground hover:bg-accent hover:text-accent-foreground",
+        link: "text-primary underline decoration-2 underline-offset-3 hover:bg-accent",
       },
       size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5",
-        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-        icon: "size-9",
-        "icon-xs": "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
-        "icon-sm": "size-8",
-        "icon-lg": "size-10",
+        default: "h-10 px-5 pb-1 text-sm has-[>svg]:px-4",
+        xs: "h-7 gap-1 px-2.5 pb-0.5 text-xs bevel-w-3 has-[>svg]:px-2 [&_svg:not([class*='size-'])]:size-3",
+        sm: "h-8 gap-1.5 px-3.5 pb-0.5 text-xs bevel-w-3 has-[>svg]:px-3",
+        lg: "h-12 px-7 pb-1 text-base has-[>svg]:px-6",
+        icon: "size-10 pb-1",
+        "icon-xs": "size-7 pb-0.5 bevel-w-3 [&_svg:not([class*='size-'])]:size-3",
+        "icon-sm": "size-8 pb-0.5 bevel-w-3",
+        "icon-lg": "size-12 pb-1",
       },
     },
     defaultVariants: {

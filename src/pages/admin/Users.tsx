@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  Loader2,
   MoreVertical,
   Search,
   Shield,
@@ -36,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { BlockLoader, ErrorMark } from "@/components/ui/pixel-icon";
 import {
   Pagination,
   PaginationContent,
@@ -84,12 +84,12 @@ function UserRow({
   }
 
   return (
-    <div className="flex items-center gap-3 border-b px-4 py-3 last:border-b-0">
-      <Avatar className="size-9 rounded-lg">
+    <div className="flex items-center gap-3 border-b border-border/60 px-6 py-2.5 last:border-b-0 hover:bg-accent/50">
+      <Avatar className="size-9">
         {user.profile_image && (
           <AvatarImage src={user.profile_image} alt="" className="object-cover" />
         )}
-        <AvatarFallback className="rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+        <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground">
           {initials(user.name ?? user.username)}
         </AvatarFallback>
       </Avatar>
@@ -107,7 +107,7 @@ function UserRow({
 
       {user.is_admin && <Badge variant="muted">Admin</Badge>}
 
-      <span className="hidden text-xs tabular-nums text-muted-foreground sm:inline">
+      <span className="hidden font-mono text-xs text-muted-foreground sm:inline">
         #{user.id}
       </span>
 
@@ -119,7 +119,7 @@ function UserRow({
             disabled={saving}
             aria-label={`Ações de ${user.username}`}
           >
-            {saving ? <Loader2 className="animate-spin" /> : <MoreVertical />}
+            {saving ? <BlockLoader /> : <MoreVertical />}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
@@ -281,7 +281,7 @@ function Users() {
                     aria-label="Buscar usuário"
                   />
                   <Button type="submit" variant="outline" disabled={loading}>
-                    {loading ? <Loader2 className="animate-spin" /> : <Search />}
+                    {loading ? <BlockLoader /> : <Search />}
                     <span className="hidden sm:inline">Buscar</span>
                   </Button>
                 </form>
@@ -293,8 +293,11 @@ function Users() {
                     ))}
                   </div>
                 ) : loadError ? (
-                  <div className="mx-6 rounded-xl border border-destructive/40 bg-destructive/5 p-6">
-                    <p className="text-sm text-destructive">{loadError}</p>
+                  <div className="mx-6 pixel pixel-thin pixel-ink-ambar-700 bg-card p-6">
+                    <p className="flex gap-2 text-sm text-destructive">
+                      <ErrorMark />
+                      {loadError}
+                    </p>
                     <Button
                       variant="outline"
                       size="sm"
@@ -309,7 +312,7 @@ function Users() {
                     Nenhum usuário encontrado.
                   </p>
                 ) : (
-                  <div className="border-t">
+                  <div className="border-t border-border">
                     {users.map((u) => (
                       <UserRow
                         key={u.id}
@@ -327,10 +330,11 @@ function Users() {
 
                 {feedback && (
                   <p
-                    className={`px-6 pt-4 text-sm ${
-                      feedback.ok ? "text-accent" : "text-destructive"
+                    className={`flex gap-2 px-6 pt-4 text-sm ${
+                      feedback.ok ? "text-secondary-foreground" : "text-destructive"
                     }`}
                   >
+                    {!feedback.ok && <ErrorMark />}
                     {feedback.text}
                   </p>
                 )}
@@ -370,7 +374,7 @@ function Users() {
                         </PaginationItem>
                       </PaginationContent>
                     </Pagination>
-                    <span className="text-xs text-muted-foreground">{total} usuários</span>
+                    <span className="mono-label text-muted-foreground">{total} usuários</span>
                   </div>
                 )}
               </CardContent>
@@ -397,19 +401,27 @@ function Users() {
           </DialogHeader>
 
           {deletingSelf && (
-            <p className="text-sm text-destructive">
-              Esta é a sua conta. Você perde o acesso ao painel na hora — só
-              <code className="mx-1">scripts/create-admin.ts</code> devolve.
+            <p className="flex gap-2 text-sm text-destructive">
+              <ErrorMark />
+              <span>
+                Esta é a sua conta. Você perde o acesso ao painel na hora — só
+                <code className="mx-1">scripts/create-admin.ts</code> devolve.
+              </span>
             </p>
           )}
-          {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
+          {deleteError && (
+            <p className="flex gap-2 text-sm text-destructive">
+              <ErrorMark />
+              {deleteError}
+            </p>
+          )}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setToDelete(null)} disabled={deleting}>
               Cancelar
             </Button>
             <Button variant="destructive" onClick={() => void confirmDelete()} disabled={deleting}>
-              {deleting ? <Loader2 className="animate-spin" /> : <Trash2 />}
+              {deleting ? <BlockLoader /> : <Trash2 />}
               Excluir
             </Button>
           </DialogFooter>

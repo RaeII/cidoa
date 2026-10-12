@@ -274,13 +274,11 @@ export function ReflectionControls({
           valueLabel={`${value.updateInterval}`}
           onChange={(updateInterval) => onChange({ ...value, updateInterval })}
         />
-        <div className="mt-4">
-          <CheckboxField
-            label="Recaptura contínua"
-            checked={value.continuous}
-            onChange={(continuous) => onChange({ ...value, continuous })}
-          />
-        </div>
+        <CheckboxField
+          label="Recaptura contínua"
+          checked={value.continuous}
+          onChange={(continuous) => onChange({ ...value, continuous })}
+        />
       </PanelSection>
     </>
   );

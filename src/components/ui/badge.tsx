@@ -5,15 +5,17 @@ import { Slot } from "radix-ui"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 [&>svg]:pointer-events-none [&>svg]:size-3",
+  // Selo (DS): mono 11px, borda em pixel de 2px.
+  "inline-flex w-fit shrink-0 items-center justify-center gap-1.5 overflow-hidden px-2.5 py-1 font-mono text-[11px] leading-4 whitespace-nowrap [&>svg]:pointer-events-none [&>svg]:size-3",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-primary text-primary-foreground",
-        secondary: "border-transparent bg-secondary text-secondary-foreground",
-        destructive: "border-transparent bg-destructive text-white",
-        outline: "text-foreground",
-        muted: "border-transparent bg-muted text-muted-foreground",
+        default: "pixel pixel-thin bg-primary text-primary-foreground",
+        secondary: "pixel pixel-thin bg-card text-card-foreground",
+        reward: "pixel pixel-thin bg-ambar text-tinta",
+        destructive: "pixel pixel-thin pixel-ink-ambar-700 bg-ambar-100 text-tinta",
+        outline: "pixel pixel-thin bg-card text-foreground",
+        muted: "bg-secondary text-secondary-foreground",
       },
     },
     defaultVariants: {

@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Building2, LogOut, Menu, Palette } from "lucide-react";
+import { LogOut, Menu, Palette } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { MOBILE_PRIMARY_COUNT, navItems, type NavItem } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { CidoaLogo } from "@/components/ui/pixel-icon";
 import {
   Sheet,
   SheetClose,
@@ -15,28 +16,28 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 
-// Linha de item dentro do drawer.
+// Linha de item dentro do drawer. ▸ (menu-cursor) marca hover e a página atual (aria-current).
 const rowClass =
-  "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground";
+  "menu-cursor flex w-full items-center gap-3 py-2.5 pr-3 pl-6 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground";
 
 function initials(name: string) {
   return name.slice(0, 2).toUpperCase();
 }
 
-// Tab da bottom bar. Pílula (padrão Material) marca o ativo; sem `to` fica inerte (placeholder).
+// Tab da bottom bar. Bloco verde-claro marca o ativo; sem `to` fica inerte (placeholder).
 function NavTab({ item }: { item: NavItem }) {
   const Icon = item.icon;
   const inner = (active: boolean) => (
     <>
       <span
         className={cn(
-          "flex items-center justify-center rounded-full px-4 py-1 transition-colors",
-          active && "bg-primary/10",
+          "flex items-center justify-center px-4 py-1 transition-colors",
+          active && "bg-secondary",
         )}
       >
         <Icon className="size-5" />
       </span>
-      <span className="text-[10px] font-medium">{item.title}</span>
+      <span className="text-[10px] font-semibold">{item.title}</span>
     </>
   );
 
@@ -77,12 +78,10 @@ function MoreSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex w-3/4 flex-col gap-0 p-0 sm:max-w-sm">
         <SheetHeader className="flex-row items-center gap-2 border-b">
-          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-            <Building2 className="size-4" />
-          </div>
+          <CidoaLogo className="size-8" />
           <div className="grid text-left leading-tight">
             <SheetTitle>Cidoa</SheetTitle>
-            <SheetDescription>Admin</SheetDescription>
+            <SheetDescription className="mono-label">Admin</SheetDescription>
           </div>
         </SheetHeader>
 
@@ -107,7 +106,7 @@ function MoreSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
                 <NavLink
                   to={item.to}
                   end
-                  className={cn(rowClass, item.to === pathname && "bg-accent text-accent-foreground")}
+                  className={cn(rowClass, item.to === pathname && "bg-secondary font-semibold text-secondary-foreground")}
                 >
                   {content}
                 </NavLink>
@@ -117,10 +116,10 @@ function MoreSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
         </nav>
 
         <div className="border-t p-2">
-          <div className="flex items-center gap-3 px-3 py-2">
-            <Avatar className="size-8 rounded-lg">
+          <div className="flex items-center gap-3 py-2 pr-3 pl-6">
+            <Avatar className="size-8">
               {user?.profile_image && <AvatarImage src={user.profile_image} alt="" className="object-cover" />}
-              <AvatarFallback className="rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+              <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground">
                 {initials(name)}
               </AvatarFallback>
             </Avatar>
@@ -129,7 +128,7 @@ function MoreSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
               <span className="truncate text-xs text-muted-foreground">{user?.email ?? "Sem e-mail"}</span>
             </div>
           </div>
-          <div className={cn(rowClass, "justify-between hover:bg-transparent")}>
+          <div className="flex w-full items-center justify-between gap-3 py-2.5 pr-3 pl-6 text-sm text-foreground">
             <span className="flex items-center gap-3">
               <Palette className="size-4" />
               Tema
@@ -159,7 +158,7 @@ export function MobileNav() {
     <>
       <nav
         aria-label="Navegação principal"
-        className="fixed inset-x-0 bottom-0 z-50 flex border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 flex border-t-3 border-(--pixel-ink) bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         {primary.map((item) => (
           <NavTab key={item.title} item={item} />
@@ -170,10 +169,10 @@ export function MobileNav() {
           aria-label="Abrir menu"
           className="flex flex-1 flex-col items-center justify-center gap-1 py-2 text-muted-foreground transition-colors hover:text-foreground"
         >
-          <span className="flex items-center justify-center rounded-full px-4 py-1">
+          <span className="flex items-center justify-center px-4 py-1">
             <Menu className="size-5" />
           </span>
-          <span className="text-[10px] font-medium">Menu</span>
+          <span className="text-[10px] font-semibold">Menu</span>
         </button>
       </nav>
 

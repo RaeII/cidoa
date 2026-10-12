@@ -78,8 +78,14 @@ doc/
 | Managers | `doc/scene/engine/scene-managers.md` |
 | Runtime | `doc/scene/engine/scene-runtime.md` |
 | Hook | `doc/scene/engine/scene-hooks.md` |
+| Visual: tokens (`src/index.css`), primitivos `src/components/ui/` | `doc/desingn-system/desingn-system-index.md` |
 
 Cross-reference with Obsidian wikilinks by **filename**, not path (`[[scene-runtime]]`, `[[scene-types#BuildingSettings]]`) — they resolve from any folder, so moving a page does not break links. Filenames must stay unique across the vault.
+
+## UI style
+
+Read `doc/desingn-system/desingn-system-index.md` before touching any HTML UI. Paper plaques with pixel-notched
+borders (`pixel`), solid bevels (`bevel-*`), tokens only — no `rounded-*`, `shadow-*`, blur, gradient, red, white/black or loose hex.
 
 ## UI copy
 

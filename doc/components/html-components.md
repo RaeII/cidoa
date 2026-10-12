@@ -92,7 +92,7 @@ Card flutuante no canto superior esquerdo. Tira do painel os dois controles que 
 Overlay de carregamento do snapshot de doações do backend ([[donation-api]]). Card central sobre o canvas enquanto o dataset carrega.
 
 **Responsabilidades:**
-- Card central: spinner + barra de progresso `%` por bytes (`X-Snapshot-Bytes`) ou só MB carregados quando o header não vem (gzip zera `total` — ver [[donation-api#Gotcha: barra de progresso com gzip]])
+- Placa central: `BlockLoader` (ou `BlockBar` quando há total) + progresso por bytes (`X-Snapshot-Bytes`) ou só MB carregados quando o header não vem (gzip zera `total` — ver [[donation-api#Gotcha: barra de progresso com gzip]])
 - Estado de erro: mensagem + botão **"Tentar novamente"** (chama `retry` do `useDonations`)
 - Fundo `pointer-events-none` — não bloqueia interação com a cena embaixo
 - Mascara o **freeze do rebuild**: só some depois de `setDonations` aplicar (o `rebuildInstances` trava o frame; overlay cobre o congelamento). Vale pro load inicial **e pra troca de filtro** — o editor derruba `donationsApplied`, espera duplo `requestAnimationFrame` (garante 1 paint do overlay; rAF simples dispara antes do paint) e só então chama `setDonations`
@@ -128,7 +128,7 @@ Barra de filtros das doações. Presentacional — recebe listas e filtro, emite
 
 ### `ContributeDialog.tsx`
 
-`html/donate/`. Pílula **Contribuir** (creme, ícone `building-complex-plus`, rodapé central) + contribuição → Pix → confirmação. Administração independente em [[#BuildingManageDialog.tsx]]; botão nunca vira retorno à edição.
+`html/donate/`. Botão **Contribuir** (`Button size="lg"` verde, ícone `PixelBuilding`, rodapé central) + contribuição → Pix → confirmação. Administração independente em [[#BuildingManageDialog.tsx]]; botão nunca vira retorno à edição.
 
 **Layout** — largura até **896 px**; cabeçalho/etapas/rodapé fixos, centro rolável, margens responsivas e tokens claro/escuro.
 
@@ -230,10 +230,10 @@ Mostra valor (BRL), `Cidade · UF`, chip da ONG — do snapshot público. Imagem
 
 Menu do usuário logado, estilo menu de pausa do GTA V. Abre por **Meus edifícios** ou pelo botão avatar + nome do `AuthMenu` (canto superior direito). Deslogado não existe — `AuthMenu` mostra "Entrar". Substituiu dropdown antigo + `ProfileDialog`.
 
-- **Fundo** — `DialogOverlay` com tinta `#04283d` + `backdrop-blur` + `backdrop-saturate-50`, fade 500 ms: cena muda de cor ao abrir.
-- **Visual** — mesmo vocabulário da cena: vidro escuro (`bg-black/60` + `backdrop-blur-xl`, `border-white/10`), cantos `rounded-2xl`/`rounded-3xl`, dourado `#c9a86a` como destaque (anel do avatar, "Ver na cidade", código, barra de progresso).
-- **Topo** — sem título visível (`DialogTitle` só `sr-only`); à direita switch sol/lua dia/noite (`NightToggle`, `onNightChange`) e, ao lado dele, pílula com nome, `@username` (some no celular) e avatar redondo.
-- **Abas** — Radix `Tabs` (setas ←/→ navegam), pílulas com ícone dentro do cartão. Primeiro acesso em Meus edifícios; botão próprio sempre retorna à lista, avatar preserva aba escolhida. Perfil por último. Ativa = branca. Celular: inativa mostra só ícone.
+- **Fundo** — `DialogOverlay` padrão (`bg-tinta/72`, sem blur), fade 500 ms: cena escurece ao abrir.
+- **Visual** — placas de papel do HUD ([[desingn-system-index#Interface sobre a cidade]]): `pixel bevel-edge bg-background`, edifício em quadrado verde com `PixelBuilding`, progresso em `BlockBar`, âmbar só na recompensa de indicação.
+- **Topo** — sem título visível (`DialogTitle` só `sr-only`); à direita switch sol/lua dia/noite (`NightToggle`, `onNightChange`) e, ao lado dele, placa com nome, `@username` mono (some no celular) e avatar quadrado.
+- **Abas** — Radix `Tabs` (setas ←/→ navegam), abas do DS (utilitário `tab` + `menu-cursor`) com ícone. Primeiro acesso em Meus edifícios; botão próprio sempre retorna à lista, avatar preserva aba escolhida. Perfil por último. Ativa = régua verde 4px + ▸. Celular: inativa mostra só ícone.
 - **Conteúdo** — coluna centralizada com largura máxima (perfil `max-w-xl`, doações `max-w-2xl`, indicações `max-w-md`). Perfil e indicações centralizam também na vertical.
 - **Rodapé** — só **Esc Voltar** à direita.
 - **Tema** — Content leva classe `dark`: tokens shadcn escuros só dentro do menu.
@@ -290,14 +290,13 @@ Campos compartilhados entre [[#OnboardingDialog.tsx|OnboardingDialog]] e aba Per
   - Teclado: ↑ ↓ navegam (abrem a lista fechada), Enter escolhe, Esc fecha só a lista. Esc via captura na `window`: roda antes do Esc do Dialog Radix (captura no `document`, respeita `defaultPrevented`) — senão Esc fecharia o modal junto (no onboarding = pular).
   - ARIA: `role="combobox"`, `aria-expanded`, `aria-controls`, `aria-autocomplete="list"`, `aria-activedescendant`; lista `role="listbox"` / `role="option"` + `aria-selected`. Foco nunca sai do input (`mousedown` com `preventDefault` em opção e no X).
   - Blur sem clicar: texto que aponta pra 1 cidade só (resultado único ou nome exato único, `pickTypedCity`) escolhe; ambíguo ("Bom Jesus") volta pra cidade atual; texto apagado = sem cidade. Botão X (44 px) limpa.
-  - Lista inline (`absolute`, sem portal): herda tema do contexto (`.dark` do GameMenu). Na aba Perfil o painel rola: `scrollIntoView({ block: "nearest" })` mostra a lista inteira. Hover ativa por `mousemove` (rolar sob mouse parado não troca opção).
-- **Como conheceu o Cidoa?** — chips Radix `RadioGroup` (`role="radiogroup"`/`radio`, setas navegam e marcam). Rótulos em `DISCOVERY_LABELS` (lugar único): Instagram, TikTok, YouTube, Facebook, WhatsApp, Google, Amigo ou familiar, Uma ONG, Outro. "Outro" revela input (máx 100). Marcado = `bg-primary` (navy no claro, quase branco no escuro, igual aba ativa do menu). Chip `h-10`.
-- **Tema** — só tokens shadcn (`foreground`, `input`, `popover`, `muted`, `primary`): claro no diálogo, escuro no GameMenu. `fieldClassName` aplica o vidro da aba Perfil nos inputs de texto.
+  - Lista inline (`absolute`, sem portal): herda tema do contexto. Na aba Perfil o painel rola: `scrollIntoView({ block: "nearest" })` mostra a lista inteira. Hover ativa por `mousemove` (rolar sob mouse parado não troca opção).
+- **Como conheceu o Cidoa?** — chips Radix `RadioGroup` (`role="radiogroup"`/`radio`, setas navegam e marcam). Rótulos em `DISCOVERY_LABELS` (lugar único): Instagram, TikTok, YouTube, Facebook, WhatsApp, Google, Amigo ou familiar, Uma ONG, Outro. "Outro" revela input (máx 100). Marcado = `bg-primary` verde (chip de seleção do DS). Chip `h-10`.
+- **Tema** — só tokens (`foreground`, `popover`, `muted`, `primary`); mesmo visual no diálogo e no GameMenu. Campos `field`, chips de seleção do DS, opção destacada com `menu-cursor`.
 
 | Prop | Tipo | Descrição |
 |---|---|---|
 | `value` / `onChange` | `ProfileDetails` / `(value) => void` | Controlado |
-| `fieldClassName` | `string?` | Classe extra dos inputs (vidro escuro do Perfil) |
 
 ---
 

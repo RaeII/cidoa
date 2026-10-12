@@ -35,24 +35,24 @@ export function HorizonControls({ settings, onChange, culledCount }: Props) {
           onChange={(val) => handleChange("renderDistance", val)}
         />
 
-        <p className="text-xs leading-5 text-white/50">
+        <p className="text-xs leading-5 text-muted-foreground">
           Alcance da câmera + raio do céu. Baixar aproxima o céu, tirando o vazio entre a cidade e
           o horizonte. Não altera a renderização dos edifícios.
         </p>
 
         <label className="block">
-          <span className="mb-2 block text-sm text-white/75">Final do chão</span>
+          <span className="mono-label mb-2 block text-foreground">Final do chão</span>
           <select
             value={settings.groundEdgeMode}
             onChange={(event) => handleChange("groundEdgeMode", event.target.value as GroundEdgeMode)}
-            className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:border-white/20"
+            className="field h-8 w-full pl-2 text-sm"
           >
-            <option value="straight" className="bg-[#0b0d11] text-white">Linha reta (padrão)</option>
-            <option value="circular" className="bg-[#0b0d11] text-white">Circular</option>
-            <option value="square" className="bg-[#0b0d11] text-white">Quadrado (original)</option>
+            <option value="straight">Linha reta (padrão)</option>
+            <option value="circular">Circular</option>
+            <option value="square">Quadrado (original)</option>
           </select>
         </label>
-        <p className="text-xs leading-5 text-white/50">
+        <p className="text-xs leading-5 text-muted-foreground">
           {groundEdgeDescriptions[settings.groundEdgeMode]}
         </p>
 
@@ -65,7 +65,7 @@ export function HorizonControls({ settings, onChange, culledCount }: Props) {
           onChange={(val) => handleChange("groundDistance", val)}
         />
 
-        <p className="text-xs leading-5 text-white/50">
+        <p className="text-xs leading-5 text-muted-foreground">
           O chão acompanha a câmera. Reduza a distância para comparar os formatos; use a névoa
           abaixo para suavizar a transição com o céu. Estes modos alteram apenas o chão, sem
           mudar o relevo das montanhas.
@@ -94,7 +94,7 @@ export function HorizonControls({ settings, onChange, culledCount }: Props) {
           onChange={(val) => handleChange("backDistance", val)}
         />
 
-        <p className="text-xs leading-5 text-white/50">
+        <p className="text-xs leading-5 text-muted-foreground">
           {culledCount} prédios ocultos por distância. Reduzir as distâncias diminui a
           quantidade de edifícios renderizados.
         </p>

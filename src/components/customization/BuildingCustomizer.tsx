@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useId, useRef, useState } from "react";
-import { Check, LockKeyhole, Loader2 } from "lucide-react";
+import { LockKeyhole } from "lucide-react";
 import { Tabs } from "radix-ui";
 import type { CatalogOption, CustomizationCatalog } from "@/api/customizationApi";
 import { formatUnlockCta } from "@/lib/unlock";
@@ -8,8 +8,11 @@ import type { BuildingCustomization, BuildingShape, EdgeLightType, RooftopType, 
 import { CustomizationImage } from "./CustomizationImage";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { BlockLoader, ErrorMark, PixelCheck } from "@/components/ui/pixel-icon";
 
 const Preview = lazy(() => import("@/components/three/BuildingPreview").then((module) => ({ default: module.BuildingPreview })));
+// Abas (DS): texto bold 13px; ativa = régua verde de 4px embaixo + ▸.
+const tabClass = "tab menu-cursor text-[13px] min-h-11 shrink-0 pr-3 pl-6 hover:bg-accent sm:min-h-10";
 const CATEGORIES = [
   { key: "shape", label: "Formato", field: "shapes" },
   { key: "color", label: "Cor", field: "colors" },
@@ -29,15 +32,15 @@ function OptionCard({ category, option, selected, onSelect }: {
   return (
     <button type="button" disabled={locked} onClick={onSelect} aria-pressed={selected}
       aria-describedby={locked ? requirementId : undefined}
-      className={cn("relative flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-card text-left shadow-sm outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed", selected ? "border-primary ring-2 ring-primary/20" : "border-border enabled:hover:border-primary/50")}>
-      <div className={cn("relative grid h-28 place-items-center border-b bg-radial from-primary/10 to-transparent p-3 sm:h-32", locked && "opacity-50")}>
+      className={cn("relative flex min-w-0 flex-col overflow-hidden pixel pixel-thin text-left transition-colors disabled:cursor-not-allowed", selected ? "pixel-ink-verde bg-secondary" : "bg-card enabled:hover:bg-accent")}>
+      <div className={cn("relative grid h-28 place-items-center bg-background p-3 sm:h-32", locked && "opacity-50")}>
         <CustomizationImage categoryKey={category} optionKey={option.key} value={option.value} />
-        {selected && <span className="absolute right-2 top-2 grid size-6 place-items-center rounded-full bg-primary text-primary-foreground"><Check aria-hidden className="size-4" /></span>}
+        {selected && <span className="absolute right-2 top-2 grid size-6 place-items-center bg-primary text-primary-foreground"><PixelCheck className="size-3" /></span>}
       </div>
       <div className="flex flex-1 flex-col gap-2 p-3">
         <span className="text-sm font-semibold break-words">{option.label}</span>
-        <span className={cn("flex items-center gap-1.5 text-xs font-medium", locked ? "text-muted-foreground" : "text-emerald-700 dark:text-emerald-400")}>
-          {locked ? <LockKeyhole aria-hidden className="size-3.5 shrink-0" /> : <Check aria-hidden className="size-3.5 shrink-0" />}
+        <span className={cn("flex items-center gap-1.5 font-mono text-[11px]", locked ? "text-muted-foreground" : "text-primary")}>
+          {locked ? <LockKeyhole aria-hidden className="size-3.5 shrink-0" /> : <PixelCheck className="size-3" />}
           {locked ? "Bloqueado" : selected ? "Em uso" : "Disponível"}
         </span>
         {locked && <span id={requirementId} className="text-xs leading-5 text-muted-foreground">{formatUnlockCta(option.unlock)}</span>}
@@ -104,24 +107,24 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
   return (
     <section aria-label="Personalizar seu edifício" className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.4fr)]">
       <div className="flex min-w-0 flex-col gap-2 lg:sticky lg:top-0 lg:h-[100cqh] lg:min-h-0">
-        <Suspense fallback={<div role="status" className="grid h-48 max-h-[calc(100cqh-2.5rem)] place-items-center rounded-2xl bg-muted sm:h-80 lg:h-auto lg:max-h-none lg:min-h-0 lg:flex-1"><Loader2 aria-hidden className="size-6 animate-spin" /><span className="sr-only">Carregando prévia 3D…</span></div>}>
+        <Suspense fallback={<div role="status" className="grid h-48 max-h-[calc(100cqh-2.5rem)] place-items-center bg-muted text-muted-foreground sm:h-80 lg:h-auto lg:max-h-none lg:min-h-0 lg:flex-1"><BlockLoader /><span className="sr-only">Carregando prévia 3D…</span></div>}>
           <Preview customization={customization} textureSettings={textureSettings} />
         </Suspense>
         <p className="shrink-0 text-center text-xs text-muted-foreground">As mudanças de aparência são salvas automaticamente.</p>
       </div>
       <div className="min-w-0">
-        {!catalog ? <p role="status" className="flex items-center gap-2 py-8 text-sm text-muted-foreground"><Loader2 aria-hidden className="size-4 animate-spin" />Carregando personalizações…</p> : (
+        {!catalog ? <p role="status" className="flex items-center gap-2 py-8 text-sm text-muted-foreground"><BlockLoader />Carregando personalizações…</p> : (
           <Tabs.Root value={activeCategory} onValueChange={setCategory} className="space-y-3">
-            <Tabs.List aria-label="Categorias de personalização" className="flex gap-1 overflow-x-auto rounded-xl bg-muted p-1">
+            <Tabs.List aria-label="Categorias de personalização" className="flex gap-1 overflow-x-auto shadow-[inset_0_-2px_0_0_var(--color-border)]">
               {[...categories, ...(catalog.features.sign ? [{ key: "sign", label: "Letreiro" }] : []), ...(catalog.features.hologram ? [{ key: "hologram", label: "Holograma" }] : [])].map((item) => (
-                <Tabs.Trigger key={item.key} value={item.key} className="min-h-11 shrink-0 rounded-lg px-3 text-sm font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm sm:min-h-10">{item.label}</Tabs.Trigger>
+                <Tabs.Trigger key={item.key} value={item.key} className={tabClass}>{item.label}</Tabs.Trigger>
               ))}
             </Tabs.List>
             {categories.map((item) => {
               const options = catalog[item.field];
               const defaults = item.key === "texture" ? [{ id: -1, key: "default", label: "Padrão", value: null, sortOrder: -1, unlock: null, isUnlocked: true }] : [];
               return <Tabs.Content key={item.key} value={item.key} className="space-y-4 outline-none">
-                <div className="flex items-center justify-between gap-2"><h3 className="font-semibold">{item.label}</h3><span className="text-xs text-muted-foreground">{options.filter((option) => option.isUnlocked !== false).length + defaults.length} disponíveis</span></div>
+                <div className="flex items-center justify-between gap-2"><h3 className="font-semibold">{item.label}</h3><span className="font-mono text-[11px] text-muted-foreground">{options.filter((option) => option.isUnlocked !== false).length + defaults.length} disponíveis</span></div>
                 <div className="grid grid-cols-2 items-stretch gap-3 sm:grid-cols-3 xl:grid-cols-4">
                   {[...defaults, ...options].map((option) => <OptionCard key={option.id} category={item.key} option={option} selected={selected(item.key, option)} onSelect={() => select(item.key, option)} />)}
                 </div>
@@ -132,26 +135,26 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
               if (!feature) return null;
               const locked = feature.isUnlocked === false;
               return <Tabs.Content key={key} value={key} className="space-y-4 outline-none">
-                <div className="rounded-2xl border bg-card p-4">
-                  <div className="flex items-center gap-4"><div className="size-16 shrink-0"><CustomizationImage categoryKey={key} /></div><div><h3 className="font-semibold">{key === "sign" ? "Letreiro" : "Holograma"}</h3><p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">{locked && <LockKeyhole aria-hidden className="size-3.5" />}{locked ? "Bloqueado" : "Disponível"}</p></div></div>
+                <div className="pixel pixel-thin bg-card p-4">
+                  <div className="flex items-center gap-4"><div className="size-16 shrink-0"><CustomizationImage categoryKey={key} /></div><div><h3 className="font-semibold">{key === "sign" ? "Letreiro" : "Holograma"}</h3><p className="mt-1 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">{locked && <LockKeyhole aria-hidden className="size-3.5" />}{locked ? "Bloqueado" : "Disponível"}</p></div></div>
                   {locked && <p className="mt-3 text-sm text-muted-foreground">{formatUnlockCta(feature.unlock)}</p>}
                 </div>
                 <fieldset disabled={locked || imageBusy} className="space-y-4 disabled:opacity-50">
                   {key === "sign" ? <>
-                    <label className="block space-y-2 text-sm font-medium">Texto do letreiro<Input maxLength={30} value={customization.signText} onChange={(event) => onChange({ signText: event.target.value })} placeholder="Marca ou empresa" /></label>
-                    <label className="block space-y-2 text-sm font-medium">Lados visíveis<select value={customization.signSides} onChange={(event) => onChange({ signSides: Number(event.target.value) })} className="h-11 w-full rounded-xl border border-input bg-background px-3">{[1, 2, 3, 4].map((sides) => <option key={sides} value={sides}>{sides} {sides === 1 ? "lado" : "lados"}</option>)}</select></label>
+                    <label className="block space-y-2"><span className="mono-label block">Texto do letreiro</span><Input maxLength={30} value={customization.signText} onChange={(event) => onChange({ signText: event.target.value })} placeholder="Marca ou empresa" /></label>
+                    <label className="block space-y-2"><span className="mono-label block">Lados visíveis</span><select value={customization.signSides} onChange={(event) => onChange({ signSides: Number(event.target.value) })} className="field h-11 w-full pl-3.5 text-sm">{[1, 2, 3, 4].map((sides) => <option key={sides} value={sides}>{sides} {sides === 1 ? "lado" : "lados"}</option>)}</select></label>
                   </> : <>
-                    <label className="block space-y-2 text-sm font-medium">Imagem ou GIF<Input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => { void uploadHologram(event.target.files?.[0]); event.target.value = ""; }} /><span className="block text-xs font-normal text-muted-foreground">PNG, JPG, WebP ou GIF. Até 700 KB.</span></label>
+                    <label className="block space-y-2"><span className="mono-label block">Imagem ou GIF</span><Input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => { void uploadHologram(event.target.files?.[0]); event.target.value = ""; }} /><span className="block text-xs text-muted-foreground">PNG, JPG, WebP ou GIF. Até 700 KB.</span></label>
                     {imageBusy && <p role="status" className="text-sm text-muted-foreground">Lendo imagem…</p>}
                     {customization.hologramImage && <>
-                      <img src={customization.hologramImage} alt="Imagem do holograma" className="h-24 w-full rounded-xl border bg-muted object-contain" />
+                      <img src={customization.hologramImage} alt="Imagem do holograma" className="pixel pixel-thin h-24 w-full bg-muted object-contain" />
                       <Button type="button" variant="outline" onClick={() => onChange({ hologramImage: null })}>Remover imagem</Button>
-                      <label className="flex items-center justify-between gap-3 text-sm font-medium">Cor do holograma<input type="color" value={customization.hologramColor} onChange={(event) => onChange({ hologramColor: event.target.value })} className="h-10 w-16 rounded border" /></label>
-                      <label className="block space-y-2 text-sm font-medium">Opacidade · {Math.round(customization.hologramOpacity * 100)}%<input type="range" min={0} max={1} step={0.01} value={customization.hologramOpacity} onChange={(event) => onChange({ hologramOpacity: Number(event.target.value) })} className="block w-full accent-primary" /></label>
+                      <label className="flex items-center justify-between gap-3"><span className="mono-label">Cor do holograma</span><input type="color" value={customization.hologramColor} onChange={(event) => onChange({ hologramColor: event.target.value })} className="h-10 w-16" /></label>
+                      <label className="block space-y-2"><span className="mono-label block">Opacidade · {Math.round(customization.hologramOpacity * 100)}%</span><input type="range" min={0} max={1} step={0.01} value={customization.hologramOpacity} onChange={(event) => onChange({ hologramOpacity: Number(event.target.value) })} className="block w-full" /></label>
                     </>}
                   </>}
                 </fieldset>
-                {key === "hologram" && imageError && <p role="alert" className="text-sm text-destructive">{imageError}</p>}
+                {key === "hologram" && imageError && <p role="alert" className="flex gap-1.5 text-sm text-destructive"><ErrorMark />{imageError}</p>}
               </Tabs.Content>;
             })}
             {!categories.length && !catalog.features.sign && !catalog.features.hologram && <p className="py-8 text-sm text-muted-foreground">Nenhuma personalização disponível.</p>}

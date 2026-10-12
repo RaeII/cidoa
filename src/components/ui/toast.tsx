@@ -1,8 +1,9 @@
-import { useSyncExternalStore, type MouseEvent } from "react"
+import { useSyncExternalStore, type MouseEvent, type ReactNode } from "react"
 import { Toast as ToastPrimitive } from "radix-ui"
-import { CircleAlert, CircleCheck, Info, TriangleAlert, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { buttonVariants } from "@/components/ui/button"
+import { PixelCheck, PixelClose } from "@/components/ui/pixel-icon"
 
 type ToastVariant = "success" | "error" | "warning" | "info"
 
@@ -37,11 +38,12 @@ const DURATION: Record<ToastVariant, number> = {
 }
 const MAX_TOASTS = 3
 
-const VARIANT = {
-  success: { Icon: CircleCheck, color: "text-emerald-400" },
-  error: { Icon: CircleAlert, color: "text-red-400" },
-  warning: { Icon: TriangleAlert, color: "text-amber-400" },
-  info: { Icon: Info, color: "text-sky-400" },
+// Feedback do DS: quadrado sólido com o ícone. Sem vermelho — erro é "!" âmbar sobre tinta.
+const VARIANT: Record<ToastVariant, { box: string; mark: ReactNode }> = {
+  success: { box: "bg-primary text-primary-foreground", mark: <PixelCheck className="w-3.5" /> },
+  error: { box: "bg-tinta text-ambar", mark: "!" },
+  warning: { box: "bg-ambar text-tinta", mark: "!" },
+  info: { box: "bg-secondary text-secondary-foreground", mark: "i" },
 }
 
 // Store fora do React: `toast.*` funciona de qualquer lugar (callback de
@@ -105,7 +107,7 @@ export function Toaster() {
     // nunca sairia sozinho. Remontar o Provider a cada leva zera esse estado.
     <ToastPrimitive.Provider key={items.at(-1)?.batch} label="Notificação" swipeDirection="right">
       {items.map((item) => {
-        const { Icon, color } = VARIANT[item.variant]
+        const { box, mark } = VARIANT[item.variant]
         return (
           <ToastPrimitive.Root
             key={item.key}
@@ -116,13 +118,13 @@ export function Toaster() {
             duration={item.duration}
             // pointer-events-auto: Dialog modal desliga o pointer do body; sem
             // isso o "x" não clica com um dialog aberto.
-            className="pointer-events-auto flex w-full items-start gap-3 rounded-xl border border-white/10 bg-black/85 p-3 text-sm text-white shadow-2xl backdrop-blur-md data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[swipe=move]:translate-x-(--radix-toast-swipe-move-x) data-[swipe=move]:transition-none data-[swipe=cancel]:translate-x-0 data-[swipe=cancel]:transition-transform data-[swipe=end]:translate-x-(--radix-toast-swipe-end-x) data-[swipe=end]:animate-out data-[swipe=end]:slide-out-to-right-full"
+            className="pointer-events-auto flex w-full items-center gap-3 pixel bevel-edge bg-card p-3 pb-4 text-sm text-card-foreground data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[swipe=move]:translate-x-(--radix-toast-swipe-move-x) data-[swipe=move]:transition-none data-[swipe=cancel]:translate-x-0 data-[swipe=cancel]:transition-transform data-[swipe=end]:translate-x-(--radix-toast-swipe-end-x) data-[swipe=end]:animate-out data-[swipe=end]:slide-out-to-right-full"
           >
-            <Icon aria-hidden className={cn("mt-0.5 size-4 shrink-0", color)} />
+            <span aria-hidden className={cn("grid size-8 shrink-0 place-items-center font-mono text-sm font-semibold", box)}>{mark}</span>
             <div className="min-w-0 flex-1">
-              <ToastPrimitive.Title className="leading-5 font-medium">{item.title}</ToastPrimitive.Title>
+              <ToastPrimitive.Title className="leading-5 font-semibold">{item.title}</ToastPrimitive.Title>
               {item.description && (
-                <ToastPrimitive.Description className="mt-0.5 text-xs text-white/60">
+                <ToastPrimitive.Description className="mt-0.5 text-xs text-muted-foreground">
                   {item.description}
                 </ToastPrimitive.Description>
               )}
@@ -132,7 +134,7 @@ export function Toaster() {
                 altText={item.action.label}
                 onClick={item.action.onClick}
                 onMouseDown={keepFocus}
-                className="shrink-0 rounded-md border border-white/15 px-2 py-1 text-xs font-medium transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:outline-none"
+                className={buttonVariants({ variant: "outline", size: "xs" })}
               >
                 {item.action.label}
               </ToastPrimitive.Action>
@@ -140,9 +142,9 @@ export function Toaster() {
             <ToastPrimitive.Close
               aria-label="Fechar notificação"
               onMouseDown={keepFocus}
-              className="-m-1 shrink-0 rounded-md p-1 text-white/50 transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:outline-none"
+              className="grid size-8 shrink-0 place-items-center text-foreground transition-colors hover:bg-accent"
             >
-              <X className="size-4" />
+              <PixelClose className="size-2.5" />
             </ToastPrimitive.Close>
           </ToastPrimitive.Root>
         )

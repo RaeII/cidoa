@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { ErrorMark } from "@/components/ui/pixel-icon";
 
 type AdminReward = PassReward & { target: UnlockTarget };
 
@@ -71,16 +72,16 @@ export default function Pass() {
         </header>
         <div className="min-w-0 flex-1 overflow-y-auto">
           <main className="mx-auto w-full max-w-7xl space-y-8 px-4 pt-6 pb-24 sm:px-8 sm:pt-8 md:pb-10">
-            {feedback && <p role="status" className="rounded-lg border bg-muted/40 px-4 py-3 text-sm">{feedback}</p>}
+            {feedback && <p role="status" className="pixel pixel-thin bg-card px-4 py-3 text-sm">{feedback}</p>}
 
             {loadError ? (
-              <div role="alert" className="rounded-xl border border-destructive/40 p-6">
-                <p className="text-sm text-destructive">{loadError}</p>
+              <div role="alert" className="pixel pixel-thin pixel-ink-ambar-700 bg-card p-6">
+                <p className="flex gap-2 text-sm text-destructive"><ErrorMark />{loadError}</p>
                 <Button variant="outline" className="mt-3" onClick={() => setReloadKey((key) => key + 1)}>Tentar de novo</Button>
               </div>
             ) : categories === null ? (
               <div role="status" aria-label="Carregando passe" className="flex gap-5 overflow-hidden">
-                {[0, 1, 2, 3].map((key) => <Skeleton key={key} className="h-96 w-60 shrink-0 rounded-2xl" />)}
+                {[0, 1, 2, 3].map((key) => <Skeleton key={key} className="h-96 w-60 shrink-0" />)}
               </div>
             ) : (
               <>
@@ -94,7 +95,7 @@ export default function Pass() {
                       {gridView ? <GalleryHorizontal /> : <LayoutGrid />}
                       {gridView ? "Ver em trilha" : "Ver em grade"}
                     </Button>
-                    <label className="flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm">
+                    <label className="flex cursor-pointer items-center gap-3 pixel pixel-thin bg-card px-3 py-2 text-sm">
                       Prévia do usuário
                       <Switch checked={userPreview} onCheckedChange={setUserPreview} aria-label="Prévia do usuário" />
                     </label>

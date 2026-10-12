@@ -1,4 +1,4 @@
-import { Building2, Check, Lock, LogOut, MapPin, Palette, UserRound, Users } from "lucide-react";
+import { Building2, Lock, LogOut, MapPin, Palette, UserRound, Users } from "lucide-react";
 import { Dialog as DialogPrimitive, Tabs } from "radix-ui";
 import type { CatalogFeature, CatalogOption, CustomizationCatalog } from "@/api/customizationApi";
 import type { ReferralSummary } from "@/api/referral/referral.types";
@@ -10,7 +10,11 @@ import { ReferralPerson } from "@/components/referral/ReferralPerson";
 import { SharePanel } from "@/components/referral/ShareDialog";
 import { NightToggle } from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { BlockBar } from "@/components/ui/block-bar";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog";
+import { BlockLoader, ErrorMark, PixelBuilding, PixelCheck, PixelCoin } from "@/components/ui/pixel-icon";
 
 /** Edifício próprio já resolvido para exibição. */
 export type MyDonation = {
@@ -35,17 +39,13 @@ type GameMenuProps = {
   referralError: string | null;
 };
 
-// Vocabulário visual da cena (vidro escuro, cantos suaves, dourado da marca) na estrutura do menu de pausa do GTA V.
-const glass = "border border-white/10 bg-black/60 shadow-2xl backdrop-blur-xl";
+// Estrutura do menu de pausa do GTA V em placas de papel do DS (borda em pixel + bisel sólido).
+// Aba (DS): texto bold 13px; ativa = régua verde de 4px embaixo + cursor ▸.
 const tabClass =
-  "group flex h-10 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium whitespace-nowrap text-white/60 transition-colors outline-none hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-[#c9a86a]/70 data-[state=active]:bg-white data-[state=active]:text-[#05111d] data-[state=active]:shadow-md [&_svg]:size-4 [&_svg]:shrink-0";
+  "group tab menu-cursor text-[13px] flex h-11 flex-1 items-center justify-center gap-2 pr-1 pl-5 whitespace-nowrap sm:flex-none sm:justify-start sm:pr-2 sm:pl-6 [&_svg]:size-4 [&_svg]:shrink-0";
 // Inativa no celular mostra só o ícone; o nome volta no sm+.
 const tabLabel = "hidden group-data-[state=active]:inline sm:inline";
 const panelClass = "min-h-0 flex-1 overflow-y-auto px-4 py-5 outline-none sm:px-8 sm:py-7";
-const pillButton =
-  "flex h-10 items-center gap-2 rounded-full px-4 text-sm font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-[#c9a86a]/70 focus-visible:outline-none";
-const goldButton =
-  "flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#c9a86a]/40 bg-[#c9a86a]/10 px-3.5 text-sm font-medium text-[#e4c98b] transition-colors hover:bg-[#c9a86a]/20 focus-visible:ring-2 focus-visible:ring-[#c9a86a]/70 focus-visible:outline-none [&_svg]:size-4";
 
 // Meta fixa por enquanto; recompensas de indicação do banco serão ajustadas depois.
 const REFERRAL_GOAL = 2;
@@ -113,29 +113,29 @@ export function GameMenu({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
-        {/* Tinta + blur que entram em fade: a cena "muda de cor" ao abrir, como a pausa do GTA. */}
-        <DialogOverlay className="bg-[#04283d]/55 backdrop-blur-md backdrop-saturate-50 duration-500" />
+        {/* Tinta que entra em fade: a cena "muda de cor" ao abrir, como a pausa do GTA. */}
+        <DialogOverlay className="duration-500" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
-          className="dark fixed top-1/2 left-1/2 z-50 flex h-[min(42rem,calc(100svh-2rem))] w-[calc(100%-2rem)] max-w-4xl -translate-x-1/2 -translate-y-1/2 flex-col gap-4 text-white outline-none duration-300 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+          className="fixed top-1/2 left-1/2 z-50 flex h-[min(42rem,calc(100svh-2rem))] w-[calc(100%-2rem)] max-w-4xl -translate-x-1/2 -translate-y-1/2 flex-col gap-4 text-foreground outline-none duration-300 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
         >
           <header className="flex items-center justify-end gap-4">
             <DialogTitle className="sr-only">Menu</DialogTitle>
             <NightToggle night={night} onNightChange={onNightChange} />
-            <div className={`flex min-w-0 items-center gap-3 rounded-full py-1.5 pr-1.5 pl-1.5 sm:pl-4 ${glass}`}>
+            <div className="pixel bevel-edge flex min-w-0 items-center gap-3 bg-background p-1.5 pb-2.5 sm:pl-4">
               <div className="hidden min-w-0 text-right sm:block">
                 <p className="truncate text-sm font-semibold">{displayName}</p>
-                <p className="truncate text-xs text-white/60">@{user.username}</p>
+                <p className="truncate font-mono text-[11px] text-muted-foreground">@{user.username}</p>
               </div>
-              <Avatar className="size-10 ring-2 ring-[#c9a86a]/60">
+              <Avatar className="size-10">
                 {user.profile_image && <AvatarImage src={user.profile_image} alt="" className="object-cover" />}
-                <AvatarFallback className="bg-white/10 text-sm font-semibold text-white">{initials}</AvatarFallback>
+                <AvatarFallback>{initials}</AvatarFallback>
               </Avatar>
             </div>
           </header>
 
-          <Tabs.Root value={tab} onValueChange={onTabChange} className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl ${glass}`}>
-            <Tabs.List aria-label="Seções do menu" className="m-2 flex gap-1 rounded-2xl bg-white/5 p-1">
+          <Tabs.Root value={tab} onValueChange={onTabChange} className="pixel bevel-edge flex min-h-0 flex-1 flex-col bg-background pb-1">
+            <Tabs.List aria-label="Seções do menu" className="flex border-b-2 border-border px-1 sm:gap-2 sm:px-6">
               <Tabs.Trigger value="donations" className={tabClass} title="Meus edifícios">
                 <Building2 /><span className={tabLabel}>Meus edifícios</span>
               </Tabs.Trigger>
@@ -154,31 +154,32 @@ export function GameMenu({
 
             <Tabs.Content value="donations" className={panelClass}>
               <div className="mx-auto max-w-2xl">
-                <p className="mb-5 text-white/60">
-                  <span className="block text-3xl font-semibold tracking-tight text-white">{formatBRL(totalDonated)}</span>
+                <p className="mb-5 text-muted-foreground">
+                  <span className="block text-3xl font-semibold tracking-[-0.02em] text-foreground">{formatBRL(totalDonated)}</span>
                   doados em {donations.length} {donations.length === 1 ? "edifício" : "edifícios"}
                 </p>
                 {donations.length === 0 ? (
-                  <p className="rounded-2xl bg-white/5 px-4 py-8 text-center text-sm text-white/60">
+                  <p className="bg-card px-4 py-8 text-center text-sm text-muted-foreground">
                     Nenhum edifício ainda.
                   </p>
                 ) : (
-                  <ul className="space-y-2">
+                  <ul className="space-y-3">
                     {donations.map((donation, index) => (
-                      <li key={donation.id} className="flex items-center gap-3 rounded-2xl bg-white/5 p-3 pr-4 transition-colors hover:bg-white/[0.08]">
-                        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#c9a86a]/10 text-[#c9a86a]">
-                          <Building2 className="size-5" />
+                      <li key={donation.id} className="pixel pixel-thin flex items-center gap-3 bg-card p-3 pr-4">
+                        <span className="grid size-11 shrink-0 place-items-center bg-primary text-primary-foreground">
+                          <PixelBuilding className="size-5" />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs text-white/60">Edifício {index + 1}</p>
+                          <p className="mono-label text-primary">Edifício {index + 1}</p>
                           <p className="font-semibold">{formatBRL(donation.value)}</p>
-                          <p className="line-clamp-2 text-sm text-white/60 sm:truncate">
+                          <p className="line-clamp-2 text-sm text-muted-foreground sm:truncate">
                             {[donation.ongName, donation.place].filter(Boolean).join(" · ")}
                           </p>
                         </div>
-                        <button
+                        <Button
                           type="button"
-                          className={goldButton}
+                          variant="outline"
+                          size="sm"
                           onClick={() => {
                             onOpenChange(false);
                             onOpenDonation(donation.id);
@@ -187,7 +188,7 @@ export function GameMenu({
                           <MapPin />
                           <span className="hidden sm:inline">Ver na cidade</span>
                           <span className="sr-only sm:hidden">Ver na cidade</span>
-                        </button>
+                        </Button>
                       </li>
                     ))}
                   </ul>
@@ -197,44 +198,34 @@ export function GameMenu({
 
             <Tabs.Content value="customizations" className={panelClass}>
               {!catalog ? (
-                <p role="status" className="text-center text-sm text-white/60">Carregando…</p>
+                <p role="status" className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <BlockLoader />Carregando…
+                </p>
               ) : (
                 <div className="space-y-7">
                   <div className="flex items-center gap-4">
-                    <p className="shrink-0 text-sm text-white/60">
-                      <strong className="text-base text-white">{unlockedCount}</strong> de {itemCount} liberadas
+                    <p className="mono-label shrink-0 text-muted-foreground">
+                      <strong className="text-sm text-foreground">{unlockedCount}</strong> de {itemCount} liberadas
                     </p>
-                    <div
-                      role="progressbar"
-                      aria-label="Personalizações liberadas"
-                      aria-valuemin={0}
-                      aria-valuemax={itemCount}
-                      aria-valuenow={unlockedCount}
-                      className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10"
-                    >
-                      <div
-                        className="h-full rounded-full bg-[#c9a86a]"
-                        style={{ width: `${itemCount ? (unlockedCount / itemCount) * 100 : 0}%` }}
-                      />
-                    </div>
+                    <BlockBar value={unlockedCount} max={itemCount} label="Personalizações liberadas" className="flex-1" />
                   </div>
                   {groups.map((group) => (
                     <section key={group.title}>
-                      <h3 className="mb-3 text-sm font-semibold text-white/90">{group.title}</h3>
+                      <h3 className="mb-3 text-sm font-semibold">{group.title}</h3>
                       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                         {group.items.map((item) => (
-                          <li key={item.key} className="overflow-hidden rounded-2xl bg-white/5">
-                            <div className={`h-24 bg-gradient-to-b from-white/[0.06] to-transparent p-3 ${item.isUnlocked ? "" : "opacity-40 grayscale"}`}>
+                          <li key={item.key} className="pixel pixel-thin overflow-hidden bg-card">
+                            <div className={`h-24 p-3 ${item.isUnlocked ? "" : "opacity-40 grayscale"}`}>
                               <CustomizationImage categoryKey={item.categoryKey} optionKey={item.optionKey} value={item.value} />
                             </div>
                             <div className="px-3 pt-1 pb-3">
                               <p className="truncate text-sm font-medium" title={item.label}>{item.label}</p>
                               {item.isUnlocked ? (
-                                <p className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-300">
-                                  <Check className="size-3" />Liberado
-                                </p>
+                                <Badge className="mt-1.5">
+                                  <PixelCheck />Liberado
+                                </Badge>
                               ) : (
-                                <p className="mt-1 flex items-start gap-1 text-xs text-white/60">
+                                <p className="mt-1 flex items-start gap-1 text-xs text-muted-foreground">
                                   <Lock className="mt-px size-3 shrink-0" />{formatUnlockRequirement(item.unlock)}
                                 </p>
                               )}
@@ -254,32 +245,35 @@ export function GameMenu({
                   {referralSummary && (
                     <>
                       {referralsLeft > 0 && (
-                        <div className="rounded-3xl bg-white/5 px-6 py-5 text-left">
-                          <p className="text-sm text-white/70">
-                            <strong className="block text-2xl font-semibold text-[#e4c98b]">
+                        <div className="pixel pixel-thin bg-card px-5 py-4 text-left">
+                          <p className="text-sm text-muted-foreground">
+                            <strong className="flex items-center gap-2 text-2xl font-semibold text-foreground">
+                              <PixelCoin className="size-5" />
                               {referralsLeft === 1 ? "Falta" : "Faltam"} apenas {referralsLeft}
                             </strong>{" "}
                             {referralsLeft === 1 ? "indicação" : "indicações"} para desbloquear sua recompensa
                           </p>
-                          {/* Barra começa com 1 segmento bônus (efeito de progresso dotado). */}
-                          <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
-                            <div
-                              className="h-full rounded-full bg-[#c9a86a] transition-[width] duration-700"
-                              style={{ width: `${((referralCount + 1) / (REFERRAL_GOAL + 1)) * 100}%` }}
+                          {/* Barra começa com 1 bloco bônus (efeito de progresso dotado); o próximo acende em âmbar. */}
+                          <div className="mt-3" aria-hidden="true">
+                            <BlockBar
+                              value={referralCount + 1}
+                              max={REFERRAL_GOAL + 1}
+                              blocks={REFERRAL_GOAL + 1}
+                              label="Indicações"
                             />
                           </div>
                         </div>
                       )}
                       <div className="py-4">
-                        <p className="text-sm text-white/60">Seu código de indicação</p>
+                        <p className="mono-label text-muted-foreground">Seu código de indicação</p>
                         <p className="mt-3 mb-6 font-mono text-xl font-semibold tracking-widest break-all sm:text-3xl">
                           {referralSummary.code}
                         </p>
                         <SharePanel url={referralSummary.link} />
                       </div>
                       {referralsLeft <= 0 && (
-                        <p className="text-white/60">
-                          <strong className="text-2xl font-semibold text-white">
+                        <p className="text-muted-foreground">
+                          <strong className="text-2xl font-semibold text-foreground">
                             {referralSummary.referral_count.toLocaleString("pt-BR")}
                           </strong>{" "}
                           {referralSummary.referral_count === 1 ? "pessoa indicada" : "pessoas indicadas"}
@@ -291,12 +285,19 @@ export function GameMenu({
                     <ReferralPerson
                       label="Você foi indicado por"
                       person={referralSummary.referrer}
-                      className="rounded-2xl border-0 bg-white/5 text-left"
+                      className="text-left"
                     />
                   )}
-                  {referralError && <p role="alert" className="text-sm text-destructive">{referralError}</p>}
+                  {referralError && (
+                    <p role="alert" className="flex items-start justify-center gap-2.5 text-sm text-destructive">
+                      <ErrorMark />
+                      {referralError}
+                    </p>
+                  )}
                   {!referralSummary && !referralError && (
-                    <p role="status" className="text-sm text-white/60">Carregando…</p>
+                    <p role="status" className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                      <BlockLoader />Carregando…
+                    </p>
                   )}
                 </div>
               </Tabs.Content>
@@ -304,24 +305,28 @@ export function GameMenu({
 
             <Tabs.Content value="profile" className={`${panelClass} flex flex-col`}>
               <ProfilePanel />
-              <button
+              <Button
                 type="button"
-                className="mt-8 flex h-8 items-center gap-1.5 self-end rounded-full px-3 text-sm text-white/50 transition-colors hover:bg-red-500/10 hover:text-red-300 focus-visible:ring-2 focus-visible:ring-[#c9a86a]/70 focus-visible:outline-none"
+                variant="ghost"
+                size="sm"
+                className="mt-8 self-end text-destructive hover:bg-ambar-100 hover:text-destructive"
                 onClick={() => {
                   onOpenChange(false);
                   void logout();
                 }}
               >
-                <LogOut className="size-4" />
+                <LogOut />
                 Sair
-              </button>
+              </Button>
             </Tabs.Content>
           </Tabs.Root>
 
           <footer className="flex justify-end">
-            <DialogClose className={`${pillButton} ${glass}`}>
-              <kbd className="rounded-md border border-white/30 px-1.5 font-sans text-xs">Esc</kbd>
-              Voltar
+            <DialogClose asChild>
+              <Button variant="outline">
+                <kbd className="pixel pixel-thin bg-card px-1.5 font-mono text-xs">Esc</kbd>
+                Voltar
+              </Button>
             </DialogClose>
           </footer>
         </DialogPrimitive.Content>

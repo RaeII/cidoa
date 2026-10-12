@@ -30,6 +30,7 @@ As páginas ficam em pastas que **espelham as pastas do código** — assim voc�
 | `scene/foundation/`| `src/scene`      | Base que o engine consome: config, tipos e utils           |
 | `admin/`           | `src/components` · `src/pages/admin` | Área admin (fora da cena): UI HTML/shadcn, roteamento, login e dashboard |
 | `passe/`           | transversal      | Gamificação: liberação de personalização por doação + indicação |
+| `desingn-system/`  | `src/index.css` · `src/components/ui` | Sistema de design: cor, tipo, borda em pixel, componentes, HUD |
 
 > [!tip] Adicionando uma página nova
 > 1. Crie o `.md` dentro da pasta cujo **tema** combina (componente novo → `components/`; peça nova da cena → `scene/engine/`; tipo/config novo → `scene/foundation/`).
@@ -64,7 +65,7 @@ public/
 src/
   App.tsx
   main.tsx                      ← entry; reload em `vite:preloadError` (chunk de deploy antigo)
-  index.css
+  index.css                     ← tokens do DS + utilitários (`pixel`, `bevel-*`, `field`, `menu-cursor`…) + controles nativos → [[desingn-system-index]]
   api/
     http.ts
     admin/
@@ -98,6 +99,8 @@ src/
     admin/
       UnlockDialog.tsx          ← editor de requisitos compartilhado
     ui/
+      pixel-icon.tsx                ← ícones em pixel do DS, logo, gato/cachorro, `BlockLoader`
+      block-bar.tsx                 ← barra de progresso em blocos (DS)
       badge.tsx                     ← Badge shadcn; requisito de liberação no admin
       switch.tsx                    ← Switch shadcn usado nas ativações do admin
       pagination.tsx                ← Pagination shadcn; botão no lugar de <a> (página é estado, não URL)
@@ -237,6 +240,9 @@ doc/
       scene-config.md
       scene-types.md
       scene-utils.md
+  desingn-system/                ← regra visual de toda UI HTML (cena + /dale)
+    desingn-system-index.md      ← cor, tipografia, assinatura de jogo, componentes, HUD, proibido
+    Cidoe Design System.html     ← fonte original do DS (bundle; abre no navegador)
   passe/                         ← gamificação (transversal: api + lib + admin + cena)
     passe-front.md               ← índice do módulo: contrato, estado, mapa
     passe-formatacao.md          ← src/lib/unlock.ts — requisito vira texto (fonte única)
@@ -385,6 +391,7 @@ flowchart LR
 | Objetivo                                         | Arquivo                                           |
 | ------------------------------------------------ | ------------------------------------------------- |
 | Alterar valor padrão dos prédios                 | [[scene-config]]                                  |
+| Cor, fonte, borda em pixel, bisel, estilo de botão/campo | [[desingn-system-index]] · tokens em `src/index.css` · primitivos em `src/components/ui/` |
 | Alterar a UI do painel de configuração           | [[html-components#CityControlPanel.tsx]]          |
 | Granulado de render sob carga (padrão `0`)       | aba **tela** em [[html-components#CityControlPanel.tsx]] · `setGrain` em [[scene-runtime#Granulado (setGrain)]] |
 | Menu do usuário (abas, perfil, edifícios, sair)    | [[html-components#GameMenu.tsx]]                  |
@@ -493,6 +500,8 @@ flowchart LR
 8. [[scene-builders]]
 9. [[scene-config]]
 10. [[scene-utils]]
+
+Visual (antes de mexer em qualquer UI): [[desingn-system-index]]
 
 Gamificação (transversal, ler à parte): [[passe-front]] → [[passe-formatacao]] → [[passe-admin-ui]] → [[passe-cena]]
 
