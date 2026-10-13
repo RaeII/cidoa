@@ -28,7 +28,7 @@ export function ReflectionControls({
     <>
       <PanelSection
         title="Reflexo"
-        description="Probe (CubeCamera) que gera o envMap dos prédios. Desligado, as fachadas caem no HDRI da cena (scene.environment) — sem a cidade refletida."
+        description="Probe (CubeCamera) que gera o envMap dos edifícios. Desligado, as fachadas caem no HDRI da cena (scene.environment) — sem a cidade refletida."
       >
         <CheckboxField
           label="Reflexo ativo"
@@ -145,7 +145,7 @@ export function ReflectionControls({
 
       <PanelSection
         title="Céu no reflexo"
-        description="Desce a faixa de céu só na captura. Prédio visto de frente espelha para BAIXO do horizonte — sem esse deslocamento, essa direção só tem cinza chapado do HDRI."
+        description="Desce a faixa de céu só na captura. Edifício visto de frente espelha para BAIXO do horizonte — sem esse deslocamento, essa direção só tem cinza chapado do HDRI."
       >
         <RangeField
           label="Deslocamento do céu"
@@ -217,7 +217,7 @@ export function ReflectionControls({
 
       <PanelSection
         title="Reflexo por proximidade"
-        description="Prédios próximos refletem normalmente. O reflexo desaparece gradualmente nos prédios distantes da câmera."
+        description="Edifícios próximos refletem normalmente. O reflexo desaparece gradualmente nos edifícios distantes da câmera."
       >
         <RangeField
           label="Reflexo total até"

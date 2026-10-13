@@ -2,6 +2,7 @@ import type { BuildingProfile } from "@/api/contributionApi";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PixelClose, PixelDog } from "@/components/ui/pixel-icon";
+import { Photo } from "@/components/ui/photo";
 
 export type BuildingInfoModalProps = {
   value: number;
@@ -58,10 +59,11 @@ export function BuildingInfoModal({
         </div>
 
         {profile?.image && (
-          <img
+          <Photo
+            ratio="3/2"
             src={profile.image}
             alt={profile.name ?? "Imagem do edifício"}
-            className="mt-3 aspect-[4/3] w-full object-cover"
+            className="mt-4 mb-1 w-full"
           />
         )}
         {profile?.name && (

@@ -18,7 +18,7 @@ const MODES = [
   {
     mode: false,
     label: "Por quadra",
-    hint: "Torres agrupadas nos slots centrais de cada quadra, prédios menores embaralhados no meio delas.",
+    hint: "Torres agrupadas nos slots centrais de cada quadra, edifícios menores embaralhados no meio delas.",
   },
   {
     mode: true,

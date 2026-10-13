@@ -47,6 +47,12 @@
     34%,
     100% { opacity: 0.25; }
   }
+  /* Foto carregando (DS 5.7): 10 blocos enchem um a um (320ms) e recomeçam. */
+  --animate-fill: block-fill 3520ms steps(11, jump-none) infinite;
+  @keyframes block-fill {
+    from { clip-path: inset(0 100% 0 0); }
+    to { clip-path: inset(0); }
+  }
 }
 
 :root {
@@ -98,7 +104,7 @@
   --sidebar-ring: var(--ring);
 }
 
-/* Escuro (só /admin): mesmas três cores, chão vira tinta. */
+/* Escuro (só /dale): mesmas três cores, chão vira tinta. */
 .dark {
   color-scheme: dark;
 
@@ -385,10 +391,10 @@
   input[type="radio"] {
     appearance: none;
     flex: none;
-    width: 18px;
-    height: 18px;
+    width: 22px;
+    height: 22px;
     margin: 2px;
-    background: var(--color-card) center / 12px no-repeat;
+    background: var(--color-card) center / 14px no-repeat;
     box-shadow:
       0 -2px 0 0 var(--pixel-ink), 0 2px 0 0 var(--pixel-ink),
       -2px 0 0 0 var(--pixel-ink), 2px 0 0 0 var(--pixel-ink);
@@ -397,12 +403,17 @@
     background-color: var(--color-primary);
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 8' shape-rendering='crispEdges'%3E%3Cpath fill='%23F2EEE3' d='M8 1h2v1h-2zM7 2h2v1h-2zM6 3h2v1h-2zM0 4h2v1h-2zM5 4h2v1h-2zM1 5h2v1h-2zM4 5h2v1h-2zM2 6h3v1h-3z'/%3E%3C/svg%3E");
   }
+  /* Rádio (DS 6.3): 20px, marcado = quadrado verde de 10px no centro. */
+  input[type="radio"] {
+    width: 20px;
+    height: 20px;
+  }
   input[type="radio"]:checked {
     background-color: var(--color-primary);
     box-shadow:
       0 -2px 0 0 var(--pixel-ink), 0 2px 0 0 var(--pixel-ink),
       -2px 0 0 0 var(--pixel-ink), 2px 0 0 0 var(--pixel-ink),
-      inset 0 0 0 4px var(--color-card);
+      inset 0 0 0 5px var(--color-card);
   }
   input:is([type="checkbox"], [type="radio"]):disabled {
     opacity: 0.5;
@@ -495,5 +506,5 @@
 
 /* Cursor de pata em tudo que é clicável (assinatura do DS). */
 :is(a[href], button, select, summary, label[for], [role="button"], [role="checkbox"], [role="radio"], [role="switch"], [role="tab"], [role="menuitem"], [role="option"], input:is([type="checkbox"], [type="radio"], [type="range"], [type="color"])):not(:disabled, [aria-disabled="true"], [data-disabled]) {
-  cursor: url("./assets/ui/paw-cursor.svg") 11 1, pointer;
+  cursor: url("./assets/ui/paw-cursor.svg") 16 2, pointer;
 }

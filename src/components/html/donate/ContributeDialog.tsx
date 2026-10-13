@@ -69,7 +69,7 @@ function Stepper({ current }: { current: number }) {
           aria-current={index === current ? "step" : undefined}
           className={cn("flex flex-col items-start gap-2 text-[11px] sm:flex-row sm:items-center sm:text-sm", compact && "gap-1 sm:gap-2 sm:text-xs", index === current ? "font-semibold text-foreground" : "text-muted-foreground")}
         >
-          <span aria-hidden="true" className={cn("grid size-7 shrink-0 place-items-center font-mono text-xs sm:size-8", compact && "size-5 text-[10px] sm:size-6", index <= current ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+          <span aria-hidden="true" className={cn("grid size-7 shrink-0 place-items-center font-mono text-xs sm:size-8", compact && "size-5 text-[11px] sm:size-6", index <= current ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
             {index < current ? <PixelCheck className={compact ? "size-2.5" : "size-3"} /> : index + 1}
           </span>
           <span>{label}</span>

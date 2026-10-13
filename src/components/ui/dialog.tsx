@@ -123,13 +123,13 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("text-xl leading-tight font-semibold tracking-[-0.01em]", className)}
+      className={cn("text-[26px] leading-[1.15] font-semibold tracking-[-0.01em]", className)}
       {...props}
     />
   )
 }
 
-/** Barra verde do topo (DS 5.7): rótulo mono + fechar. Use com `showCloseButton={false}` e `p-0` no DialogContent. */
+/** Barra verde do topo (DS 6.7): rótulo mono + fechar. Use com `showCloseButton={false}` e `p-0` no DialogContent. */
 function DialogKicker({
   className,
   children,

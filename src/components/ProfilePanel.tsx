@@ -105,9 +105,9 @@ export function ProfilePanel() {
       />
       <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
         <div className="relative shrink-0">
-          <Avatar className="pixel size-24">
-            {profileImage && <AvatarImage src={profileImage} alt="Imagem de perfil" className="object-cover" />}
-            <AvatarFallback className="text-2xl">{initials}</AvatarFallback>
+          <Avatar size="lg">
+            {profileImage && <AvatarImage src={profileImage} alt="Imagem de perfil" />}
+            <AvatarFallback>{initials}</AvatarFallback>
           </Avatar>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

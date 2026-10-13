@@ -147,7 +147,7 @@ export function BuildingCustomizer({ catalog, customization, textureSettings, on
                     <label className="block space-y-2"><span className="mono-label block">Imagem ou GIF</span><Input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => { void uploadHologram(event.target.files?.[0]); event.target.value = ""; }} /><span className="block text-xs text-muted-foreground">PNG, JPG, WebP ou GIF. Até 700 KB.</span></label>
                     {imageBusy && <p role="status" className="text-sm text-muted-foreground">Lendo imagem…</p>}
                     {customization.hologramImage && <>
-                      <img src={customization.hologramImage} alt="Imagem do holograma" className="pixel pixel-thin h-24 w-full bg-muted object-contain" />
+                      <img src={customization.hologramImage} alt="Imagem do holograma" className="pixel h-24 w-full bg-card p-2 object-contain" />
                       <Button type="button" variant="outline" onClick={() => onChange({ hologramImage: null })}>Remover imagem</Button>
                       <label className="flex items-center justify-between gap-3"><span className="mono-label">Cor do holograma</span><input type="color" value={customization.hologramColor} onChange={(event) => onChange({ hologramColor: event.target.value })} className="h-10 w-16" /></label>
                       <label className="block space-y-2"><span className="mono-label block">Opacidade · {Math.round(customization.hologramOpacity * 100)}%</span><input type="range" min={0} max={1} step={0.01} value={customization.hologramOpacity} onChange={(event) => onChange({ hologramOpacity: Number(event.target.value) })} className="block w-full" /></label>

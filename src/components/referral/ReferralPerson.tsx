@@ -15,9 +15,9 @@ export function ReferralPerson({
 
   return (
     <div className={cn("pixel pixel-thin flex items-center gap-3 bg-card p-3", className)}>
-      <Avatar className="size-10">
+      <Avatar>
         {person.profile_image && (
-          <AvatarImage src={person.profile_image} alt={`Imagem de ${name}`} className="object-cover" />
+          <AvatarImage src={person.profile_image} alt={`Imagem de ${name}`} />
         )}
         <AvatarFallback>{name.slice(0, 2).toUpperCase()}</AvatarFallback>
       </Avatar>

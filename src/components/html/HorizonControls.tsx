@@ -95,7 +95,7 @@ export function HorizonControls({ settings, onChange, culledCount }: Props) {
         />
 
         <p className="text-xs leading-5 text-muted-foreground">
-          {culledCount} prédios ocultos por distância. Reduzir as distâncias diminui a
+          {culledCount} edifícios ocultos por distância. Reduzir as distâncias diminui a
           quantidade de edifícios renderizados.
         </p>
       </PanelSection>

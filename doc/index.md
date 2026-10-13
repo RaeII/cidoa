@@ -131,7 +131,9 @@ src/
     admin/
       UnlockDialog.tsx          ← editor de requisitos compartilhado
     ui/
-      pixel-icon.tsx                ← ícones em pixel do DS, logo, gato/cachorro, `BlockLoader`
+      pixel-icon.tsx                ← ícones em pixel do DS, logo, gato/cachorro, `BlockLoader`, `PixelPhoto`
+      photo.tsx                     ← `<Photo ratio>`: foto na moldura do DS, espera em blocos, "Foto indisponível"
+      avatar.tsx                    ← avatar quadrado do DS: 32/48/72, iniciais mono
       block-bar.tsx                 ← barra de progresso em blocos (DS)
       badge.tsx                     ← Badge shadcn; requisito de liberação no admin
       switch.tsx                    ← Switch shadcn usado nas ativações do admin
@@ -158,7 +160,7 @@ src/
       BuildingLayoutCard.tsx       ← card flutuante: modo de layout + teto de edifícios na tela
       DonationLoadOverlay.tsx
       DonationFilterBar.tsx
-      DonationInfoSection.tsx     ← texto/foto, totais e 5 ONGs em linhas; composição da video-2, DS atual
+      DonationInfoSection.tsx     ← home: hero, 01 Impacto, 02 até 6 cartões de ONG, rodapé; fundo `pattern-paws` (DS)
       BuildingInfoModal.tsx          ← card só-leitura do prédio clicado; lápis só p/ dono/admin
       donate/
         ContributeDialog.tsx         ← simulação → pagamento simulado → confirmação local; sem edição
@@ -274,7 +276,7 @@ doc/
       scene-types.md
       scene-utils.md
   desingn-system/                ← regra visual de toda UI HTML (cena + /dale)
-    desingn-system-index.md      ← cor, tipografia, assinatura de jogo, componentes, HUD, proibido
+    desingn-system-index.md      ← cor, tipografia, assinatura de jogo, imagem, componentes, HUD, composição de página, desvios, proibido
     Cidoe Design System.html     ← fonte original do DS (bundle; abre no navegador)
   passe/                         ← gamificação (transversal: api + lib + admin + cena)
     passe-front.md               ← índice do módulo: contrato, estado, mapa
@@ -425,6 +427,9 @@ flowchart LR
 | ------------------------------------------------ | ------------------------------------------------- |
 | Alterar valor padrão dos prédios                 | [[scene-config]]                                  |
 | Cor, fonte, borda em pixel, bisel, estilo de botão/campo | [[desingn-system-index]] · tokens em `src/index.css` · primitivos em `src/components/ui/` |
+| Página fora da cena (fundo de pegadas, cabeçalho numerado, ritmo) | [[desingn-system-index#Composição de página]] |
+| Foto, avatar, logo (proporção, moldura, carregando/erro, direção de foto) | [[desingn-system-index#Imagem]] · `src/components/ui/photo.tsx` · `src/components/ui/avatar.tsx` |
+| App diverge do arquivo do DS (tamanho, mascote, dado faltando) | [[desingn-system-index#Desvios conscientes]] |
 | Alterar a UI do painel de configuração           | [[html-components#CityControlPanel.tsx]]          |
 | Granulado de render sob carga (padrão `0`)       | aba **tela** em [[html-components#CityControlPanel.tsx]] · `setGrain` em [[scene-runtime#Granulado (setGrain)]] |
 | Menu do usuário (abas, perfil, edifícios, sair)    | [[html-components#GameMenu.tsx]]                  |
