@@ -52,6 +52,8 @@ Limpar dados do site remove a cidade simulada; outro navegador/dispositivo não 
 
 ## Como a Documentação Está Organizada
 
+Produção: [Docker e GHCR](../prod/README.md) — build local com Bun, imagens por branch, Compose sem build e proxy `/api`.
+
 As páginas ficam em pastas que **espelham as pastas do código** — assim você acha o doc pelo mesmo caminho do arquivo.
 
 | Pasta da doc       | Espelha          | O que documenta                                            |
