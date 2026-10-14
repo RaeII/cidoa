@@ -44,7 +44,9 @@ docker buildx build --platform linux/amd64 --pull --load -t ghcr.io/raeii/cidoa-
 docker push ghcr.io/raeii/cidoa-front:main
 ```
 
-Use `linux/arm64` se servidor ARM. Dockerfile e `.dockerignore` ficam na raiz; configuração do Nginx em `docker/nginx.conf` é embutida na imagem. Contexto do build é a raiz (`.`). Bun instala pelo lockfile e compila; imagem final contém apenas Nginx, `dist` e configuração do proxy. `.env` local não entra no build; `/api` fixo. Google OAuth mantém Client ID público existente; autorize domínio de produção no Google e configure mesmo ID no backend.
+Use `linux/arm64` se servidor ARM. Dockerfile e `.dockerignore` ficam na raiz; configuração do Nginx em `docker/nginx.conf` é embutida na imagem. Contexto do build é a raiz (`.`). Bun instala pelo lockfile e compila na arquitetura da máquina (`--platform=$BUILDPLATFORM`): `dist` é estático, independe de CPU. Bun emulado (Mac ARM → amd64) trava com `Segmentation fault`/`SIGILL` e demora. Imagem final contém apenas Nginx, `dist` e configuração do proxy. `.env` local não entra no build; `/api` fixo. Google OAuth mantém Client ID público existente; autorize domínio de produção no Google e configure mesmo ID no backend.
+
+Pacote `cidoa-front` vinculado a [RaeII/cidoa](https://github.com/RaeII/cidoa) pelo label `org.opencontainers.image.source` do Dockerfile: aparece em **Packages** na lateral do repo. Mesmo LABEL sobrescreve título, descrição e versão herdados da imagem base. Pacote nasce privado (repo público); visibilidade muda em *Package settings*.
 
 ## No servidor — configuração e deploy
 
