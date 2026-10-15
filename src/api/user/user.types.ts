@@ -27,6 +27,9 @@ export interface User {
   discovery_source_other: string | null;
   /** null = ainda não salvou nem pulou o onboarding do primeiro login. */
   onboarding_completed_at: string | null;
+  /** Versão (data) dos Termos + Política aceita por último; null = nunca aceitou. */
+  terms_version: string | null;
+  terms_accepted_at: string | null;
   last_login_at: string | null;
   created_at: string;
   updated_at: string | null;

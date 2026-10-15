@@ -6,6 +6,8 @@ import type { AuthChallenge, RegistrationRequiredResult } from "@/api/auth/auth.
 import type { ReferrerPreview } from "@/api/referral/referral.types";
 import { useAuth } from "@/hooks/useAuth";
 import { ReferralPerson } from "@/components/referral/ReferralPerson";
+import { TermsConsent } from "@/components/TermsDialog";
+import { LEGAL_VERSION } from "@/lib/legal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BlockLoader, ErrorMark } from "@/components/ui/pixel-icon";
@@ -94,6 +96,7 @@ export function AuthDialog({
   const [code, setCode] = useState("");
   const [challenge, setChallenge] = useState<AuthChallenge | null>(null);
   const [registration, setRegistration] = useState<RegistrationRequiredResult | null>(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [resendIn, setResendIn] = useState(0);
@@ -120,6 +123,7 @@ export function AuthDialog({
     setCode("");
     setChallenge(null);
     setRegistration(null);
+    setAcceptedTerms(false);
     setError(null);
     setSubmitting(false);
     setResendIn(0);
@@ -267,7 +271,7 @@ export function AuthDialog({
 
   async function handleProfileSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!registration || blockedByReferral()) return;
+    if (!registration || !acceptedTerms || blockedByReferral()) return;
 
     if (Date.now() >= new Date(registration.expiresAt).getTime()) {
       setStep("email");
@@ -284,6 +288,7 @@ export function AuthDialog({
         name,
         username,
         referralCode: referralCode || undefined,
+        termsVersion: LEGAL_VERSION,
       });
       if (referralCode) onReferralApplied();
       closeAfterAuth();
@@ -438,8 +443,9 @@ export function AuthDialog({
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />
+            <TermsConsent id="auth-terms" checked={acceptedTerms} onChange={setAcceptedTerms} />
             {error && <FormError>{error}</FormError>}
-            <Button type="submit" disabled={submitting} className="w-full">
+            <Button type="submit" disabled={submitting || !acceptedTerms} className="w-full">
               {submitting ? "Criando conta…" : "Criar conta"}
             </Button>
           </form>

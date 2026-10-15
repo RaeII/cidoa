@@ -18,7 +18,9 @@ import { GameMenu, type MyDonation } from "@/components/GameMenu";
 import { OnboardingDialog } from "@/components/OnboardingDialog";
 import { ReferralDialog } from "@/components/referral/ReferralDialog";
 import { ShareDialog } from "@/components/referral/ShareDialog";
+import { TermsDialog } from "@/components/TermsDialog";
 import { NightToggle } from "@/components/ThemeToggle";
+import { LEGAL_VERSION } from "@/lib/legal";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PixelBuilding } from "@/components/ui/pixel-icon";
@@ -211,6 +213,8 @@ export function AuthMenu({
     // Tela principal mostra o primeiro nome da conta; username só no menu.
     const firstName = user.name?.trim().split(/\s+/)[0] || user.username;
     const visibleName = firstName.length > 18 ? `${firstName.slice(0, 18)}…` : firstName;
+    // Aceite pendente vem antes de qualquer outro modal da conta.
+    const needsTerms = user.terms_version !== LEGAL_VERSION;
 
     return (
       <>
@@ -279,7 +283,7 @@ export function AuthMenu({
           <ShareDialog open={shareOpen} onOpenChange={setShareOpen} url={summary.link} />
         )}
         <ReferralDialog
-          open={referralCode !== "" && !effectiveAuthOpen}
+          open={referralCode !== "" && !effectiveAuthOpen && !needsTerms}
           code={referralCode}
           preview={referralPreview}
           summary={summary}
@@ -290,8 +294,9 @@ export function AuthMenu({
           onConfirm={confirmReferral}
           onCancel={clearPendingReferral}
         />
-        {/* Não empilha modal: espera indicação pendente, menu e compartilhar fecharem. */}
-        <OnboardingDialog blocked={referralCode !== "" || menuOpen || shareOpen || onboardingBlocked} />
+        <TermsDialog />
+        {/* Não empilha modal: espera aceite dos termos, indicação pendente, menu e compartilhar fecharem. */}
+        <OnboardingDialog blocked={needsTerms || referralCode !== "" || menuOpen || shareOpen || onboardingBlocked} />
       </>
     );
   }

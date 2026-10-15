@@ -17,3 +17,9 @@ export async function completeOnboarding(input: ProfileDetailsInput) {
   const { data } = await http.post<{ data: User }>("/user/me/onboarding", input);
   return data.data;
 }
+
+/** Aceite dos Termos + Política na versão informada; o backend grava a data. */
+export async function acceptTerms(version: string) {
+  const { data } = await http.post<{ data: User }>("/user/me/terms", { version });
+  return data.data;
+}
