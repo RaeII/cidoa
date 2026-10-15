@@ -67,6 +67,10 @@ for (const raw of ["broken", "null", "{}", '[{"id": -1}]']) {
   assert.equal(storage.get(invalidKey), raw, "Dados inválidos nunca são sobrescritos");
 }
 assert.ok(events.includes(local.localCityKey(1, "buildings")));
+const seeds = local.createSeedBuildings([{ id: 7 }, { id: 9 }]);
+assert.ok(seeds.length > 0 && new Set(seeds.map((s) => s.id)).size === seeds.length, "Seeds com IDs únicos");
+assert.ok(seeds.every((s) => s.id < -3 && s.city.id === s.cityId && [7, 9].includes(s.ongId)), "Seeds fora da faixa local, ONG do catálogo");
+assert.equal(local.createSeedBuildings([])[0].ongIds.length, 0, "Sem catálogo de ONG, sem beneficiária");
 
 // Executa os adaptadores reais: nenhuma mutação HTTP pode passar.
 const requests = [];
@@ -93,15 +97,20 @@ assert.equal(requests.join(), "/donation/42/profile", "Só o perfil público faz
 const hookSource = await readFile(new URL("../src/components/hooks/useDonations.ts", import.meta.url), "utf8");
 const hookAst = ts.createSourceFile("hook.ts", hookSource, ts.ScriptTarget.ES2022, true);
 const hook = hookAst.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "useDonations");
-const derived = hook.body.statements.filter((node) => ts.isVariableStatement(node) && node.declarationList.declarations.some((item) => ["allDonations", "cities", "savedCustomizations"].includes(item.name.getText(hookAst))));
-const publicDataset = { donations: [{ id: 42, value: 50 }], cities: [], customizations: new Map([[42, { color: "#000000" }]]) };
+const derived = hook.body.statements.filter((node) => ts.isVariableStatement(node) && node.declarationList.declarations.some((item) => ["extraBuildings", "allDonations", "cities", "savedCustomizations"].includes(item.name.getText(hookAst))));
+const derivedScript = ts.transpileModule(derived.map((node) => node.getText(hookAst)).join("\n") + "\nObject.assign(globalThis, { allDonations, cities, savedCustomizations });", { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+const hookGlobals = { EMPTY_DONATIONS: [], EMPTY_CITIES: [], EMPTY_LOCAL_BUILDINGS: [], createSeedBuildings: local.createSeedBuildings, useMemo: (calculate) => calculate() };
+const publicDataset = { donations: [{ id: 42, value: 50 }], cities: [], ongs: [], customizations: new Map([[42, { color: "#000000" }]]) };
+const emptyContext = { ...hookGlobals, userId: undefined, dataset: { ...publicDataset, donations: [], customizations: new Map() }, localBuildings: [], localCustomizations: {} };
+vm.runInNewContext(derivedScript, emptyContext);
+assert.equal(emptyContext.allDonations.length, local.createSeedBuildings([]).length, "Snapshot vazio → cidade inicial do front");
+assert.ok(emptyContext.cities.length > 0);
 for (const userId of [1, 2, undefined]) {
-  const context = { userId, dataset: publicDataset, EMPTY_DONATIONS: [], EMPTY_CITIES: [],
+  const context = { ...hookGlobals, userId, dataset: publicDataset,
     localBuildings: userId ? local.readLocalBuildings(userId) : [],
     localCustomizations: userId ? local.readLocalValue(userId, "customizations", {}) : {},
-    useMemo: (calculate) => calculate(),
   };
-  vm.runInNewContext(ts.transpileModule(derived.map((node) => node.getText(hookAst)).join("\n") + "\nObject.assign(globalThis, { allDonations, cities, savedCustomizations });", { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context);
+  vm.runInNewContext(derivedScript, context);
   assert.equal(context.allDonations.length, userId === 1 ? 4 : userId === 2 ? 2 : 1);
   assert.equal(context.savedCustomizations.has(-1), userId === 1);
   assert.equal(context.cities.length, userId ? 1 : 0);

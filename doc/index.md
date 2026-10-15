@@ -26,6 +26,7 @@ Cadastro, login, perfil da conta e indicações continuam reais, conectados ao b
 ### Dados da cidade
 
 - Cenário inicial: leitura pública de `/donation/snapshot` e `/donation/customizations`.
+- Snapshot sem doação → `createSeedBuildings(ongs)` (`src/lib/prelaunchCity.ts`) põe 24 edifícios fixos, só no front, pra cidade não abrir vazia. IDs `-1_000_000 - i` (longe dos locais `-1…-3`), 8 capitais, ONGs do catálogo em rodízio. Sem dono, sem perfil, nada no backend. Primeira doação pública real → seeds somem.
 - Criar/aumentar: `simulateContribution(userId, contribution, city)` em `src/lib/prelaunchCity.ts`. Sem Pix, cobrança, polling ou gravação no banco.
 - Máximo 3 edifícios por conta/navegador; mínimo R$ 5; valores somados em centavos.
 - IDs negativos exclusivos da simulação; IDs públicos positivos preservados.

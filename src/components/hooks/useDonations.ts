@@ -8,7 +8,7 @@ import {
   type Ong,
 } from "../../api/donationApi";
 import { useAuth } from "@/hooks/useAuth";
-import type { LocalBuilding } from "@/lib/prelaunchCity";
+import { createSeedBuildings, type LocalBuilding } from "@/lib/prelaunchCity";
 import { useLocalCityValue, useLocalSceneState } from "./useLocalCity";
 import { UF_REGION, type Region } from "../../api/regions";
 import type { BuildingCustomization } from "../../scene/types";
@@ -83,17 +83,22 @@ export function useDonations() {
     setReloadKey((key) => key + 1);
   }, []);
 
+  // Snapshot público vazio → cidade inicial fixa do front; some quando houver doação real.
+  const extraBuildings = useMemo(() => {
+    const seeds = dataset && !dataset.donations.length ? createSeedBuildings(dataset.ongs) : EMPTY_LOCAL_BUILDINGS;
+    return userId && localBuildings.length ? [...seeds, ...localBuildings] : seeds;
+  }, [dataset, userId, localBuildings]);
   const allDonations = useMemo(() => {
     const publicDonations = dataset?.donations ?? EMPTY_DONATIONS;
-    return userId && localBuildings.length ? [...publicDonations, ...localBuildings] : publicDonations;
-  }, [dataset, userId, localBuildings]);
+    return extraBuildings.length ? [...publicDonations, ...extraBuildings] : publicDonations;
+  }, [dataset, extraBuildings]);
   const cities = useMemo(() => {
     const publicCities = dataset?.cities ?? EMPTY_CITIES;
-    if (!userId || !localBuildings.length) return publicCities;
+    if (!extraBuildings.length) return publicCities;
     const byId = new Map(publicCities.map((city) => [city.id, city]));
-    for (const building of localBuildings) byId.set(building.cityId, building.city);
+    for (const building of extraBuildings) byId.set(building.cityId, building.city);
     return [...byId.values()];
-  }, [dataset, userId, localBuildings]);
+  }, [dataset, extraBuildings]);
   const savedCustomizations = useMemo(() => {
     const merged = new Map(dataset?.customizations);
     if (userId) for (const [id, customization] of Object.entries(localCustomizations)) merged.set(Number(id), customization);

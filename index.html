@@ -15,8 +15,10 @@
       href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap"
     />
     <script>
-      // Aplica tema salvo/do sistema antes do paint — evita flash (só afeta o /admin).
+      // Aplica tema salvo/do sistema antes do paint — evita flash. Escuro é só do /dale:
+      // fora dele a cena fica sempre clara, mesmo com sistema escuro ou tema salvo no admin.
       (function () {
+        if (!location.pathname.startsWith('/dale')) return
         var t = localStorage.getItem('theme')
         if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches))
           document.documentElement.classList.add('dark')

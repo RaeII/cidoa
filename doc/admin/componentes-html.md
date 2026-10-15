@@ -106,7 +106,7 @@ Regras de layout que convivem com a cena:
 
 ### Anti-FOUC
 
-`index.html` tem script inline que aplica `.dark` **antes** do paint (lê `localStorage.theme` ou `prefers-color-scheme`). Evita flash de tema errado. `useTheme` é a fonte da verdade em runtime: lê/escreve a classe `.dark` e usa `useSyncExternalStore` — N componentes sincronizam sem provider.
+`index.html` tem script inline que aplica `.dark` **antes** do paint (lê `localStorage.theme` ou `prefers-color-scheme`). Evita flash de tema errado. Só roda em `/dale*` — fora dele cena fica sempre clara; sem guarda, sistema escuro (ou tema salvo no admin) pintava site todo de verde-escuro em produção. `useTheme` é a fonte da verdade em runtime: lê/escreve a classe `.dark` e usa `useSyncExternalStore` — N componentes sincronizam sem provider.
 
 ```mermaid
 flowchart LR

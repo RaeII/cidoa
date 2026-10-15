@@ -42,6 +42,27 @@ function isValidLocalBuildings(value: unknown): value is LocalBuilding[] {
     && typeof building.city.name === "string" && typeof building.city.uf === "string");
 }
 
+const SEED_CITIES: City[] = [
+  { id: 3550308, name: "São Paulo", uf: "SP" },
+  { id: 3304557, name: "Rio de Janeiro", uf: "RJ" },
+  { id: 3106200, name: "Belo Horizonte", uf: "MG" },
+  { id: 2927408, name: "Salvador", uf: "BA" },
+  { id: 2611606, name: "Recife", uf: "PE" },
+  { id: 4106902, name: "Curitiba", uf: "PR" },
+  { id: 4314902, name: "Porto Alegre", uf: "RS" },
+  { id: 5300108, name: "Brasília", uf: "DF" },
+];
+const SEED_VALUES = [480, 320, 250, 200, 160, 130, 110, 95, 80, 70, 60, 50, 45, 40, 35, 30, 25, 20, 15, 12, 10, 8, 6, 5];
+
+/** Cidade pública vazia no pré-lançamento: edifícios fixos só no front. IDs bem abaixo dos locais (-1…-3). */
+export function createSeedBuildings(ongs: readonly { id: number }[]): LocalBuilding[] {
+  return SEED_VALUES.map((value, index) => {
+    const city = SEED_CITIES[index % SEED_CITIES.length];
+    const ongId = ongs.length ? ongs[index % ongs.length].id : 0;
+    return { id: -1_000_000 - index, value, cityId: city.id, city, ongId, ongIds: ongs.length ? [ongId] : [] };
+  });
+}
+
 export function readLocalBuildings(userId: number): LocalBuilding[] {
   return readLocalValue<LocalBuilding[]>(userId, "buildings", []);
 }
