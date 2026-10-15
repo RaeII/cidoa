@@ -5,6 +5,7 @@ import { AuthProvider } from "./components/AuthProvider";
 import { RequireAdmin } from "./components/RequireAdmin";
 import { BlockLoader } from "./components/ui/pixel-icon";
 import { Toaster } from "./components/ui/toast";
+import { PRIVACY_PATH, TERMS_PATH } from "./lib/legal";
 
 // Code-split por página (doc/regras/04-performance do base_vite): a cena 3D
 // (Three.js, pesada) e a área /dale (admin) viram chunks separados.
@@ -19,6 +20,8 @@ const Pass = lazy(() => import("./pages/admin/Pass"));
 const EarlySignups = lazy(() => import("./pages/admin/EarlySignups"));
 const Ibge = lazy(() => import("./pages/admin/Ibge"));
 const Users = lazy(() => import("./pages/admin/Users"));
+const Terms = lazy(() => import("./pages/legal/Terms"));
+const Privacy = lazy(() => import("./pages/legal/Privacy"));
 
 function PageFallback() {
   return (
@@ -45,6 +48,10 @@ export default function App() {
               </AuthProvider>
             }
           />
+
+          {/* Documentos legais: públicos, sem sessão (link exigido pelo login com Google) */}
+          <Route path={TERMS_PATH} element={<Terms />} />
+          <Route path={PRIVACY_PATH} element={<Privacy />} />
 
           {/* Área admin */}
           <Route

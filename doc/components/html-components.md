@@ -38,7 +38,7 @@ Seção abaixo da cena pública = home do projeto. Composição do [[desingn-sys
 - Impacto: placa `pixel bevel-edge bg-card` com total em display verde (Manrope); três placas contador (ícone pixel + número + `mono-label`). Soma em centavos, quantidade de edifícios, ONGs beneficiárias e cidades. Valores acompanham filtros da cena; teto de renderização vale só no canvas.
 - Foto: `<Photo ratio="1/1">` ([[desingn-system-index#Moldura (5.3)|moldura do DS]], 3px, sem bisel) com `public/cat_dog.webp` e `public/cat_dog.jpeg` de reserva — JPG cópia idêntica da `video-2` (1024 × 947); 1:1 recorta só as laterais. `PixelDog` espia por cima (DS 6.6). Foto de banco: trocar por foto de ONG quando houver ([[desingn-system-index#Desvios conscientes]]).
 - ONGs: no máximo **6 cartões** (DS 6.6, grade 1/2/3 colunas), por quantidade de edifícios apoiando; ONG selecionada permanece visível, desempate pelo nome. Cartão: `gap-3.5`; cidades (mono 11px), nome 26px, edifícios 15px com número em `strong`, botão primário largura total **Ver na cidade**. ONG filtrada = `pixel-ink-verde bg-secondary` + selo **No filtro**. Sem barra de meta: API não expõe meta da ONG. Sem lista individual de edifícios.
-- Rodapé (DS): frase 28px `max-w-[24ch]` à esquerda, rótulo mono 12px `muted-foreground` à direita.
+- Rodapé (DS): frase 28px `max-w-[24ch]` à esquerda; à direita, mono 12px `muted-foreground`: links **Termos de Uso** e **Política de Privacidade** + rótulo. Link da política na home = exigência do Google para o login ([[termos-e-privacidade]]). `<a href>` simples (não `Link`): seção renderiza sem Router no `check-donation-info`.
 - **Ver na cidade**: aplica `filter.ongId`, preserva localização e retorna suavemente ao canvas. Informações/perfil e administração continuam no acesso existente da cena. **Limpar filtros** reseta tudo.
 - Loading = `BlockLoader`; erro + retry; estados vazios explícitos. Sem estimar percentual/repasse por ONG: snapshot só informa beneficiárias, não divisão dos valores.
 - `CitySceneEditor`: mesma navegação da `video-2`. Setas usam `scrollTo` suave; botão **Voltar para a cena** fixo aparece após metade da viewport. Roda para baixo não tira usuário da cena; roda para cima no topo da seção retorna automaticamente. Painéis com scroll mantêm seu gesto; listeners removidos no unmount. Scrollbar oculta; runtime, API e autenticação preservados.
@@ -279,7 +279,7 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre por **Meus edifíci
 
 Perfil progressivo do 1º login: **Cidade** + **Como conheceu o Cidoa?**. Tudo opcional. Montado no `AuthMenu` (ramo logado).
 
-- **Quando abre** — `user.onboarding_completed_at === null` e `blocked` falso. `AuthMenu` passa `blocked` = indicação pendente (`?ref=`) || `GameMenu` aberto || `ShareDialog` aberto || `onboardingBlocked` do editor (contribuição, card do edifício, administração ou edição de perfil abertos). `AuthDialog` nem existe no ramo logado. Não empilha modal.
+- **Quando abre** — `user.onboarding_completed_at === null` e `blocked` falso. `AuthMenu` passa `blocked` = aceite dos termos pendente ([[#TermsDialog.tsx]]) || indicação pendente (`?ref=`) || `GameMenu` aberto || `ShareDialog` aberto || `onboardingBlocked` do editor (contribuição, card do edifício, administração ou edição de perfil abertos). `AuthDialog` nem existe no ramo logado. Não empilha modal.
 - **Uma vez por conta** — estado do servidor (`onboarding_completed_at`), não `localStorage`. Conta antiga também vê uma vez (sem backfill no back).
 - **Copy** — título "Complete seu perfil"; frase de valor "Com sua cidade, sugerimos ONGs perto de você."; botões **Pular** (ghost) e **Salvar**.
 - **Salvar** — desabilitado até ter cidade ou origem. `completeOnboarding({ city_id, discovery_source, discovery_source_other })` → `POST /user/me/onboarding`. Sucesso preenche `onboarding_completed_at` → fecha sozinho. Erro → `role="alert"`, continua aberto.
@@ -293,6 +293,16 @@ Perfil progressivo do 1º login: **Cidade** + **Como conheceu o Cidoa?**. Tudo o
 | `blocked` | `boolean` | Outro diálogo da cena aberto → espera |
 
 `AuthProvider.completeOnboarding` segue padrão `sessionVersion` do `updateProfile`: resposta de sessão antiga (logout no meio) não sobrescreve usuário.
+
+---
+
+### `TermsDialog.tsx`
+
+Aceite dos Termos de Uso + Política de Privacidade. Dois exports; fluxo completo em [[termos-e-privacidade#Aceite no login]].
+
+- **`TermsConsent`** — caixa nativa (DS) + frase "Tenho 18 anos ou mais, aceito os Termos de Uso e li a Política de Privacidade." (aceite do contrato × ciência da política: política não é consentimento) Links abrem em nova aba (cadastro em andamento vive só no estado do `AuthDialog`). Nunca pré-marcada. Usada no passo perfil do `AuthDialog` (botão **Criar conta** desabilitado até marcar; envia `termsVersion: LEGAL_VERSION`) e no `TermsDialog`.
+- **`TermsDialog`** — reaceite. Abre com sessão e `user.terms_version !== LEGAL_VERSION` (`null` = conta anterior aos termos → título "Termos de Uso"; versão antiga → "Termos atualizados"). Sem X, Esc ou clique fora. **Sair** (ghost, logout) · **Aceitar** (desabilitado até marcar) → `acceptTerms(LEGAL_VERSION)` → `POST /user/me/terms`. Sucesso atualiza `user` → fecha sozinho. Erro → `role="alert"`.
+- Montado no `AuthMenu` (ramo logado). `needsTerms` segura `ReferralDialog` e `OnboardingDialog` — aceite vem primeiro.
 
 ---
 

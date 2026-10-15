@@ -33,6 +33,8 @@ export interface CompleteRegistrationInput {
   username: string;
   name: string;
   referralCode?: string;
+  /** Versão dos Termos + Política aceita na caixa do cadastro (`LEGAL_VERSION`). */
+  termsVersion: string;
 }
 
 /** Desafio criado pelo request-code — código de 6 dígitos enviado por e-mail. */

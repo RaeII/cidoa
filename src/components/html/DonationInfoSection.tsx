@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { BlockLoader, ErrorMark, PixelArrow, PixelBuilding, PixelDog, PixelPaw } from "@/components/ui/pixel-icon";
 import { Photo } from "@/components/ui/photo";
 import { cn } from "@/lib/utils";
+import { PRIVACY_PATH, TERMS_PATH } from "@/lib/legal";
 import { formatBRL } from "@/lib/unlock";
 
 type DonationInfoSectionProps = {
@@ -179,7 +180,11 @@ export function DonationInfoSection({
 
         <footer className="mt-[120px] flex flex-wrap items-baseline justify-between gap-6">
           <p className="max-w-[24ch] text-[28px] font-semibold leading-[1.2]">Uma cidade feita de cuidado, um edifício de cada vez.</p>
-          <span className="font-mono text-xs text-muted-foreground">Cidoa · Proteção animal</span>
+          <nav aria-label="Documentos legais" className="flex flex-wrap items-baseline gap-x-5 gap-y-2 font-mono text-xs text-muted-foreground">
+            <a href={TERMS_PATH} className="underline decoration-2 underline-offset-3 hover:bg-accent hover:text-primary">Termos de Uso</a>
+            <a href={PRIVACY_PATH} className="underline decoration-2 underline-offset-3 hover:bg-accent hover:text-primary">Política de Privacidade</a>
+            <span>Cidoa · Proteção animal</span>
+          </nav>
         </footer>
       </div>
     </section>
