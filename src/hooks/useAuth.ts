@@ -27,8 +27,6 @@ export interface AuthContextValue {
   updateProfile: (input: UpdateOwnProfileInput) => Promise<User>;
   /** Salva ou pula (`{}`) o onboarding do primeiro login; grava `onboarding_completed_at`. */
   completeOnboarding: (input: ProfileDetailsInput) => Promise<User>;
-  /** Aceita os Termos + Política na versão vigente; grava `terms_version`. */
-  acceptTerms: (version: string) => Promise<User>;
   /** Remove o cookie no backend e limpa a sessão local. */
   logout: () => Promise<void>;
 }

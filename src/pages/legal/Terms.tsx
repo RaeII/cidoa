@@ -63,7 +63,6 @@ const sections: LegalSection[] = [
           <strong>Edifícios e dados podem ser removidos sem aviso prévio</strong> nos casos destes termos; depois
           avisamos no seu perfil e você pode contestar (ver {see("remocao", "Remoção")}).
         </li>
-        <li>É preciso ter 18 anos ou mais para ter conta.</li>
         {IS_PRELAUNCH ? (
           <li>No pré-lançamento, seus edifícios simulados ficam só no seu navegador e ninguém mais os vê.</li>
         ) : (
@@ -87,8 +86,8 @@ const sections: LegalSection[] = [
       <>
         <p>O Cidoa (cidoa.com.br) é mantido por {LEGAL_CONTROLLER}, pessoa física, no Brasil. Contato: {email}.</p>
         <p>
-          Estes Termos de Uso são o contrato entre você e o Cidoa. Ao criar uma conta, ou ao entrar depois de uma
-          atualização, você marca a caixa de aceite e concorda com eles; a {privacy} explica como tratamos seus dados.
+          Estes Termos de Uso são o contrato entre você e o Cidoa. Ao criar uma conta, você marca a caixa de aceite e
+          concorda com eles; a {privacy} explica como tratamos seus dados.
           Quem só visita a cidade sem conta também deve respeitar as {see("conteudo", "regras de uso")}.
         </p>
         <p>Estes termos valem para usuários. ONGs terão termos próprios quando o cadastro de ONGs abrir.</p>
@@ -120,10 +119,6 @@ const sections: LegalSection[] = [
     title: "Conta",
     body: (
       <ul>
-        <li>
-          Para ter conta, você precisa ter <strong>18 anos ou mais</strong>. Contas de menores de idade são excluídas
-          quando identificadas.
-        </li>
         <li>Você entra com o Google ou com um código enviado ao seu e-mail. Não usamos senha.</li>
         <li>Informe dados verdadeiros. A conta é pessoal: não use a conta de outra pessoa nem finja ser alguém.</li>
         <li>
@@ -145,8 +140,7 @@ const sections: LegalSection[] = [
         </p>
         <p>
           Quando os pagamentos forem ativados, o Pix será gerado pela Woovi, plataforma brasileira de pagamentos, e o
-          valor irá direto para a conta da ONG escolhida. Antes disso, atualizaremos estes termos e você só continuará
-          se aceitar a nova versão.
+          valor irá direto para a conta da ONG escolhida. Antes disso, publicaremos a nova versão destes termos.
         </p>
       </>
     ) : (
@@ -393,10 +387,10 @@ const sections: LegalSection[] = [
     body: (
       <p>
         Podemos atualizar estes termos para refletir mudanças no serviço ou na lei. A data da versão fica no topo da
-        página. Quando a mudança for relevante, você verá a nova versão ao entrar e só continuará usando a conta se
-        aceitá-la; se não aceitar, pode encerrar a conta sem custo e pedir seus dados. Mudanças não alteram
+        página. O aceite é registrado no cadastro, sem nova confirmação ao entrar. Se não concordar com uma
+        atualização, você pode encerrar a conta sem custo e pedir seus dados. Mudanças não alteram
         contribuições já feitas. Correções de digitação, sem efeito sobre direitos, valem na publicação.
-        {IS_PRELAUNCH && " No lançamento, estes termos mudam para incluir os pagamentos reais, e você verá a nova versão."}
+        {IS_PRELAUNCH && " No lançamento, estes termos mudam para incluir os pagamentos reais."}
       </p>
     ),
   },

@@ -65,7 +65,7 @@ As páginas ficam em pastas que **espelham as pastas do código** — assim voc�
 | `admin/`           | `src/components` · `src/pages/admin` | Área admin (fora da cena): UI HTML/shadcn, roteamento, login e dashboard |
 | `passe/`           | transversal      | Gamificação: liberação de personalização por doação + indicação |
 | `desingn-system/`  | `src/index.css` · `src/components/ui` | Sistema de design: cor, tipo, borda em pixel, componentes, HUD |
-| `legal/`           | `src/pages/legal` · `src/lib/legal.ts` | Termos de Uso, Política de Privacidade e aceite no login |
+| `legal/`           | `src/pages/legal` · `src/lib/legal.ts` | Termos de Uso, Política de Privacidade, aceite no cadastro e aviso de cookies |
 
 > [!tip] Adicionando uma página nova
 > 1. Crie o `.md` dentro da pasta cujo **tema** combina (componente novo → `components/`; peça nova da cena → `scene/engine/`; tipo/config novo → `scene/foundation/`).
@@ -89,6 +89,7 @@ scripts/
   ui-add.sh                    ← adiciona primitivo shadcn corrigindo o CLI (`bun run ui:add <nome>`)
   encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`)
   check-pass.mjs               ← ordenação do passe sem servidor/navegador
+  check-consent.mjs            ← aceite no cadastro + aviso de cookies, sem servidor/navegador
   check-city-search.mjs        ← busca de cidade (acento, prefixo antes de substring, UF, limite) sem navegador
   check-contribution.mjs       ← máscara monetária + confirmação da simulação local; sem servidor/navegador
   check-building-management.mjs ← administração, posse, descarte e foco após filtro/pagamento; sem servidor/navegador
@@ -153,7 +154,8 @@ src/
     ProfileDetailsFields.tsx      ← campos compartilhados onboarding/Perfil: busca de cidade + chips de origem
     GameMenu.tsx                  ← menu estilo GTA: abas perfil/edifícios/personalizações/indicações, dia/noite, sair
     AuthDialog.tsx                ← login por e-mail ou Google; cadastro confirma nome + username + aceite dos termos
-    TermsDialog.tsx               ← `TermsConsent` (caixa de aceite) + reaceite quando `LEGAL_VERSION` muda
+    TermsConsent.tsx              ← caixa de aceite somente no cadastro, sem declaração de idade
+    CookieNotice.tsx              ← aviso global de cookies essenciais, confirmação salva no navegador
     AuthProvider.tsx              ← sessão da cena (cookie token_access), só na rota /
     AdminAuthProvider.tsx         ← sessão do painel (cookie token_admin), só em /dale/*
     RequireAdmin.tsx              ← guarda de /dale: exige sessão do painel
@@ -309,7 +311,7 @@ doc/
 - `src/main.tsx` → renderiza React no `#root`
 - `src/App.tsx` → `BrowserRouter` com rotas lazy: `/` = `CitySceneEditor` (cena) dentro de `AuthProvider`; `/dale/login` + `/dale` = área admin dentro de `AdminAuthProvider` (layout route) + `RequireAdmin` (ver [[componentes-html#Roteamento]] e [[area-admin]]). Cada área monta só a própria sessão — login numa não abre a outra ([[area-admin#Duas sessões (cena × painel)]]). `<Toaster />` global montado aqui — ver [[componentes-html#Notificações (toast)]]
 - `/termos` e `/privacidade` → documentos legais públicos, fora de qualquer provider de sessão ([[termos-e-privacidade]]).
-- Acesso público na cena → `AuthDialog`: e-mail → código, ou Google. Conta existente entra; conta nova confirma `name` + `username` (Google já sugere ambos) com o e-mail bloqueado na tela e marca a caixa de aceite dos termos. Conta sem aceite da versão vigente vê `TermsDialog` antes de tudo. Campo de indicação fica no rodapé do modal, escondido atrás de link sublinhado; `?ref=` já abre preenchido com preview. Ver [[area-admin#Login público na cena (passwordless)]] e [[referral]].
+- Acesso público na cena → `AuthDialog`: e-mail → código, ou Google. Conta existente entra; conta nova confirma `name` + `username` (Google já sugere ambos) com o e-mail bloqueado na tela e marca a caixa de aceite dos termos. Login de conta existente não solicita novo aceite. O aviso de cookies é independente do cadastro e não bloqueia a navegação. Campo de indicação fica no rodapé do modal, escondido atrás de link sublinhado; `?ref=` já abre preenchido com preview. Ver [[area-admin#Login público na cena (passwordless)]] e [[referral]].
 
 ### 2. Container Principal
 
@@ -527,8 +529,8 @@ flowchart LR
 | Sessão da cena vs painel (cookies, providers, 401) | [[area-admin#Duas sessões (cena × painel)]] |
 | Botão de login + modal passwordless na cena | [[area-admin#Login público na cena (passwordless)]] |
 | Texto dos Termos de Uso / Política de Privacidade | `src/pages/legal/Terms.tsx` · `Privacy.tsx` → [[termos-e-privacidade]] |
-| Mudar versão dos termos (força reaceite), controlador, e-mail de contato | `src/lib/legal.ts` → [[termos-e-privacidade#Mudar os termos]] |
-| Caixa de aceite no cadastro / modal de reaceite | [[html-components#TermsDialog.tsx]] · [[termos-e-privacidade#Aceite no login]] |
+| Mudar versão dos termos registrada no cadastro, controlador, e-mail de contato | `src/lib/legal.ts` → [[termos-e-privacidade#Mudar os termos]] |
+| Caixa de aceite no cadastro / aviso de cookies | [[html-components#TermsConsent.tsx]] · [[html-components#CookieNotice.tsx]] · [[termos-e-privacidade#Aceite no cadastro]] |
 | Onboarding do 1º login (cidade, como conheceu, pular) | [[html-components#OnboardingDialog.tsx]] · [[area-admin#Perfil progressivo (onboarding)]] |
 | Campo Cidade (busca) / chips "Como conheceu?" | [[html-components#ProfileDetailsFields.tsx]] · busca em `src/lib/citySearch.ts` |
 | Rótulos das origens ("Instagram", "Uma ONG"…) | `DISCOVERY_LABELS` em [[html-components#ProfileDetailsFields.tsx]] |

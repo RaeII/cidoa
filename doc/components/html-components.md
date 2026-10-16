@@ -30,6 +30,12 @@ Esses componentes:
 
 ## Componentes Principais
 
+### Aviso de pré-lançamento (`CitySceneEditor.tsx`)
+
+Aviso compacto `pixel pixel-thin bg-background`, sem ícone ou bisel. Rótulo mono verde **Pré-lançamento** e mensagem **Pagamentos simulados. Cidade salva só neste navegador.** no mesmo parágrafo, com quebra natural. Texto de 12px, entrelinha de 16px e padding de 8px na horizontal / 6px na vertical; `aside` identificado para leitores de tela.
+
+Ocupa apenas a largura do conteúdo, limitada à tela, com margem externa de 16px. Aviso e menu ficam lado a lado quando há espaço; em telas estreitas, o menu quebra para baixo, alinhado à direita. Espaço entre eles de 8px. Espaços vazios do cabeçalho deixam passar os gestos para a cena.
+
 ### `DonationInfoSection.tsx`
 
 Seção abaixo da cena pública = home do projeto. Composição do [[desingn-system-index|DS]]: hero display → `01 Impacto` → `02 Explore as ONGs da cidade` → rodapé. Fundo `bg-background pattern-paws` (pegadas do DS, 420px). Container `max-w-[1240px]`, `pt-24 pb-[120px]`. Cabeçalho de seção = `PixelPaw` + número mono verde + título 44px, gap 18px, conteúdo a 36px (`mt-9`). Espaço entre blocos: 128px (hero → 01), 112px (01 → 02), 120px (rodapé). Sem hairline: só espaço. Snapshot público mais simulações locais do mesmo `useDonations`; valores rotulados como simulados (**Valor simulado**, **ONGs na cidade**), sem arrecadação real. Hero e seção 02 com copy de pré-lançamento.
@@ -125,14 +131,14 @@ Overlay de carregamento do snapshot de doações do backend ([[donation-api]]). 
 
 ### `DonationFilterBar.tsx`
 
-Barra de filtros das doações. Presentacional — recebe listas e filtro, emite mudança. Filtragem real acontece no `useDonations` ([[donation-api#Filtro client-side]]).
+Barra de filtros das doações, temporariamente fora da interface na branch `beta` (região, estado, cidade e ONG). O componente permanece disponível para retomada; não há opção para exibi-lo na aba **Tela**. Filtragem real continua no `useDonations` ([[donation-api#Filtro client-side]]), inclusive pelos cartões de ONG da seção de impacto.
 
 **Responsabilidades:**
 - Selects em **cascata**: Região → UF → Cidade (região deriva da UF via `UF_REGION`, não vem do backend)
 - Select de **ONG**
 - Botão **Limpar** — reseta o filtro
 - Sem estado próprio nem Three.js — só dispara `onChange`
-- Montada só com dataset pronto **e** `uiVisibility.donationFilter` ligado (aba **Tela**)
+- Não montada pelo `CitySceneEditor` durante o beta
 
 **Props:**
 | Prop | Tipo | Descrição |
@@ -238,7 +244,7 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre por **Meus edifíci
 
 Perfil progressivo do 1º login: **Cidade** + **Como conheceu o Cidoa?**. Tudo opcional. Montado no `AuthMenu` (ramo logado).
 
-- **Quando abre** — `user.onboarding_completed_at === null` e `blocked` falso. `AuthMenu` passa `blocked` = aceite dos termos pendente ([[#TermsDialog.tsx]]) || indicação pendente (`?ref=`) || `GameMenu` aberto || `ShareDialog` aberto || `onboardingBlocked` do editor (contribuição, card do edifício, administração ou edição de perfil abertos). `AuthDialog` nem existe no ramo logado. Não empilha modal.
+- **Quando abre** — `user.onboarding_completed_at === null` e `blocked` falso. `AuthMenu` passa `blocked` = indicação pendente (`?ref=`) || `GameMenu` aberto || `ShareDialog` aberto || `onboardingBlocked` do editor (contribuição, card do edifício, administração ou edição de perfil abertos). `AuthDialog` nem existe no ramo logado. Não empilha modal.
 - **Uma vez por conta** — estado do servidor (`onboarding_completed_at`), não `localStorage`. Conta antiga também vê uma vez (sem backfill no back).
 - **Copy** — título "Complete seu perfil"; frase de valor "Com sua cidade, sugerimos ONGs perto de você."; botões **Pular** (ghost) e **Salvar**.
 - **Salvar** — desabilitado até ter cidade ou origem. `completeOnboarding({ city_id, discovery_source, discovery_source_other })` → `POST /user/me/onboarding`. Sucesso preenche `onboarding_completed_at` → fecha sozinho. Erro → `role="alert"`, continua aberto.
@@ -255,13 +261,19 @@ Perfil progressivo do 1º login: **Cidade** + **Como conheceu o Cidoa?**. Tudo o
 
 ---
 
-### `TermsDialog.tsx`
+### `TermsConsent.tsx`
 
-Aceite dos Termos de Uso + Política de Privacidade. Dois exports; fluxo completo em [[termos-e-privacidade#Aceite no login]].
+Caixa de aceite usada somente no passo de cadastro do `AuthDialog`; fluxo em [[termos-e-privacidade#Aceite no cadastro]].
 
-- **`TermsConsent`** — caixa nativa (DS) + frase "Tenho 18 anos ou mais, aceito os Termos de Uso e li a Política de Privacidade." (aceite do contrato × ciência da política: política não é consentimento) Links abrem em nova aba (cadastro em andamento vive só no estado do `AuthDialog`). Nunca pré-marcada. Usada no passo perfil do `AuthDialog` (botão **Criar conta** desabilitado até marcar; envia `termsVersion: LEGAL_VERSION`) e no `TermsDialog`.
-- **`TermsDialog`** — reaceite. Abre com sessão e `user.terms_version !== LEGAL_VERSION` (`null` = conta anterior aos termos → título "Termos de Uso"; versão antiga → "Termos atualizados"). Sem X, Esc ou clique fora. **Sair** (ghost, logout) · **Aceitar** (desabilitado até marcar) → `acceptTerms(LEGAL_VERSION)` → `POST /user/me/terms`. Sucesso atualiza `user` → fecha sozinho. Erro → `role="alert"`.
-- Montado no `AuthMenu` (ramo logado). `needsTerms` segura `ReferralDialog` e `OnboardingDialog` — aceite vem primeiro.
+- Texto: "Aceito os Termos de Uso e li a Política de Privacidade." Sem declaração de idade.
+- Obrigatória, nunca pré-marcada. **Criar conta** fica desabilitado até marcar; o envio também valida o aceite e inclui `termsVersion: LEGAL_VERSION`. Links em nova aba preservam o formulário.
+- Conta existente entra diretamente. Não existe modal de reaceite nem bloqueio por `terms_version` no `AuthMenu`.
+
+### `CookieNotice.tsx`
+
+Banner global de cookies essenciais, separado do cadastro e montado no `App.tsx`. Texto curto, link para a seção de cookies da política em nova aba e **Entendi**. Sem overlay nem bloqueio; respeita a navegação móvel e fica abaixo dos diálogos.
+
+A confirmação persiste em `cidoa:cookie-notice` no armazenamento local. Se bloqueado, fecha na visita atual. Sem publicidade/análise nem categorias opcionais. Ver [[termos-e-privacidade#Aviso de cookies]].
 
 ---
 
@@ -350,7 +362,7 @@ Componente que monta o painel completo de configuração da cena. **Escondido po
 | **Luz** | Ambient, hemisphere, directional |
 | **Horizonte** | Modo do final do chão (reta/circular/quadrado), alcance do horizonte/chão/edifícios, névoa e material do chão ([[#GroundControls.tsx]]). Ver [[#HorizonControls.tsx]]. |
 | **Terreno** | Relevo procedural ao redor da cidade — ver [[#TerrainControls.tsx]] |
-| **Tela** | Checkbox por componente HTML sobreposto (log de câmera + 3 inputs de geração/posição + filtros + card de organização). Liga/desliga visibilidade; preferência persistida em `localStorage` via [[scene-config#uiVisibilityConfig.ts]] |
+| **Tela** | Checkbox por componente HTML sobreposto (log de câmera + 3 inputs de geração/posição + card de organização). Liga/desliga visibilidade; preferência persistida em `localStorage` via [[scene-config#uiVisibilityConfig.ts]] |
 
 Tipo da aba ativa: `"geral" | "texturas" | "reflexo" | "luz" | "horizonte" | "terreno" | "tela"`. Sete abas → rótulo em `text-xs` pra caber nos 360px do painel.
 

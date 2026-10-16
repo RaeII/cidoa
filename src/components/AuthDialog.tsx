@@ -6,7 +6,7 @@ import type { AuthChallenge, RegistrationRequiredResult } from "@/api/auth/auth.
 import type { ReferrerPreview } from "@/api/referral/referral.types";
 import { useAuth } from "@/hooks/useAuth";
 import { ReferralPerson } from "@/components/referral/ReferralPerson";
-import { TermsConsent } from "@/components/TermsDialog";
+import { TermsConsent } from "@/components/TermsConsent";
 import { LEGAL_VERSION } from "@/lib/legal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

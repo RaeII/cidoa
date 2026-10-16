@@ -233,7 +233,6 @@ Controla visibilidade dos componentes HTML sobrepostos na tela. Persiste prefer�
 | `donationInput` | `true` | Input de doação individual |
 | `bulkInput` | `true` | Input de geração em lote (mín/máx/qtd) |
 | `blockLayoutInput` | `true` | Input de configuração de quadras |
-| `donationFilter` | `true` | Barra de filtros das doações (região/UF/cidade/ONG) |
 
 **Funções exportadas:**
 - `createDefaultUIVisibilitySettings()` — tudo visível

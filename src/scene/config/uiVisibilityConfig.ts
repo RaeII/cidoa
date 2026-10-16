@@ -8,7 +8,6 @@ export function createDefaultUIVisibilitySettings(): UIVisibilitySettings {
     donationInput: true,
     bulkInput: true,
     blockLayoutInput: true,
-    donationFilter: true,
     buildingLayoutCard: true,
   };
 }

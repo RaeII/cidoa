@@ -228,7 +228,8 @@ const sections: LegalSection[] = [
       <>
         <p>
           Usamos só o necessário para o site funcionar. <strong>Não usamos cookies de publicidade nem de medição de
-          audiência</strong>, por isso não pedimos consentimento para cookies.
+          audiência</strong>. Um aviso separado informa sobre esses cookies; ao clicar em "Entendi", guardamos essa
+          confirmação no navegador para não repetir o aviso.
         </p>
         <Table
           head={["Nome", "Tipo", "Para quê", "Duração"]}
@@ -239,6 +240,7 @@ const sections: LegalSection[] = [
             ["g_state", "Cookie gravado no nosso domínio pela ferramenta de login do Google", "Guardar o estado do login com Google", "Definida pelo Google"],
             ["Cookies em accounts.google.com", "Terceiro (Google)", "Login com Google", "Definida pelo Google"],
             ["theme e cidoa:ui-visibility", "Armazenamento local", "Lembrar tema e o que aparece na tela", "Até você limpar o navegador"],
+            ["cidoa:cookie-notice", "Armazenamento local", "Lembrar que você fechou o aviso de cookies", "Até você limpar o navegador"],
             ...(IS_PRELAUNCH
               ? [["cidoa:prelaunch:…", "Armazenamento local", "Guardar as simulações e ajustes da cidade do pré-lançamento", "Até você limpar o navegador"]]
               : []),
@@ -359,26 +361,15 @@ const sections: LegalSection[] = [
       </>
     ),
   },
-  {
-    id: "menores",
-    title: "Menores de idade",
-    body: (
-      <p>
-        Contas são só para maiores de 18 anos. A cidade pode ser vista sem conta, mas não coletamos de propósito dados
-        de crianças e adolescentes. Se houver indício de que uma conta é de menor, ela é bloqueada e excluída.
-        Responsáveis podem avisar por {email}.
-      </p>
-    ),
-  },
   ...(IS_PRELAUNCH ? [prelaunchSection] : []),
   {
     id: "alteracoes",
     title: "Mudanças nesta política",
     body: (
       <p>
-        Quando esta política mudar de forma relevante, a data da versão no topo muda e você verá a nova versão ao
-        entrar e confirmará que leu antes de continuar. Não usaremos seus dados para uma finalidade nova sem avisar
-        antes.{IS_PRELAUNCH && " No lançamento, esta política muda para incluir os pagamentos reais."}
+        As atualizações desta política são publicadas nesta página, com a data da versão no topo. A confirmação de
+        leitura acontece no cadastro, sem nova confirmação ao entrar. Não usaremos seus dados para uma finalidade
+        nova sem avisar antes.{IS_PRELAUNCH && " No lançamento, esta política muda para incluir os pagamentos reais."}
       </p>
     ),
   },

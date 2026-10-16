@@ -260,13 +260,6 @@ export function CityControlPanel({
                     onUIVisibilityChange({ ...uiVisibility, buildingLayoutCard })
                   }
                 />
-                <CheckboxField
-                  label="Filtros das doações"
-                  checked={uiVisibility.donationFilter}
-                  onChange={(donationFilter) =>
-                    onUIVisibilityChange({ ...uiVisibility, donationFilter })
-                  }
-                />
               </div>
             </PanelSection>
             <PanelSection

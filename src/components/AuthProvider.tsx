@@ -10,7 +10,6 @@ import { SESSION_EXPIRED_EVENT } from "../api/http";
 import type { User } from "../api/user/user.types";
 import type { ProfileDetailsInput, UpdateOwnProfileInput } from "../api/user/user.types";
 import {
-  acceptTerms as apiAcceptTerms,
   completeOnboarding as apiCompleteOnboarding,
   getOwnSession,
   updateOwnProfile as apiUpdateOwnProfile,
@@ -114,14 +113,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return updated;
   }, []);
 
-  const acceptTerms = useCallback(async (termsVersion: string) => {
-    const version = sessionVersion.current;
-    const updated = await apiAcceptTerms(termsVersion);
-    if (version !== sessionVersion.current) return updated;
-    setUser(updated);
-    return updated;
-  }, []);
-
   const logout = useCallback(async () => {
     ++sessionVersion.current;
     try {
@@ -156,10 +147,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       completeRegistration,
       updateProfile,
       completeOnboarding,
-      acceptTerms,
       logout,
     }),
-    [user, isLoading, loginWithCode, loginWithGoogle, completeRegistration, updateProfile, completeOnboarding, acceptTerms, logout],
+    [user, isLoading, loginWithCode, loginWithGoogle, completeRegistration, updateProfile, completeOnboarding, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

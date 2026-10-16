@@ -17,7 +17,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { saveDonationCustomization } from "../api/donationApi";
 import { useCustomizationCatalog } from "./hooks/useCustomizationCatalog";
 import { DonationLoadOverlay } from "./html/DonationLoadOverlay";
-import { DonationFilterBar } from "./html/DonationFilterBar";
 import { DonationInfoSection } from "./html/DonationInfoSection";
 import { ContributeDialog } from "./html/donate/ContributeDialog";
 import { BuildingProfileDialog } from "./html/donate/BuildingProfileForm";
@@ -522,12 +521,14 @@ export function CitySceneEditor() {
         onHoverChange={handleHoverChange}
         onBuildingClick={handleBuildingClick}
       />
-      <div className="absolute inset-x-4 top-4 z-30 flex flex-col gap-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="bg-background px-3 py-2 text-foreground">
-            <p className="mono-label text-primary">Pré-lançamento</p>
-            <p className="mt-1 text-xs">Pagamentos simulados. Cidade salva só neste navegador.</p>
-          </div>
+      <div className="pointer-events-none absolute inset-x-4 top-4 z-30 flex flex-wrap items-start justify-between gap-2">
+        <aside aria-label="Cidade de pré-lançamento" className="pointer-events-auto pixel pixel-thin max-w-full bg-background px-2 py-1.5 text-xs leading-4 text-muted-foreground">
+          <p>
+            <strong className="mr-2 font-mono text-[11px] font-semibold text-primary">Pré-lançamento</strong>
+            Pagamentos simulados. Cidade salva só neste navegador.
+          </p>
+        </aside>
+        <div className="pointer-events-auto ml-auto max-w-full [&>div]:flex-wrap [&>div]:justify-end">
           <AuthMenu
             night={environmentSettings.night}
             onNightChange={(night) => setEnvironmentSettings((prev) => ({ ...prev, night }))}
@@ -539,14 +540,6 @@ export function CitySceneEditor() {
             onboardingBlocked={contributeOpen || infoBuildingId !== null || selectedBuildingId !== null || profileEditId !== null}
           />
         </div>
-        {loadState.status === "ready" && uiVisibility.donationFilter && (
-          <DonationFilterBar
-            cities={cities}
-            ongs={ongs}
-            filter={filter}
-            onChange={setFilter}
-          />
-        )}
       </div>
       {loadState.status === "ready" && (
         <ContributeDialog
