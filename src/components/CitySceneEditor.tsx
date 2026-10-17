@@ -626,7 +626,7 @@ export function CitySceneEditor() {
           })}
         </div>
       )}
-      {loadState.status === "ready" && uiVisibility.buildingLayoutCard && (
+      {isAdmin && loadState.status === "ready" && uiVisibility.buildingLayoutCard && (
         <BuildingLayoutCard
           settings={blockLayoutSettings}
           onChange={setBlockLayoutSettings}

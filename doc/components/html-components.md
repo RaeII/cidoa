@@ -33,7 +33,7 @@ Esses componentes:
 Meta: 1º paint útil antes do bundle; Three.js não atrasa FCP/LCP. Lighthouse mobile local: FCP 3,0–3,4 s → 1,5 s; LCP 4,1–4,4 s → 2,0 s.
 
 1. **`index.html`** — `#root` já traz `<picture id="city-poster">`: `public/city-poster-portrait.webp` (`orientation: portrait`) ou `city-poster-landscape.webp`. Estilo inline (absolute, topo, `100vh`, `object-fit: cover`). Script inline remove fora de `/`.
-2. **`App.tsx`** — rota `/` com `Suspense` próprio: `SceneFallback` = `CityPoster` + placa "Carregando…". React limpa `#root` no 1º commit e repõe mesmo pôster (mesma URL em cache, mesma caixa) → sem pisca, sem CLS.
+2. **`App.tsx`** — rota `/` com `Suspense` próprio: `SceneFallback` = `CityPoster` + mesmo `DonationLoadOverlay` da cena ("Carregando doações…"). Mesmo tamanho → card da cena não vira LCP tardio. React limpa `#root` no 1º commit e repõe mesmo pôster (mesma URL em cache, mesma caixa) → sem pisca, sem CLS.
 3. **`afterPaint()`** (`App.tsx`) — duplo rAF (aba oculta resolve na hora). `CitySceneEditor` lazy só chama `import()` depois: casca (pôster + `CookieNotice`) pinta antes de baixar/avaliar cena. Mesmo truque no `Toaster` — Radix Toast fora do `index.js`; store do toast vive fora do React, `toast()` antes do mount aparece quando monta.
 4. **`CityPoster.tsx`** — `<CityPoster hidden={loadState.status === "ready" && donationsApplied} />` logo após o canvas, abaixo de overlay/UI (sem z-index). Fade 500 ms por opacity; `transitionend` desmonta, não volta — rebuild por filtro usa só [[#DonationLoadOverlay.tsx|DonationLoadOverlay]].
 
@@ -96,7 +96,7 @@ Overlay fixo no centro superior da página — é o input de doação. Monta 3 s
 
 ### `BuildingLayoutCard.tsx`
 
-Card flutuante no canto superior esquerdo. Tira do painel os dois controles que mais se mexe ao compor a cidade: **modo de layout** e **quantos edifícios entram na cena**. Botão `×` no cabeçalho remove o card da tela (escreve `buildingLayoutCard: false`); aba **Tela** do painel devolve.
+Card flutuante no canto superior esquerdo, só admin (`isAdmin`): público não vê, e o texto dele chegando tarde virava LCP de ~7 s no mobile. Tira do painel os dois controles que mais se mexe ao compor a cidade: **modo de layout** e **quantos edifícios entram na cena**. Botão `×` no cabeçalho remove o card da tela (escreve `buildingLayoutCard: false`); aba **Tela** do painel devolve.
 
 **Responsabilidades:**
 - Par de botões que alterna `centerTallest` — **Por quadra** (`false`, padrão) = torres agrupadas nos slots centrais de cada quadra, menores embaralhados no meio; **Mais alto no centro** (`true`) = gradiente global, maior doação no centro exato e altura caindo pra borda. Quadras/ruas idênticas nos dois — ver [[scene-managers#Layout dos Prédios — 2 Modos]]

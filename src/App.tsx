@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom
 import { AdminAuthProvider } from "./components/AdminAuthProvider";
 import { AuthProvider } from "./components/AuthProvider";
 import { CityPoster } from "./components/CityPoster";
+import { DonationLoadOverlay } from "./components/html/DonationLoadOverlay";
 import { RequireAdmin } from "./components/RequireAdmin";
 import { BlockLoader } from "./components/ui/pixel-icon";
 import { PRIVACY_PATH, TERMS_PATH } from "./lib/legal";
@@ -56,17 +57,18 @@ function PageFallback() {
   );
 }
 
-/** Enquanto o chunk da cena baixa: mesmo pôster do index.html + aviso de carregamento. */
+const SCENE_LOADING = { status: "loading", loadedBytes: 0, totalBytes: null } as const;
+
+/**
+ * Enquanto o chunk da cena baixa: mesmo pôster do index.html + o MESMO card de carregamento
+ * da cena. Texto do mesmo tamanho não vira LCP novo quando a cena monta o dela; com
+ * "Carregando…" menor aqui, o "Carregando doações…" da cena virava LCP tardio (~4,6 s mobile).
+ */
 function SceneFallback() {
   return (
     <div className="relative h-screen w-full overflow-hidden bg-background">
       <CityPoster />
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="pixel bevel-edge flex items-center gap-3 bg-background px-6 py-5 text-sm text-foreground">
-          <BlockLoader className="text-primary" />
-          Carregando…
-        </div>
-      </div>
+      <DonationLoadOverlay state={SCENE_LOADING} onRetry={() => {}} />
     </div>
   );
 }
