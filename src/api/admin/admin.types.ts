@@ -1,4 +1,25 @@
 import type { UnlockRule } from "@/lib/unlock";
+import type { UserPage } from "../user/user.types";
+
+export interface AdminOng {
+  id: number;
+  name: string;
+  profile_image: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface OngInput {
+  name: string;
+  profile_image: string | null;
+  is_active: boolean;
+}
+
+export interface OngPage {
+  data: AdminOng[];
+  pagination: UserPage["pagination"];
+}
 
 export interface EarlySignupInput {
   isActive: boolean;

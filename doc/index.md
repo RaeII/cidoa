@@ -57,6 +57,7 @@ scripts/
   ui-add.sh                    ← adiciona primitivo shadcn corrigindo o CLI (`bun run ui:add <nome>`)
   encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`)
   check-pass.mjs               ← ordenação do passe sem servidor/navegador
+  check-admin-ongs.mjs         ← cadastro/edição de ONG, foto, status e erros, sem servidor/navegador
   check-city-search.mjs        ← busca de cidade (acento, prefixo antes de substring, UF, limite) sem navegador
   check-contribution.mjs       ← máscara monetária + confirmação libera novo pagamento; sem servidor/navegador
   check-building-management.mjs ← administração, posse, descarte e foco após filtro/pagamento; sem servidor/navegador
@@ -96,6 +97,7 @@ src/
     Terms.tsx                   ← /termos
     Privacy.tsx                 ← /privacidade
   pages/admin/
+    Ongs.tsx                    ← /dale/ongs: criar, editar nome/foto, ativar/desativar, excluir
     Pass.tsx                    ← página dedicada /dale/passe
     Users.tsx                   ← /dale/usuarios: busca conta, menu ⋮ (admin/excluir), paginação
   components/
@@ -268,6 +270,7 @@ doc/
     personalizacoes.md           ← CRUD do catálogo de personalizações
     ibge.md                      ← vincular catálogo geográfico do IBGE
     usuarios.md                  ← listar contas, dar/tirar admin, excluir usuário; o que admin ganha
+    ongs.md                      ← cadastro, foto, ativação e exclusão de ONGs
 ```
 
 ## Fluxo da Aplicação
@@ -500,6 +503,7 @@ flowchart LR
 | Onboarding do 1º login (cidade, como conheceu, pular) | [[html-components#OnboardingDialog.tsx]] · [[area-admin#Perfil progressivo (onboarding)]] |
 | Campo Cidade (busca) / chips "Como conheceu?" | [[html-components#ProfileDetailsFields.tsx]] · busca em `src/lib/citySearch.ts` |
 | Rótulos das origens ("Instagram", "Uma ONG"…) | `DISCOVERY_LABELS` em [[html-components#ProfileDetailsFields.tsx]] |
+| Gerenciar ONGs: nome, foto, status e exclusão | [[ongs]] |
 | Gerar/excluir edifícios fictícios em massa (admin) | [[edificios-teste]] |
 | Vincular catálogo do IBGE (regiões/estados/municípios) | [[ibge]] |
 | Colocar um usuário como admin | [[usuarios]] |

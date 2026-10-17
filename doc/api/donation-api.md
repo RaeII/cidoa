@@ -34,13 +34,15 @@ Antes: prédios nasciam no front (`INITIAL_TEST_DONATIONS`, 10 valores hardcoded
 `GET /donation/snapshot` (proxy Vite `/api` → back). Formato compacto por tuplas:
 
 ```json
-{ "v": 4, "total": 100000,
+{ "v": 5, "total": 100000,
   "cities": [[2800308, "Aracaju", "SE"]],
-  "ongs": [[1, "Instituto X"]],
+  "ongs": [[1, "Instituto X", null]],
   "data": [[1, 42.5, 3550308, 7]],
   "custom": [[1, { "color": "#ffd700", "buildingShape": "twisted", "…": "…" }]],
   "beneficiaries": [[1, [7, 8]]] }
 ```
+
+`ongs`: `[id, nome, profile_imageOuNull]`, só ativas. `Ong.profile_image` opcional no front: tupla antiga sem imagem vira `null`. Nome, foto e status administrados em [[ongs]]; cartões públicos usam foto ou iniciais. Cache do backend detecta exclusões pela contagem de ONGs, edições pela data com precisão fracionária; atualização em até 30 s, recebida ao recarregar dataset.
 
 `data`: `[id, value, cityId, ongId]`. `fetchDonationSnapshot` desdobra em objetos `DonationRecord`.
 

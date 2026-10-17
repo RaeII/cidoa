@@ -3,6 +3,7 @@ import { MapPinIcon } from "lucide-react";
 import type { DonationRecord, Ong } from "@/api/donationApi";
 import type { DonationFilter, DonationsLoadState } from "@/components/hooks/useDonations";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { BlockLoader, ErrorMark, PixelArrow, PixelBuilding, PixelDog, PixelPaw } from "@/components/ui/pixel-icon";
 import { Photo } from "@/components/ui/photo";
@@ -157,7 +158,13 @@ export function DonationInfoSection({
                             {cityCount.toLocaleString("pt-BR")} {cityCount === 1 ? "cidade" : "cidades"}
                           </span>
                         </div>
-                        <h4 className="break-words text-[26px] font-semibold leading-[1.15]">{ong.name}</h4>
+                        <div className="flex items-center gap-3">
+                          <Avatar size="lg">
+                            {ong.profile_image && <AvatarImage src={ong.profile_image} alt="" className="object-cover" />}
+                            <AvatarFallback>{ong.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                          <h4 className="min-w-0 break-words text-[26px] font-semibold leading-[1.15]">{ong.name}</h4>
+                        </div>
                         <p className="mt-auto text-[15px]">
                           <strong>{count.toLocaleString("pt-BR")}</strong> {count === 1 ? "edifício" : "edifícios"}
                         </p>
