@@ -1,6 +1,6 @@
 import type { Contribution, BuildingProfile } from "../api/contributionApi";
 import type { City, DonationRecord } from "../api/donationApi";
-import type { BuildingCustomization } from "../scene/types";
+import type { BuildingCustomization, BuildingShape, RooftopType } from "../scene/types";
 
 export type LocalBuilding = DonationRecord & { city: City };
 export const LOCAL_CITY_EVENT = "cidoa:prelaunch-city";
@@ -61,6 +61,37 @@ export function createSeedBuildings(ongs: readonly { id: number }[]): LocalBuild
     const ongId = ongs.length ? ongs[index % ongs.length].id : 0;
     return { id: -1_000_000 - index, value, cityId: city.id, city, ongId, ongIds: ongs.length ? [ongId] : [] };
   });
+}
+
+// Ordem alterna torre icônica e prédio comum: vizinhos na espiral nunca repetem formato.
+const SEED_SHAPES: BuildingShape[] = ["default", "setback", "chrysler", "residential", "octagonal", "taipei",
+  "hearst", "twisted", "empire", "yachthouse", "tapered", "one-trade"];
+// Topo estreito/pináculo: acessório de topo ficaria flutuando.
+const SEED_SPIRE_SHAPES = new Set<BuildingShape>(["tapered", "chrysler", "empire", "taipei", "one-trade"]);
+const SEED_ROOFTOPS: RooftopType[] = ["helipad", "garden", "spotlights", "none", "helicopter", "garden", "none"];
+// Concreto, areia, tijolo, vidro azulado, sálvia: multiplicam a textura sem saturar.
+const SEED_COLORS = ["#d4d4d4", "#e6dccb", "#c48f74", "#b7c4cf", "#a9b3a1", "#d9c7b0", "#8f99a3", "#e8e4dc", "#9fb2bf", "#c9b8a3"];
+
+/** Edifícios iniciais com combos diferentes. Textura fica `null` → segue o sorteio por edifício da cena. */
+export function createSeedCustomizations(seeds: readonly LocalBuilding[]): Map<number, BuildingCustomization> {
+  return new Map(seeds.map((seed, index) => {
+    const buildingShape = SEED_SHAPES[index % SEED_SHAPES.length];
+    const sign = index === 0 ? "Cidoe" : index % 5 === 2 ? seed.city.name : "";
+    return [seed.id, {
+      color: SEED_COLORS[(index * 3) % SEED_COLORS.length],
+      buildingShape,
+      rooftopType: SEED_SPIRE_SHAPES.has(buildingShape) ? "none" : SEED_ROOFTOPS[index % SEED_ROOFTOPS.length],
+      signText: sign,
+      signSides: index === 0 ? 4 : 1 + (index % 2),
+      edgeLightType: index % 3 === 0 ? "led" : "none",
+      textureKey: null,
+      tilingScale: 1,
+      textureTransform: { scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0 },
+      hologramImage: null,
+      hologramColor: "#73f2ff",
+      hologramOpacity: 0.78,
+    }];
+  }));
 }
 
 export function readLocalBuildings(userId: number): LocalBuilding[] {

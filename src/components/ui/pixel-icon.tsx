@@ -52,7 +52,7 @@ export function PixelCoin({ className, ...props }: IconProps) {
 }
 
 /** Marca: três edifícios verdes, janela âmbar acesa. */
-export function CidoaLogo({ className, ...props }: IconProps) {
+export function CidoeLogo({ className, ...props }: IconProps) {
   return (
     <svg viewBox="0 -2 14 14" width={28} height={28} shapeRendering="crispEdges" aria-hidden="true" className={cn("shrink-0", className)} {...props}>
       <path fill="var(--color-verde)" d="M5 -2h1v1h-1zM8 -2h1v1h-1zM5 -1h2v1h-2zM7 -1h2v1h-2zM0 5h4v7h-4zM5 0h4v12h-4zM10 3h4v9h-4z" />

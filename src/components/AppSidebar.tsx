@@ -4,7 +4,7 @@ import { navItems } from "@/lib/nav";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { CidoaLogo } from "@/components/ui/pixel-icon";
+import { CidoeLogo } from "@/components/ui/pixel-icon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,9 +44,9 @@ export function AppSidebar() {
           <SidebarMenuItem className="flex flex-col gap-2">
             {/* Logo — sempre visível; texto some ao recolher. */}
             <div className="flex w-full items-center gap-2 overflow-hidden group-data-[collapsible=icon]:justify-center">
-              <CidoaLogo className="size-8" />
+              <CidoeLogo className="size-8" />
               <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
-                <span className="truncate font-semibold">Cidoa</span>
+                <span className="truncate font-semibold">Cidoe</span>
                 <span className="truncate mono-label text-muted-foreground">Admin</span>
               </div>
             </div>

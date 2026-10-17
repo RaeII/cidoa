@@ -7,7 +7,7 @@ import type { ReferralSummary } from "../src/api/referral/referral.types";
 
 const summary: ReferralSummary = {
   code: "A1B2C3D4E5F60718",
-  link: "https://cidoa.com.br/?ref=A1B2C3D4E5F60718",
+  link: "https://cidoe.com.br/?ref=A1B2C3D4E5F60718",
   referral_count: 0,
   can_apply_referral: true,
   apply_deadline: "2026-08-20T12:00:00.000Z",

@@ -4,7 +4,7 @@ import { ApiError } from "@/api/http";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CidoaLogo, ErrorMark } from "@/components/ui/pixel-icon";
+import { CidoeLogo, ErrorMark } from "@/components/ui/pixel-icon";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   Card,
@@ -54,11 +54,11 @@ function Login() {
       <div className="absolute right-6 top-6">
         <ThemeToggle />
       </div>
-      <CidoaLogo className="size-12" />
+      <CidoeLogo className="size-12" />
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="text-2xl tracking-tight">Admin</CardTitle>
-          <CardDescription>Painel administrativo do Cidoa.</CardDescription>
+          <CardDescription>Painel administrativo do Cidoe.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-5">

@@ -15,7 +15,7 @@ const prelaunchSection: LegalSection = {
   body: (
     <>
       <p>
-        Enquanto o Cidoa estiver em <strong>pré-lançamento</strong>, edifícios, contribuições, valores, totais, ONGs
+        Enquanto o Cidoe estiver em <strong>pré-lançamento</strong>, edifícios, contribuições, valores, totais, ONGs
         exibidas e as personalizações aplicadas a edifícios simulados são <strong>dados de teste ou simulação</strong>.{" "}
         <strong>Nada do que aparece nesse modo deve ser considerado</strong>: não há cobrança, pagamento, dinheiro
         real, repasse a ONG, crédito, prêmio nem direito a edifício futuro.
@@ -46,12 +46,12 @@ const sections: LegalSection[] = [
       <ul>
         {IS_PRELAUNCH ? (
           <li>
-            <strong>O Cidoa está em pré-lançamento:</strong> edifícios, contribuições e valores exibidos são dados de
+            <strong>O Cidoe está em pré-lançamento:</strong> edifícios, contribuições e valores exibidos são dados de
             teste. Nada disso deve ser considerado (ver {see("pre-lancamento", "Pré-lançamento")}).
           </li>
         ) : (
           <li>
-            <strong>Sua contribuição vai por Pix direto para a ONG</strong>, pela Woovi. O Cidoa não recebe nem guarda o
+            <strong>Sua contribuição vai por Pix direto para a ONG</strong>, pela Woovi. O Cidoe não recebe nem guarda o
             dinheiro (ver {see("contribuicoes", "Contribuições")}).
           </li>
         )}
@@ -84,9 +84,9 @@ const sections: LegalSection[] = [
     title: "Quem somos e como estes termos valem",
     body: (
       <>
-        <p>O Cidoa (cidoa.com.br) é mantido por {LEGAL_CONTROLLER}, pessoa física, no Brasil. Contato: {email}.</p>
+        <p>O Cidoe (cidoe.com.br) é mantido por {LEGAL_CONTROLLER}, pessoa física, no Brasil. Contato: {email}.</p>
         <p>
-          Estes Termos de Uso são o contrato entre você e o Cidoa. Ao criar uma conta, você marca a caixa de aceite e
+          Estes Termos de Uso são o contrato entre você e o Cidoe. Ao criar uma conta, você marca a caixa de aceite e
           concorda com eles; a {privacy} explica como tratamos seus dados.
           Quem só visita a cidade sem conta também deve respeitar as {see("conteudo", "regras de uso")}.
         </p>
@@ -97,11 +97,11 @@ const sections: LegalSection[] = [
   },
   {
     id: "servico",
-    title: "O que é o Cidoa",
+    title: "O que é o Cidoe",
     body: (
       <>
         <p>
-          O Cidoa é uma cidade 3D em que cada contribuição para uma ONG de proteção animal ergue ou aumenta um
+          O Cidoe é uma cidade 3D em que cada contribuição para uma ONG de proteção animal ergue ou aumenta um
           edifício.
         </p>
         <p>
@@ -110,7 +110,7 @@ const sections: LegalSection[] = [
           resgatado em dinheiro. Altura e posição são relativas: comparam o edifício com os outros, mudam quando entram
           novas contribuições ou quando você usa filtros, não são proporcionais ao valor e não indicam classificação.
         </p>
-        <p>O Cidoa não é uma ONG, não executa os projetos das ONGs e não é banco nem instituição de pagamento.</p>
+        <p>O Cidoe não é uma ONG, não executa os projetos das ONGs e não é banco nem instituição de pagamento.</p>
       </>
     ),
   },
@@ -135,7 +135,7 @@ const sections: LegalSection[] = [
     body: IS_PRELAUNCH ? (
       <>
         <p>
-          <strong>No pré-lançamento, o Cidoa não processa pagamentos reais</strong>: toda contribuição é simulada (ver{" "}
+          <strong>No pré-lançamento, o Cidoe não processa pagamentos reais</strong>: toda contribuição é simulada (ver{" "}
           {see("pre-lancamento", "Pré-lançamento")}).
         </p>
         <p>
@@ -146,14 +146,14 @@ const sections: LegalSection[] = [
     ) : (
       <>
         <p>
-          Contribuição é um valor em dinheiro que você destina, por vontade própria, a uma ONG listada no Cidoa, sem
+          Contribuição é um valor em dinheiro que você destina, por vontade própria, a uma ONG listada no Cidoe, sem
           contrapartida financeira: é uma doação à ONG escolhida (Código Civil, art. 538). O edifício e as
           personalizações são reconhecimento simbólico e não mudam isso.
         </p>
         <p>
           <strong>
             O Pix é gerado pela Woovi, plataforma brasileira de pagamentos, e o valor vai direto para a conta da ONG
-            escolhida. O Cidoa não recebe, não guarda e não repassa o dinheiro.
+            escolhida. O Cidoe não recebe, não guarda e não repassa o dinheiro.
           </strong>{" "}
           Antes de pagar, a tela mostra o valor e a ONG que vai receber.
         </p>
@@ -177,7 +177,7 @@ const sections: LegalSection[] = [
           </li>
           <li>
             O comprovante emitido pelo seu banco é a prova do pagamento. Recibo de doação, quando houver, é emitido pela
-            ONG. O Cidoa não dá orientação tributária: eventuais tributos sobre doações seguem a lei do seu estado.
+            ONG. O Cidoe não dá orientação tributária: eventuais tributos sobre doações seguem a lei do seu estado.
           </li>
         </ul>
       </>
@@ -205,7 +205,7 @@ const sections: LegalSection[] = [
         </ul>
         <p>
           <strong>
-            O Cidoa não se responsabiliza por diferenças que existam só na tela, como um edifício que não aparece ou um
+            O Cidoe não se responsabiliza por diferenças que existam só na tela, como um edifício que não aparece ou um
             valor exibido que não bate com as contribuições.
           </strong>{" "}
           A tela não é comprovante, extrato nem prestação de contas.{" "}
@@ -238,13 +238,13 @@ const sections: LegalSection[] = [
         <ul>
           <li>houver conteúdo ilegal ou que viole estes termos;</li>
           <li>houver ordem judicial ou de autoridade;</li>
-          <li>houver suspeita fundada de fraude ou risco à segurança do Cidoa ou de pessoas;</li>
+          <li>houver suspeita fundada de fraude ou risco à segurança do Cidoe ou de pessoas;</li>
           <li>o pagamento não for confirmado ou o valor for devolvido, estornado ou recuperado;</li>
           <li>o dado for de teste, de simulação ou de demonstração;</li>
           <li>a conta for excluída, a seu pedido ou por violação destes termos: os edifícios dela deixam de aparecer na cidade.</li>
         </ul>
         <p>
-          Depois da remoção, avisamos no seu perfil no Cidoa, com o motivo e como contestar. Não avisamos quando a lei ou
+          Depois da remoção, avisamos no seu perfil no Cidoe, com o motivo e como contestar. Não avisamos quando a lei ou
           uma ordem proibir, quando o aviso atrapalhar uma investigação, quando o dado removido for de teste ou de
           simulação, ou quando a remoção for a seu pedido. Se a conta for suspensa ou excluída, você não conseguirá ver
           o aviso no perfil: peça o motivo e conteste por {email}.
@@ -285,7 +285,7 @@ const sections: LegalSection[] = [
         )}
         <p>
           Você garante que tem direito sobre o que envia e nos autoriza, sem custo, a exibir, redimensionar e adaptar
-          esse conteúdo dentro do Cidoa enquanto ele estiver publicado. Você continua dono do seu conteúdo.
+          esse conteúdo dentro do Cidoe enquanto ele estiver publicado. Você continua dono do seu conteúdo.
         </p>
         <p>É proibido:</p>
         <ul>
@@ -293,7 +293,7 @@ const sections: LegalSection[] = [
           <li>usar nome, imagem ou dados de outra pessoa sem autorização, ou fingir ser alguém;</li>
           <li>publicidade, spam, links maliciosos ou conteúdo que viole direitos autorais e marcas;</li>
           <li>fraudar contribuições, indicações ou recompensas, criar contas falsas ou automatizar acessos;</li>
-          <li>tentar invadir, sobrecarregar ou burlar a segurança do Cidoa.</li>
+          <li>tentar invadir, sobrecarregar ou burlar a segurança do Cidoe.</li>
         </ul>
       </>
     ),
@@ -345,7 +345,7 @@ const sections: LegalSection[] = [
     title: "Propriedade intelectual",
     body: (
       <p>
-        Marca, nome, visual, código, modelos 3D e demais elementos do Cidoa pertencem ao Cidoa ou a quem os licenciou.
+        Marca, nome, visual, código, modelos 3D e demais elementos do Cidoe pertencem ao Cidoe ou a quem os licenciou.
         Usar o site não transfere nenhum desses direitos a você.
       </p>
     ),
@@ -355,9 +355,9 @@ const sections: LegalSection[] = [
     title: "Disponibilidade e mudanças no serviço",
     body: (
       <p>
-        O Cidoa pode ficar fora do ar, lento ou com falhas, inclusive por manutenção ou por serviços de terceiros
+        O Cidoe pode ficar fora do ar, lento ou com falhas, inclusive por manutenção ou por serviços de terceiros
         (hospedagem, Google, envio de e-mail{IS_PRELAUNCH ? "" : ", Woovi"}). Podemos mudar ou suspender
-        funcionalidades. Se o Cidoa for encerrado, avisaremos no site com pelo menos 30 dias de antecedência. A cidade
+        funcionalidades. Se o Cidoe for encerrado, avisaremos no site com pelo menos 30 dias de antecedência. A cidade
         3D exige um navegador e um aparelho compatíveis.
       </p>
     ),
@@ -369,7 +369,7 @@ const sections: LegalSection[] = [
       <>
         <p>
           <strong>
-            Respondemos pelos danos causados por falhas do Cidoa, nos termos do Código de Defesa do Consumidor. Não
+            Respondemos pelos danos causados por falhas do Cidoe, nos termos do Código de Defesa do Consumidor. Não
             respondemos quando o dano for causado exclusivamente por você ou por terceiros
           </strong>
           , por exemplo: falha do seu aparelho, navegador ou conexão; serviços fora do nosso controle (seu banco, o
@@ -414,7 +414,7 @@ export default function Terms() {
       title="Termos de Uso"
       intro={
         <p>
-          Regras para usar o Cidoa{IS_PRELAUNCH ? " durante o pré-lançamento" : ""}. Os trechos em negrito são os mais
+          Regras para usar o Cidoe{IS_PRELAUNCH ? " durante o pré-lançamento" : ""}. Os trechos em negrito são os mais
           importantes, inclusive os que limitam direitos: leia com atenção.
         </p>
       }

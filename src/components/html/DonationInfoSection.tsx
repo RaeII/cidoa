@@ -71,11 +71,20 @@ export function DonationInfoSection({
           <div>
             <p className="font-mono text-[13px] tracking-[0.06em] text-primary">Pré-lançamento</p>
             <h2 id="donation-info-title" className="mt-8 max-w-[14ch] text-[2.75rem] font-semibold leading-[0.98] tracking-[-0.025em] text-balance sm:text-6xl lg:text-7xl">
-              Conheça o Cidoa e teste sua cidade.
+              Conheça o Cidoe e teste sua cidade.
             </h2>
             <p className="mt-8 max-w-[46ch] text-lg leading-normal text-pretty text-muted-foreground sm:text-[22px]">
-              Estamos preparando uma cidade para apoiar a proteção animal. Cadastre-se, indique amigos e
-              simule contribuições. Nesta versão, os edifícios que você cria ficam apenas neste navegador.
+              Cada contribuição para uma ONG de proteção animal ergue um edifício na cidade; o valor define a altura.
+              Cadastre-se, simule contribuições, personalize seus edifícios e indique amigos. Nesta versão, os
+              edifícios que você cria ficam apenas neste navegador.
+            </p>
+            {/* Finalidade dos dados do Google na página inicial: requisito da verificação do login com Google. */}
+            <p className="mt-6 max-w-[52ch] text-[15px] leading-relaxed text-pretty text-muted-foreground">
+              No login com Google, usamos só seu nome, e-mail e foto para criar sua conta, fazer login e mostrar seu
+              perfil. Não acessamos Gmail, Drive nem contatos.{" "}
+              <a href={`${PRIVACY_PATH}#google`} className="underline decoration-2 underline-offset-3 hover:bg-accent hover:text-primary">
+                Como tratamos seus dados
+              </a>
             </p>
           </div>
           <div className="relative">
@@ -183,7 +192,7 @@ export function DonationInfoSection({
           <nav aria-label="Documentos legais" className="flex flex-wrap items-baseline gap-x-5 gap-y-2 font-mono text-xs text-muted-foreground">
             <a href={TERMS_PATH} className="underline decoration-2 underline-offset-3 hover:bg-accent hover:text-primary">Termos de Uso</a>
             <a href={PRIVACY_PATH} className="underline decoration-2 underline-offset-3 hover:bg-accent hover:text-primary">Política de Privacidade</a>
-            <span>Cidoa · Proteção animal</span>
+            <span>Cidoe · Proteção animal</span>
           </nav>
         </footer>
       </div>

@@ -6,22 +6,24 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 const require = createRequire(import.meta.url);
-async function loadComponent(path, storage) {
+async function loadComponent(path, storage, browser = new EventTarget()) {
   const bundle = await build({
     entryPoints: [path], bundle: true, format: "cjs", platform: "node",
     packages: "external", jsx: "automatic", write: false,
+    define: { "import.meta.env.PROD": "false" },
   });
   const module = { exports: {} };
   let state;
-  new Function("require", "module", "exports", "localStorage", bundle.outputFiles[0].text)(
+  new Function("require", "module", "exports", "localStorage", "window", bundle.outputFiles[0].text)(
     (name) => name === "react" ? {
       ...React,
+      useEffect(effect) { effect(); },
       useState(initial) {
         if (state === undefined) state = typeof initial === "function" ? initial() : initial;
         return [state, (next) => { state = next; }];
       },
     } : require(name),
-    module, module.exports, storage,
+    module, module.exports, storage, browser,
   );
   return module.exports;
 }
@@ -31,18 +33,29 @@ const storage = {
   getItem: (key) => values.get(key) ?? null,
   setItem: (key, value) => values.set(key, value),
 };
-const { CookieNotice } = await loadComponent("src/components/CookieNotice.tsx", storage);
+values.set("cidoa:cookie-notice", "acknowledged");
+const browser = new EventTarget();
+const { CookieNotice } = await loadComponent("src/components/CookieNotice.tsx", storage, browser);
 const notice = CookieNotice();
 const html = renderToStaticMarkup(notice);
 assert.match(html, /aria-label="Cookies"/);
 assert.match(html, /href="\/privacidade#cookies" target="_blank"/);
 assert.doesNotMatch(html, /role="dialog"|aria-modal/, "Aviso não bloqueia a navegação");
-const dismiss = (tree) => React.Children.toArray(tree.props.children).find((child) => child.props.onClick).props.onClick();
-dismiss(notice);
+assert.match(html, /Usamos cookies para melhorar sua experiência/);
+assert.doesNotMatch(html, /Google Analytics|Só essenciais|Aceitar análise/);
+assert.equal((html.match(/<button\b/g) ?? []).length, 1, "Aviso tem apenas um botão");
+assert.match(html, /Aceitar cookies/);
+const confirm = (tree) => tree.props.children[1].props.onClick();
+confirm(notice);
+assert.equal(values.get("cidoa:analytics-consent"), "granted", "Confirmação salva aceite explícito");
 assert.equal(CookieNotice(), null, "Fecha na visita atual");
+browser.dispatchEvent(new Event("cidoa:cookie-preferences"));
+assert.notEqual(CookieNotice(), null, "Preferências permitem rever a escolha");
+confirm(CookieNotice());
+assert.equal(values.get("cidoa:analytics-consent"), "granted", "Aceite explícito salvo");
 const returning = await loadComponent("src/components/CookieNotice.tsx", storage);
 assert.equal(returning.CookieNotice(), null, "Não repete após recarregar");
-values.set("cidoa:cookie-notice", "invalid");
+values.set("cidoa:analytics-consent", "invalid");
 const invalid = await loadComponent("src/components/CookieNotice.tsx", storage);
 assert.notEqual(invalid.CookieNotice(), null, "Valor desconhecido não conta como confirmação");
 
@@ -51,7 +64,7 @@ const blockedStorage = {
   setItem() { throw new Error("Storage bloqueado"); },
 };
 const blocked = await loadComponent("src/components/CookieNotice.tsx", blockedStorage);
-dismiss(blocked.CookieNotice());
+confirm(blocked.CookieNotice());
 assert.equal(blocked.CookieNotice(), null, "Storage bloqueado não impede fechar");
 
 const { TermsConsent } = await loadComponent("src/components/TermsConsent.tsx");

@@ -8,7 +8,7 @@ import {
   type Ong,
 } from "../../api/donationApi";
 import { useAuth } from "@/hooks/useAuth";
-import { createSeedBuildings, type LocalBuilding } from "@/lib/prelaunchCity";
+import { createSeedBuildings, createSeedCustomizations, type LocalBuilding } from "@/lib/prelaunchCity";
 import { useLocalCityValue, useLocalSceneState } from "./useLocalCity";
 import { UF_REGION, type Region } from "../../api/regions";
 import type { BuildingCustomization } from "../../scene/types";
@@ -84,10 +84,14 @@ export function useDonations() {
   }, []);
 
   // Snapshot público vazio → cidade inicial fixa do front; some quando houver doação real.
-  const extraBuildings = useMemo(() => {
-    const seeds = dataset && !dataset.donations.length ? createSeedBuildings(dataset.ongs) : EMPTY_LOCAL_BUILDINGS;
-    return userId && localBuildings.length ? [...seeds, ...localBuildings] : seeds;
-  }, [dataset, userId, localBuildings]);
+  const seeds = useMemo(
+    () => dataset && !dataset.donations.length ? createSeedBuildings(dataset.ongs) : EMPTY_LOCAL_BUILDINGS,
+    [dataset],
+  );
+  const extraBuildings = useMemo(
+    () => userId && localBuildings.length ? [...seeds, ...localBuildings] : seeds,
+    [seeds, userId, localBuildings],
+  );
   const allDonations = useMemo(() => {
     const publicDonations = dataset?.donations ?? EMPTY_DONATIONS;
     return extraBuildings.length ? [...publicDonations, ...extraBuildings] : publicDonations;
@@ -100,10 +104,11 @@ export function useDonations() {
     return [...byId.values()];
   }, [dataset, extraBuildings]);
   const savedCustomizations = useMemo(() => {
-    const merged = new Map(dataset?.customizations);
+    // Seeds só existem com snapshot vazio: não há personalização pública pra mesclar.
+    const merged = seeds.length ? createSeedCustomizations(seeds) : new Map(dataset?.customizations);
     if (userId) for (const [id, customization] of Object.entries(localCustomizations)) merged.set(Number(id), customization);
     return merged;
-  }, [dataset, userId, localCustomizations]);
+  }, [seeds, dataset, userId, localCustomizations]);
 
   const cityById = useMemo(() => {
     const map = new Map<number, City>();

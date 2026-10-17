@@ -97,14 +97,19 @@ assert.equal(requests.join(), "/donation/42/profile", "Só o perfil público faz
 const hookSource = await readFile(new URL("../src/components/hooks/useDonations.ts", import.meta.url), "utf8");
 const hookAst = ts.createSourceFile("hook.ts", hookSource, ts.ScriptTarget.ES2022, true);
 const hook = hookAst.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "useDonations");
-const derived = hook.body.statements.filter((node) => ts.isVariableStatement(node) && node.declarationList.declarations.some((item) => ["extraBuildings", "allDonations", "cities", "savedCustomizations"].includes(item.name.getText(hookAst))));
+const derived = hook.body.statements.filter((node) => ts.isVariableStatement(node) && node.declarationList.declarations.some((item) => ["seeds", "extraBuildings", "allDonations", "cities", "savedCustomizations"].includes(item.name.getText(hookAst))));
 const derivedScript = ts.transpileModule(derived.map((node) => node.getText(hookAst)).join("\n") + "\nObject.assign(globalThis, { allDonations, cities, savedCustomizations });", { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-const hookGlobals = { EMPTY_DONATIONS: [], EMPTY_CITIES: [], EMPTY_LOCAL_BUILDINGS: [], createSeedBuildings: local.createSeedBuildings, useMemo: (calculate) => calculate() };
+const hookGlobals = { EMPTY_DONATIONS: [], EMPTY_CITIES: [], EMPTY_LOCAL_BUILDINGS: [], createSeedBuildings: local.createSeedBuildings, createSeedCustomizations: local.createSeedCustomizations, useMemo: (calculate) => calculate() };
 const publicDataset = { donations: [{ id: 42, value: 50 }], cities: [], ongs: [], customizations: new Map([[42, { color: "#000000" }]]) };
 const emptyContext = { ...hookGlobals, userId: undefined, dataset: { ...publicDataset, donations: [], customizations: new Map() }, localBuildings: [], localCustomizations: {} };
 vm.runInNewContext(derivedScript, emptyContext);
 assert.equal(emptyContext.allDonations.length, local.createSeedBuildings([]).length, "Snapshot vazio → cidade inicial do front");
 assert.ok(emptyContext.cities.length > 0);
+const seedLooks = [...emptyContext.savedCustomizations.values()];
+assert.equal(seedLooks.length, emptyContext.allDonations.length, "Todo edifício inicial personalizado");
+assert.equal(new Set(seedLooks.map((c) => c.buildingShape)).size, 12, "Edifícios iniciais usam os 12 formatos");
+assert.ok(new Set(seedLooks.map((c) => c.color)).size > 5 && seedLooks.some((c) => c.signText) && seedLooks.some((c) => c.edgeLightType === "led"), "Cores, letreiros e LED variados");
+assert.ok(seedLooks.every((c) => c.textureKey === null), "Textura segue o sorteio da cena");
 for (const userId of [1, 2, undefined]) {
   const context = { ...hookGlobals, userId, dataset: publicDataset,
     localBuildings: userId ? local.readLocalBuildings(userId) : [],

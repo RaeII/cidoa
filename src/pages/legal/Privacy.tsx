@@ -1,4 +1,7 @@
 import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
+import { COOKIE_PREFERENCES_EVENT, setAnalyticsConsent } from "@/lib/analytics";
 import { IS_PRELAUNCH, LEGAL_CONTROLLER, LEGAL_EMAIL, TERMS_PATH } from "@/lib/legal";
 import { docLink, LegalPage, type LegalSection } from "./LegalPage";
 
@@ -52,7 +55,7 @@ const sections: LegalSection[] = [
     body: (
       <>
         <p>
-          O controlador dos dados pessoais tratados no Cidoa (cidoa.com.br) é {LEGAL_CONTROLLER}, pessoa física, no
+          O controlador dos dados pessoais tratados no Cidoe (cidoe.com.br) é {LEGAL_CONTROLLER}, pessoa física, no
           Brasil. Para qualquer assunto de privacidade, inclusive exercer seus direitos, escreva para {email}.
         </p>
         <p>
@@ -60,7 +63,7 @@ const sections: LegalSection[] = [
           art. 11); esse e-mail é o nosso canal de atendimento ao titular.
         </p>
         <p>
-          Esta política vale para quem usa o Cidoa, com ou sem conta, e para quem nos escreve. ONGs terão documentos
+          Esta política vale para quem usa o Cidoe, com ou sem conta, e para quem nos escreve. ONGs terão documentos
           próprios quando o cadastro de ONGs abrir.
           Ela segue a Lei Geral de Proteção de Dados (Lei 13.709/2018, LGPD) e o Marco Civil da Internet (Lei
           12.965/2014) e complementa os {terms}.
@@ -80,20 +83,21 @@ const sections: LegalSection[] = [
             ["Nome e nome de usuário", "Você informa no cadastro (o Google sugere)"],
             ["Foto de perfil", "Você envia, ou usamos o endereço da foto da sua conta Google"],
             ["Identificador da conta Google", "Google, no login com Google"],
-            ["Cidade e como conheceu o Cidoa", "Você informa, se quiser"],
+            ["Cidade e como conheceu o Cidoe", "Você informa, se quiser"],
             ...(IS_PRELAUNCH
               ? [["Simulações do pré-lançamento", "Ficam só no seu navegador; não recebemos"]]
               : [
-                  ["Edifícios, contribuições, ONGs escolhidas, valores e personalizações", "Uso do Cidoa"],
+                  ["Edifícios, contribuições, ONGs escolhidas, valores e personalizações", "Uso do Cidoe"],
                   ["Nome, descrição, imagem, letreiro e holograma do edifício", "Você informa, se quiser"],
                   ["Confirmação do Pix (valor, data e situação da cobrança)", "Woovi, ao gerar e confirmar o Pix"],
                 ]),
             ["Quem indicou você e quem você indicou", "Uso do link ou código de indicação"],
-            ["Recompensas liberadas (cadastro antecipado, indicações)", "Uso do Cidoa"],
+            ["Recompensas liberadas (cadastro antecipado, indicações)", "Uso do Cidoe"],
             ["Aceite destes documentos: versão, data, IP e navegador", "Caixa de aceite"],
             ["Mensagens que você nos envia (dúvidas, denúncias, contestações, pedidos sobre seus dados, comprovantes)", "Você envia por e-mail"],
             ["IP, navegador (user-agent), data e hora de acesso", "Seu acesso ao site"],
-            ["Datas de cadastro e de último acesso", "Uso do Cidoa"],
+            ["Páginas visitadas, interações, origem da visita, dados do dispositivo e identificadores de cookies", "Google Analytics, somente se você aceitar a análise"],
+            ["Datas de cadastro e de último acesso", "Uso do Cidoe"],
           ]}
         />
         <p>
@@ -127,7 +131,8 @@ const sections: LegalSection[] = [
                 ["Encaminhar à ONG seu pedido de devolução de Pix", "Execução de contrato (inciso V)"],
               ]),
           ["Liberar recompensas e contar indicações", "Execução de contrato (inciso V)"],
-          ["Entender de onde as pessoas são e como conhecem o Cidoa e, quando disponível, sugerir ONGs da sua região (campos opcionais)", "Legítimo interesse (inciso IX)"],
+          ["Medir o uso do site com Google Analytics", "Consentimento (inciso I), opcional e revogável"],
+          ["Entender de onde as pessoas são e como conhecem o Cidoe e, quando disponível, sugerir ONGs da sua região (campos opcionais)", "Legítimo interesse (inciso IX)"],
           ["Segurança e prevenção de fraude e abuso: limites de envio, bloqueio de e-mail temporário, registros técnicos de acesso", "Legítimo interesse (inciso IX)"],
           ["Não reenviar e-mail a quem recusou nossas mensagens (devolução ou marcação como spam)", "Legítimo interesse (inciso IX)"],
           ["Responder mensagens, analisar denúncias e contestações e atender pedidos sobre seus dados", "Execução de contrato (inciso V), exercício regular de direitos (inciso VI) e obrigação legal (inciso II)"],
@@ -172,6 +177,9 @@ const sections: LegalSection[] = [
             Google, que recebem seu IP e dados do navegador em cada acesso; a foto vinda da conta Google também é
             exibida a partir desses servidores. No login com Google, o Google atua como controlador próprio e nos
             envia os dados da conta descritos acima.
+            Se você aceitar a análise, o Google Analytics também recebe dados de navegação e do dispositivo para
+            gerar estatísticas de uso. Não enviamos dados do seu cadastro, como nome ou e-mail, ao Analytics e
+            desativamos os sinais do Google e a personalização de anúncios nessa integração.
           </li>
           <li>
             <strong>Resend</strong> (operador): envia o código de acesso; recebe seu e-mail e a mensagem com o código.
@@ -195,7 +203,7 @@ const sections: LegalSection[] = [
             <strong>ONGs</strong>:{" "}
             {IS_PRELAUNCH
               ? "não recebem seus dados pessoais."
-              : "recebem o Pix direto na conta delas. Como em qualquer Pix, o banco mostra a quem recebe o nome e parte do CPF de quem pagou. O Cidoa não envia às ONGs os dados da sua conta, exceto quando você pede a devolução de um Pix: aí enviamos à ONG só o necessário para achar o pagamento (valor, data e comprovante)."}
+              : "recebem o Pix direto na conta delas. Como em qualquer Pix, o banco mostra a quem recebe o nome e parte do CPF de quem pagou. O Cidoe não envia às ONGs os dados da sua conta, exceto quando você pede a devolução de um Pix: aí enviamos à ONG só o necessário para achar o pagamento (valor, data e comprovante)."}
           </li>
           <li>
             <strong>Redes sociais</strong>: só quando você clica em compartilhar, seu link de indicação vai para a rede
@@ -227,10 +235,21 @@ const sections: LegalSection[] = [
     body: (
       <>
         <p>
-          Usamos só o necessário para o site funcionar. <strong>Não usamos cookies de publicidade nem de medição de
-          audiência</strong>. Um aviso separado informa sobre esses cookies; ao clicar em "Entendi", guardamos essa
-          confirmação no navegador para não repetir o aviso.
+          Usamos cookies essenciais para o site funcionar. <strong>O Google Analytics só é carregado se você
+          escolher "Aceitar cookies" no aviso</strong>. Sem esse aceite, não carregamos a tag nem enviamos dados ao
+          Analytics. Não usamos cookies de publicidade. Guardamos sua escolha no navegador;
+          você pode alterá-la abaixo a qualquer momento. Desativar os cookies opcionais não impede o uso do site e interrompe novos
+          envios; os cookies já existentes podem ser apagados nas configurações do navegador.
         </p>
+        <Button type="button" variant="outline" onClick={() => window.dispatchEvent(new Event(COOKIE_PREFERENCES_EVENT))}>
+          Preferências de cookies
+        </Button>
+        <Button type="button" variant="outline" onClick={() => {
+          setAnalyticsConsent("denied");
+          toast.success("Cookies opcionais desativados.");
+        }}>
+          Desativar cookies opcionais
+        </Button>
         <Table
           head={["Nome", "Tipo", "Para quê", "Duração"]}
           rows={[
@@ -240,7 +259,8 @@ const sections: LegalSection[] = [
             ["g_state", "Cookie gravado no nosso domínio pela ferramenta de login do Google", "Guardar o estado do login com Google", "Definida pelo Google"],
             ["Cookies em accounts.google.com", "Terceiro (Google)", "Login com Google", "Definida pelo Google"],
             ["theme e cidoa:ui-visibility", "Armazenamento local", "Lembrar tema e o que aparece na tela", "Até você limpar o navegador"],
-            ["cidoa:cookie-notice", "Armazenamento local", "Lembrar que você fechou o aviso de cookies", "Até você limpar o navegador"],
+            ["cidoa:analytics-consent", "Armazenamento local", "Lembrar se você aceitou ou recusou a análise", "Até você mudar a escolha ou limpar o navegador"],
+            ["_ga e _ga_*", "Cookies próprios de análise (Google Analytics), opcionais", "Distinguir visitantes e sessões após o aceite", "Até 2 anos, renovados com o uso"],
             ...(IS_PRELAUNCH
               ? [["cidoa:prelaunch:…", "Armazenamento local", "Guardar as simulações e ajustes da cidade do pré-lançamento", "Até você limpar o navegador"]]
               : []),
@@ -277,9 +297,9 @@ const sections: LegalSection[] = [
             "https://developers.google.com/terms/api-services-user-data-policy?hl=pt-br",
             "Política de Dados do Usuário dos Serviços de API do Google",
           )}
-          , incluindo os requisitos de Uso Limitado. Você pode remover o acesso do Cidoa em{" "}
+          , incluindo os requisitos de Uso Limitado. Você pode remover o acesso do Cidoe em{" "}
           {external("https://myaccount.google.com/connections", "myaccount.google.com/connections")}. Remover esse
-          acesso não apaga sua conta no Cidoa; para isso, escreva para {email}.
+          acesso não apaga sua conta no Cidoe; para isso, escreva para {email}.
         </p>
       </>
     ),
@@ -379,7 +399,7 @@ export default function Privacy() {
   return (
     <LegalPage
       title="Política de Privacidade"
-      intro={<p>Quais dados o Cidoa usa, para quê, com quem compartilha e como você controla tudo isso.</p>}
+      intro={<p>Quais dados o Cidoe usa, para quê, com quem compartilha e como você controla tudo isso.</p>}
       sections={sections}
     />
   );

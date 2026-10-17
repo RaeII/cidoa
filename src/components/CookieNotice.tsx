@@ -1,24 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { COOKIE_PREFERENCES_EVENT, getAnalyticsConsent, setAnalyticsConsent } from "@/lib/analytics";
 import { PRIVACY_PATH } from "@/lib/legal";
 
-const STORAGE_KEY = "cidoa:cookie-notice";
-
 export function CookieNotice() {
-  const [dismissed, setDismissed] = useState(() => {
-    try {
-      return localStorage.getItem(STORAGE_KEY) === "acknowledged";
-    } catch {
-      return false;
-    }
-  });
+  const [dismissed, setDismissed] = useState(() => getAnalyticsConsent() !== null);
 
-  function dismiss() {
-    try {
-      localStorage.setItem(STORAGE_KEY, "acknowledged");
-    } catch {
-      // Storage bloqueado: fecha o aviso apenas nesta visita.
-    }
+  useEffect(() => {
+    const reopen = () => setDismissed(false);
+    window.addEventListener(COOKIE_PREFERENCES_EVENT, reopen);
+    return () => window.removeEventListener(COOKIE_PREFERENCES_EVENT, reopen);
+  }, []);
+
+  function confirm() {
+    setAnalyticsConsent("granted");
     setDismissed(true);
   }
 
@@ -30,7 +25,7 @@ export function CookieNotice() {
       className="fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] left-4 z-40 flex flex-col items-start gap-4 pixel bevel-edge bg-card p-5 text-card-foreground md:bottom-6 md:left-auto md:max-w-md"
     >
       <p className="text-sm leading-relaxed">
-        Usamos cookies essenciais para manter sua sessão. Não usamos cookies de publicidade ou análise.{" "}
+        Usamos cookies para melhorar sua experiência. Saiba mais em nossa{" "}
         <a
           href={`${PRIVACY_PATH}#cookies`}
           target="_blank"
@@ -41,7 +36,7 @@ export function CookieNotice() {
         </a>
         .
       </p>
-      <Button type="button" size="sm" onClick={dismiss}>Entendi</Button>
+      <Button type="button" size="sm" onClick={confirm}>Aceitar cookies</Button>
     </section>
   );
 }

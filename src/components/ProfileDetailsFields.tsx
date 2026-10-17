@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { ErrorMark, PixelClose } from "@/components/ui/pixel-icon";
 import { cn } from "@/lib/utils";
 
-/** Rótulos de "Como conheceu o Cidoa?" — lugar único; a ordem é a dos chips. */
+/** Rótulos de "Como conheceu o Cidoe?" — lugar único; a ordem é a dos chips. */
 const DISCOVERY_LABELS: Record<DiscoverySource, string> = {
   instagram: "Instagram",
   tiktok: "TikTok",
@@ -207,7 +207,7 @@ export function CityCombobox({
   );
 }
 
-/** Cidade + "Como conheceu o Cidoa?": mesmos campos no onboarding e na aba Perfil. */
+/** Cidade + "Como conheceu o Cidoe?": mesmos campos no onboarding e na aba Perfil. */
 export function ProfileDetailsFields({
   value,
   onChange,
@@ -232,7 +232,7 @@ export function ProfileDetailsFields({
       </div>
       <div>
         <p id={sourceLabelId} className={labelClass}>
-          Como conheceu o Cidoa?
+          Como conheceu o Cidoe?
         </p>
         <RadioGroup.Root
           aria-labelledby={sourceLabelId}
@@ -248,7 +248,7 @@ export function ProfileDetailsFields({
         </RadioGroup.Root>
         {value.discovery_source === "other" && (
           <Input
-            aria-label="Onde conheceu o Cidoa"
+            aria-label="Onde conheceu o Cidoe"
             placeholder="Onde?"
             maxLength={100}
             className="mt-3"

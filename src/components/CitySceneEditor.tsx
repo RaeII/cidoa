@@ -522,11 +522,13 @@ export function CitySceneEditor() {
         onBuildingClick={handleBuildingClick}
       />
       <div className="pointer-events-none absolute inset-x-4 top-4 z-30 flex flex-wrap items-start justify-between gap-2">
-        <aside aria-label="Cidade de pré-lançamento" className="pointer-events-auto pixel pixel-thin max-w-full bg-background px-2 py-1.5 text-xs leading-4 text-muted-foreground">
-          <p>
-            <strong className="mr-2 font-mono text-[11px] font-semibold text-primary">Pré-lançamento</strong>
-            Pagamentos simulados. Cidade salva só neste navegador.
+        {/* Marca visível sem rolar nem entrar (página inicial do login com Google). */}
+        <aside aria-label="Cidoe" className="pointer-events-auto pixel pixel-thin max-w-full bg-background px-2 py-1.5 text-xs leading-4 text-muted-foreground">
+          <p className="flex flex-wrap items-baseline gap-x-2">
+            <strong className="text-sm font-semibold text-foreground">Cidoe</strong>
+            <span className="font-mono text-[11px] font-semibold text-primary">Pré-lançamento</span>
           </p>
+          <p className="mt-1">Pagamentos simulados. Cidade salva só neste navegador.</p>
         </aside>
         <div className="pointer-events-auto ml-auto max-w-full [&>div]:flex-wrap [&>div]:justify-end">
           <AuthMenu

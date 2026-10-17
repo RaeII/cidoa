@@ -460,7 +460,7 @@ export function AuthDialog({
                 <Gift className="size-4" aria-hidden />
               </span>
               <div className="space-y-0.5">
-                <p className="text-sm font-semibold">Alguém te indicou o Cidoa?</p>
+                <p className="text-sm font-semibold">Alguém te indicou o Cidoe?</p>
                 <p className="text-xs text-muted-foreground">
                   Opcional. Cole o código de quem te convidou.
                 </p>

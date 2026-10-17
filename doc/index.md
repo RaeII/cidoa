@@ -1,5 +1,5 @@
 ---
-title: Cidoa — Visão Geral
+title: Cidoe — Visão Geral
 tags:
   - cidoa
   - arquitetura
@@ -9,9 +9,9 @@ aliases:
   - Home
 ---
 
-# Cidoa — Documentação
+# Cidoe — Documentação
 
-Cidoa é uma cena 3D de cidade procedural feita com `React 19`, `Three.js`, `TypeScript` e `Vite`. Gera prédios baseados em doações, com texturas PBR, iluminação configurável e sistema de sombras — tudo controlável via painel em tempo real.
+Cidoe é uma cena 3D de cidade procedural feita com `React 19`, `Three.js`, `TypeScript` e `Vite`. Gera prédios baseados em doações, com texturas PBR, iluminação configurável e sistema de sombras — tudo controlável via painel em tempo real.
 
 > [!abstract] Para quem é essa documentação?
 > O objetivo é ajudar um dev júnior a entender por onde a aplicação começa, onde cada responsabilidade fica, em qual arquivo mexer e como os dados saem do React e chegam na cena 3D.
@@ -27,6 +27,7 @@ Cadastro, login, perfil da conta e indicações continuam reais, conectados ao b
 
 - Cenário inicial: leitura pública de `/donation/snapshot` e `/donation/customizations`.
 - Snapshot sem doação → `createSeedBuildings(ongs)` (`src/lib/prelaunchCity.ts`) põe 24 edifícios fixos, só no front, pra cidade não abrir vazia. IDs `-1_000_000 - i` (longe dos locais `-1…-3`), 8 capitais, ONGs do catálogo em rodízio. Sem dono, sem perfil, nada no backend. Primeira doação pública real → seeds somem.
+- Aparência dos seeds: `createSeedCustomizations(seeds)` entra em `savedCustomizations`. Determinística por índice: 12 formatos em rodízio, 10 tons (concreto, areia, tijolo, vidro), topo (heliponto, jardim, holofotes, helicóptero) só em formato de topo plano, LED a cada 3, letreiro "Cidoe" no central + nome da capital em alguns. Textura `null` → sorteio por edifício da cena. Admin edita cópia local por cima.
 - Criar/aumentar: `simulateContribution(userId, contribution, city)` em `src/lib/prelaunchCity.ts`. Sem Pix, cobrança, polling ou gravação no banco.
 - Máximo 3 edifícios por conta/navegador; mínimo R$ 5; valores somados em centavos.
 - IDs negativos exclusivos da simulação; IDs públicos positivos preservados.
@@ -54,6 +55,8 @@ Limpar dados do site remove a cidade simulada; outro navegador/dispositivo não 
 ## Como a Documentação Está Organizada
 
 Produção: [Docker e GHCR](../prod/README.md) — build local com Bun, imagens por branch, Compose sem build e proxy `/api`.
+
+Domínio: `https://cidoe.com.br`, marca **Cidoe** (requisitos do Google em [[termos-e-privacidade#Página inicial — requisitos do Google]]). `cidoa.com.br` sem uso. Nomes internos seguem `cidoa`: repo, banco, imagem Docker, chaves `cidoa:*` do navegador e cache `cidoa-env-v1` — renomear chave apaga cidade e consentimento salvos.
 
 As páginas ficam em pastas que **espelham as pastas do código** — assim você acha o doc pelo mesmo caminho do arquivo.
 
@@ -90,6 +93,7 @@ scripts/
   encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`)
   check-pass.mjs               ← ordenação do passe sem servidor/navegador
   check-consent.mjs            ← aceite no cadastro + aviso de cookies, sem servidor/navegador
+  check-analytics.mjs          ← Consent Mode, aceite/recusa, revogação e tag única; sem servidor/navegador
   check-city-search.mjs        ← busca de cidade (acento, prefixo antes de substring, UF, limite) sem navegador
   check-contribution.mjs       ← máscara monetária + confirmação da simulação local; sem servidor/navegador
   check-building-management.mjs ← administração, posse, descarte e foco após filtro/pagamento; sem servidor/navegador
@@ -99,9 +103,11 @@ scripts/
   check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
 public/
   basis/                       ← transcoder basis do KTX2Loader (js + wasm)
+  favicon.svg                  ← `CidoeLogo` em hex (aba do navegador)
+  robots.txt                   ← libera tudo; sem ele nginx devolvia `index.html`
 src/
   App.tsx
-  main.tsx                      ← entry; reload em `vite:preloadError` (chunk de deploy antigo)
+  main.tsx                      ← entry; restaura consentimento do Analytics; reload em `vite:preloadError` (chunk de deploy antigo)
   index.css                     ← tokens do DS + utilitários (`pixel`, `bevel-*`, `field`, `menu-cursor`…) + controles nativos → [[desingn-system-index]]
   api/
     http.ts
@@ -155,7 +161,7 @@ src/
     GameMenu.tsx                  ← menu estilo GTA: abas perfil/edifícios/personalizações/indicações, dia/noite, sair
     AuthDialog.tsx                ← login por e-mail ou Google; cadastro confirma nome + username + aceite dos termos
     TermsConsent.tsx              ← caixa de aceite somente no cadastro, sem declaração de idade
-    CookieNotice.tsx              ← aviso global de cookies essenciais, confirmação salva no navegador
+    CookieNotice.tsx              ← aviso padrão, único botão Aceitar cookies; desativação na política de privacidade
     AuthProvider.tsx              ← sessão da cena (cookie token_access), só na rota /
     AdminAuthProvider.tsx         ← sessão do painel (cookie token_admin), só em /dale/*
     RequireAdmin.tsx              ← guarda de /dale: exige sessão do painel
@@ -187,6 +193,7 @@ src/
       EnvironmentControls.tsx
       PointLightControls.tsx
   lib/
+    analytics.ts                   ← GA4 G-GEHP0ENSCR: produção, Consent Mode básico v2, tag após aceite, revogação
     legal.ts                       ← versão dos termos, controlador, e-mail de contato, rotas legais
     image.ts                       ← valida e reduz imagens proporcionalmente para até 400 px
     citySearch.ts                  ← busca de cidade pura: sem acento, prefixo antes de substring
@@ -531,6 +538,7 @@ flowchart LR
 | Texto dos Termos de Uso / Política de Privacidade | `src/pages/legal/Terms.tsx` · `Privacy.tsx` → [[termos-e-privacidade]] |
 | Mudar versão dos termos registrada no cadastro, controlador, e-mail de contato | `src/lib/legal.ts` → [[termos-e-privacidade#Mudar os termos]] |
 | Caixa de aceite no cadastro / aviso de cookies | [[html-components#TermsConsent.tsx]] · [[html-components#CookieNotice.tsx]] · [[termos-e-privacidade#Aceite no cadastro]] |
+| Google Analytics / consentimento / medição das rotas SPA | `src/lib/analytics.ts` · `src/main.tsx` → [[termos-e-privacidade#Google Analytics]] |
 | Onboarding do 1º login (cidade, como conheceu, pular) | [[html-components#OnboardingDialog.tsx]] · [[area-admin#Perfil progressivo (onboarding)]] |
 | Campo Cidade (busca) / chips "Como conheceu?" | [[html-components#ProfileDetailsFields.tsx]] · busca em `src/lib/citySearch.ts` |
 | Rótulos das origens ("Instagram", "Uma ONG"…) | `DISCOVERY_LABELS` em [[html-components#ProfileDetailsFields.tsx]] |

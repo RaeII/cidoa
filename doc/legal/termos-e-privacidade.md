@@ -26,8 +26,8 @@ Mesmo código nas duas branches; só `LEGAL_EDITION` (`src/lib/legal.ts`) muda:
 
 | Branch | `LEGAL_EDITION` | `LEGAL_VERSION` | Texto |
 |---|---|---|---|
-| `beta` (produção hoje, pré-lançamento) | `"prelaunch"` | `2026-10-15-beta` | Tudo simulado: sem pagamento, simulação só no navegador, seção "Pré-lançamento: tudo é teste", ONGs não recebem dado |
-| `main` (lançamento) | `"launch"` | `2026-10-15` | Pix via **Woovi** direto para a conta da ONG (Cidoa não recebe nem repassa dinheiro), edifício público, devolução encaminhada à ONG |
+| `beta` (produção hoje, pré-lançamento) | `"prelaunch"` | `2026-10-16-beta` | Tudo simulado: sem pagamento, simulação só no navegador, seção "Pré-lançamento: tudo é teste", ONGs não recebem dado |
+| `main` (lançamento) | `"launch"` | `2026-10-16` | Pix via **Woovi** direto para a conta da ONG (Cidoe não recebe nem repassa dinheiro), edifício público, devolução encaminhada à ONG |
 
 - Texto comum escrito uma vez; `IS_PRELAUNCH ? … : …` só onde difere. Seção exclusiva entra com `...(IS_PRELAUNCH ? [secao] : [])`.
 - Edição faz parte da versão registrada no cadastro. O login não compara versões nem solicita novo aceite.
@@ -35,7 +35,7 @@ Mesmo código nas duas branches; só `LEGAL_EDITION` (`src/lib/legal.ts`) muda:
 - Documentos valem só para **usuários** (com ou sem conta, e quem escreve ao contato). ONGs terão termos próprios quando o cadastro de ONGs abrir.
 
 > [!danger] main não vai ao ar antes da integração Woovi
-> O texto `launch` afirma que o Pix é gerado pela Woovi direto para a conta da ONG. Hoje a main só tem `PIX_SIMULATED` (nunca em produção) com `receiverName: "Cidoa"`. Publicar a main antes da integração = texto falso.
+> O texto `launch` afirma que o Pix é gerado pela Woovi direto para a conta da ONG. Hoje a main só tem `PIX_SIMULATED` (nunca em produção) com `receiverName: "Cidoe"`. Publicar a main antes da integração = texto falso.
 
 ---
 
@@ -49,8 +49,22 @@ Mesmo código nas duas branches; só `LEGAL_EDITION` (`src/lib/legal.ts`) muda:
 Lazy em `src/App.tsx`. Nginx já cai no `index.html` (`try_files … /index.html`), URL direta funciona. Body da app tem `overflow: hidden` (cena), então `LegalPage` rola no próprio `<main>`.
 
 Links:
-- `<noscript>` no `index.html`: descrição do site + links legais para robô sem JavaScript (verificação do Google).
+- `<noscript>` no `index.html`: descrição do site + dados do login com Google + links legais para robô sem JavaScript (verificação do Google).
+- Placa da marca na cena ([[html-components#Placa da marca (CitySceneEditor.tsx)|placa]]): só marca, sem links (decisão do dono).
 - Rodapé da home ([[html-components#DonationInfoSection.tsx|DonationInfoSection]]) — exigência do Google: política linkada na página inicial.
+
+### Página inicial — requisitos do Google
+
+Fonte: [Requisitos da página inicial do app](https://support.google.com/cloud/answer/13807376?hl=pt-BR). Domínio oficial **`cidoe.com.br`** (verificado no Search Console por TXT). `cidoa.com.br` também é do dono, mas sem site nem e-mail: nunca usar em console, texto ou config.
+
+| Requisito | Onde atende |
+|---|---|
+| Identifica app/marca | Placa da cena (**Cidoe**, sem logo), `<title>`, `favicon.svg` |
+| Descreve funcionalidade | Hero da `DonationInfoSection` + `<noscript>` |
+| Explica finalidade dos dados do Google | Parágrafo sob o hero → `/privacidade#google` |
+| Link fácil para política (mesma URL do console) | Rodapé da home (seta da cena leva até ele), aviso de cookies, `<noscript>` |
+| Visível sem login | `/` pública; nada atrás de `AuthProvider` |
+| Domínio verificado, sem redirecionar | Console usa `https://cidoe.com.br` exato — `www.` e `http://` redirecionam (301), não cadastrar |
 - Caixa de aceite (`TermsConsent`) — abre em **nova aba**: prova do e-mail do cadastro vive só no estado React, sair da aba perderia o cadastro.
 - Entre os dois documentos (menu lateral do `LegalPage`).
 
@@ -78,11 +92,22 @@ flowchart TD
 ## Aviso de cookies
 
 - `src/components/CookieNotice.tsx`, montado globalmente em `App.tsx`, independente da sessão e do aceite dos termos.
-- Banner discreto com informação sobre cookies essenciais, link para `/privacidade#cookies` em nova aba e botão **Entendi**. Sem overlay, captura de foco ou bloqueio da navegação; fica acima da navegação móvel e abaixo dos diálogos.
-- A confirmação fica em `localStorage["cidoa:cookie-notice"] = "acknowledged"`. Não reaparece após recarregar; limpar os dados do site faz o aviso voltar. Se o armazenamento estiver bloqueado, fecha apenas na visita atual.
-- O site não usa cookies de publicidade ou análise. O banner informa sobre os cookies existentes; não cria consentimento para rastreadores ou categorias inexistentes.
-- A Política de Privacidade documenta essa chave. Os textos públicos não exigem idade mínima de 18 anos nem prometem confirmação dos termos a cada atualização.
-- Verificação: `node scripts/check-consent.mjs` (caixa desmarcada, links, banner não bloqueante, persistência, valor inválido e armazenamento bloqueado), `npm run build` e `npm run lint`; sem servidor ou navegador.
+- Banner discreto: **Usamos cookies para melhorar sua experiência. Saiba mais em nossa Política de Privacidade.** Link para `/privacidade#cookies` em nova aba; único botão **Aceitar cookies**. Sem overlay, captura de foco ou bloqueio da navegação; fica acima da navegação móvel e abaixo dos diálogos.
+- Escolha: `localStorage["cidoa:analytics-consent"] = "granted" | "denied"`. Valor ausente/inválido mostra banner; `cidoa:cookie-notice = acknowledged` antigo não concede consentimento. Storage bloqueado: escolha vale na visita atual.
+- Política inclui **Preferências de cookies**, que dispara `cidoa:cookie-preferences` e reabre o banner, e **Desativar cookies opcionais**, que salva `denied`, interrompe novos envios e confirma por toast. Evento `storage` sincroniza revogação entre abas. Cookies existentes podem ser apagados pelo navegador.
+- Política documenta análise, dados, finalidade por consentimento, compartilhamento com Google, `_ga` / `_ga_*` (até 2 anos, renovados com uso) e chave local. Versão atualizada em **16/10/2026**; aceite dos termos permanece exclusivo do cadastro.
+- Verificação: `node scripts/check-consent.mjs` e `node scripts/check-analytics.mjs`, `npm run build`, `npm run lint`; sem servidor ou navegador.
+
+## Google Analytics
+
+- `src/lib/analytics.ts`: Google tag **G-GEHP0ENSCR**, sem dependência nova. `main.tsx` restaura escolha antes de montar React; inicialização fora dos efeitos evita duplicação por StrictMode.
+- Só `import.meta.env.PROD`. Modo básico do Consent Mode v2: sem carregar `gtag.js` ou enviar dados ao Analytics antes do aceite. Outros serviços Google (login/fontes) continuam independentes.
+- Após aceite: `consent default` nega análise e publicidade → `consent update` concede apenas `analytics_storage` → `js` → `config` → script assíncrono no `<head>`. `config` uma vez por carregamento; pageview inicial automático, sem evento manual duplicado.
+- `allow_google_signals: false` e `allow_ad_personalization_signals: false`; `ad_storage`, `ad_user_data`, `ad_personalization` sempre negados. Sem envio explícito de nome, e-mail ou identificadores da conta.
+- Recusa/revogação: `ga-disable-G-GEHP0ENSCR = true` antes do update de consentimento; bloqueia novos cookies e envios da propriedade. Novo aceite reativa sem duplicar script.
+- Rotas React usam History API; medição automática depende da opção no GA4: **Administrador → Fluxos de dados → Web → Medição otimizada → Visualizações de página → Configurações avançadas → Carregamentos de página + Alterações na página com base em eventos do histórico do navegador**. Conferir ambas ativas. Não adicionar pageviews manuais junto desse modo.
+- Após deploy, validar **Tag Assistant** e **DebugView**: tag encontrada após aceite, um `page_view` inicial, um por mudança de rota, sem envios após recusa. Painel GA4 e transmissão real não foram verificados pelos checks locais.
+- Fontes oficiais: [Google tag](https://developers.google.com/tag-platform/gtagjs), [Consent Mode](https://developers.google.com/tag-platform/security/guides/consent), [básico × avançado](https://support.google.com/analytics/answer/10000067), [SPA](https://developers.google.com/analytics/devguides/collection/ga4/single-page-applications), [controles de privacidade](https://developers.google.com/tag-platform/security/guides/privacy), [cookies](https://support.google.com/analytics/answer/11397207).
 
 ## Backend (`cidoa-back`)
 
@@ -128,7 +153,7 @@ Rodar de novo quando: feature nova coleta dado, entra terceiro (PSP, analytics),
 Achados de `auditoria-termos` + `pesquisa-legal` (15/10/2026) que o texto contorna mas o produto ainda deve resolver:
 
 - **Integração Woovi (antes de ativar Pix real)** — o texto da main já promete:
-  - recebedor do Pix = conta da ONG na Woovi (hoje o simulado mostra `receiverName: "Cidoa"`);
+  - recebedor do Pix = conta da ONG na Woovi (hoje o simulado mostra `receiverName: "Cidoe"`);
   - enviar à Woovi só valor, ONG e código da cobrança (sem nome, e-mail ou CPF) e **descartar** nome/CPF do pagador que vierem na confirmação;
   - cancelar na Woovi a cobrança substituída ("gerar novo código invalida o anterior"); se um código antigo for pago mesmo assim, registrar a contribuição;
   - devolução e MED por webhook → reduzir ou remover o edifício;
@@ -145,9 +170,9 @@ Achados de `auditoria-termos` + `pesquisa-legal` (15/10/2026) que o texto contor
 - **Validar com advogado** os decretos citados pela pesquisa (Decreto 12.975/2026 → arts. 16-E/20-A do Decreto 8.771; Decreto 12.976/2026).
 - **Fatos do dono já no texto**: hospedagem no Brasil; backups por até 3 meses (mais antigos apagados); controlador pessoa física sem documento na página.
 - **Runbook de backup contradiz a política** (`cidoa-back/dev/prod/server/006-escalabilidade-operacao.md`): usa `-mtime +14` (14 dias) → passar para `+90`; sugere cópia externa em S3/B2/Drive (fora do Brasil) → manter no Brasil ou declarar a transferência na política.
-- **Caixa `contato@cidoa.com.br`**: provedor e país (se fora do Brasil, declarar em "Transferência para fora do Brasil").
+- **Caixa `contato@cidoe.com.br`**: provedor e país (se fora do Brasil, declarar em "Transferência para fora do Brasil").
 - **Recompensas do pré-lançamento**: texto da beta diz que continuam valendo no lançamento (tela promete recompensa — CDC art. 30). Confirmar.
-- **Dono**: prazo dos logs do proxy HTTPS do host; e-mail de suporte no console do Google (conta Google ou grupo administrado); URLs `/`, `/privacidade`, `/termos` no console depois do deploy.
+- **Dono**: prazo dos logs do proxy HTTPS do host; e-mail de suporte no console do Google (conta Google ou grupo administrado); URLs `https://cidoe.com.br/`, `/privacidade`, `/termos` no console depois do deploy (domínio autorizado: `cidoe.com.br`). Caixa `contato@cidoe.com.br`: MX aponta para recebimento da Resend (`inbound-smtp.sa-east-1`) — confirmar que chega a alguém.
 
 ---
 

@@ -204,7 +204,7 @@ flowchart TD
 
 ### Perfil progressivo (onboarding)
 
-Cadastro segue mínimo (e-mail + nome + username). Depois da conta existir, [[html-components#OnboardingDialog.tsx|OnboardingDialog]] pergunta **cidade** e **como conheceu o Cidoa** — opcional, uma vez por conta, com **Pular**.
+Cadastro segue mínimo (e-mail + nome + username). Depois da conta existir, [[html-components#OnboardingDialog.tsx|OnboardingDialog]] pergunta **cidade** e **como conheceu o Cidoe** — opcional, uma vez por conta, com **Pular**.
 
 - **Quando** — logo após login/sessão restaurada, se `user.onboarding_completed_at === null`. Espera indicação pendente, `GameMenu` e `ShareDialog` fecharem.
 - **Salvar ou pular** — `POST /user/me/onboarding` (pular = `{}`); servidor grava `onboarding_completed_at` na 1ª vez. Esc, X, clique fora = pular. Pular com rede falhando fecha nesta sessão; próximo login pergunta de novo.

@@ -12,7 +12,7 @@ aliases:
 
 # HTML Components
 
-Componentes React DOM do painel lateral do Cidoa.
+Componentes React DOM do painel lateral do Cidoe.
 
 > [!info] O que é "HTML" aqui
 > Componentes que renderizam tags como `div`, `section`, `input`, `select` e `label`. Não são arquivos HTML estáticos — são componentes React puros de interface.
@@ -30,9 +30,13 @@ Esses componentes:
 
 ## Componentes Principais
 
-### Aviso de pré-lançamento (`CitySceneEditor.tsx`)
+### Placa da marca (`CitySceneEditor.tsx`)
 
-Aviso compacto `pixel pixel-thin bg-background`, sem ícone ou bisel. Rótulo mono verde **Pré-lançamento** e mensagem **Pagamentos simulados. Cidade salva só neste navegador.** no mesmo parágrafo, com quebra natural. Texto de 12px, entrelinha de 16px e padding de 8px na horizontal / 6px na vertical; `aside` identificado para leitores de tela.
+Placa compacta `pixel pixel-thin bg-background`, sem bisel. Duas linhas:
+1. **Cidoe** 14px 600 + kicker mono verde **Pré-lançamento**.
+2. **Pagamentos simulados. Cidade salva só neste navegador.**
+
+Sem logo, sem links (decisão do dono). Termos/Privacidade ficam no rodapé da [[#DonationInfoSection.tsx]] (seta inferior direita da cena) e no aviso de cookies. Marca visível na 1ª tela, sem rolar nem entrar = requisito da página inicial do login com Google ([[termos-e-privacidade#Página inicial — requisitos do Google]]). Texto 12px, entrelinha 16px, padding 8px horizontal / 6px vertical; `aside aria-label="Cidoe"`.
 
 Ocupa apenas a largura do conteúdo, limitada à tela, com margem externa de 16px. Aviso e menu ficam lado a lado quando há espaço; em telas estreitas, o menu quebra para baixo, alinhado à direita. Espaço entre eles de 8px. Espaços vazios do cabeçalho deixam passar os gestos para a cena.
 
@@ -40,7 +44,7 @@ Ocupa apenas a largura do conteúdo, limitada à tela, com margem externa de 16p
 
 Seção abaixo da cena pública = home do projeto. Composição do [[desingn-system-index|DS]]: hero display → `01 Impacto` → `02 Explore as ONGs da cidade` → rodapé. Fundo `bg-background pattern-paws` (pegadas do DS, 420px). Container `max-w-[1240px]`, `pt-24 pb-[120px]`. Cabeçalho de seção = `PixelPaw` + número mono verde + título 44px, gap 18px, conteúdo a 36px (`mt-9`). Espaço entre blocos: 128px (hero → 01), 112px (01 → 02), 120px (rodapé). Sem hairline: só espaço. Snapshot público mais simulações locais do mesmo `useDonations`; valores rotulados como simulados (**Valor simulado**, **ONGs na cidade**), sem arrecadação real. Hero e seção 02 com copy de pré-lançamento.
 
-- Hero: kicker mono 13px; título display (até 72px, `leading-[0.98]`, `max-w-[14ch]`); texto 22px `leading-normal` `muted-foreground`; gap 32px.
+- Hero: kicker mono 13px; título display (até 72px, `leading-[0.98]`, `max-w-[14ch]`); texto 22px `leading-normal` `muted-foreground` = o que o app faz (contribuição → edifício, valor → altura; cadastro, simulação, personalização, indicação); gap 32px. Abaixo, 15px `muted-foreground`: dados usados no login com Google (nome, e-mail, foto) e para quê + link **Como tratamos seus dados** → `/privacidade#google`. Descrição + finalidade dos dados = requisito da página inicial do Google ([[termos-e-privacidade#Página inicial — requisitos do Google]]).
 - Impacto: placa `pixel bevel-edge bg-card` com total em display verde (Manrope); três placas contador (ícone pixel + número + `mono-label`). Soma em centavos, quantidade de edifícios, ONGs beneficiárias e cidades. Valores acompanham filtros da cena; teto de renderização vale só no canvas.
 - Foto: `<Photo ratio="1/1">` ([[desingn-system-index#Moldura (5.3)|moldura do DS]], 3px, sem bisel) com `public/cat_dog.webp` e `public/cat_dog.jpeg` de reserva — JPG cópia idêntica da `video-2` (1024 × 947); 1:1 recorta só as laterais. `PixelDog` espia por cima (DS 6.6). Foto de banco: trocar por foto de ONG quando houver ([[desingn-system-index#Desvios conscientes]]).
 - ONGs: no máximo **6 cartões** (DS 6.6, grade 1/2/3 colunas), por quantidade de edifícios apoiando; ONG selecionada permanece visível, desempate pelo nome. Cartão: `gap-3.5`; cidades (mono 11px), nome 26px, edifícios 15px com número em `strong`, botão primário largura total **Ver na cidade**. ONG filtrada = `pixel-ink-verde bg-secondary` + selo **No filtro**. Sem barra de meta: API não expõe meta da ONG. Sem lista individual de edifícios.
@@ -242,7 +246,7 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre por **Meus edifíci
 
 ### `OnboardingDialog.tsx`
 
-Perfil progressivo do 1º login: **Cidade** + **Como conheceu o Cidoa?**. Tudo opcional. Montado no `AuthMenu` (ramo logado).
+Perfil progressivo do 1º login: **Cidade** + **Como conheceu o Cidoe?**. Tudo opcional. Montado no `AuthMenu` (ramo logado).
 
 - **Quando abre** — `user.onboarding_completed_at === null` e `blocked` falso. `AuthMenu` passa `blocked` = indicação pendente (`?ref=`) || `GameMenu` aberto || `ShareDialog` aberto || `onboardingBlocked` do editor (contribuição, card do edifício, administração ou edição de perfil abertos). `AuthDialog` nem existe no ramo logado. Não empilha modal.
 - **Uma vez por conta** — estado do servidor (`onboarding_completed_at`), não `localStorage`. Conta antiga também vê uma vez (sem backfill no back).
@@ -271,9 +275,9 @@ Caixa de aceite usada somente no passo de cadastro do `AuthDialog`; fluxo em [[t
 
 ### `CookieNotice.tsx`
 
-Banner global de cookies essenciais, separado do cadastro e montado no `App.tsx`. Texto curto, link para a seção de cookies da política em nova aba e **Entendi**. Sem overlay nem bloqueio; respeita a navegação móvel e fica abaixo dos diálogos.
+Banner global de cookies, separado do cadastro e montado no `App.tsx`. Mensagem padrão: **Usamos cookies para melhorar sua experiência. Saiba mais em nossa Política de Privacidade.** Link em nova aba e único botão **Aceitar cookies**. Sem overlay nem bloqueio; respeita a navegação móvel e fica abaixo dos diálogos.
 
-A confirmação persiste em `cidoa:cookie-notice` no armazenamento local. Se bloqueado, fecha na visita atual. Sem publicidade/análise nem categorias opcionais. Ver [[termos-e-privacidade#Aviso de cookies]].
+Escolha persiste em `cidoa:analytics-consent` (`granted` / `denied`). Google Analytics só carrega após aceite; publicidade desativada. Em `/privacidade#cookies`, **Preferências de cookies** reabre o banner via evento `cidoa:cookie-preferences`; **Desativar cookies opcionais** salva recusa e interrompe novos envios, inclusive nas outras abas, com confirmação por toast. Confirmação antiga `cidoa:cookie-notice` não autoriza análise. Se storage bloqueado, escolha vale na visita atual. Ver [[termos-e-privacidade#Google Analytics]].
 
 ---
 
@@ -288,7 +292,7 @@ Campos compartilhados entre [[#OnboardingDialog.tsx|OnboardingDialog]] e aba Per
   - ARIA: `role="combobox"`, `aria-expanded`, `aria-controls`, `aria-autocomplete="list"`, `aria-activedescendant`; lista `role="listbox"` / `role="option"` + `aria-selected`. Foco nunca sai do input (`mousedown` com `preventDefault` em opção e no X).
   - Blur sem clicar: texto que aponta pra 1 cidade só (resultado único ou nome exato único, `pickTypedCity`) escolhe; ambíguo ("Bom Jesus") volta pra cidade atual; texto apagado = sem cidade. Botão X (44 px) limpa.
   - Lista inline (`absolute`, sem portal): herda tema do contexto. Na aba Perfil o painel rola: `scrollIntoView({ block: "nearest" })` mostra a lista inteira. Hover ativa por `mousemove` (rolar sob mouse parado não troca opção).
-- **Como conheceu o Cidoa?** — chips Radix `RadioGroup` (`role="radiogroup"`/`radio`, setas navegam e marcam). Rótulos em `DISCOVERY_LABELS` (lugar único): Instagram, TikTok, YouTube, Facebook, WhatsApp, Google, Amigo ou familiar, Uma ONG, Outro. "Outro" revela input (máx 100). Marcado = `bg-primary` verde (chip de seleção do DS). Chip `h-10`.
+- **Como conheceu o Cidoe?** — chips Radix `RadioGroup` (`role="radiogroup"`/`radio`, setas navegam e marcam). Rótulos em `DISCOVERY_LABELS` (lugar único): Instagram, TikTok, YouTube, Facebook, WhatsApp, Google, Amigo ou familiar, Uma ONG, Outro. "Outro" revela input (máx 100). Marcado = `bg-primary` verde (chip de seleção do DS). Chip `h-10`.
 - **Tema** — só tokens (`foreground`, `popover`, `muted`, `primary`); mesmo visual no diálogo e no GameMenu. Campos `field`, chips de seleção do DS, opção destacada com `menu-cursor`.
 
 | Prop | Tipo | Descrição |

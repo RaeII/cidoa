@@ -12,14 +12,14 @@
 export const LEGAL_EDITION = "prelaunch" as "prelaunch" | "launch";
 export const IS_PRELAUNCH = LEGAL_EDITION === "prelaunch";
 
-export const LEGAL_DATE = "2026-10-15";
-export const LEGAL_UPDATED_AT = "15 de outubro de 2026";
+export const LEGAL_DATE = "2026-10-16";
+export const LEGAL_UPDATED_AT = "16 de outubro de 2026";
 /** Versão aceita no cadastro (vai ao back), incluindo a edição mostrada. */
 export const LEGAL_VERSION = IS_PRELAUNCH ? `${LEGAL_DATE}-beta` : LEGAL_DATE;
 
 /** Controlador dos dados (LGPD art. 5 VI e art. 9 III). Pessoa física: sem documento na página. */
 export const LEGAL_CONTROLLER = "Israel Zeferino";
-export const LEGAL_EMAIL = "contato@cidoa.com.br";
+export const LEGAL_EMAIL = "contato@cidoe.com.br";
 
 export const TERMS_PATH = "/termos";
 export const PRIVACY_PATH = "/privacidade";
