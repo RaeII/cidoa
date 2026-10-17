@@ -144,6 +144,8 @@ export function useDonations() {
     cities,
     ongs: dataset?.ongs ?? EMPTY_ONGS,
     savedCustomizations,
+    /** Snapshot vazio → cidade inicial do front no lugar. */
+    seeded: seeds.length > 0,
     filter,
     setFilter,
     retry,

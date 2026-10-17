@@ -34,13 +34,20 @@ Esse hook existe para que os componentes React **não precisem conhecer diretame
 Quando [[three-components|CitySceneCanvas]] monta:
 
 1. O hook lê o `mountRef` (o `div` do canvas)
-2. Cria o runtime com os valores iniciais (via `initialSettingsRef`)
-3. Salva a referência do runtime em `runtimeRef`
+2. `await createCitySceneRuntime(...)` com as settings atuais (`settingsRef`) — criação **assíncrona**, em etapas ([[scene-runtime#Desempenho (TBT e celular)]])
+3. Desmontou no meio → `dispose()` assim que resolver. Senão salva em `runtimeRef`
+4. Reaplica o que mudou durante a criação (compara identidade com o snapshot usado), chama `setFacadeTexturePool` e `setGrain` (efeitos deles rodaram com runtime `null`) e drena a fila de chamadas imperativas
 
-> [!note] initialSettingsRef
-> As settings iniciais são capturadas numa ref para evitar que o `useEffect` de criação rode novamente quando as settings mudarem. O runtime recebe os valores corretos na criação; as atualizações subsequentes são feitas pelos efeitos de sincronização.
+> [!warning] Sem WebGL / WebGL por software
+> `await createCitySceneRuntime` em `try/catch`. Sem WebGL (robô, verificação do login com Google, GPU bloqueada) o renderer lança erro; com WebGL por software (SwiftShader, llvmpipe) o runtime rejeita de propósito. Sem catch React desmonta app inteiro → home em branco. Com catch: `runtimeRef` fica `null`, fila de chamadas vira `null` (descarta), efeitos viram no-op (`?.`), `sceneReady` nunca liga → pôster fica, resto da home renderiza.
+
+> [!note] settingsRef
+> Settings mais recentes numa ref atualizada por effect sem deps (roda antes do effect de criação). Criação lê o snapshot; o que mudar enquanto o runtime nasce é reaplicado no fim. Atualizações depois disso: efeitos de sincronização.
 >
-> `facadeTexturePool` fica **fora** dessa ref: vem do catálogo do backend (fetch assíncrono), então chega depois do mount e entra só pelo efeito de sincronização. Ver [[scene-textures#Sorteio por edifício]].
+> `facadeTexturePool` vem do catálogo do backend (fetch assíncrono): chega depois do mount e entra pelo efeito de sincronização (ou pelo passo 4). Ver [[scene-textures#Sorteio por edifício]].
+
+> [!note] Fila de chamadas (`callRuntime`)
+> `addDonation`, `addDonations`, `setDonations`, `updateDonationCustomization`, `focusOnDonation`, `clearFocus` antes do runtime existir vão pra `pendingCallsRef` e rodam na ordem quando ele sobe — o editor pode chamar `setDonations` antes da criação terminar.
 
 ### Sincronização
 
@@ -90,16 +97,16 @@ useEffect(() => {
 ```
 
 > [!note] grain
-> Número solto, não settings object — fica **fora** do `initialSettingsRef` (o `Omit` remove). Efeito de sync roda logo após o efeito de criação, então o runtime já existe. Ver granulado em [[scene-runtime]].
+> Número solto, não entra na criação. Efeito de sync roda com runtime `null` no mount → aplicado no passo 4 da criação. Ver granulado em [[scene-runtime]].
 
 > [!note] terrainSettings
-> Threaded também no `initialSettingsRef` (criação) — um `useEffect` dedicado chama `updateTerrainSettings` quando muda. Ver relevo em [[scene-runtime]].
+> Vai na criação (snapshot de `settingsRef`) — um `useEffect` dedicado chama `updateTerrainSettings` quando muda. Ver relevo em [[scene-runtime]].
 
 Isso é importante para evitar um efeito gigante tentando fazer tudo.
 
 ### Retorno
 
-O hook retorna um objeto com referências estáveis (via `useCallback`) que delegam ao runtime atual:
+O hook retorna um objeto com referências estáveis (via `useCallback`) que delegam ao runtime atual via `callRuntime` (fila enquanto ele não existe):
 
 ```typescript
 {
@@ -144,8 +151,9 @@ Quando o canvas desmonta:
 
 ```typescript
 return () => {
+  cancelled = true;          // criação em curso descarta o runtime quando resolver
   runtimeRef.current = null;
-  runtime.dispose();
+  runtime?.dispose();
 };
 ```
 

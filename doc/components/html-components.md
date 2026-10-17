@@ -28,6 +28,23 @@ Esses componentes:
 - **não** criam objetos Three.js
 - **não** conhecem `scene`, `camera` ou `renderer`
 
+## Carregamento inicial (casca)
+
+Meta: 1º paint útil antes do bundle; Three.js não atrasa FCP/LCP. Lighthouse mobile local: FCP 3,0–3,4 s → 1,5 s; LCP 4,1–4,4 s → 2,0 s.
+
+1. **`index.html`** — `#root` já traz `<picture id="city-poster">`: `public/city-poster-portrait.webp` (`orientation: portrait`) ou `city-poster-landscape.webp`. Estilo inline (absolute, topo, `100vh`, `object-fit: cover`). Script inline remove fora de `/`.
+2. **`App.tsx`** — rota `/` com `Suspense` próprio: `SceneFallback` = `CityPoster` + placa "Carregando…". React limpa `#root` no 1º commit e repõe mesmo pôster (mesma URL em cache, mesma caixa) → sem pisca, sem CLS.
+3. **`afterPaint()`** (`App.tsx`) — duplo rAF (aba oculta resolve na hora). `CitySceneEditor` lazy só chama `import()` depois: casca (pôster + `CookieNotice`) pinta antes de baixar/avaliar cena. Mesmo truque no `Toaster` — Radix Toast fora do `index.js`; store do toast vive fora do React, `toast()` antes do mount aparece quando monta.
+4. **`CityPoster.tsx`** — `<CityPoster hidden={loadState.status === "ready" && donationsApplied} />` logo após o canvas, abaixo de overlay/UI (sem z-index). Fade 500 ms por opacity; `transitionend` desmonta, não volta — rebuild por filtro usa só [[#DonationLoadOverlay.tsx|DonationLoadOverlay]].
+
+> [!warning] Pôster não é LCP
+> Chrome ignora imagem que cobre viewport inteira (trata como fundo). LCP mobile = parágrafo do [[#CookieNotice.tsx|CookieNotice]] (texto vem no `index.js`). Logo: `index.js` enxuto, nada pesado antes do paint, preload só da Manrope latin. Pôster ajuda FCP real e Speed Index.
+
+- **Regenerar pôster** — screenshot da cena pronta sem UI (412×915 @2x e 1600×900), `ffmpeg` scale 432 / 1024 px + `gblur=sigma=1.6`, `cwebp -q 40 -m 6` (~25 KB cada). Cache do nginx = 30 dias: trocar conteúdo pede nome novo (ajustar `index.html` + `CityPoster`).
+- **Fontes** self-hosted — [[desingn-system-index#Tipografia]].
+- **GIS** sob demanda — [[area-admin]] (`AuthDialog`).
+- **nginx** (`docker/nginx.conf`) — `^~ /assets/`: `Cache-Control: public, max-age=31536000, immutable` (sem `always`: 404 de chunk não fica em cache). Arquivos de `public/` (webp/jpg/png/svg/woff2/ico): `expires 30d`. HTML: `no-cache`. gzip nível 6, ≥ 1 KB, + `text/plain`, `text/javascript`, `application/manifest+json`. `/api` e `/healthz` intactos.
+
 ## Componentes Principais
 
 ### Placa da marca (`CitySceneEditor.tsx`)
@@ -117,7 +134,7 @@ Card flutuante no canto superior esquerdo. Tira do painel os dois controles que 
 
 ### `DonationLoadOverlay.tsx`
 
-Overlay de carregamento do snapshot de doações do backend ([[donation-api]]). Card central sobre o canvas enquanto o dataset carrega.
+Overlay de carregamento do snapshot de doações do backend ([[donation-api]]). Card central sobre o canvas enquanto o dataset carrega. No load inicial, pôster da cidade fica por baixo — ver [[#Carregamento inicial (casca)]].
 
 **Responsabilidades:**
 - Placa central: `BlockLoader` (ou `BlockBar` quando há total) + progresso por bytes (`X-Snapshot-Bytes`) ou só MB carregados quando o header não vem (gzip zera `total` — ver [[donation-api#Gotcha: barra de progresso com gzip]])
@@ -472,7 +489,7 @@ Configurações de textura PBR das fachadas:
 
 **Seletor "Textura da fachada"** (topo da seção): prop `facadeTextures` = `catalog.textures` ativas do backend. Clicar seta `textureSettings.textureKey` = `value` da opção → troca a fachada de **toda a cena**. Por edifício: aba **Aparência → Fachada** do [[html-components#BuildingManageDialog.tsx|BuildingManageDialog]]. Só aparece se houver textura ativa no catálogo.
 
-Assets no front (`src/assets/texture/`), em **KTX2** (comprimido na GPU), carregados **lazy + assíncrono + cache** pelo loader — ver [[scene-textures]]. Cadastro/controle das texturas em [[personalizacoes]]. Mapas por pasta: color, normal, roughness, metalness, displacement.
+Assets no front (`src/assets/texture/`), servidos em **WebP** (512 px no celular), carregados **lazy + assíncrono + cache** pelo loader — ver [[scene-textures]]. Cadastro/controle das texturas em [[personalizacoes]]. Mapas por pasta: color, normal, roughness, metalness, displacement.
 
 ---
 

@@ -310,8 +310,11 @@ type SceneStats = {
   culled: number;            // prédios ocultos pelo cull de distância (frontal + traseiro)
   fpsMode: string;           // modo FPS atual
   chunks: number;            // chunks carregados
+  sceneReady: boolean;       // 1º frame com HDRI, shaders prontos e doações aplicadas (monotônico)
 }
 ```
+
+`sceneReady` esconde o pôster (`CityPoster`) no `CitySceneEditor`. Sem WebGL nunca liga — pôster fica. Ver [[scene-runtime#Desempenho (TBT e celular)]].
 
 ## Tipos de Personalização
 
@@ -453,7 +456,7 @@ type CameraVisibilityState = {
 
 Descreve a estrutura esperada para a config global da cena. Garante consistência de `citySceneConfig.ts`.
 
-`far: number` = alcance visual da câmera principal. `reflectionFar: number` = alcance independente da CubeCamera; ampliar horizonte não amplia captura dos reflexos.
+`far: number` = alcance visual da câmera principal. `reflectionFar: number` = alcance independente da CubeCamera; ampliar horizonte não amplia captura dos reflexos. `liteDprCap`/`liteFps` = teto de DPR e FPS no modo leve.
 
 Ver campos completos em [[scene-config#citySceneConfig.ts ⭐]].
 

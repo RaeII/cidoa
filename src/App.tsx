@@ -2,16 +2,39 @@ import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { AdminAuthProvider } from "./components/AdminAuthProvider";
 import { AuthProvider } from "./components/AuthProvider";
+import { CityPoster } from "./components/CityPoster";
 import { CookieNotice } from "./components/CookieNotice";
 import { RequireAdmin } from "./components/RequireAdmin";
 import { BlockLoader } from "./components/ui/pixel-icon";
-import { Toaster } from "./components/ui/toast";
 import { PRIVACY_PATH, TERMS_PATH } from "./lib/legal";
 
+/**
+ * Resolve depois que a casca chega na tela. Duplo rAF: o 1º roda antes do paint do
+ * próprio frame; o 2º só depois de ele ser apresentado. Aba oculta não tem rAF:
+ * resolve na hora pra não segurar o carregamento.
+ */
+function afterPaint() {
+  return new Promise<void>((resolve) => {
+    if (document.hidden) return resolve();
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
+}
+
 // Code-split por página (doc/regras/04-performance do base_vite): a cena 3D
-// (Three.js, pesada) e a área /dale (admin) viram chunks separados.
+// (Three.js, pesada) e a área /dale (admin) viram chunks separados. A cena só
+// começa a baixar depois que a casca (pôster, aviso de cookies) pinta: o
+// download e a avaliação do Three.js não atrasam o 1º paint útil (LCP).
 const CitySceneEditor = lazy(() =>
-  import("./components/CitySceneEditor").then((m) => ({ default: m.CitySceneEditor })),
+  afterPaint()
+    .then(() => import("./components/CitySceneEditor"))
+    .then((m) => ({ default: m.CitySceneEditor })),
+);
+// Toaster (Radix Toast) fora do bundle inicial: monta após o 1º paint. O store do
+// toast vive fora do React — toast() chamado antes aparece quando ele montar.
+const Toaster = lazy(() =>
+  afterPaint()
+    .then(() => import("./components/ui/toast"))
+    .then((m) => ({ default: m.Toaster })),
 );
 const Login = lazy(() => import("./pages/admin/Login"));
 const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
@@ -33,6 +56,21 @@ function PageFallback() {
   );
 }
 
+/** Enquanto o chunk da cena baixa: mesmo pôster do index.html + aviso de carregamento. */
+function SceneFallback() {
+  return (
+    <div className="relative h-screen w-full overflow-hidden bg-background">
+      <CityPoster />
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="pixel bevel-edge flex items-center gap-3 bg-background px-6 py-5 text-sm text-foreground">
+          <BlockLoader className="text-primary" />
+          Carregando…
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -40,12 +78,15 @@ export default function App() {
         {/* Duas sessões independentes: cena (AuthProvider) e painel (AdminAuthProvider).
             Cada área só monta a própria — login numa nunca abre a outra. */}
         <Routes>
-          {/* Cena 3D pública */}
+          {/* Cena 3D pública. Enquanto o chunk da cena baixa, segue o mesmo pôster
+              estático do index.html (sem flash do "Carregando…"). */}
           <Route
             path="/"
             element={
               <AuthProvider>
-                <CitySceneEditor />
+                <Suspense fallback={<SceneFallback />}>
+                  <CitySceneEditor />
+                </Suspense>
               </AuthProvider>
             }
           />
@@ -82,7 +123,9 @@ export default function App() {
         </Routes>
       </Suspense>
       <CookieNotice />
-      <Toaster />
+      <Suspense fallback={null}>
+        <Toaster />
+      </Suspense>
     </BrowserRouter>
   );
 }

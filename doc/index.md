@@ -26,8 +26,8 @@ Cadastro, login, perfil da conta e indicações continuam reais, conectados ao b
 ### Dados da cidade
 
 - Cenário inicial: leitura pública de `/donation/snapshot` e `/donation/customizations`.
-- Snapshot sem doação → `createSeedBuildings(ongs)` (`src/lib/prelaunchCity.ts`) põe 24 edifícios fixos, só no front, pra cidade não abrir vazia. IDs `-1_000_000 - i` (longe dos locais `-1…-3`), 8 capitais, ONGs do catálogo em rodízio. Sem dono, sem perfil, nada no backend. Primeira doação pública real → seeds somem.
-- Aparência dos seeds: `createSeedCustomizations(seeds)` entra em `savedCustomizations`. Determinística por índice: 12 formatos em rodízio, 10 tons (concreto, areia, tijolo, vidro), topo (heliponto, jardim, holofotes, helicóptero) só em formato de topo plano, LED a cada 3, letreiro "Cidoe" no central + nome da capital em alguns. Textura `null` → sorteio por edifício da cena. Admin edita cópia local por cima.
+- Snapshot sem doação → `createSeedBuildings(ongs)` (`src/lib/prelaunchCity.ts`) põe 480 edifícios fixos, só no front, pra cidade abrir cheia (grade 3×3 de quadras). Valor em cauda longa `5 + 595·(1 − i/480)³`: poucas torres, muita base. IDs `-1_000_000 - i` (longe dos locais `-1…-3`), 8 capitais, ONGs do catálogo em rodízio. Sem dono, sem perfil, nada no backend. Primeira doação pública real → seeds somem.
+- Aparência dos seeds: `createSeedCustomizations(seeds)` entra em `savedCustomizations`. Determinística por índice. 40 maiores giram pelos 12 formatos; resto 1 a cada 4 entre 10 formatos de base; ~146 meshes próprios, demais instanciados. Cor só em 20 (1 a cada 24): 10 tons escuros e dessaturados (grafite, ardósia, café, bronze, musgo; canal ≤ `0x50`). Seed sem nada especial fica fora do mapa → cor global da cena; com acessório mas sem cor → `#d4d4d4` (= `DEFAULT_BUILDING_SETTINGS.color`). Acessório raro: heliponto/helicóptero/holofotes só nas 40 maiores, jardim a cada 13, nada em pináculo; LED só em 4 torres das 40 maiores, nunca em prédio baixo; letreiro "Cidoe" no central + nome da capital em ~12. Textura `null` → sorteio por edifício da cena. `seeded` (de `useDonations`) soma `SEED_FACADE_TEXTURES` (6 mais leves do repo, ~11 MB em segundo plano) ao pool do catálogo, que hoje tem 1 ativa. Admin edita cópia local por cima.
 - Criar/aumentar: `simulateContribution(userId, contribution, city)` em `src/lib/prelaunchCity.ts`. Sem Pix, cobrança, polling ou gravação no banco.
 - Máximo 3 edifícios por conta/navegador; mínimo R$ 5; valores somados em centavos.
 - IDs negativos exclusivos da simulação; IDs públicos positivos preservados.
@@ -90,7 +90,8 @@ O projeto é dividido em 3 grandes partes:
 ```text
 scripts/
   ui-add.sh                    ← adiciona primitivo shadcn corrigindo o CLI (`bun run ui:add <nome>`)
-  encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`)
+  encode-webp.mjs              ← texturas PBR + HDRI → `.webp` (1K), `.low.webp` (512, mobile), `.pmrem.webp` (`npm run textures:webp`)
+  encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`); superado pelo WebP
   check-pass.mjs               ← ordenação do passe sem servidor/navegador
   check-consent.mjs            ← aceite no cadastro + aviso de cookies, sem servidor/navegador
   check-analytics.mjs          ← Consent Mode, aceite/recusa, revogação e tag única; sem servidor/navegador
@@ -103,6 +104,8 @@ scripts/
   check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
 public/
   basis/                       ← transcoder basis do KTX2Loader (js + wasm)
+  fonts/                       ← Manrope + JetBrains Mono self-hosted (woff2 latin/latin-ext) → [[desingn-system-index]]
+  city-poster-{portrait,landscape}.webp ← pôster da cidade no HTML até o 1º frame 3D → [[html-components#Carregamento inicial (casca)]]
   favicon.svg                  ← `CidoeLogo` em hex (aba do navegador)
   robots.txt                   ← libera tudo; sem ele nginx devolvia `index.html`
 src/
@@ -162,6 +165,7 @@ src/
     AuthDialog.tsx                ← login por e-mail ou Google; cadastro confirma nome + username + aceite dos termos
     TermsConsent.tsx              ← caixa de aceite somente no cadastro, sem declaração de idade
     CookieNotice.tsx              ← aviso padrão, único botão Aceitar cookies; desativação na política de privacidade
+    CityPoster.tsx                ← pôster da cidade (mesmo do index.html); fade quando a cena pinta → [[html-components#Carregamento inicial (casca)]]
     AuthProvider.tsx              ← sessão da cena (cookie token_access), só na rota /
     AdminAuthProvider.tsx         ← sessão do painel (cookie token_admin), só em /dale/*
     RequireAdmin.tsx              ← guarda de /dale: exige sessão do painel
@@ -195,6 +199,7 @@ src/
   lib/
     analytics.ts                   ← GA4 G-GEHP0ENSCR: produção, Consent Mode básico v2, tag após aceite, revogação
     legal.ts                       ← versão dos termos, controlador, e-mail de contato, rotas legais
+    googleIdentity.ts              ← `loadGoogleIdentity()`: GSI sob demanda (abre login), promise única
     image.ts                       ← valida e reduz imagens proporcionalmente para até 400 px
     citySearch.ts                  ← busca de cidade pura: sem acento, prefixo antes de substring
     moneyInput.ts                  ← máscara monetária da contribuição: vírgula/2 casas sempre, milhar e colagem em reais
@@ -260,8 +265,9 @@ src/
       createDonationManager.ts
       createChunkManager.ts   ← referência arquitetural
     textures/
-      facadeTextureManifest.ts  ← descobre pastas de textura (glob, sem THREE). PNG/JPG > KTX2
-      facadeTextureLoader.ts    ← carrega set PBR (KTX2Loader, lazy + async + cache)
+      facadeTextureManifest.ts  ← descobre pastas de textura (glob, sem THREE). `.low.webp` (mobile) > `.webp` > PNG/JPG > KTX2
+      facadeTextureLoader.ts    ← carrega set PBR (lazy + async + cache)
+      loadImageTexture.ts       ← ImageBitmap (decode fora da main thread) com fallback TextureLoader
     hooks/
       useCityScene.ts
     runtime/
@@ -273,6 +279,7 @@ src/
       random.ts
       instanceCulling.ts
       devAssertions.ts
+      deviceTier.ts              ← `IS_LOW_TIER`: toque ou ≤4 núcleos/GB → cena leve, texturas 512
 doc/
   index.md                       ← você está aqui (mapa da documentação)
   api/                           ← espelha src/api (camada de dados / doações)
@@ -289,7 +296,7 @@ doc/
       scene-hooks.md
       scene-managers.md
       scene-builders.md
-      scene-textures.md          ← texturas: manifesto, loader lazy/async/cache, pipeline KTX2, por-edifício
+      scene-textures.md          ← texturas: manifesto, loader lazy/async/cache, pipeline WebP/KTX2, por-edifício
     foundation/                  ← base de dados consumida pelo engine
       scene-config.md
       scene-types.md
@@ -480,10 +487,13 @@ flowchart LR
 | Mudar o texto do requisito ("R$ 50 + 3 indicações") | [[passe-formatacao]]                           |
 | Colocar cadeado na cena / painel do usuário      | [[passe-cena]]                                    |
 | Trocar textura da fachada (UI) / entender loading | [[scene-textures]] · aba **texturas** → [[html-components#TextureControls.tsx]] |
-| Cadastrar textura nova (dropar pasta + `npm run textures:ktx2` + admin) | [[scene-textures]] · [[personalizacoes]] |
+| Cadastrar textura nova (dropar pasta + `npm run textures:webp` + admin) | [[scene-textures#Pipeline WebP]] · [[personalizacoes]] |
 | Textura por edifício (usuário escolhe a dele)    | [[scene-textures#Por edifício]] · [[html-components#BuildingManageDialog.tsx]] |
 | Textura sorteada por edifício (cidade variada)   | [[scene-textures#Sorteio por edifício]] · [[scene-managers#Grupos de fachada]] |
-| Mexer no pipeline KTX2 (codec, tamanho, qualidade) | [[scene-textures#Pipeline KTX2]] · `scripts/encode-ktx2.mjs` |
+| Mexer no pipeline WebP (qualidade, variante 512 mobile, HDRI) | [[scene-textures#Pipeline WebP]] · `scripts/encode-webp.mjs` |
+| Mexer no pipeline KTX2 (codec, tamanho, qualidade) | [[scene-textures#Pipeline KTX2 (fallback, fora do caminho padrão)]] · `scripts/encode-ktx2.mjs` |
+| Velocidade da home (PageSpeed): pôster, fontes, GSI sob demanda, cache nginx | [[html-components#Carregamento inicial (casca)]] · `index.html` · `docker/nginx.conf` |
+| Modo leve mobile (`IS_LOW_TIER`: texturas 512, céu 2K, DPR/FPS) | `src/scene/utils/deviceTier.ts` · [[scene-textures]] · [[scene-runtime]] |
 | Alterar o canvas ou a ligação com o hook         | [[three-components]]                              |
 | Alterar fórmulas de luz, clamp ou material       | [[scene-utils]]                                   |
 | Mexer no cull de distância do chão (quadra, calçada, poste, asfalto) | [[scene-utils#`instanceCulling.ts`]] · [[scene-managers#Cull do chão da cidade]] |

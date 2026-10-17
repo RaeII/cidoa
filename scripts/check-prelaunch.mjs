@@ -106,10 +106,19 @@ vm.runInNewContext(derivedScript, emptyContext);
 assert.equal(emptyContext.allDonations.length, local.createSeedBuildings([]).length, "Snapshot vazio → cidade inicial do front");
 assert.ok(emptyContext.cities.length > 0);
 const seedLooks = [...emptyContext.savedCustomizations.values()];
-assert.equal(seedLooks.length, emptyContext.allDonations.length, "Todo edifício inicial personalizado");
+assert.ok(seedLooks.length < emptyContext.allDonations.length / 2, "Maioria dos edifícios iniciais segue a cena");
+const colored = seedLooks.filter((c) => c.color !== "#d4d4d4");
+assert.ok(colored.length > 5 && colored.length <= 25, "Cor só em poucos edifícios");
 assert.equal(new Set(seedLooks.map((c) => c.buildingShape)).size, 12, "Edifícios iniciais usam os 12 formatos");
-assert.ok(new Set(seedLooks.map((c) => c.color)).size > 5 && seedLooks.some((c) => c.signText) && seedLooks.some((c) => c.edgeLightType === "led"), "Cores, letreiros e LED variados");
+assert.ok(new Set(colored.map((c) => c.color)).size > 5 && seedLooks.some((c) => c.signText) && seedLooks.some((c) => c.edgeLightType === "led"), "Cores, letreiros e LED variados");
 assert.ok(seedLooks.every((c) => c.textureKey === null), "Textura segue o sorteio da cena");
+assert.ok(emptyContext.allDonations.length >= 400, "Cidade inicial cheia");
+assert.ok(seedLooks.filter((c) => c.edgeLightType === "led").length <= emptyContext.allDonations.length / 40, "LED raro");
+const seedIndex = (id) => -1_000_000 - id;
+assert.ok([...emptyContext.savedCustomizations].every(([id, c]) => c.edgeLightType === "none" || seedIndex(id) < 40), "LED só nas torres altas");
+assert.ok(colored.every((c) => [1, 3, 5].every((at) => parseInt(c.color.slice(at, at + 2), 16) <= 0x50)), "Só cores escuras");
+const shaped = seedLooks.filter((c) => c.buildingShape !== "default").length;
+assert.ok(shaped >= 100 && shaped <= emptyContext.allDonations.length / 3, "Muitos formatos, maioria instanciada");
 for (const userId of [1, 2, undefined]) {
   const context = { ...hookGlobals, userId, dataset: publicDataset,
     localBuildings: userId ? local.readLocalBuildings(userId) : [],

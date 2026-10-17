@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { KTX2Loader } from "three/examples/jsm/loaders/KTX2Loader.js";
 import { getFacadeMapUrls, resolveFacadeFolder } from "./facadeTextureManifest";
+import { loadImageTexture } from "./loadImageTexture";
 
 export type FacadeTextureSet = {
   color: THREE.Texture;
@@ -9,8 +10,6 @@ export type FacadeTextureSet = {
   metalness: THREE.Texture | null;
   displacement: THREE.Texture | null;
 };
-
-const textureLoader = new THREE.TextureLoader();
 
 // KTX2 precisa saber quais formatos comprimidos a GPU aceita (BC7/ASTC/ETC2) —
 // daí o detectSupport(renderer). Sem init, um .ktx2 cai no fallback PNG/JPG do
@@ -39,7 +38,7 @@ async function loadOne(
     }
     tex = await ktx2Loader.loadAsync(url);
   } else {
-    tex = await textureLoader.loadAsync(url);
+    tex = await loadImageTexture(url);
   }
   // O .ktx2 é gerado com y-flip (ver scripts/encode-ktx2.mjs), então as duas rotas
   // chegam na GPU com a mesma orientação — trocar de formato não muda a imagem.
@@ -77,20 +76,53 @@ export function peekFacadeTextureSet(
   return ready.get(resolveFacadeFolder(value)) ?? null;
 }
 
+// NormalGL baixado depois, sob demanda (ver `normal` em loadFacadeTextureSet). Uma Promise por pasta.
+const normalInFlight = new Map<string, Promise<FacadeTextureSet>>();
+
+/** Completa o set com o NormalGL se a pasta tem um e ele ainda não veio. Muta o set do cache. */
+function ensureNormal(key: string, set: FacadeTextureSet, anisotropy: number): Promise<FacadeTextureSet> {
+  const url = getFacadeMapUrls(key)?.normal;
+  if (set.normal || !url) return Promise.resolve(set);
+  let pending = normalInFlight.get(key);
+  if (!pending) {
+    pending = loadOptional(url, false, anisotropy).then((normal) => {
+      set.normal = normal;
+      if (!normal) normalInFlight.delete(key); // permite retry
+      return set;
+    });
+    normalInFlight.set(key, pending);
+  }
+  return pending;
+}
+
+/** Baixa o NormalGL de todos os sets já carregados sem ele (normalScale saiu de 0 no painel). */
+export function loadFacadeNormals(anisotropy: number): Promise<void> {
+  return Promise.all(
+    [...ready].map(([key, set]) => ensureNormal(key, set, anisotropy)),
+  ).then(() => undefined);
+}
+
 /**
  * Set de texturas PBR de uma pasta. Lazy: só baixa quando pedido, e uma vez só —
  * chamadas concorrentes compartilham a mesma Promise. Resolve `null` se a pasta
  * não existe (catálogo apontando pra asset removido) ou se o color map falhou;
  * o chamador cai no fallback. Mapas secundários ausentes viram `null` no set.
+ *
+ * `normal: false` pula o NormalGL (fachada com normalScale 0 não o amostra: era download,
+ * upload e VRAM à toa). Pedido depois com `normal: true` (ou loadFacadeNormals), ele vem
+ * e entra no mesmo set.
  */
 export function loadFacadeTextureSet(
   value: string | null | undefined,
   anisotropy: number,
+  { normal = true }: { normal?: boolean } = {},
 ): Promise<FacadeTextureSet | null> {
   const key = resolveFacadeFolder(value);
-  const existing = inFlight.get(key);
-  if (existing) return existing;
+  const base = inFlight.get(key) ?? startSet(key, anisotropy, normal);
+  return normal ? base.then((set) => set && ensureNormal(key, set, anisotropy)) : base;
+}
 
+function startSet(key: string, anisotropy: number, withNormal: boolean): Promise<FacadeTextureSet | null> {
   const urls = getFacadeMapUrls(key);
   if (!urls) return Promise.resolve(null);
 
@@ -98,7 +130,7 @@ export function loadFacadeTextureSet(
     try {
       const [color, normal, roughness, metalness, displacement] = await Promise.all([
         loadOne(urls.color, true, anisotropy),
-        loadOptional(urls.normal, false, anisotropy),
+        loadOptional(withNormal ? urls.normal : null, false, anisotropy),
         loadOptional(urls.roughness, false, anisotropy),
         loadOptional(urls.metalness, false, anisotropy),
         loadOptional(urls.displacement, false, anisotropy),

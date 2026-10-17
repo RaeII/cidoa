@@ -298,7 +298,7 @@ endEnvCapture(): void     // restaura envMapIntensity, piso e o buffer compacto 
 // LOD / cull de distância
 setRenderDistance(distance: number, backDistance: number): void  // alcance de renderização frente/trás (sliders da aba Horizonte)
 updateDistanceCulling(cameraPos: THREE.Vector3, cameraForward: THREE.Vector3): void  // esconde acessórios além de 80u; compacta as instâncias visíveis e reduz mesh.count conforme o limite direcional. Arrays lógicos permanecem estáveis para picking/metadados
-tickAnimations(elapsedSeconds: number, deltaMs: number): void  // anima hologramas visíveis (pula os culled)
+tickAnimations(elapsedSeconds: number, deltaMs: number): boolean  // anima hologramas visíveis (pula os culled); true = algo animou → runtime segue desenhando
 
 // Interação
 getHoveredValue(event, camera, domElement): number | null       // picking hover → valor da doação (AABB por quadra, ver seção Picking)
@@ -308,6 +308,8 @@ getDonationWorldPosition(donationId: number): THREE.Vector3 | null  // posição
 // Foco e personalização
 setFocusedDonation(donationId: number | null): void  // destaque visual (semitransparência + mesh isolado)
 updateDonationCustomization(donationId: number, customization: BuildingCustomization): void
+setRebuildDeferred(deferred: boolean): void  // true: transição de formato só marca rebuild; false: um rebuild pendente, sem criar malha de formato
+pumpCustomShapes(budgetMs: number): boolean  // cria malhas de formato pendentes até o prazo; true = ainda falta
 
 // Cleanup
 dispose(): void
@@ -404,7 +406,7 @@ Algumas personalizações precisam de **estado de material próprio** por edifí
 - `textureTransform` diferente do padrão `{ scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0 }` (ajuste manual de textura por edifício)
 - `textureKey` apontando pra uma pasta **sem grupo de fachada** (`hasUngroupedFacadeTexture`) — pasta fora do pool do catálogo. Textura própria **com** grupo não sai do instancing: o prédio só troca de `InstancedMesh`. Ver [[#Grupos de fachada]] e [[scene-textures]]
 
-Quando a flag transiciona (entra ou sai do `customShapeMeshes`), `updateDonationCustomization` chama `rebuildInstances()` e re-aplica `applyFocus(focusedDonationId)`. Mudanças que não atravessam essa fronteira (ex: ajustar tiling de 2.0 → 2.5 num prédio que já é custom) atualizam direto o uniform `uTilingMultiplier` do material — sem rebuild.
+Quando a flag transiciona (entra ou sai do `customShapeMeshes`), `updateDonationCustomization` chama `rebuildInstances()` e re-aplica `applyFocus(focusedDonationId)` — ou, com `setRebuildDeferred(true)`, só marca `rebuildPending` (ver [[#Fila de customização]]). Mudanças que não atravessam essa fronteira (ex: ajustar tiling de 2.0 → 2.5 num prédio que já é custom) atualizam direto o uniform `uTilingMultiplier` do material — sem rebuild.
 
 Para cada doação custom, `syncCustomShapes()`:
 
@@ -426,7 +428,7 @@ Para cada doação custom, `syncCustomShapes()`:
    - `shape === "residential"` → [[scene-builders#createResidentialBuildingMesh.ts|createResidentialBuildingMesh]] (torre com sacadas, 6 slots autorais). Manager injeta `setResidentialStoneMaps(facadeMat, topSet)` (Concrete024 do topo; `null` com texturas desligadas); cor da customização só entra se ≠ global. Em todo sync, `setResidentialBuildingHeight(mesh, scale.y)` ajusta nº de andares. `positionRooftop` escala acessório por `RESIDENTIAL_ROOFTOP_SCALE`.
    - `shape === "empire"` também recebe `setEmpireBuildingMeshColor` quando a cor do prédio difere da cor global — o caso fica no manager, o mapa só constrói.
 5. Adiciona à cena, registra em `customShapeMeshes` e seta `userData.donationId`/`userData.donationValue` para suportar raycast.
-6. Fora do bloco de criação (roda em **todo** sync, inclusive pra entry reusada): `applyBuildingFacadeTexture(entry.facadeMat, customization)` carrega/aplica a textura própria do prédio. É idempotente — compara com a pasta já aplicada e sai cedo se nada mudou.
+6. Fora do bloco de criação (roda em **todo** sync, inclusive pra entry reusada): `applyBuildingFacadeTexture(entry.facadeMat, donation)` carrega/aplica a textura própria do prédio; sem própria, a pasta do sorteio (`facadeGroupFor`) — formato custom segue o mesmo sorteio do instanciado. É idempotente — compara com a pasta já aplicada e sai cedo se nada mudou.
 
 Pontos de integração:
 
@@ -445,6 +447,14 @@ Pontos de integração:
 > 1. Adicionar o campo em `BuildingCustomization`.
 > 2. Estender `needsCustomMesh` para considerar o novo campo.
 > 3. Aplicar no clone dentro de `syncCustomShapes` e atualizar via uniform em `updateDonationCustomization`.
+
+#### Fila de customização
+
+Runtime drena a rajada de customizações do editor em fatias ([[scene-runtime#Desempenho (TBT e celular)]]). Manager dá duas peças:
+
+- `setRebuildDeferred(true)` → transição de formato não chama `rebuildInstances`, marca `rebuildPending`. Acessórios seguem aplicados na hora. `setRebuildDeferred(false)` → **um** rebuild pra rajada inteira (antes: um por transição, 3–7 ms cada, e cada um recriava todos os letreiros/LEDs via `syncSigns`/`syncEdgeLights`) + `applyFocus`.
+- `shapeDeadline` em `syncCustomShapes`: fora do prazo a doação fica sem malha nova (mantém a antiga, se houver) e `shapesPending = true`. Padrão `Infinity` = cria tudo (todo rebuild comum). O rebuild do `setRebuildDeferred(false)` roda com prazo `-Infinity` (não cria nenhuma). `pumpCustomShapes(budgetMs)` cria até o prazo — sempre ao menos uma — e refaz `syncRooftops` (topo do yachthouse/residencial depende da malha) e foco. 1º build de geometria complexa custa 10–25 ms (Empire, One Trade, Taipei): uma por tarefa.
+- Pendente = sem malha e fora do instancing → invisível até a fatia dela. Runtime não desenha enquanto drena.
 
 #### Platibandas automáticas
 

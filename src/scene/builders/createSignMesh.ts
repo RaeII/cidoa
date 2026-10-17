@@ -377,13 +377,18 @@ function createSignPanel(
 
   // Texto — ajustar tamanho para caber
   const maxTextW = canvasW * (1 - PADDING * 2);
+  const fontFor = (size: number) =>
+    `600 ${size}px "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
   let fontSize = Math.floor(canvasH * 0.52);
-  ctx.font = `600 ${fontSize}px "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
+  ctx.font = fontFor(fontSize);
   ctx.textBaseline = "middle";
 
-  while (fontSize > 10 && ctx.measureText(text).width > maxTextW) {
-    fontSize -= 1;
-    ctx.font = `600 ${fontSize}px "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
+  // Largura do texto é linear no tamanho da fonte: um ajuste proporcional em vez de
+  // descer de 1 em 1 px (cada passo = parse de fonte + measureText na main thread).
+  const fullWidth = ctx.measureText(text).width;
+  if (fullWidth > maxTextW) {
+    fontSize = Math.max(10, Math.floor((fontSize * maxTextW) / fullWidth));
+    ctx.font = fontFor(fontSize);
   }
 
   const textWidth = ctx.measureText(text).width;

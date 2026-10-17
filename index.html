@@ -7,13 +7,10 @@
     <meta name="theme-color" content="#4E6B45" />
     <title>Cidoe — Pré-lançamento</title>
     <meta name="description" content="Cadastre-se no pré-lançamento do Cidoe, indique amigos e teste sua cidade com pagamentos simulados." />
-    <!-- Fontes do sistema de design: Manrope (leitura, valores) + JetBrains Mono (rótulos, placar). -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap"
-    />
+    <!-- Fontes do sistema de design, self-hosted (@font-face em src/index.css): sem CSS
+         externo bloqueando o 1º paint. Preload só da Manrope latin (texto do 1º paint:
+         aviso de cookies); JetBrains Mono só aparece com a cena e baixa sob demanda. -->
+    <link rel="preload" href="/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin />
     <script>
       // Aplica tema salvo/do sistema antes do paint — evita flash. Escuro é só do /dale:
       // fora dele a cena fica sempre clara, mesmo com sistema escuro ou tema salvo no admin.
@@ -24,11 +21,16 @@
           document.documentElement.classList.add('dark')
       })()
     </script>
-    <!-- Google Identity Services (login com Google). Carrega assíncrono. -->
-    <script src="https://accounts.google.com/gsi/client" async></script>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Pôster da cidade pintado antes do JS (1º paint útil sem esperar o bundle). O React
+         troca pelo mesmo pôster (CityPoster, mesma caixa, sem pisca nem CLS), que some com
+         fade quando a cena aplica as doações. Não é candidato a LCP (cobre a viewport). -->
+    <div id="root"><picture id="city-poster"><source media="(orientation: portrait)" srcset="/city-poster-portrait.webp" /><img src="/city-poster-landscape.webp" alt="" style="position:absolute;top:0;left:0;width:100%;height:100vh;object-fit:cover;pointer-events:none" /></picture></div>
+    <script>
+      // Pôster é só da cena (/); outras rotas (/dale, /termos…) começam limpas.
+      if (location.pathname !== '/') document.getElementById('city-poster').remove()
+    </script>
     <!-- Sem JS (robôs, verificação do login com Google): o que é o site + links legais. -->
     <noscript>
       <p>Cidoe: cidade 3D em que cada contribuição para uma ONG de proteção animal ergue um edifício; o valor define a altura.</p>

@@ -35,33 +35,42 @@ O runtime:
 
 ### 1. Inicialização
 
+`async` — devolve `Promise<CitySceneRuntime>`. Etapas com `await` entre elas (tarefa nova cada, ver [[#Desempenho (TBT e celular)]]). Rejeita sem WebGL ou com WebGL por software.
+
 ```
-createCitySceneRuntime({mount, settings...})
+createCitySceneRuntime({mount, settings...})   // async
   ├── runDevAssertionsOnce()
+  ├── await afterNextFrame()   ← sai do commit do React; layout já pronto
   ├── THREE.Scene (background, FogExp2)
   ├── THREE.PerspectiveCamera
   ├── THREE.WebGLRenderer (ACES filmic, powerPreference "high-performance")
+  ├── isSoftwareGL()?  → throw "WebGL por software" (hook mostra pôster)
   ├── OrbitControls
+  ├── await yieldToMain()
   ├── loadEnvironment()       ← builder de HDRI
   ├── createLightingRig()     ← builder de luzes
   ├── createGroundPlane()     ← builder do chão
   ├── createTerrain()         ← builder do relevo (terrainRig)
+  ├── await yieldToMain()
   ├── WebGLCubeRenderTarget   ← envMap dinâmico dos prédios (256px)
   ├── CubeCamera              ← probe fixo no centro da cidade (y = ENV_PROBE_HEIGHT)
-  └── createDonationManager() ← manager principal (recebe blockLayoutSettings)
+  ├── createDonationManager() ← manager principal (recebe blockLayoutSettings)
+  ├── await yieldToMain()
+  └── requestAnimationFrame(animate)   ← 1º frame no rAF seguinte
 ```
 
 ### 2. Loop de Animação (`animate`)
 
-A cada frame:
+A cada tick do rAF (modo leve: no máximo 30/s). **Render sob demanda**: tick sem mudança sai cedo e o canvas segura o último frame.
 
-1. `controls.update()` — aplica damping do OrbitControls
+0. Gate: `controls.update()` devolve `true` com câmera em movimento (inclui damping) → frame. Também pedem frame: `cameraAnim`, `markCubeDirty` (toda mudança de cena), `requestRender` (resize, granulado, reflexo, foco), cull pendente, captura de cube pendente, holograma visível (`tickAnimations` → `true`). Frame **não sai** com passe de compilação em curso ou fila de customização drenando.
+1. `controls.update()` — aplica damping do OrbitControls (modo leve: fator `1-(1-f)²`, mesmo tempo de assentar a 30 fps)
 2. `groundPlane.setPosition(camera.x, camera.z)` — chão segue a câmera
 3. `environmentUpdater.updatePosition(...)` — skybox segue a câmera
 4. **Métricas de FPS** — acumula e suaviza a cada 0.5s
 5. **Resolução dinâmica** — ajusta `renderScale` para atingir `targetFps`. **Desligada no padrão** (piso `renderScaleFloor = 1`, controlado pelo granulado do painel)
-6. **CubeCamera** — captura reflexos só quando `cubeDirty` (cena mudou via `add*/update*` ou asset assíncrono chegou), após 180ms sem nova alteração e no máximo a cada `updateInterval` frames (4 no padrão; `followCamera`/`continuous` ligados por padrão recapturam sempre). O culling da câmera principal não invalida o probe fixo. Ver [[#Probe de reflexo (envMap dos prédios)]].
-7. **Culling de acessórios** — a cada 0.25s chama `donationManager.updateAccessoryVisibility(camera.position)`: letreiro, LED, topo e holograma somem além de 80 unidades (fog já os apaga; só a silhueta do prédio importa)
+6. **CubeCamera** — só fora do modo leve. Captura quando `cubeDirty` (cena mudou, 180ms de debounce) ou, com `followCamera`, quando a câmera andou desde a última captura (`lastCapturePos`); no máximo a cada `updateInterval` frames. Câmera parada = sem captura (antes recapturava a cada 4 frames: 6 renders + PMREM, 15–20 ms no M4). `continuous` sem `followCamera` recaptura a cada intervalo nos frames desenhados. Captura pendente segura o loop. Ver [[#Probe de reflexo (envMap dos prédios)]].
+7. **Culling de acessórios** — antes do gate, também em tick ocioso: com `cullPending` (câmera andou ou `markCubeDirty` — rebuild volta instâncias a visível) e 0.25s acumulados chama `donationManager.updateDistanceCulling(...)` e pede um frame: letreiro, LED, topo e holograma somem além de 80 unidades
 8. `renderer.render(scene, camera)` — renderiza o frame
 
 #### Resolução Dinâmica
@@ -84,6 +93,18 @@ grain 1   → piso 0.50 → troca nitidez por FPS de forma agressiva
 ```
 
 Baixar o granulado sobe `renderScale` até o novo piso **na hora** (`setPixelRatio` + `setSize` imediatos) — sem isso a imagem ficaria granulada até o FPS se recuperar sozinho. Mudanças têm cooldown de 1,5s; o delta imediatamente posterior à captura do cubemap não entra na média, evitando que um frame esporádico de CubeCamera/PMREM deixe a resolução permanentemente baixa em monitores de 60 Hz.
+
+## Desempenho (TBT e celular)
+
+Medido com CPU profile + trace (Lighthouse mobile simula CPU 4x: tarefa > 12,5 ms no M4 já é tarefa longa lá). Antes: link de shader síncrono (`onFirstUse`) ~375 ms, rajada de customizações ~420 ms numa tarefa, captura do cube a cada 4 frames, upload de textura no 1º render. Com SwiftShader (sem GPU) o link travava 7–17 s por tarefa.
+
+- **Modo leve** (`IS_LOW_TIER`, [[scene-utils#deviceTier.ts]]): `antialias` off, DPR `liteDprCap` (1,5), `liteFps` (30) com limitador no rAF, **sem cube camera** (fachada usa `scene.environment`, reflexo do céu em vez da cidade), alvo do scaler dinâmico = 30.
+- **WebGL por software** (`isSoftwareGL`: SwiftShader/llvmpipe/WARP): runtime desiste (`throw`) — sem `KHR_parallel_shader_compile` cada shader PBR trava segundos. Hook cai no catch, pôster fica.
+- **Criação em etapas** (`async` + `yieldToMain`): contexto | céu/luz/chão/relevo | doações | resto. `afterNextFrame` evita reflow forçado no `mount.clientWidth`.
+- **Compilação assíncrona** (`runCompilePass`): `requestCompile` em `childadded` da cena, `DefaultLoadingManager.onProgress` (cada arquivo pode ligar define), HDRI carregado, troca de textura/pool, foco, reflexo ligado/resolução, noite. Lotes de 4 filhos da cena → `renderer.compileAsync(lote, câmera, scene)` com lote "de mentira" (`traverseVisible` vazio: luzes só da cena, senão contaria 2x); cube (alvo linear) antes da tela. No mesmo passe, `renderer.initTexture` de cada textura nova dos materiais (versão guardada em `WeakMap`), fatias de `SLICE_MS` (4 ms) com yield. Frame só sai com tudo pronto. ponytail: teto de 5 s (material descartado no meio derruba o polling do three).
+- **Fila de customização**: `updateDonationCustomization` enfileira por id (última vence) e drena em fatias: com `setRebuildDeferred(true)` aplica sem rebuild; fila vazia → `setRebuildDeferred(false)` = **um** rebuild pra rajada inteira; depois `pumpCustomShapes(SLICE_MS)` cria malhas de formato em fatias. Ver [[scene-managers#Fila de customização]].
+- `renderer.debug.checkShaderErrors = import.meta.env.DEV` (logs síncronos de shader só em dev).
+- Sinal `sceneReady` ([[scene-types#SceneStats]]): 1º frame com HDRI carregado, doações recebidas e fila vazia. Monotônico. `CitySceneEditor` só esconde o `CityPoster` com ele — sem WebGL, pôster fica.
 
 ### 3. Atualizações do React
 
@@ -110,7 +131,7 @@ type CitySceneRuntime = {
   setDonations(entries: { id: number; value: number }[]): void  // replace-all do backend
 
   // Personalização individual
-  updateDonationCustomization(donationId: number, customization: BuildingCustomization): void
+  updateDonationCustomization(donationId: number, customization: BuildingCustomization): void // enfileira; drena em fatias
   focusOnDonation(donationId: number): void  // destaque visual no edifício
   clearFocus(): void                          // remove destaque
 

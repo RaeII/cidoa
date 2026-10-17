@@ -55,9 +55,9 @@ export function useCityScene({
   onBuildingClick,
 }: UseCitySceneOptions) {
   const runtimeRef = useRef<CitySceneRuntime | null>(null);
-  const initialSettingsRef = useRef<
-    Omit<UseCitySceneOptions, "mountRef" | "onStatsChange" | "grain" | "facadeTexturePool">
-  >({
+  // Settings mais recentes. O runtime nasce assíncrono (em etapas): o que mudar durante a
+  // criação é reaplicado quando ele sobe (os effects abaixo viram no-op enquanto não há runtime).
+  const settings = {
     buildingSettings,
     textureSettings,
     groundSettings,
@@ -67,7 +67,20 @@ export function useCityScene({
     environmentSettings,
     reflectionSettings,
     blockLayoutSettings,
+    facadeTexturePool,
+    grain,
+  };
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
   });
+  // Chamadas imperativas (doações, customização, foco) feitas antes do runtime subir:
+  // reaplicadas na ordem. null = cena indisponível, descarta.
+  const pendingCallsRef = useRef<Array<(runtime: CitySceneRuntime) => void> | null>([]);
+  const callRuntime = useCallback((call: (runtime: CitySceneRuntime) => void) => {
+    if (runtimeRef.current) call(runtimeRef.current);
+    else pendingCallsRef.current?.push(call);
+  }, []);
 
   const handleStatsChange = useEffectEvent((stats: SceneStats) => {
     onStatsChange(stats);
@@ -95,19 +108,54 @@ export function useCityScene({
       return;
     }
 
-    const runtime = createCitySceneRuntime({
-      mount,
-      ...initialSettingsRef.current,
-      onStatsChange: (stats) => handleStatsChange(stats),
-      onCameraDebugChange: (cameraInfo) => handleCameraDebugChange(cameraInfo),
-      onHoverChange: (value, x, y) => handleHoverChange(value, x, y),
-      onBuildingClick: (donationId) => handleBuildingClick(donationId),
-    });
-    runtimeRef.current = runtime;
+    let cancelled = false;
+    let runtime: CitySceneRuntime | null = null;
+    const initial = settingsRef.current;
+    void (async () => {
+      // Sem WebGL (robôs, verificação do Google, GPU bloqueada) ou com WebGL por software o
+      // runtime rejeita: sem o catch o React desmonta a página inteira. Cena fica vazia
+      // (pôster no lugar), resto da home segue.
+      try {
+        runtime = await createCitySceneRuntime({
+          mount,
+          ...initial,
+          onStatsChange: (stats) => handleStatsChange(stats),
+          onCameraDebugChange: (cameraInfo) => handleCameraDebugChange(cameraInfo),
+          onHoverChange: (value, x, y) => handleHoverChange(value, x, y),
+          onBuildingClick: (donationId) => handleBuildingClick(donationId),
+        });
+      } catch (error) {
+        console.warn("Cena 3D indisponível:", error);
+        pendingCallsRef.current = null;
+        return;
+      }
+      if (cancelled) {
+        runtime.dispose();
+        return;
+      }
+      runtimeRef.current = runtime;
+      // O que mudou enquanto o runtime nascia. Pool e granulado não entram na criação.
+      const latest = settingsRef.current;
+      if (latest.buildingSettings !== initial.buildingSettings) runtime.updateBuildingSettings(latest.buildingSettings);
+      if (latest.textureSettings !== initial.textureSettings) runtime.updateTextureSettings(latest.textureSettings);
+      if (latest.groundSettings !== initial.groundSettings) runtime.updateGroundSettings(latest.groundSettings);
+      if (latest.terrainSettings !== initial.terrainSettings) runtime.updateTerrainSettings(latest.terrainSettings);
+      if (latest.lightSettings !== initial.lightSettings) runtime.updateLightSettings(latest.lightSettings);
+      if (latest.horizonSettings !== initial.horizonSettings) runtime.updateHorizonSettings(latest.horizonSettings);
+      if (latest.environmentSettings !== initial.environmentSettings) runtime.updateEnvironmentSettings(latest.environmentSettings);
+      if (latest.reflectionSettings !== initial.reflectionSettings) runtime.updateReflectionSettings(latest.reflectionSettings);
+      if (latest.blockLayoutSettings !== initial.blockLayoutSettings) runtime.updateBlockLayout(latest.blockLayoutSettings);
+      runtime.setFacadeTexturePool(latest.facadeTexturePool);
+      runtime.setGrain(latest.grain);
+      const pending = pendingCallsRef.current ?? [];
+      pendingCallsRef.current = [];
+      for (const call of pending) call(runtime);
+    })();
 
     return () => {
+      cancelled = true;
       runtimeRef.current = null;
-      runtime.dispose();
+      runtime?.dispose();
     };
   }, [mountRef]);
 
@@ -158,34 +206,34 @@ export function useCityScene({
 
   // Referência estável: delega ao runtime atual sem recriar a função
   const addDonation = useCallback((value: number) => {
-    runtimeRef.current?.addDonation(value);
-  }, []);
+    callRuntime((runtime) => runtime.addDonation(value));
+  }, [callRuntime]);
 
   const addDonations = useCallback((values: number[]) => {
-    runtimeRef.current?.addDonations(values);
-  }, []);
+    callRuntime((runtime) => runtime.addDonations(values));
+  }, [callRuntime]);
 
   const setDonations = useCallback(
     (entries: ReadonlyArray<{ id: number; value: number }>) => {
-      runtimeRef.current?.setDonations(entries);
+      callRuntime((runtime) => runtime.setDonations(entries));
     },
-    [],
+    [callRuntime],
   );
 
   const updateDonationCustomization = useCallback(
     (donationId: number, customization: BuildingCustomization) => {
-      runtimeRef.current?.updateDonationCustomization(donationId, customization);
+      callRuntime((runtime) => runtime.updateDonationCustomization(donationId, customization));
     },
-    [],
+    [callRuntime],
   );
 
   const focusOnDonation = useCallback((donationId: number) => {
-    runtimeRef.current?.focusOnDonation(donationId);
-  }, []);
+    callRuntime((runtime) => runtime.focusOnDonation(donationId));
+  }, [callRuntime]);
 
   const clearFocus = useCallback(() => {
-    runtimeRef.current?.clearFocus();
-  }, []);
+    callRuntime((runtime) => runtime.clearFocus());
+  }, [callRuntime]);
 
   return { addDonation, addDonations, setDonations, updateDonationCustomization, focusOnDonation, clearFocus };
 }

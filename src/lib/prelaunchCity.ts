@@ -52,45 +52,70 @@ const SEED_CITIES: City[] = [
   { id: 4314902, name: "Porto Alegre", uf: "RS" },
   { id: 5300108, name: "Brasília", uf: "DF" },
 ];
-const SEED_VALUES = [480, 320, 250, 200, 160, 130, 110, 95, 80, 70, 60, 50, 45, 40, 35, 30, 25, 20, 15, 12, 10, 8, 6, 5];
+// Enche a grade 3×3 de quadras que a cena sempre desenha (central 7×7 + 8 de 8×8).
+const SEED_COUNT = 480;
 
 /** Cidade pública vazia no pré-lançamento: edifícios fixos só no front. IDs bem abaixo dos locais (-1…-3). */
 export function createSeedBuildings(ongs: readonly { id: number }[]): LocalBuilding[] {
-  return SEED_VALUES.map((value, index) => {
+  return Array.from({ length: SEED_COUNT }, (_, index) => {
+    // Cauda longa: poucas torres altas, muita base baixa. Índice = ordem de valor.
+    const value = Math.round(5 + 595 * (1 - index / SEED_COUNT) ** 3);
     const city = SEED_CITIES[index % SEED_CITIES.length];
     const ongId = ongs.length ? ongs[index % ongs.length].id : 0;
     return { id: -1_000_000 - index, value, cityId: city.id, city, ongId, ongIds: ongs.length ? [ongId] : [] };
   });
 }
 
-// Ordem alterna torre icônica e prédio comum: vizinhos na espiral nunca repetem formato.
+// Skyline: as 40 maiores giram pelos 12 formatos.
 const SEED_SHAPES: BuildingShape[] = ["default", "setback", "chrysler", "residential", "octagonal", "taipei",
   "hearst", "twisted", "empire", "yachthouse", "tapered", "one-trade"];
+// Resto da cidade: 1 a cada 4 foge da caixa padrão; os demais ficam instanciados.
+const SEED_BASE_SHAPES: BuildingShape[] = ["residential", "setback", "octagonal", "twisted", "residential", "hearst",
+  "yachthouse", "setback", "tapered", "octagonal"];
+// Cidade inicial também sorteia texturas do repo fora do catálogo (que hoje tem 1 ativa).
+// ponytail: 6 mais leves (~11 MB, carga em segundo plano); as 4 restantes somam +15 MB.
+export const SEED_FACADE_TEXTURES = ["Facade001_1K-PNG", "Facade002_1K-PNG", "Facade005_1K-JPG",
+  "Facade006_1K-mirrored-PNG", "Facade007_1K-JPG", "Facade018A_1K-PNG"];
 // Topo estreito/pináculo: acessório de topo ficaria flutuando.
 const SEED_SPIRE_SHAPES = new Set<BuildingShape>(["tapered", "chrysler", "empire", "taipei", "one-trade"]);
-const SEED_ROOFTOPS: RooftopType[] = ["helipad", "garden", "spotlights", "none", "helicopter", "garden", "none"];
-// Concreto, areia, tijolo, vidro azulado, sálvia: multiplicam a textura sem saturar.
-const SEED_COLORS = ["#d4d4d4", "#e6dccb", "#c48f74", "#b7c4cf", "#a9b3a1", "#d9c7b0", "#8f99a3", "#e8e4dc", "#9fb2bf", "#c9b8a3"];
+const SEED_TOWER_ROOFTOPS: RooftopType[] = ["helipad", "none", "helicopter", "none", "spotlights"];
+// Só tons escuros e dessaturados (grafite, ardósia, café, bronze, musgo): nada claro nem vivo.
+const SEED_COLORS = ["#3a3d42", "#2f3338", "#4a4540", "#3d3530", "#33393f", "#454a4f", "#3b3f3a", "#4d443b", "#2b2e33", "#40403c"];
 
-/** Edifícios iniciais com combos diferentes. Textura fica `null` → segue o sorteio por edifício da cena. */
+// = DEFAULT_BUILDING_SETTINGS.color; import de valor quebraria o check sem bundler.
+const SEED_DEFAULT_COLOR = "#d4d4d4";
+
+/**
+ * Edifícios iniciais variados, acessório e cor raros. Seed sem nada especial fica fora
+ * do mapa → segue a cor global da cena. Textura `null` → sorteio por edifício.
+ */
 export function createSeedCustomizations(seeds: readonly LocalBuilding[]): Map<number, BuildingCustomization> {
-  return new Map(seeds.map((seed, index) => {
-    const buildingShape = SEED_SHAPES[index % SEED_SHAPES.length];
-    const sign = index === 0 ? "Cidoe" : index % 5 === 2 ? seed.city.name : "";
-    return [seed.id, {
-      color: SEED_COLORS[(index * 3) % SEED_COLORS.length],
+  return new Map(seeds.flatMap((seed, index) => {
+    const buildingShape = index < 40 ? SEED_SHAPES[index % SEED_SHAPES.length]
+      : index % 4 === 0 ? SEED_BASE_SHAPES[(index / 4) % SEED_BASE_SHAPES.length] : "default";
+    const rooftopType = SEED_SPIRE_SHAPES.has(buildingShape) ? "none"
+      : index < 40 ? SEED_TOWER_ROOFTOPS[index % SEED_TOWER_ROOFTOPS.length] : index % 13 === 0 ? "garden" : "none";
+    const signText = index === 0 ? "Cidoe" : index % 40 === 2 ? seed.city.name : "";
+    // LED só em torre alta (top 40); prédio baixo nunca brilha.
+    const edgeLightType = index < 40 && index % 9 === 4 ? "led" : "none";
+    // Cor em 1 a cada 24 (~20 edifícios).
+    const color = index % 24 === 7 ? SEED_COLORS[(index / 24 | 0) % SEED_COLORS.length] : SEED_DEFAULT_COLOR;
+    if (buildingShape === "default" && rooftopType === "none" && !signText && edgeLightType === "none"
+      && color === SEED_DEFAULT_COLOR) return [];
+    return [[seed.id, {
+      color,
       buildingShape,
-      rooftopType: SEED_SPIRE_SHAPES.has(buildingShape) ? "none" : SEED_ROOFTOPS[index % SEED_ROOFTOPS.length],
-      signText: sign,
-      signSides: index === 0 ? 4 : 1 + (index % 2),
-      edgeLightType: index % 3 === 0 ? "led" : "none",
+      rooftopType,
+      signText,
+      signSides: index === 0 ? 4 : 1,
+      edgeLightType,
       textureKey: null,
       tilingScale: 1,
       textureTransform: { scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0 },
       hologramImage: null,
       hologramColor: "#73f2ff",
       hologramOpacity: 0.78,
-    }];
+    }] as const];
   }));
 }
 

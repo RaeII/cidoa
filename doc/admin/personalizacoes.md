@@ -58,7 +58,7 @@ Categoria **Textura** não usa dialog de digitar caminho. Compara pastas do repo
 - **Cadastrada** = já é opção → usuário seleciona; admin controla (toggle/editar/excluir).
 - **Não-cadastrada** = pasta no repo sem opção → linha tracejada + botão **Cadastrar** (`POST /admin/customization/options`, `value` = pasta, key = slug). Vira dado puro (`isCodeBound=false`) → depois dá pra excluir.
 
-Textura nova = dropar pasta em `src/assets/texture/` + `npm run textures:ktx2` → aparece como não-cadastrada, sem editar código. Backend não valida asset (front só oferece pasta existente).
+Textura nova = dropar pasta em `src/assets/texture/` + `npm run textures:webp` → aparece como não-cadastrada, sem editar código. Backend não valida asset (front só oferece pasta existente).
 
 Textura cadastrada aparece em dois lugares: seletor **global** da cena ([[html-components#TextureControls.tsx|TextureControls]]) e seletor **por edifício** ([[html-components#BuildingManageDialog.tsx|BuildingManageDialog]], aba Aparência → Fachada).
 

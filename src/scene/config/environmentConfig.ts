@@ -11,7 +11,7 @@ export function createDefaultEnvironmentSettings(): EnvironmentSettings {
   };
 }
 
-// Modo noite derivado do HDRI diurno — sem segundo asset de 3 MB. `skyTint` multiplica o
+// Modo noite derivado do HDRI diurno — sem segundo asset de céu. `skyTint` multiplica o
 // mapa do céu (MeshBasicMaterial.color), o resto escurece cena/luz/névoa.
 export const NIGHT_PRESET = {
   /** Multiplicador do céu diurno → azul-noite mantendo a estrutura das nuvens. */

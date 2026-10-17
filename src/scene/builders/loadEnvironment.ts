@@ -1,8 +1,12 @@
 import * as THREE from "three";
 
-import envUrl from "../../assets/environment/DaySkyHDRI040B_4K_TONEMAPPED.jpg";
+import skyUrl from "../../assets/environment/DaySkyHDRI040B_4K_TONEMAPPED.webp";
+import skyLowUrl from "../../assets/environment/DaySkyHDRI040B_4K_TONEMAPPED.low.webp";
+import pmremUrl from "../../assets/environment/DaySkyHDRI040B_4K_TONEMAPPED.pmrem.webp";
 import { NIGHT_PRESET } from "../config/environmentConfig";
 import type { EnvironmentSettings } from "../types";
+import { loadImageTexture } from "../textures/loadImageTexture";
+import { IS_LOW_TIER } from "../utils/deviceTier";
 import { seeded } from "../utils/random";
 
 export type EnvironmentUpdater = {
@@ -19,9 +23,16 @@ export type EnvironmentUpdater = {
 // Fica dentro do far plane com folga; acima dele o céu some e o fundo vira preto.
 const SKY_RADIUS_RATIO = 0.9;
 
+// Dois arquivos do mesmo HDRI (WebP, `npm run textures:webp`):
+// - céu visível (esfera invertida): 4K no desktop, 2K no IS_LOW_TIER (tela pequena,
+//   1/4 da VRAM e do upload).
+// - fonte do PMREM (scene.environment): 1024×512. O PMREM faz cubo de largura/4 e a
+//   doc do three pede 1K de entrada; o 4K gerava alvo de ~96 MiB pro mesmo IBL.
+const SKY_URL = IS_LOW_TIER ? skyLowUrl : skyUrl;
+
 // Cache persistente da imagem HDRI no Cache API do browser.
 // Bump versão se a imagem mudar de conteúdo.
-const ENV_CACHE_NAME = "cidoa-env-v1";
+const ENV_CACHE_NAME = "cidoa-env-v2";
 
 // Resolve URL da textura priorizando o Cache API: primeira visita baixa e
 // grava; visitas seguintes leem direto do cache local (sem rede). Devolve um
@@ -29,6 +40,7 @@ const ENV_CACHE_NAME = "cidoa-env-v1";
 async function resolveEnvUrl(url: string): Promise<string> {
   if (!("caches" in globalThis)) return url;
   try {
+    void caches.delete("cidoa-env-v1"); // JPG 4K de 3 MB da versão anterior
     const cache = await caches.open(ENV_CACHE_NAME);
     let response = await cache.match(url);
     if (!response) {
@@ -99,16 +111,29 @@ export function loadEnvironment(
   let skyMaterial: THREE.MeshBasicMaterial | null = null;
   let stars: THREE.Points | null = null;
   let currentRadius = initialRenderDistance * SKY_RADIUS_RATIO;
-  // HDRI 4K demora; noite pode ser ligada antes do load terminar.
+  // HDRI chega async; noite pode ser ligada antes do load terminar.
   let currentSettings = settings;
 
-  const loader = new THREE.TextureLoader();
+  const load = (url: string) =>
+    resolveEnvUrl(url).then(async (resolvedUrl) => {
+      const texture = await loadImageTexture(resolvedUrl);
+      if (resolvedUrl !== url) URL.revokeObjectURL(resolvedUrl);
+      texture.mapping = THREE.EquirectangularReflectionMapping;
+      texture.colorSpace = THREE.SRGBColorSpace;
+      return texture;
+    });
 
-  const buildSky = (texture: THREE.Texture) => {
-    if (isCancelled?.()) return;
+  // Compila o shader do PMREM enquanto o HDRI baixa, não no frame em que ele chega.
+  let pmremGenerator: THREE.PMREMGenerator | null = new THREE.PMREMGenerator(renderer);
+  pmremGenerator.compileEquirectangularShader();
 
-    texture.mapping = THREE.EquirectangularReflectionMapping;
-    texture.colorSpace = THREE.SRGBColorSpace;
+  const buildSky = (texture: THREE.Texture, pmremSource: THREE.Texture) => {
+    if (isCancelled?.() || !pmremGenerator) {
+      texture.dispose();
+      pmremSource.dispose();
+      return;
+    }
+
     texture.wrapT = THREE.RepeatWrapping;
 
     // Esfera invertida como background — permite offset UV uniforme em todas as direções
@@ -127,22 +152,20 @@ export function loadEnvironment(
     applySettings(skyMesh, skyMaterial, stars, currentSettings);
     scene.add(skyMesh);
 
-    // scene.environment para iluminação PBR dos edifícios
-    const pmremGenerator = new THREE.PMREMGenerator(renderer);
-    pmremGenerator.compileEquirectangularShader();
-    const envMap = pmremGenerator.fromEquirectangular(texture).texture;
+    // scene.environment para iluminação PBR dos edifícios. A fonte 1K só serve aqui.
+    const envMap = pmremGenerator.fromEquirectangular(pmremSource).texture;
     scene.environment = envMap;
     pmremGenerator.dispose();
+    pmremGenerator = null;
+    pmremSource.dispose();
 
     onLoaded?.(envMap, texture);
   };
 
-  void resolveEnvUrl(envUrl).then((resolvedUrl) => {
-    loader.load(resolvedUrl, (texture) => {
-      if (resolvedUrl !== envUrl) URL.revokeObjectURL(resolvedUrl);
-      buildSky(texture);
-    });
-  });
+  void Promise.all([load(SKY_URL), load(pmremUrl)]).then(
+    ([texture, pmremSource]) => buildSky(texture, pmremSource),
+    (err) => console.warn("[environment] HDRI falhou", err),
+  );
 
   return {
     updateSettings(newSettings: EnvironmentSettings) {
@@ -162,6 +185,8 @@ export function loadEnvironment(
       if (stars) stars.visible = visible && currentSettings.night;
     },
     dispose() {
+      pmremGenerator?.dispose();
+      pmremGenerator = null;
       if (skyMesh) scene.remove(skyMesh);
       skyGeometry?.dispose();
       skyMaterial?.dispose();

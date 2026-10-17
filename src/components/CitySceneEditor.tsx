@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { saveDonationCustomization } from "../api/donationApi";
 import { useCustomizationCatalog } from "./hooks/useCustomizationCatalog";
 import { DonationLoadOverlay } from "./html/DonationLoadOverlay";
+import { CityPoster } from "./CityPoster";
 import { DonationInfoSection } from "./html/DonationInfoSection";
 import { ContributeDialog } from "./html/donate/ContributeDialog";
 import { BuildingProfileDialog } from "./html/donate/BuildingProfileForm";
@@ -49,6 +50,7 @@ import {
   DEFAULT_HOLOGRAM_OPACITY,
 } from "../scene/types";
 import { getLightMetrics } from "../scene/utils/lighting";
+import { SEED_FACADE_TEXTURES } from "@/lib/prelaunchCity";
 
 const formatCameraValue = (value: number) => value.toFixed(2);
 
@@ -102,6 +104,7 @@ export function CitySceneEditor() {
     cities,
     ongs,
     savedCustomizations,
+    seeded,
     filter,
     setFilter,
     retry,
@@ -206,16 +209,14 @@ export function CitySceneEditor() {
 
   // Pool de sorteio de textura por edifício: todas as texturas ATIVAS do
   // catálogo. Desligado o sorteio, a lista vai vazia e a cidade inteira usa
-  // `textureSettings.textureKey`.
-  const facadeTexturePool = useMemo(
-    () =>
-      textureSettings.randomPerBuilding
-        ? (customizationCatalog?.textures ?? [])
-            .map((option) => option.value)
-            .filter((value): value is string => !!value)
-        : [],
-    [textureSettings.randomPerBuilding, customizationCatalog],
-  );
+  // `textureSettings.textureKey`. Cidade inicial soma as texturas dela ao catálogo.
+  const facadeTexturePool = useMemo(() => {
+    if (!textureSettings.randomPerBuilding) return [];
+    const catalog = (customizationCatalog?.textures ?? [])
+      .map((option) => option.value)
+      .filter((value): value is string => !!value);
+    return seeded ? [...catalog, ...SEED_FACADE_TEXTURES] : catalog;
+  }, [textureSettings.randomPerBuilding, customizationCatalog, seeded]);
 
   const lightMetrics = getLightMetrics(lightSettings);
 
@@ -521,6 +522,8 @@ export function CitySceneEditor() {
         onHoverChange={handleHoverChange}
         onBuildingClick={handleBuildingClick}
       />
+      {/* Pôster do index.html segue sobre o canvas até a 1ª aplicação das doações. */}
+      <CityPoster hidden={loadState.status === "ready" && donationsApplied && sceneStats.sceneReady} />
       <div className="pointer-events-none absolute inset-x-4 top-4 z-30 flex flex-wrap items-start justify-between gap-2">
         {/* Marca visível sem rolar nem entrar (página inicial do login com Google). */}
         <aside aria-label="Cidoe" className="pointer-events-auto pixel pixel-thin max-w-full bg-background px-2 py-1.5 text-xs leading-4 text-muted-foreground">
