@@ -263,6 +263,8 @@ export type SceneStats = {
   culled: number;
   fpsMode: string;
   chunks: number;
+  /** Último frame saiu com céu (HDRI) carregado, shaders prontos e sem customização na fila. */
+  sceneReady: boolean;
 };
 
 export type CameraDebugInfo = {
@@ -304,7 +306,11 @@ export type CitySceneConfig = {
   maxHeight: number;
   maxBuildingsPerChunk: number;
   dprCap: number;
+  /** Teto do DPR no modo leve (IS_LOW_TIER). */
+  liteDprCap: number;
   targetFps: number;
+  /** Teto de FPS no modo leve (IS_LOW_TIER). */
+  liteFps: number;
   minRenderScale: number;
   maxRenderScale: number;
   far: number;

@@ -180,6 +180,8 @@ Valores padrão do ambiente HDRI:
 
 Exporta também `NIGHT_PRESET` — tudo que a noite muda. Sem HDRI noturno: noite = HDRI diurno multiplicado por azul escuro.
 
+Arquivo do HDRI (WebP, céu 4K/2K por tier + fonte 1K do PMREM) não é config — mora em [[scene-builders#loadEnvironment.ts]].
+
 | Campo | Padrão | Onde bate |
 |---|---|---|
 | `skyTint` | `#1b2440` | `MeshBasicMaterial.color` da esfera do céu — multiplica o mapa, mantém nuvem |
@@ -263,7 +265,9 @@ Configuração mais global da cena. Define a estrutura completa de `CitySceneCon
 | `maxHeight` | Cap visual absoluto (teto de altura; prédios nunca ultrapassam) |
 | `maxBuildingsPerChunk` | Limite de prédios por chunk |
 | `dprCap` | Limite máximo de device pixel ratio. `2` = resolução nativa em retina; só corta telas 3x+ |
+| `liteDprCap` | DPR máximo no modo leve (`IS_LOW_TIER`, celular/máquina modesta): `1.5` |
 | `targetFps` | FPS alvo para resolução dinâmica (inerte enquanto o granulado for `0`) |
+| `liteFps` | Teto de FPS no modo leve: `30` (limitador no rAF; também vira o alvo do scaler — iOS em Low Power já trava em 30) |
 | `minRenderScale` | Piso **inicial** da escala de render. `1` = escala dinâmica desligada no boot. Em runtime quem manda é o `setGrain` do granulado — ver [[scene-runtime]] |
 | `maxRenderScale` | Escala máxima de render |
 | `far` | `600`: **padrão** do `HorizonSettings.renderDistance` (`camera.far` + raio do céu). Em runtime quem manda é o slider da aba horizonte |
@@ -284,7 +288,7 @@ Configuração mais global da cena. Define a estrutura completa de `CitySceneCon
 
 **Constantes exportadas:**
 - `CITY_SCENE_CONFIG` — objeto de configuração global
-- `DEFAULT_SCENE_STATS` — estado inicial das métricas
+- `DEFAULT_SCENE_STATS` — estado inicial das métricas (`sceneReady: false`)
 
 ## Diferença entre Configs por Domínio e Config Global
 

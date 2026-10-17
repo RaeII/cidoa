@@ -4,6 +4,8 @@
 // lazy no loader. Sem import de THREE: a página admin consome este manifesto sem
 // puxar three pro bundle.
 
+import { IS_LOW_TIER } from "../utils/deviceTier";
+
 type MapKind = "color" | "normal" | "roughness" | "metalness" | "displacement";
 
 export type FacadeMapUrls = {
@@ -20,13 +22,24 @@ export type FacadeTextureInfo = { folder: string; label: string };
 // Vite não emite pro dist o que ninguém carrega (ex: _NormalDX, preview .png). Só
 // esses arquivos viram asset hasheado. Usamos NormalGL (OpenGL), não DX.
 //
-// O PNG/JPG tem prioridade sobre o .ktx2 (Basis Universal, gerado por
-// `npm run textures:ktx2`) do mesmo mapa: Basis é lossy e a perda é visível no normal
-// map. O .ktx2 (~4x menos VRAM) só é usado onde não existe fonte PNG/JPG.
+// Mesmo mapa em mais de um formato → ganha o de maior RANK:
+//   .low.webp (só IS_LOW_TIER) > .webp > .png/.jpg (fonte) > .ktx2
+// O .webp (e o .low.webp, metade da resolução) sai de `npm run textures:webp`: ~90% menor
+// que a fonte, sem diferença visível. O .ktx2 (Basis, `npm run textures:ktx2`) perde da
+// fonte porque o artefato dele aparece no normal map — só entra onde não há outra forma.
+// O plugin `dropSupersededTextures` (vite.config.ts) tira o superado do dist: a ordem
+// TEM que ser a mesma lá.
 const files = import.meta.glob(
-  "../../assets/texture/*/*_{Color,NormalGL,Roughness,Metalness,Displacement}.{png,jpg,jpeg,ktx2}",
-  { query: "?url", import: "default", eager: true },
+  "../../assets/texture/*/*_{Color,NormalGL,Roughness,Metalness,Displacement}.{png,jpg,jpeg,ktx2,webp}",
+  { query: "?url&no-inline", import: "default", eager: true },
 ) as Record<string, string>;
+// Celular/máquina modesta: 512 px = 1/4 do download, da VRAM e do upload pra GPU.
+const lowTierFiles = import.meta.glob(
+  "../../assets/texture/*/*_{Color,NormalGL,Roughness,Metalness,Displacement}.low.webp",
+  { query: "?url&no-inline", import: "default", eager: true },
+) as Record<string, string>;
+
+const RANK: Record<string, number> = { low: 4, webp: 3, png: 2, jpg: 2, jpeg: 2, ktx2: 1 };
 
 function classify(nameNoExt: string): MapKind | null {
   if (nameNoExt.endsWith("_Color")) return "color";
@@ -44,22 +57,22 @@ function deriveLabel(folder: string): string {
   return (cut > 0 ? folder.slice(0, cut) : folder.split("_")[0]) || folder;
 }
 
-const byFolder = new Map<string, Partial<Record<MapKind, string>>>();
-for (const [path, url] of Object.entries(files)) {
+const byFolder = new Map<string, Partial<Record<MapKind, { url: string; rank: number }>>>();
+const sources = IS_LOW_TIER ? { ...files, ...lowTierFiles } : files;
+for (const [path, url] of Object.entries(sources)) {
   const parts = path.split("/");
   const file = parts[parts.length - 1];
   const folder = parts[parts.length - 2];
-  const nameNoExt = file.replace(/\.[^.]+$/, "");
-  const kind = classify(nameNoExt);
+  // "X_Color.low.webp" -> ["X_Color", "low"]; "X_Color.png" -> ["X_Color", "png"]
+  const match = /^(.+?)(?:\.(low))?\.([^.]+)$/.exec(file);
+  if (!match) continue;
+  const kind = classify(match[1]);
   if (!kind) continue;
+  const rank = RANK[match[2] ?? match[3].toLowerCase()] ?? 0;
   let maps = byFolder.get(folder);
   if (!maps) byFolder.set(folder, (maps = {}));
-  // Um mapa pode existir nas duas formas (PNG fonte + KTX2 gerado). O PNG/JPG ganha:
-  // Basis é lossy e o artefato aparece no normal map (reflexo cintilante na fachada).
-  // KTX2 só entra onde não existe fonte PNG/JPG.
-  const isKtx2 = file.endsWith(".ktx2");
-  if (maps[kind] && isKtx2) continue;
-  maps[kind] = url;
+  if ((maps[kind]?.rank ?? 0) >= rank) continue;
+  maps[kind] = { url, rank };
 }
 
 const urlsByFolder = new Map<string, FacadeMapUrls>();
@@ -67,11 +80,11 @@ const infos: FacadeTextureInfo[] = [];
 for (const [folder, maps] of byFolder) {
   if (!maps.color) continue; // sem color map não é textura válida
   urlsByFolder.set(folder, {
-    color: maps.color,
-    normal: maps.normal ?? null,
-    roughness: maps.roughness ?? null,
-    metalness: maps.metalness ?? null,
-    displacement: maps.displacement ?? null,
+    color: maps.color.url,
+    normal: maps.normal?.url ?? null,
+    roughness: maps.roughness?.url ?? null,
+    metalness: maps.metalness?.url ?? null,
+    displacement: maps.displacement?.url ?? null,
   });
   infos.push({ folder, label: deriveLabel(folder) });
 }

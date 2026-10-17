@@ -121,23 +121,29 @@ Cria e atualiza a luz da cena.
 Carrega e configura o ambiente HDRI/skybox.
 
 **Responsabilidades:**
-- Carregar textura HDRI de `src/assets/environment/DaySkyHDRI040B_4K_TONEMAPPED.jpg`
-- Cachear imagem (2.9MB) no Cache API do browser via `resolveEnvUrl` → 2ª visita lê do cache local, sem rede
+- Carregar HDRI em **dois arquivos WebP por tier**, gerados de `src/assets/environment/DaySkyHDRI040B_4K_TONEMAPPED.jpg` por `npm run textures:webp` (ver [[scene-textures#Pipeline WebP]]). JPG fonte fica no repo, fora do dist:
+  - céu visível: `….webp` 4K (118 KB) no desktop, `….low.webp` 2K (40 KB) no `IS_LOW_TIER`
+  - fonte do PMREM: `….pmrem.webp` 1024×512 (14 KB), os dois tiers
+- Decode via `loadImageTexture` (ImageBitmap fora da main thread, fallback `TextureLoader`) — ver [[scene-textures]]
+- Cachear imagens no Cache API do browser via `resolveEnvUrl` → 2ª visita lê do cache local, sem rede
 - Criar esfera invertida como background (permite offset UV uniforme em todas as direções)
-- Gerar `PMREMGenerator` para `scene.environment` (iluminação PBR dos prédios)
+- Gerar `PMREMGenerator` para `scene.environment` (iluminação PBR dos prédios) a partir da fonte 1K; `compileEquirectangularShader()` roda na criação, em paralelo ao download. Fonte 1K é descartada logo após o PMREM
 - Modo noite: tingir o céu (`material.color = NIGHT_PRESET.skyTint`) e mostrar o campo de estrelas
 - Expor `updateSettings` para rotacionar/deslocar o skybox
 - Expor `updatePosition` para seguir a câmera
 - Expor `setStarsVisible` para tirar as estrelas da captura do cube de reflexo
-- Limpar meshes, geometria e material no `dispose`
+- Limpar meshes, geometria, material e o `PMREMGenerator` pendente no `dispose`
 
 **Retorna:** objeto `EnvironmentUpdater` com métodos `updateSettings`, `updatePosition`, `setStarsVisible` e `dispose`.
 
 > [!note] Técnica da esfera invertida
 > Usar `THREE.BackSide` em uma `SphereGeometry` grande permite deslocar o horizonte via `texture.offset.y` de forma uniforme em todas as direções — ao contrário de `scene.background` com equirectangular direta.
 
+> [!note] Por que PMREM com fonte separada de 1K
+> `PMREMGenerator` faz cubo de `largura/4`: HDRI 4K gerava alvo de ~96 MiB (pico ~192 MiB) e tarefa de ~87 ms, pra um IBL que a doc do three pede de 256/face (entrada 1024×512). Céu visível continua em resolução de tela. Teste A/B desktop: céu 4K WebP ≈ JPG; 2K visivelmente mais borrado na nuvem → desktop fica 4K. Celular (DPR alto, tela pequena) vai de 2K: ¼ da VRAM e do upload, nuvem um pouco mais suave só em pixel físico.
+
 > [!tip] Cache persistente
-> `resolveEnvUrl` abre cache `cidoa-env-v1`, grava blob na 1ª visita, devolve object URL nas seguintes (revogado após decode). Fallback: URL original se Cache API ausente ou fetch falhar. Imagem fica em `src/assets` (não `public/`) — Vite content-hasheia o nome, ideal pra cache-bust HTTP. **Bump versão do cache se trocar a imagem.**
+> `resolveEnvUrl` abre cache `cidoa-env-v2`, grava blob na 1ª visita, devolve object URL nas seguintes (revogado após decode). Apaga o `cidoa-env-v1` (JPG 4K de 3 MB da versão anterior). Fallback: URL original se Cache API ausente ou fetch falhar. Imagem fica em `src/assets` (não `public/`) — Vite content-hasheia o nome, ideal pra cache-bust HTTP. **Bump versão do cache se trocar a imagem.**
 
 > [!note] Sem `texture.needsUpdate` no updateSettings
 > `offset`/rotação são uniforms — `needsUpdate = true` re-enviava a textura 4K inteira à GPU a cada movimento de slider. Removido.
@@ -261,7 +267,7 @@ Factory para letreiros de fachada nos edifícios. Renderiza texto via `CanvasTex
 Painéis (canvas + textura + materiais + geometrias) são **cacheados por largura da face**: faces opostas têm placa idêntica e compartilham a mesma `CanvasTexture` — antes eram até 4 rasterizações/texturas duplicadas por letreiro. A largura do letreiro se adapta à largura da fachada correspondente (`buildingW` para frente/trás, `buildingD` para laterais). A altura é consistente em todos os lados: `max(buildingW, buildingD) * 0.22`.
 
 > [!note] Ajuste automático de fonte
-> O fontSize começa em 52% da altura do canvas e é reduzido pixel a pixel até o texto caber com 12% de padding lateral. Limite máximo: 30 caracteres (imposto pelo UI).
+> O fontSize começa em 52% da altura do canvas; se o texto não cabe com 12% de padding lateral, um ajuste proporcional (`fontSize × larguraMáx / larguraMedida`, piso 10) — largura do texto é linear no tamanho. Antes descia de 1 em 1 px (parse de fonte + `measureText` por passo). Limite máximo: 30 caracteres (imposto pelo UI).
 
 **API:**
 ```typescript
@@ -517,6 +523,9 @@ Cria um `THREE.Mesh` com volumetria inspirada no **Empire State Building** para 
 - Usar materiais próprios sem texturas PBR; o `DonationManager` marca os materiais como textureless para impedir aplicação de mapas
 - Declarar `aProjPosition` e `aProjNormal` para manter compatibilidade com o shader triplanar do manager
 - Exportar helpers usados por letreiros e LEDs para acompanhar os recuos principais
+
+> [!note] Custo do 1º build
+> `appendGeometry` percorre o índice direto (mesma ordem do `toNonIndexed`) com vetores scratch; `addBox` escala uma `UNIT_BOX` compartilhada pela matriz em vez de criar um `BoxGeometry` por caixa (lado zero → caminho antigo, matriz normal singular). Saída idêntica (diferença ≤ 3e-8), ~2x mais rápido (32 → 17 ms no Node). Mesmo padrão em [[#createTaipeiBuildingMesh.ts]] e [[#createOneTradeBuildingMesh.ts]] (`getProjectionNormal(normal, target)`, `normalizeBuffers` sem alocar por vértice).
 
 **API:**
 ```typescript

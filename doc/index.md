@@ -55,7 +55,8 @@ O projeto é dividido em 3 grandes partes:
 ```text
 scripts/
   ui-add.sh                    ← adiciona primitivo shadcn corrigindo o CLI (`bun run ui:add <nome>`)
-  encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`)
+  encode-webp.mjs              ← texturas PBR + HDRI → `.webp` (1K), `.low.webp` (512, mobile), `.pmrem.webp` (`npm run textures:webp`)
+  encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`); superado pelo WebP
   check-pass.mjs               ← ordenação do passe sem servidor/navegador
   check-admin-ongs.mjs         ← cadastro/edição de ONG, foto, status e erros, sem servidor/navegador
   check-city-search.mjs        ← busca de cidade (acento, prefixo antes de substring, UF, limite) sem navegador
@@ -67,6 +68,8 @@ scripts/
   check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
 public/
   basis/                       ← transcoder basis do KTX2Loader (js + wasm)
+  fonts/                       ← Manrope + JetBrains Mono self-hosted (woff2 latin/latin-ext) → [[desingn-system-index]]
+  city-poster-{portrait,landscape}.webp ← pôster da cidade no HTML até o 1º frame 3D → [[html-components#Carregamento inicial (casca)]]
 src/
   App.tsx
   main.tsx                      ← entry; reload em `vite:preloadError` (chunk de deploy antigo)
@@ -124,6 +127,7 @@ src/
     GameMenu.tsx                  ← menu estilo GTA: abas perfil/edifícios/personalizações/indicações, dia/noite, sair
     AuthDialog.tsx                ← login por e-mail ou Google; cadastro confirma nome + username + aceite dos termos
     TermsDialog.tsx               ← `TermsConsent` (caixa de aceite) + reaceite quando `LEGAL_VERSION` muda
+    CityPoster.tsx                ← pôster da cidade (mesmo do index.html); fade quando a cena pinta → [[html-components#Carregamento inicial (casca)]]
     AuthProvider.tsx              ← sessão da cena (cookie token_access), só na rota /
     AdminAuthProvider.tsx         ← sessão do painel (cookie token_admin), só em /dale/*
     RequireAdmin.tsx              ← guarda de /dale: exige sessão do painel
@@ -156,6 +160,7 @@ src/
       PointLightControls.tsx
   lib/
     legal.ts                       ← versão dos termos, controlador, e-mail de contato, rotas legais
+    googleIdentity.ts              ← `loadGoogleIdentity()`: GSI sob demanda (abre login), promise única
     image.ts                       ← valida e reduz imagens proporcionalmente para até 400 px
     citySearch.ts                  ← busca de cidade pura: sem acento, prefixo antes de substring
     moneyInput.ts                  ← máscara monetária da contribuição: vírgula/2 casas sempre, milhar e colagem em reais
@@ -221,8 +226,9 @@ src/
       createDonationManager.ts
       createChunkManager.ts   ← referência arquitetural
     textures/
-      facadeTextureManifest.ts  ← descobre pastas de textura (glob, sem THREE). PNG/JPG > KTX2
-      facadeTextureLoader.ts    ← carrega set PBR (KTX2Loader, lazy + async + cache)
+      facadeTextureManifest.ts  ← descobre pastas de textura (glob, sem THREE). `.low.webp` (mobile) > `.webp` > PNG/JPG > KTX2
+      facadeTextureLoader.ts    ← carrega set PBR (lazy + async + cache)
+      loadImageTexture.ts       ← ImageBitmap (decode fora da main thread) com fallback TextureLoader
     hooks/
       useCityScene.ts
     runtime/
@@ -234,6 +240,7 @@ src/
       random.ts
       instanceCulling.ts
       devAssertions.ts
+      deviceTier.ts              ← `IS_LOW_TIER`: toque ou ≤4 núcleos/GB → cena leve, texturas 512
 doc/
   index.md                       ← você está aqui (mapa da documentação)
   api/                           ← espelha src/api (camada de dados / doações)
@@ -250,7 +257,7 @@ doc/
       scene-hooks.md
       scene-managers.md
       scene-builders.md
-      scene-textures.md          ← texturas: manifesto, loader lazy/async/cache, pipeline KTX2, por-edifício
+      scene-textures.md          ← texturas: manifesto, loader lazy/async/cache, pipeline WebP/KTX2, por-edifício
     foundation/                  ← base de dados consumida pelo engine
       scene-config.md
       scene-types.md
@@ -442,10 +449,13 @@ flowchart LR
 | Mudar o texto do requisito ("R$ 50 + 3 indicações") | [[passe-formatacao]]                           |
 | Colocar cadeado na cena / painel do usuário      | [[passe-cena]]                                    |
 | Trocar textura da fachada (UI) / entender loading | [[scene-textures]] · aba **texturas** → [[html-components#TextureControls.tsx]] |
-| Cadastrar textura nova (dropar pasta + `npm run textures:ktx2` + admin) | [[scene-textures]] · [[personalizacoes]] |
+| Cadastrar textura nova (dropar pasta + `npm run textures:webp` + admin) | [[scene-textures#Pipeline WebP]] · [[personalizacoes]] |
 | Textura por edifício (usuário escolhe a dele)    | [[scene-textures#Por edifício]] · [[html-components#BuildingManageDialog.tsx]] |
 | Textura sorteada por edifício (cidade variada)   | [[scene-textures#Sorteio por edifício]] · [[scene-managers#Grupos de fachada]] |
-| Mexer no pipeline KTX2 (codec, tamanho, qualidade) | [[scene-textures#Pipeline KTX2]] · `scripts/encode-ktx2.mjs` |
+| Mexer no pipeline WebP (qualidade, variante 512 mobile, HDRI) | [[scene-textures#Pipeline WebP]] · `scripts/encode-webp.mjs` |
+| Mexer no pipeline KTX2 (codec, tamanho, qualidade) | [[scene-textures#Pipeline KTX2 (fallback, fora do caminho padrão)]] · `scripts/encode-ktx2.mjs` |
+| Velocidade da home (PageSpeed): pôster, fontes, GSI sob demanda, cache nginx | [[html-components#Carregamento inicial (casca)]] · `index.html` · `docker/nginx.conf` |
+| Modo leve mobile (`IS_LOW_TIER`: texturas 512, céu 2K, DPR/FPS) | `src/scene/utils/deviceTier.ts` · [[scene-textures]] · [[scene-runtime]] |
 | Alterar o canvas ou a ligação com o hook         | [[three-components]]                              |
 | Alterar fórmulas de luz, clamp ou material       | [[scene-utils]]                                   |
 | Mexer no cull de distância do chão (quadra, calçada, poste, asfalto) | [[scene-utils#`instanceCulling.ts`]] · [[scene-managers#Cull do chão da cidade]] |

@@ -23,9 +23,17 @@ import type {
   TextureSettings,
 } from "../types";
 import { runDevAssertionsOnce } from "../utils/devAssertions";
+import { IS_LOW_TIER, isSoftwareGL } from "../utils/deviceTier";
 
 // Piso urbano mantém o cull separado dos edifícios. Relevo não usa cull de distância.
 const CITY_FLOOR_CULL_SPAN = 1.8;
+
+// Cede a main thread: o resto roda numa tarefa nova (Lighthouse mede tarefa por tarefa).
+const yieldToMain = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+// Depois do próximo frame: o layout do commit do React já saiu e ler clientWidth não força
+// reflow da página inteira dentro da nossa tarefa. Aba oculta espera ficar visível.
+const afterNextFrame = () =>
+  new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
 
 type CitySceneRuntimeOptions = {
   mount: HTMLDivElement;
@@ -67,7 +75,13 @@ export type CitySceneRuntime = {
   dispose: () => void;
 };
 
-export function createCitySceneRuntime({
+/**
+ * Cria a cena em etapas, cedendo a main thread entre elas (contexto WebGL | céu, luz,
+ * chão e relevo | doações | resto): síncrono era uma tarefa de ~40 ms no M4 dentro do
+ * commit do React (~170 ms no Lighthouse mobile). Rejeita sem WebGL ou com WebGL por
+ * software — o hook trata como "cena indisponível".
+ */
+export async function createCitySceneRuntime({
   mount,
   buildingSettings,
   textureSettings,
@@ -82,8 +96,9 @@ export function createCitySceneRuntime({
   onCameraDebugChange,
   onHoverChange,
   onBuildingClick,
-}: CitySceneRuntimeOptions): CitySceneRuntime {
+}: CitySceneRuntimeOptions): Promise<CitySceneRuntime> {
   runDevAssertionsOnce();
+  await afterNextFrame();
 
   let currentStats: SceneStats = { ...DEFAULT_SCENE_STATS };
   const emitStatsPatch = (patch: Partial<SceneStats>) => {
@@ -92,7 +107,8 @@ export function createCitySceneRuntime({
       nextStats.buildings === currentStats.buildings &&
       nextStats.culled === currentStats.culled &&
       nextStats.fpsMode === currentStats.fpsMode &&
-      nextStats.chunks === currentStats.chunks
+      nextStats.chunks === currentStats.chunks &&
+      nextStats.sceneReady === currentStats.sceneReady
     ) return;
     currentStats = nextStats;
     onStatsChange(currentStats);
@@ -117,10 +133,22 @@ export function createCitySceneRuntime({
     CITY_SCENE_CONFIG.initialCameraPosition.z,
   );
 
+  // Modo leve (celular/máquina modesta): sem MSAA (atributo do contexto, decidido antes
+  // de criar), DPR 1,5, 30 fps e sem cube camera — reflexo vem do scene.environment (HDRI).
+  const lite = IS_LOW_TIER;
   const renderer = new THREE.WebGLRenderer({
-    antialias: true,
+    antialias: !lite,
     powerPreference: "high-performance",
   });
+  if (isSoftwareGL(renderer.getContext())) {
+    // Sem GPU cada shader PBR trava a main thread por segundos (profile SwiftShader: 7 s e
+    // 17 s numa tarefa). Mesmo caminho do "sem WebGL": o hook captura e o pôster fica.
+    renderer.dispose();
+    renderer.forceContextLoss();
+    throw new Error("WebGL por software");
+  }
+  // Checagem de erro de shader = getProgramInfoLog/getShaderInfoLog síncronos por programa.
+  renderer.debug.checkShaderErrors = import.meta.env.DEV;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.45;
@@ -128,8 +156,9 @@ export function createCitySceneRuntime({
   let renderScale = 1;
   // Piso da escala dinâmica. 1 = downscale desligado (sem granulado), o padrão.
   let renderScaleFloor = CITY_SCENE_CONFIG.minRenderScale;
-  const getPixelRatio = () =>
-    Math.min(window.devicePixelRatio || 1, CITY_SCENE_CONFIG.dprCap) * renderScale;
+  const dprCap = lite ? CITY_SCENE_CONFIG.liteDprCap : CITY_SCENE_CONFIG.dprCap;
+  const targetFps = lite ? CITY_SCENE_CONFIG.liteFps : CITY_SCENE_CONFIG.targetFps;
+  const getPixelRatio = () => Math.min(window.devicePixelRatio || 1, dprCap) * renderScale;
 
   renderer.setPixelRatio(getPixelRatio());
   renderer.setSize(mount.clientWidth, mount.clientHeight);
@@ -137,7 +166,11 @@ export function createCitySceneRuntime({
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
-  controls.dampingFactor = CITY_SCENE_CONFIG.controls.dampingFactor;
+  // Damping é por update(): a 30 fps (modo leve) o mesmo fator levaria o dobro do tempo
+  // para assentar. Fator equivalente a dois passos de 60 fps.
+  controls.dampingFactor = lite
+    ? 1 - (1 - CITY_SCENE_CONFIG.controls.dampingFactor) ** 2
+    : CITY_SCENE_CONFIG.controls.dampingFactor;
   controls.rotateSpeed = CITY_SCENE_CONFIG.controls.rotateSpeed;
   controls.zoomSpeed = CITY_SCENE_CONFIG.controls.zoomSpeed;
   controls.panSpeed = CITY_SCENE_CONFIG.controls.panSpeed;
@@ -150,6 +183,7 @@ export function createCitySceneRuntime({
     CITY_SCENE_CONFIG.controlTarget.z,
   );
   controls.update();
+  await yieldToMain();
 
   let loadedEnvMap: THREE.Texture | null = null;
   let loadedBgTexture: THREE.Texture | null = null;
@@ -161,9 +195,33 @@ export function createCitySceneRuntime({
   let cubeDirty = true;
   const cubeCaptureDebounceMs = 180;
   let cubeDirtyAt = performance.now() - cubeCaptureDebounceMs;
+
+  // Render sob demanda: frame só sai quando algo mudou (câmera, cena, asset, holograma).
+  // Cena parada = main thread livre (TBT/INP) e GPU/bateria em repouso no celular.
+  let renderNeeded = true;
+  const requestRender = () => {
+    renderNeeded = true;
+  };
+  // Cull de distância pendente: câmera andou ou rebuild deixou tudo visível de novo.
+  let cullPending = true;
+  // Programa novo (objeto novo, textura que liga define, HDRI) compila ANTES do frame que
+  // o usa — ver runCompilePass.
+  let compileRequested = true;
+  const requestCompile = () => {
+    compileRequested = true;
+    renderNeeded = true;
+  };
+  let envLoaded = false;
+  // setDonations/addDonation já chegou ao menos uma vez (cidade vazia não é "pronta").
+  let donationsReceived = false;
+
+  // Toda mudança de cena passa aqui: suja o cube, pede frame e refaz o cull (rebuild de
+  // instâncias volta tudo a visível).
   const markCubeDirty = () => {
     cubeDirty = true;
     cubeDirtyAt = performance.now();
+    renderNeeded = true;
+    cullPending = true;
   };
 
   // Asset assíncrono que chega DEPOIS da primeira captura tem que sujar o cube. Sem isso o
@@ -171,6 +229,10 @@ export function createCitySceneRuntime({
   // sem céu até alguma outra mudança — antes a órbita escondia o problema recapturando sempre.
   // onLoad do manager default cobre TextureLoader (HDRI) e KTX2Loader (fachadas).
   THREE.DefaultLoadingManager.onLoad = markCubeDirty;
+  // Cada arquivo que chega pode ligar um define (map, normalMap…) num material → programa novo.
+  THREE.DefaultLoadingManager.onProgress = requestCompile;
+  // Objeto novo na cena (prédio custom, letreiro, luz do LED, grupo instanciado realocado).
+  scene.addEventListener("childadded", requestCompile);
 
   const environmentUpdater = loadEnvironment(
     scene,
@@ -180,6 +242,9 @@ export function createCitySceneRuntime({
     (envMap, bgTexture) => {
       loadedEnvMap = envMap;
       loadedBgTexture = bgTexture;
+      envLoaded = true;
+      // scene.environment liga envMap em todo material PBR: todos os programas mudam.
+      requestCompile();
       markCubeDirty();
     },
     () => isDisposed,
@@ -192,6 +257,7 @@ export function createCitySceneRuntime({
     horizonSettings,
   );
   const terrainRig = createTerrain(scene, terrainSettings, groundSettings.color);
+  await yieldToMain();
   // Plano cinza é o CHÃO INFINITO: sempre visível, segue a câmera (ver animate) e fica abaixo do
   // relevo. Onde há relevo, o terreno cobre; além da borda do relevo (mesh fixo na origem), este
   // plano preenche o vazio → sem limite ao mover a câmera numa cidade grande.
@@ -256,7 +322,12 @@ export function createCitySceneRuntime({
     textureSettings,
     blockLayoutSettings,
   });
-  donationManager.setEnvMap(reflectionSettings.enabled ? buildingCubeTarget.texture : null);
+  await yieldToMain();
+  // Modo leve não captura cube (6 renders da cidade + PMREM por captura): fachada usa o
+  // scene.environment. Reflexo da cidade vira reflexo do céu.
+  const cubeAllowed = !lite;
+  const cubeActive = () => cubeAllowed && currentReflection.enabled;
+  donationManager.setEnvMap(cubeActive() ? buildingCubeTarget.texture : null);
   donationManager.setEnvMapRotation(reflectionSettings.envRotY);
   donationManager.setEnvHorizon(reflectionSettings.envHorizon);
   donationManager.setReflectionDistanceRange(
@@ -380,13 +451,145 @@ export function createCitySceneRuntime({
   let skipNextFpsSample = false;
   let lastResolutionChangeAt = -Infinity;
   const cullForward = new THREE.Vector3();
+  // Limite de FPS do modo leve. 0 = sem limite (segue o rAF).
+  const frameIntervalMs = lite ? 1000 / CITY_SCENE_CONFIG.liteFps : 0;
+  let lastFrameAt = -Infinity;
+  // Posição da última captura do cube: probe na câmera só recaptura se a câmera andou.
+  const lastCapturePos = new THREE.Vector3(Infinity, Infinity, Infinity);
+
+  // Fatia de trabalho na main thread por tarefa. Lighthouse mobile multiplica a CPU por 4:
+  // 4 ms aqui ≈ 16 ms lá, longe dos 50 ms de tarefa longa.
+  const SLICE_MS = 4;
+
+  // --- Compilação assíncrona dos shaders ---
+  // Sem isso o 1º render de cada material espera o link na main thread (onFirstUse no
+  // profile: ~375 ms no M4, segundos em celular). compileAsync dispara compile/link e espera
+  // KHR_parallel_shader_compile dizer "pronto" sem bloquear; o frame só sai depois.
+  // Lote "de mentira" para o compile(): traverse() devolve os materiais do lote e
+  // traverseVisible() fica vazio — luzes vêm só da cena (targetScene); uma luz dentro do
+  // lote contaria 2x e compilaria a variante errada.
+  let compiling = false;
+  const compileBatch = (
+    objects: THREE.Object3D[],
+    target: THREE.WebGLRenderTarget | null,
+    batchCamera: THREE.Camera,
+  ) => {
+    const batch = {
+      traverse: (callback: (object: THREE.Object3D) => void) => {
+        for (const object of objects) object.traverse(callback);
+      },
+      traverseVisible: () => {},
+    } as unknown as THREE.Object3D;
+    const previousTarget = renderer.getRenderTarget();
+    // Alvo define tone mapping/espaço de cor do programa: cube (linear) ≠ tela (ACES/sRGB).
+    renderer.setRenderTarget(target);
+    const ready = renderer.compileAsync(batch, batchCamera, scene);
+    renderer.setRenderTarget(previousTarget);
+    return ready;
+  };
+  // Texturas sobem aqui, uma por vez com yield, e não todas no 1º render que as usa
+  // (texSubImage2D + mipmaps de dezenas de mapas num frame só = ~30 ms no M4).
+  const uploadedVersion = new WeakMap<THREE.Texture, number>();
+  const uploadTexturesOf = (object: THREE.Object3D, deadline: number) => {
+    let done = true;
+    object.traverse((child) => {
+      const material = (child as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+      if (!material) return;
+      for (const mat of Array.isArray(material) ? material : [material]) {
+        for (const value of Object.values(mat)) {
+          const texture = value as THREE.Texture | null;
+          if (!texture?.isTexture || !texture.image || (texture as THREE.Texture & { isRenderTargetTexture?: boolean }).isRenderTargetTexture) continue;
+          if (uploadedVersion.get(texture) === texture.version) continue;
+          if (performance.now() > deadline) {
+            done = false;
+            return;
+          }
+          renderer.initTexture(texture);
+          uploadedVersion.set(texture, texture.version);
+        }
+      }
+    });
+    return done;
+  };
+
+  const runCompilePass = async () => {
+    compileRequested = false;
+    compiling = true;
+    try {
+      const pending: Promise<unknown>[] = [];
+      const children = [...scene.children];
+      let sliceStart = performance.now();
+      // Lotes de 4 filhos: o JS de criar um programa novo (~1–3 ms) cabe na fatia.
+      for (let i = 0; i < children.length; i += 4) {
+        // Filho removido durante um yield (rebuild/dispose) não compila.
+        const objects = children.slice(i, i + 4).filter((child) => child.parent === scene);
+        if (cubeActive()) {
+          pending.push(
+            compileBatch(objects, buildingCubeTarget, buildingCubeCamera.children[0] as THREE.Camera),
+          );
+        }
+        // Tela por último: compileAsync acompanha o currentProgram, que fica sendo o da tela.
+        pending.push(compileBatch(objects, null, camera));
+        for (const object of objects) {
+          while (object.parent === scene && !uploadTexturesOf(object, sliceStart + SLICE_MS)) {
+            await yieldToMain();
+            if (isDisposed) return;
+            sliceStart = performance.now();
+          }
+        }
+        if (performance.now() - sliceStart > SLICE_MS) {
+          await yieldToMain();
+          if (isDisposed) return;
+          sliceStart = performance.now();
+        }
+      }
+      // ponytail: teto de 5 s — material descartado no meio da espera derruba o polling do
+      // three (currentProgram some) e a promise nunca resolve; o render segue síncrono.
+      await Promise.race([Promise.all(pending), new Promise((resolve) => setTimeout(resolve, 5000))]);
+    } finally {
+      compiling = false;
+      renderNeeded = true;
+    }
+  };
+
+  // --- Fila de customizações ---
+  // CitySceneEditor reaplica todas as customizações logo depois de setDonations (~200
+  // chamadas: rebuild de instâncias, malha de formato, letreiro). Síncrono = ~420 ms numa
+  // tarefa só no profile. Fila por id (a última vence) drenada em fatias de SLICE_MS:
+  // 1) aplica customizações com o rebuild adiado (um rebuild só no fim da rajada, não um
+  //    por transição de formato); 2) cria as malhas de formato em fatias (pumpCustomShapes).
+  const pendingCustomizations = new Map<number, BuildingCustomization>();
+  let customizationTimer = 0;
+  let shapesPending = false;
+  const drainCustomizations = () => {
+    customizationTimer = 0;
+    const deadline = performance.now() + SLICE_MS;
+    if (pendingCustomizations.size > 0) {
+      donationManager.setRebuildDeferred(true);
+      for (const [donationId, customization] of pendingCustomizations) {
+        pendingCustomizations.delete(donationId);
+        donationManager.updateDonationCustomization(donationId, customization);
+        if (performance.now() > deadline) break;
+      }
+      if (pendingCustomizations.size === 0) {
+        donationManager.setRebuildDeferred(false);
+        shapesPending = true;
+      }
+    } else {
+      shapesPending = donationManager.pumpCustomShapes(SLICE_MS);
+    }
+    markCubeDirty();
+    if (pendingCustomizations.size > 0 || shapesPending) {
+      customizationTimer = window.setTimeout(drainCustomizations, 0);
+    }
+  };
 
   const updateDynamicResolution = (fps: number, time: number) => {
     if (time - lastResolutionChangeAt < 1500) return;
     const previousScale = renderScale;
-    if (fps < CITY_SCENE_CONFIG.targetFps - 8) {
+    if (fps < targetFps - 8) {
       renderScale = Math.max(renderScaleFloor, renderScale - 0.05);
-    } else if (fps > CITY_SCENE_CONFIG.targetFps + 1) {
+    } else if (fps > targetFps + 1) {
       renderScale = Math.min(CITY_SCENE_CONFIG.maxRenderScale, renderScale + 0.025);
     }
     if (previousScale !== renderScale) {
@@ -396,15 +599,27 @@ export function createCitySceneRuntime({
     }
   };
 
+  // Frame anterior foi desenhado? FPS só é amostrado entre frames desenhados seguidos —
+  // com render sob demanda o intervalo ocioso não é lentidão.
+  let renderedLastTick = false;
+
   const animate = (time: number) => {
     animationId = requestAnimationFrame(animate);
+    if (time - lastFrameAt < frameIntervalMs - 2) return;
+    lastFrameAt = time;
     const delta = Math.min((time - lastTime) / 1000, 0.05);
     lastTime = time;
 
-    controls.update();
+    // update() devolve true enquanto a câmera se move (inclui o damping assentando).
+    if (controls.update()) {
+      renderNeeded = true;
+      cullPending = true;
+    }
 
     // Interpolar câmera durante animação de foco
     if (cameraAnim) {
+      renderNeeded = true;
+      cullPending = true;
       cameraAnim.progress = Math.min(1, cameraAnim.progress + delta / cameraAnim.duration);
       // Ease-out cubic
       const t = 1 - Math.pow(1 - cameraAnim.progress, 3);
@@ -415,6 +630,37 @@ export function createCitySceneRuntime({
         cameraAnim = null;
       }
     }
+
+    // Acessórios somem além da distância de detalhe; prédios além da distância de renderização
+    // (frontal ou traseira, conforme direção da câmera). Throttle de 0,25 s; roda também em
+    // tick ocioso para a posição final da câmera ser avaliada depois que ela para.
+    accessoryCullAccumulator += delta;
+    if (cullPending && accessoryCullAccumulator >= 0.25) {
+      accessoryCullAccumulator = 0;
+      cullPending = false;
+      renderNeeded = true;
+      const culled = donationManager.updateDistanceCulling(
+        camera.position,
+        camera.getWorldDirection(cullForward),
+      );
+      // O probe fixo recompõe a cidade completa; cull só atualiza UI/render principal.
+      if (culled !== currentStats.culled) {
+        emitStatsPatch({ culled });
+      }
+    }
+
+    // Fila de customização drenando: objetos novos chegam a cada fatia. Compila e desenha
+    // uma vez no fim, não a cada fatia.
+    const draining = pendingCustomizations.size > 0 || shapesPending;
+    if (compileRequested && !compiling && !draining) void runCompilePass();
+    // Nada mudou, ou shader ainda compilando: o canvas segura o último frame.
+    if (!renderNeeded || compiling || draining) {
+      renderedLastTick = false;
+      return;
+    }
+    renderNeeded = false;
+    if (!renderedLastTick) skipNextFpsSample = true;
+    renderedLastTick = true;
 
     donationManager.setReflectionRoughnessFloor(
       currentReflection.enabled
@@ -462,19 +708,24 @@ export function createCitySceneRuntime({
       frames = 0;
     }
 
-    // Captura no máximo a cada updateInterval frames. Fora de continuous/followCamera, só
-    // quando a cena mudou desde a última (probe estático → captura idêntica não paga).
+    // Captura no máximo a cada updateInterval frames, e só quando muda algo que ela vê: cena
+    // (cubeDirty, com debounce) ou, com probe na câmera, a posição da câmera. Câmera parada
+    // = captura idêntica → não paga 6 renders + PMREM (eram 15–20 ms a cada 4 frames).
+    // continuous sem followCamera segue recapturando a cada intervalo nos frames desenhados.
     cubeFrameCounter = (cubeFrameCounter + 1) % Math.max(1, Math.round(currentReflection.updateInterval));
+    const cameraMovedSinceCapture = () =>
+      currentReflection.followCamera && camera.position.distanceToSquared(lastCapturePos) > 1e-6;
     if (
-      currentReflection.enabled &&
+      cubeActive() &&
       cubeFrameCounter === 0 &&
       (
-        currentReflection.continuous ||
-        currentReflection.followCamera ||
+        cameraMovedSinceCapture() ||
+        (currentReflection.continuous && !currentReflection.followCamera) ||
         (cubeDirty && time - cubeDirtyAt >= cubeCaptureDebounceMs)
       )
     ) {
       cubeDirty = false;
+      lastCapturePos.copy(camera.position);
       if (currentReflection.followCamera) {
         envProbePosition.copy(camera.position);
       } else {
@@ -520,33 +771,27 @@ export function createCitySceneRuntime({
       environmentUpdater.updatePosition(camera.position.x, camera.position.y, camera.position.z);
     }
 
-    // Acessórios somem além da distância de detalhe; prédios além da distância de renderização
-    // (frontal ou traseira, conforme direção da câmera).
-    accessoryCullAccumulator += delta;
-    if (accessoryCullAccumulator >= 0.25) {
-      accessoryCullAccumulator = 0;
-      const culled = donationManager.updateDistanceCulling(
-        camera.position,
-        camera.getWorldDirection(cullForward),
-      );
-      // O probe fixo recompõe a cidade completa; cull só atualiza UI/render principal.
-      if (culled !== currentStats.culled) {
-        emitStatsPatch({ culled });
-      }
-    }
+    // Captura pendente (debounce, intervalo, câmera que parou entre capturas) segura o loop.
+    if (cubeActive() && (cubeDirty || cameraMovedSinceCapture())) renderNeeded = true;
 
-    donationManager.tickAnimations(time / 1000, delta * 1000);
+    // Holograma visível anima: loop continua.
+    if (donationManager.tickAnimations(time / 1000, delta * 1000)) renderNeeded = true;
 
     renderer.render(scene, camera);
+    // Sinal pro pôster sair (uma vez só): 1º frame com céu, shaders prontos e a cidade já
+    // recebida — fila de customização vazia, garantido pelo gate acima.
+    if (envLoaded && donationsReceived) emitStatsPatch({ sceneReady: true });
   };
 
-  animate(performance.now());
+  // 1º frame no próximo rAF, não dentro do effect de mount.
+  animationId = requestAnimationFrame(animate);
 
   const handleResize = () => {
     camera.aspect = mount.clientWidth / mount.clientHeight;
     camera.updateProjectionMatrix();
     renderer.setPixelRatio(getPixelRatio());
     renderer.setSize(mount.clientWidth, mount.clientHeight);
+    requestRender();
   };
 
   window.addEventListener("resize", handleResize);
@@ -558,10 +803,13 @@ export function createCitySceneRuntime({
     },
     updateTextureSettings(settings) {
       donationManager.updateTextureSettings(settings);
+      // Set já em cache aplica mapas na hora, sem passar pelo loader: defines mudam aqui.
+      requestCompile();
       markCubeDirty();
     },
     setFacadeTexturePool(keys) {
       donationManager.setFacadeTexturePool(keys);
+      requestCompile();
       markCubeDirty();
     },
     updateGroundSettings(settings) {
@@ -613,8 +861,11 @@ export function createCitySceneRuntime({
         renderer.setPixelRatio(getPixelRatio());
         renderer.setSize(mount.clientWidth, mount.clientHeight, false);
       }
+      requestRender();
     },
     updateEnvironmentSettings(settings) {
+      // Noite liga/desliga as luzes do LED: nº de luzes muda todos os programas.
+      if (settings.night !== currentEnvironment.night) requestCompile();
       currentEnvironment = settings;
       environmentUpdater.updateSettings(settings);
       applyNightMode();
@@ -644,7 +895,8 @@ export function createCitySceneRuntime({
         buildingCubeCamera = probe.cubeCamera;
       }
       if (resolutionChanged || enabledChanged) {
-        donationManager.setEnvMap(settings.enabled ? buildingCubeTarget.texture : null);
+        donationManager.setEnvMap(cubeActive() ? buildingCubeTarget.texture : null);
+        requestCompile();
       }
       // Direção só muda a amostragem no material — não invalida a captura.
       donationManager.setEnvMapRotation(settings.envRotY);
@@ -654,29 +906,34 @@ export function createCitySceneRuntime({
         settings.reflectionDistanceEnd,
       );
       if (captureChanged) markCubeDirty();
+      requestRender();
     },
 
     addDonation(value) {
+      donationsReceived = true;
       donationManager.addDonation(value);
       syncTerrainToCity();
       emitStatsPatch({ buildings: donationManager.getDonationCount() });
       markCubeDirty();
     },
     addDonations(values) {
+      donationsReceived = true;
       donationManager.addDonations(values);
       syncTerrainToCity();
       emitStatsPatch({ buildings: donationManager.getDonationCount() });
       markCubeDirty();
     },
     setDonations(entries) {
+      donationsReceived = true;
       donationManager.setDonations(entries);
       syncTerrainToCity();
       emitStatsPatch({ buildings: donationManager.getDonationCount() });
       markCubeDirty();
     },
     updateDonationCustomization(donationId, customization) {
-      donationManager.updateDonationCustomization(donationId, customization);
-      markCubeDirty();
+      // Enfileira (ver drainCustomizations): a rajada pós-setDonations vira fatias curtas.
+      pendingCustomizations.set(donationId, customization);
+      if (!customizationTimer) customizationTimer = window.setTimeout(drainCustomizations, 0);
     },
     focusOnDonation(donationId) {
       const worldPos = donationManager.getDonationWorldPosition(donationId);
@@ -688,8 +945,9 @@ export function createCitySceneRuntime({
         savedCameraTarget = controls.target.clone();
       }
 
-      // Aplicar transparência nos outros prédios
+      // Aplicar transparência nos outros prédios (transparent troca a variante do programa).
       donationManager.setFocusedDonation(donationId);
+      requestCompile();
 
       // Manter o lado atual e subir acima do topo para deixar a cobertura visível
       const targetPos = worldPos.clone();
@@ -714,6 +972,7 @@ export function createCitySceneRuntime({
     },
     clearFocus() {
       donationManager.setFocusedDonation(null);
+      requestCompile();
 
       if (savedCameraPos && savedCameraTarget) {
         cameraAnim = {
@@ -735,8 +994,11 @@ export function createCitySceneRuntime({
       if (handlePointerUp) renderer.domElement.removeEventListener("pointerup", handlePointerUp);
       if (hoverRafId !== null) cancelAnimationFrame(hoverRafId);
       cancelAnimationFrame(animationId);
+      clearTimeout(customizationTimer);
       window.removeEventListener("resize", handleResize);
+      scene.removeEventListener("childadded", requestCompile);
       THREE.DefaultLoadingManager.onLoad = () => {};
+      THREE.DefaultLoadingManager.onProgress = () => {};
       controls.dispose();
       donationManager.dispose();
       groundPlane.dispose();

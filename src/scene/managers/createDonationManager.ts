@@ -65,6 +65,7 @@ import { NIGHT_PRESET } from "../config/environmentConfig";
 
 import {
   initFacadeTextureLoader,
+  loadFacadeNormals,
   loadFacadeTextureSet,
   peekFacadeTextureSet,
   type FacadeTextureSet,
@@ -215,11 +216,20 @@ export type DonationManager = {
   setFocusedDonation: (donationId: number | null) => void;
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
   /**
+   * true: transição de formato em updateDonationCustomization só marca o rebuild.
+   * false: faz o rebuild pendente (um só para a rajada), sem criar malha de formato —
+   * essas saem por pumpCustomShapes.
+   */
+  setRebuildDeferred: (deferred: boolean) => void;
+  /** Cria malhas de formato pendentes até `budgetMs`. true = ainda falta. */
+  pumpCustomShapes: (budgetMs: number) => boolean;
+  /**
    * Pool de texturas sorteáveis por edifício (`value` das texturas ativas do
    * catálogo). Lista vazia = toda a cidade usa a textura global.
    */
   setFacadeTexturePool: (keys: readonly string[]) => void;
-  tickAnimations: (elapsedSeconds: number, deltaMs: number) => void;
+  /** Devolve true se algo animou (holograma visível) — o runtime mantém o loop desenhando. */
+  tickAnimations: (elapsedSeconds: number, deltaMs: number) => boolean;
   /** `groundDistance`: raio do chão da cidade (horizonte), independente dos prédios. */
   setRenderDistance: (distance: number, backDistance: number, groundDistance: number) => void;
   /** Retorna quantos prédios ficaram ocultos pelo cull de distância (frontal + traseiro). */
@@ -1498,6 +1508,10 @@ export function createDonationManager({
     parapets.updateTexture(topMaterial);
   };
 
+  // Fachada com normalScale 0 não amostra o NormalGL: nem baixa (ver loadFacadeNormals
+  // em updateTextureSettings quando o painel sobe a escala).
+  const facadeLoadOptions = () => ({ normal: currentTextureSettings.normalScale !== 0 });
+
   // Troca da textura GLOBAL de fachada. O token descarta resolução de uma seleção
   // que já foi superada por outra (usuário clicando rápido no seletor).
   let facadeRequestToken = 0;
@@ -1509,11 +1523,11 @@ export function createDonationManager({
       applyTextureToFacade(currentTextureSettings);
       return;
     }
-    void loadFacadeTextureSet(value, maxAniso)
+    void loadFacadeTextureSet(value, maxAniso, facadeLoadOptions())
       .then((set) => {
         // Pasta inexistente: cai no padrão em vez de deixar a cidade sem textura.
         if (set || resolveFacadeFolder(value) === DEFAULT_FACADE_FOLDER) return set;
-        return loadFacadeTextureSet(DEFAULT_FACADE_FOLDER, maxAniso);
+        return loadFacadeTextureSet(DEFAULT_FACADE_FOLDER, maxAniso, facadeLoadOptions());
       })
       .then((set) => {
         if (!set || token !== facadeRequestToken) return;
@@ -1623,17 +1637,18 @@ export function createDonationManager({
     }
   };
 
-  // Aplica a textura própria de UM prédio no material clonado dele.
+  // Aplica no material clonado de UM prédio a textura própria dele; sem própria,
+  // a do sorteio (mesma de facadeGroupFor) — senão formato custom fugia do sorteio.
   // "" = herda a global. Idempotente: rechamar com a mesma pasta não faz nada,
   // então syncCustomShapes pode chamar em todo rebuild sem custo.
   const materialFacadeKeys = new WeakMap<THREE.Material, string>();
-  const applyBuildingFacadeTexture = (
-    facadeMat: THREE.MeshPhysicalMaterial,
-    customization?: BuildingCustomization,
-  ) => {
+  const applyBuildingFacadeTexture = (facadeMat: THREE.MeshPhysicalMaterial, donation: DonationEntry) => {
+    const group = facadeGroupFor(donation);
     applyFacadeFolder(
       facadeMat,
-      hasOwnFacadeTexture(customization) ? resolveFacadeFolder(customization!.textureKey) : "",
+      hasOwnFacadeTexture(donation.customization)
+        ? resolveFacadeFolder(donation.customization!.textureKey)
+        : group === 0 ? "" : facadeGroups[group].folder,
     );
   };
 
@@ -1652,7 +1667,7 @@ export function createDonationManager({
       applyFacadeMaterial(facadeMat, currentTextureSettings);
       return;
     }
-    void loadFacadeTextureSet(desired, maxAniso).then((set) => {
+    void loadFacadeTextureSet(desired, maxAniso, facadeLoadOptions()).then((set) => {
       // Seleção mudou enquanto baixava — descarta o resultado velho.
       if (!set || materialFacadeKeys.get(facadeMat) !== desired) return;
       materialFacadeSets.set(facadeMat, set);
@@ -2557,6 +2572,17 @@ export function createDonationManager({
   // Garante que cada doação com customização que exige estado de material próprio
   // tenha um Mesh dedicado e atualizado. Cria/remove conforme as doações mudam e
   // reposiciona com base em donationTransforms.
+  // Prazo para criar malha de formato em syncCustomShapes. Infinity = cria tudo na hora
+  // (padrão de todo rebuild). 1º build de geometria complexa custa 10–30 ms (Empire,
+  // One Trade, Taipei); com dezenas de prédios customizados, criar tudo num rebuild era
+  // uma tarefa longa. Fora do prazo a doação fica pendente (sem malha) até
+  // pumpCustomShapes.
+  let shapeDeadline = Infinity;
+  let shapesPending = false;
+  // Rebuild adiado pela fila de customização do runtime (setRebuildDeferred).
+  let rebuildDeferred = false;
+  let rebuildPending = false;
+
   function syncCustomShapes() {
     const validIds = new Set<number>();
 
@@ -2570,7 +2596,11 @@ export function createDonationManager({
       validIds.add(donation.id);
       let entry = customShapeMeshes.get(donation.id);
 
-      if (!entry || entry.shape !== shape) {
+      if ((!entry || entry.shape !== shape) && performance.now() > shapeDeadline) {
+        // Fora do prazo: mantém a malha antiga (se houver) e cria na próxima fatia.
+        shapesPending = true;
+        if (!entry) continue;
+      } else if (!entry || entry.shape !== shape) {
         if (entry) {
           disposeCustomShapeEntry(entry);
           customShapeMeshes.delete(donation.id);
@@ -2615,7 +2645,7 @@ export function createDonationManager({
 
       // Fora do bloco de criação: a textura própria do prédio também muda quando
       // a textura GLOBAL muda (o mesmo textureKey deixa de ser "igual à global").
-      applyBuildingFacadeTexture(entry.facadeMat, donation.customization);
+      applyBuildingFacadeTexture(entry.facadeMat, donation);
 
       entry.mesh.position.copy(transform.position);
       entry.mesh.scale.copy(transform.scale);
@@ -2754,7 +2784,11 @@ export function createDonationManager({
       const folderChanged =
         resolveFacadeFolder(settings.textureKey) !==
         resolveFacadeFolder(currentTextureSettings.textureKey);
+      const normalTurnedOn = settings.normalScale !== 0 && currentTextureSettings.normalScale === 0;
       currentTextureSettings = { ...settings };
+      if (normalTurnedOn) {
+        void loadFacadeNormals(maxAniso).then(() => applyTextureToFacade(currentTextureSettings));
+      }
       tilingUniform.value = settings.tilingScale;
       topTilingUniform.value = settings.top.tilingScale;
       if (folderChanged) requestGlobalFacadeSet(settings.textureKey);
@@ -2923,6 +2957,27 @@ export function createDonationManager({
       pos.y += tmpTransformScale.y / 2;
       return pos;
     },
+    setRebuildDeferred(deferred: boolean) {
+      rebuildDeferred = deferred;
+      if (deferred || !rebuildPending) return;
+      rebuildPending = false;
+      // Malhas de formato ficam todas para pumpCustomShapes: o rebuild já custa a fatia.
+      shapeDeadline = -Infinity;
+      rebuildInstances();
+      shapeDeadline = Infinity;
+      if (focusedDonationId !== null) applyFocus(focusedDonationId);
+    },
+    pumpCustomShapes(budgetMs: number) {
+      if (!shapesPending) return false;
+      shapesPending = false;
+      shapeDeadline = performance.now() + budgetMs;
+      syncCustomShapes();
+      shapeDeadline = Infinity;
+      // Topo (yachthouse/residencial) e foco dependem da malha criada agora.
+      syncRooftops();
+      if (focusedDonationId !== null) applyFocus(focusedDonationId);
+      return shapesPending;
+    },
     setFocusedDonation(donationId: number | null) {
       applyFocus(donationId);
     },
@@ -2993,9 +3048,13 @@ export function createDonationManager({
       // (ou troca de shape), re-alocar instâncias e re-aplicar foco. Material
       // (cor/textura) já nasce certo no rebuild — só acessórios seguem.
       if (prevNeedsCustom !== nowNeedsCustom || customization.buildingShape !== prevShape) {
-        rebuildInstances();
-        if (focusedDonationId !== null) {
-          applyFocus(focusedDonationId);
+        if (rebuildDeferred) {
+          rebuildPending = true;
+        } else {
+          rebuildInstances();
+          if (focusedDonationId !== null) {
+            applyFocus(focusedDonationId);
+          }
         }
         applyAccessories();
         return;
@@ -3017,7 +3076,7 @@ export function createDonationManager({
       if (customization.textureKey !== prevTextureKey) {
         const entry = customShapeMeshes.get(donationId);
         if (entry) {
-          applyBuildingFacadeTexture(entry.facadeMat, customization);
+          applyBuildingFacadeTexture(entry.facadeMat, donation);
         } else {
           // Instanciado: a textura define em QUAL InstancedMesh o prédio vive.
           // Basta remapear o grupo da instância e recompactar — sem refazer o
@@ -3062,10 +3121,15 @@ export function createDonationManager({
       applyAccessories();
     },
     tickAnimations(elapsedSeconds, deltaMs) {
+      let animated = false;
       for (const entry of hologramMeshes.values()) {
         // Holograma culled por distância não precisa de tick (shader nem roda).
-        if (entry.group.visible) tickHologram(entry, elapsedSeconds, deltaMs);
+        if (entry.group.visible) {
+          tickHologram(entry, elapsedSeconds, deltaMs);
+          animated = true;
+        }
       }
+      return animated;
     },
     setRenderDistance(distance, backDistance, groundDistance) {
       // Aplicado no próximo passe de updateDistanceCulling (throttle de 0.25s no runtime).

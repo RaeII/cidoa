@@ -7,6 +7,7 @@ import type { ReferrerPreview } from "@/api/referral/referral.types";
 import { useAuth } from "@/hooks/useAuth";
 import { ReferralPerson } from "@/components/referral/ReferralPerson";
 import { TermsConsent } from "@/components/TermsDialog";
+import { loadGoogleIdentity } from "@/lib/googleIdentity";
 import { LEGAL_VERSION } from "@/lib/legal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -178,8 +179,8 @@ export function AuthDialog({
     };
   });
 
-  // Inicializa e renderiza o botão do Google no passo de e-mail. O script GIS é
-  // async — se ainda não carregou, tenta de novo por ~3s.
+  // Inicializa e renderiza o botão do Google no passo de e-mail. O script GIS só
+  // baixa aqui (sob demanda); renderiza quando terminar de carregar.
   useEffect(() => {
     if (!open || step !== "email" || !GOOGLE_CLIENT_ID) return;
 
@@ -187,7 +188,7 @@ export function AuthDialog({
     const render = () => {
       const id = window.google?.accounts?.id;
       const el = googleBtnRef.current;
-      if (!id || !el) return false;
+      if (cancelled || !id || !el) return;
       if (!googleInitRef.current) {
         id.initialize({
           client_id: GOOGLE_CLIENT_ID,
@@ -208,18 +209,12 @@ export function AuthDialog({
         width: Math.min(400, Math.round(el.offsetWidth) || 320),
         locale: "pt-BR",
       });
-      return true;
     };
 
-    if (render()) return;
-    const poll = setInterval(() => {
-      if (cancelled || render()) clearInterval(poll);
-    }, 200);
-    const stop = setTimeout(() => clearInterval(poll), 3000);
+    // Sem o script (rede/bloqueador), o login por e-mail segue funcionando.
+    loadGoogleIdentity().then(render, () => {});
     return () => {
       cancelled = true;
-      clearInterval(poll);
-      clearTimeout(stop);
     };
   }, [open, step]);
 

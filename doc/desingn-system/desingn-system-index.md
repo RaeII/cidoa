@@ -71,6 +71,8 @@ Sans firme e aberta para tudo que precisa ser lido e acreditado; mono para placa
 | Manrope 400–800 | `font-sans` (padrão do body) | Leitura, valor, botão, título |
 | JetBrains Mono 400–600 | `font-mono` / `mono-label` | Rótulo de campo, kicker, contador, selo, dica, HUD |
 
+Fontes **self-hosted**: woff2 variável do Google Fonts em `public/fonts/` (Manrope 200–800, JetBrains Mono 100–800; subset `latin` + `latin-ext` por `unicode-range`), `@font-face` com `font-display: swap` no topo de `src/index.css`. `index.html` faz preload só de `manrope-latin.woff2`. Nada de `fonts.googleapis.com` (CSS externo bloqueava o 1º paint). Peso novo dentro da faixa variável não baixa arquivo extra.
+
 | Nível | Spec | Exemplo |
 |---|---|---|
 | Display de página | `clamp(44px,7vw,96px)` · 600 · `leading-[0.98]` · `tracking-[-0.025em]` · `max-w-[14ch]` · `text-balance` | Título da home |

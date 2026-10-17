@@ -1,5 +1,5 @@
 ---
-title: Texturas de Fachada (manifesto + loader + KTX2)
+title: Texturas de Fachada (manifesto + loader + WebP)
 tags:
   - scene
   - engine
@@ -8,31 +8,40 @@ aliases:
   - scene-textures
   - facade-textures
   - ktx2
+  - webp
 ---
 
-# Texturas de Fachada — manifesto + loader + KTX2
+# Texturas de Fachada — manifesto + loader + WebP
 
-Pasta `src/scene/textures/`. Textura de fachada vem do **catálogo do backend** (só o endereço/pasta), assets ficam no front (`src/assets/texture/`). Loading é **lazy + assíncrono + cache**. Formato é o **PNG/JPG fonte**; o `.ktx2` (Basis, comprimido na GPU) é fallback pra pasta sem fonte. Foco: desempenho de carregamento sem perder qualidade de imagem.
+Pasta `src/scene/textures/`. Textura de fachada vem do **catálogo do backend** (só o endereço/pasta), assets ficam no front (`src/assets/texture/`). Loading é **lazy + assíncrono + cache**. Formato servido é **WebP** gerado da fonte PNG/JPG (`npm run textures:webp`): 1K no desktop, **512 px no `IS_LOW_TIER`** (celular/máquina modesta). Fonte PNG/JPG = fallback pra mapa sem `.webp`; `.ktx2` (Basis) = último fallback. Foco: desempenho de carregamento sem perder qualidade de imagem.
 
 > [!info] Plano A
 > Backend guarda só o `value` (nome da pasta). Bytes ficam no front, hasheados pelo Vite = cache imutável de graça no host (Cloudflare Pages/Vercel). Zero infra, zero custo. Ver [[customization-api]] e [[personalizacoes]].
 
 ## Números
 
-| | Eager PNG/JPG | Lazy PNG/JPG (atual) | Se tudo virasse KTX2 |
+Home (`/`), Playwright + Chrome, cidade de pré-lançamento. Texturas de fachada + topo + HDRI:
+
+| | Antes (PNG/JPG fonte, HDRI JPG 4K) | Depois (WebP) |
 |---|---|---|
-| Download das texturas | 4946 KB | **só o que a cena usa** | 1140 KB (−77%) |
-| VRAM (RGBA8 vs bloco comprimido) | ~48 MB | ~48 MB | ~12 MB |
-| Transcoder basis (1× por cliente, cacheado) | — | só se houver `.ktx2` | 636 KB |
-| Carga | eager (import estático do topo) | **lazy**, só o que a cena usa | lazy |
+| Desktop | 33 arquivos, **17,3 MB** | 32 arquivos, **2,5 MB** (1K + HDRI 4K) |
+| Celular (`IS_LOW_TIER`) | os mesmos 17,3 MB | **0,75 MB** (512 px + HDRI 2K) |
+| `dist/` (todas as imagens) | 36 MB | 9,5 MB (inclui as duas variantes e miniaturas) |
+| VRAM por mapa | RGBA8 1K ≈ 5,3 MB c/ mip | igual no desktop; 512 = **¼** no celular |
+
+WebP corta download, **não** VRAM: PNG, JPG e WebP descomprimem igual pra RGBA8. Só o `.low.webp` (metade da resolução) corta VRAM e tempo de upload.
+
+> [!note] NormalGL da fachada sob demanda
+> Com `normalScale = 0` (padrão da fachada) o manager pede o set com `{ normal: false }`: o NormalGL não baixa (~630 KB desktop, ~175 KB celular, mais upload e VRAM). Painel sobe a escala → `loadFacadeNormals` completa os sets já carregados e o manager reaplica. Topo (Concrete024, escala 20) segue com normal.
 
 ## `facadeTextureManifest.ts` (sem THREE)
 
 Descobre as pastas de textura via `import.meta.glob` — **sem import de THREE**, então a página admin consome sem puxar three pro bundle.
 
-- Glob casa **só sufixos usados**: `*_{Color,NormalGL,Roughness,Metalness,Displacement}.{png,jpg,jpeg,ktx2}`. Assim Vite não emite pro dist o que ninguém carrega (`_NormalDX`, preview `.png`). Usa NormalGL (OpenGL), não DX.
-- `eager` + `?url` = só as **URLs** (strings hasheadas), não os bytes. Bytes só baixam quando o loader busca a URL.
-- **PNG/JPG ganha do `.ktx2` do mesmo mapa.** Basis é lossy e o artefato aparece no normal map (reflexo cintilante na fachada). O `.ktx2` só é usado onde não existe fonte PNG/JPG — rodar o encoder nunca quebra o build, mas também não muda o que a cena carrega enquanto a fonte estiver no repo.
+- Glob casa **só sufixos usados**: `*_{Color,NormalGL,Roughness,Metalness,Displacement}.{png,jpg,jpeg,ktx2,webp}`. Assim Vite não emite pro dist o que ninguém carrega (`_NormalDX`, preview `.png`). Usa NormalGL (OpenGL), não DX.
+- Segundo glob: `*_{…}.low.webp` (512 px). Só entra no mapa quando `IS_LOW_TIER` (`src/scene/utils/deviceTier.ts`) — o manifesto já devolve a URL certa, runtime não sabe de tier.
+- `eager` + `?url&no-inline` = só as **URLs** (strings hasheadas), não os bytes. Bytes só baixam quando o loader busca a URL. `no-inline`: sem ele o Vite embutia todo WebP < 4 KB como data URI no chunk JS (29 arquivos, ~49 KB de base64 baixados por todo mundo, inclusive mapas que a cena nem usa).
+- **Prioridade por `RANK`** quando o mesmo mapa existe em mais de uma forma: `.low.webp` (só low tier) > `.webp` > PNG/JPG > `.ktx2`. Basis perde da fonte porque o artefato dele aparece no normal map (reflexo cintilante na fachada).
 - Parse agrupa por pasta; pasta sem `_Color` é descartada.
 
 Exporta:
@@ -48,9 +57,13 @@ Exporta:
 ```ts
 initFacadeTextureLoader(renderer): void
 peekFacadeTextureSet(value): FacadeTextureSet | null
-loadFacadeTextureSet(value, anisotropy): Promise<FacadeTextureSet | null>
+loadFacadeTextureSet(value, anisotropy, { normal = true }?): Promise<FacadeTextureSet | null>
+loadFacadeNormals(anisotropy): Promise<void>  // NormalGL de todos os sets prontos que vieram sem ele
 ```
 
+- **`normal: false`** pula o NormalGL no 1º load da pasta. Pedido depois com `normal: true` (ex.: [[three-components|BuildingPreview]]) ou via `loadFacadeNormals`, `ensureNormal` baixa só ele (uma Promise por pasta) e **muta o set do cache** (`set.normal`).
+
+- **PNG/JPG/WebP via `loadImageTexture`** (`src/scene/textures/loadImageTexture.ts`, também usado pelo HDRI): `ImageBitmapLoader` com `imageOrientation: "flipY"` + `texture.flipY = false` (ImageBitmap ignora `flipY` no upload, o flip vem do `createImageBitmap`). Decode sai da main thread — com `TextureLoader` o decode do `HTMLImageElement` caía dentro do `texSubImage2D` (~230 ms no profile). Mesma regra do `GLTFLoader` do three: Safari < 17 / Firefox < 98 / sem `createImageBitmap` → `TextureLoader`. `bitmap.close()` no `dispose` da textura. Screenshot antes/depois: pixel idêntico (nada espelhado).
 - **`initFacadeTextureLoader(renderer)`** — chamado 1× pelo manager. Monta o `KTX2Loader` com `setTranscoderPath(BASE_URL + "basis/")` e `detectSupport(renderer)` (a GPU decide BC7 / ASTC / ETC2). Idempotente.
 - **Assíncrono**: `KTX2Loader.load()` não devolve textura na hora (transcode roda em worker). Então o set inteiro é `Promise`. Material sobe sem mapas e recebe os mapas quando chegam — a cena aparece antes das texturas em vez de travar.
 - **`peekFacadeTextureSet`** — set já no cache, sem tocar a rede. Evita 1 frame cinza quando o manager é recriado ou quando o usuário volta pra uma textura já vista.
@@ -70,7 +83,32 @@ type FacadeTextureSet = {
 > [!note] ponytail
 > Cache global sem LRU/eviction — curated set pequeno. Adicionar eviction só se o número de texturas crescer muito.
 
-## Pipeline KTX2
+## Pipeline WebP
+
+```bash
+npm run textures:webp            # só o que mudou
+npm run textures:webp -- --force # tudo de novo
+```
+
+`scripts/encode-webp.mjs`. Usa `cwebp` (`brew install webp`; outro caminho via `CWEBP=`) e `sips` (macOS) pra ler a resolução. Pra cada fonte `src/assets/texture/*/*_{Color,NormalGL,Roughness,Metalness,Displacement}.{png,jpg}` grava ao lado:
+
+- `<mapa>.webp` — mesma resolução (desktop). Descartado se sair maior que a fonte (fica a fonte).
+- `<mapa>.low.webp` — metade da resolução (`IS_LOW_TIER`).
+
+Mesmo script gera o HDRI — ver [[scene-builders#loadEnvironment.ts]].
+
+Codificação por mapa (sempre tenta lossless também e fica com o menor — máscara chapada sai exata e menor):
+
+| Mapa | cwebp | Por quê |
+|---|---|---|
+| `Color` | `-q 82 -sharp_yuv` | sharp_yuv segura a borda colorida do caixilho no 4:2:0 |
+| `NormalGL` | `-near_lossless 0` | **nunca lossy**: lossy WebP é sempre 4:2:0 e a direção do normal mora em R/G (crominância). Teste A/B: relevo do concreto do topo (`normalScale` 20) ficava liso mesmo em q100; near-lossless volta ao original |
+| `Roughness` / `Metalness` | `-q 80` | dado em cinza, tolerante |
+| `Displacement` | `-q 88` | vira `bumpMap` (derivada), realça bloco de compressão |
+
+Comparação visual: mesma build servida com os bytes da fonte (rota interceptada no Playwright) × WebP. Desktop: fachada e céu indistinguíveis; topo de concreto igual com near-lossless. Celular 512: grão do concreto e borda da janela levemente mais suaves só no zoom máximo, em pixel físico (DPR 3).
+
+## Pipeline KTX2 (fallback, fora do caminho padrão)
 
 ```bash
 npm run textures:ktx2            # só o que mudou
@@ -99,8 +137,8 @@ Detalhes que o pipeline garante:
 
 O transcoder mora em `public/basis/` (`basis_transcoder.js` + `.wasm`, cópia de `three/examples/jsm/libs/basis/`). Baixado 1× por cliente, só quando um `.ktx2` é pedido.
 
-> [!warning] Plugin `drop-ktx2-superseded-by-textures` (vite.config.ts)
-> O glob casa fonte **e** `.ktx2`, então o Rollup emitiria as duas pro dist — a perdedora como peso morto (nunca baixada). O plugin remove do bundle todo `.ktx2` que tem PNG/JPG do mesmo nome, e **loga** o que removeu. A condição **tem que espelhar a do manifesto**: invertida, ela apaga justamente o arquivo que o runtime pede → 404 só em produção. Mexeu na prioridade do manifesto, mexa aqui junto.
+> [!warning] Plugin `drop-superseded-textures` (vite.config.ts, `dropSupersededTextures`)
+> O glob casa `.webp`, fonte **e** `.ktx2`, então o Rollup emitiria todos pro dist — os perdedores como peso morto (nunca baixados). O plugin agrupa os assets de `src/assets/texture/` por nome-base (via `originalFileNames`) e remove os de rank menor (`webp 3 > png/jpg 2 > ktx2 1`), e **loga** o que removeu. `.low.webp` tem outro nome-base, nunca concorre. Asset fundido pelo Rollup (conteúdo idêntico, ex. Facade001/Facade002) só sai se **todas** as fontes dele perderam. A ordem **tem que espelhar o `RANK` do manifesto**: invertida, apaga justamente o arquivo que o runtime pede → 404 só em produção. Mexeu na prioridade do manifesto, mexa aqui junto.
 
 ## Fiação na cena
 
@@ -143,4 +181,4 @@ Textura por edifício **não** custa mesh dedicado: cada textura em uso tem o pr
 - **Cadastradas** = viram opção do catálogo → usuário seleciona.
 - **Não-cadastradas** = pasta no repo sem opção → botão **Cadastrar** cria a opção (`value` = pasta, key = slug). Depois de cadastrada, admin controla (toggle/editar/excluir).
 
-Textura nova no repo = dropar a pasta em `src/assets/texture/`, rodar `npm run textures:ktx2` → aparece como não-cadastrada, sem editar código.
+Textura nova no repo = dropar a pasta em `src/assets/texture/`, rodar `npm run textures:webp` → aparece como não-cadastrada, sem editar código. Sem rodar o script a pasta funciona igual (cai na fonte PNG/JPG), só mais pesada.

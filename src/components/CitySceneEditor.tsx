@@ -19,6 +19,7 @@ import { saveDonationCustomization } from "../api/donationApi";
 import { useCustomizationCatalog } from "./hooks/useCustomizationCatalog";
 import { DonationLoadOverlay } from "./html/DonationLoadOverlay";
 import { DonationFilterBar } from "./html/DonationFilterBar";
+import { CityPoster } from "./CityPoster";
 import { DonationInfoSection } from "./html/DonationInfoSection";
 import { ContributeDialog } from "./html/donate/ContributeDialog";
 import { BuildingProfileDialog } from "./html/donate/BuildingProfileForm";
@@ -563,6 +564,8 @@ export function CitySceneEditor() {
         onHoverChange={handleHoverChange}
         onBuildingClick={handleBuildingClick}
       />
+      {/* Pôster do index.html segue sobre o canvas até a 1ª aplicação das doações. */}
+      <CityPoster hidden={loadState.status === "ready" && donationsApplied && sceneStats.sceneReady} />
       <div className="absolute right-4 top-4 z-20">
         <AuthMenu
           night={environmentSettings.night}

@@ -13,6 +13,7 @@ import {
 import type { ReferrerPreview, ReferralSummary } from "@/api/referral/referral.types";
 import type { CustomizationCatalog } from "@/api/customizationApi";
 import { useAuth } from "@/hooks/useAuth";
+import { loadGoogleIdentity } from "@/lib/googleIdentity";
 import { AuthDialog } from "@/components/AuthDialog";
 import { GameMenu, type MyDonation } from "@/components/GameMenu";
 import { OnboardingDialog } from "@/components/OnboardingDialog";
@@ -306,7 +307,14 @@ export function AuthMenu({
       <div className="flex items-center gap-3">
         {/* Deslogado não tem menu — o mesmo toggle fica ao lado do "Entrar". */}
         <NightToggle night={night} onNightChange={onNightChange} />
-        <Button type="button" variant="outline" onClick={() => onAuthOpenChange(true)}>
+        {/* Ponteiro/foco no "Entrar" já adianta o script do Google (carrega sob demanda). */}
+        <Button
+          type="button"
+          variant="outline"
+          onPointerEnter={() => void loadGoogleIdentity().catch(() => {})}
+          onFocus={() => void loadGoogleIdentity().catch(() => {})}
+          onClick={() => onAuthOpenChange(true)}
+        >
           Entrar
         </Button>
       </div>
