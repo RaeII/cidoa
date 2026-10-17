@@ -33,7 +33,7 @@ Esses componentes:
 Meta: 1º paint útil antes do bundle; Three.js não atrasa FCP/LCP. Lighthouse mobile local: FCP 3,0–3,4 s → 1,5 s; LCP 4,1–4,4 s → 2,0 s.
 
 1. **`index.html`** — `#root` já traz `<picture id="city-poster">`: `public/city-poster-portrait.webp` (`orientation: portrait`) ou `city-poster-landscape.webp`. Estilo inline (absolute, topo, `100vh`, `object-fit: cover`). Script inline remove fora de `/`.
-2. **`App.tsx`** — rota `/` com `Suspense` próprio: `SceneFallback` = `CityPoster` + placa "Carregando…". React limpa `#root` no 1º commit e repõe mesmo pôster (mesma URL em cache, mesma caixa) → sem pisca, sem CLS.
+2. **`App.tsx`** — rota `/` com `Suspense` próprio: `SceneFallback` = `CityPoster` + mesmo `DonationLoadOverlay` da cena ("Carregando doações…"). Mesmo tamanho → card da cena não vira LCP tardio. React limpa `#root` no 1º commit e repõe mesmo pôster (mesma URL em cache, mesma caixa) → sem pisca, sem CLS.
 3. **`afterPaint()`** (`App.tsx`) — duplo rAF (aba oculta resolve na hora). `CitySceneEditor` lazy só chama `import()` depois: casca (pôster + `CookieNotice`) pinta antes de baixar/avaliar cena. Mesmo truque no `Toaster` — Radix Toast fora do `index.js`; store do toast vive fora do React, `toast()` antes do mount aparece quando monta.
 4. **`CityPoster.tsx`** — `<CityPoster hidden={loadState.status === "ready" && donationsApplied} />` logo após o canvas, abaixo de overlay/UI (sem z-index). Fade 500 ms por opacity; `transitionend` desmonta, não volta — rebuild por filtro usa só [[#DonationLoadOverlay.tsx|DonationLoadOverlay]].
 
