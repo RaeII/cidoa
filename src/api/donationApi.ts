@@ -11,7 +11,7 @@ export type DonationRecord = {
 };
 
 export type City = { id: number; name: string; uf: string };
-export type Ong = { id: number; name: string };
+export type Ong = { id: number; name: string; profile_image?: string | null };
 
 export type DonationDataset = {
   donations: DonationRecord[];
@@ -32,7 +32,7 @@ type SnapshotPayload = {
   v: number;
   total: number;
   cities: [number, string, string][];
-  ongs: [number, string][];
+  ongs: [number, string, (string | null)?][];
   data: [number, number, number, number][];
   custom?: [number, BuildingCustomization][];
   beneficiaries?: [number, number[]][];
@@ -78,7 +78,7 @@ export async function fetchDonationSnapshot(
     total: payload.total,
     customizations: new Map(customizationsResponse.data),
     cities: payload.cities.map(([id, name, uf]) => ({ id, name, uf })),
-    ongs: payload.ongs.map(([id, name]) => ({ id, name })),
+    ongs: payload.ongs.map(([id, name, profile_image]) => ({ id, name, profile_image: profile_image ?? null })),
     donations: payload.data.map(([id, value, cityId, ongId]) => ({
       id,
       value,

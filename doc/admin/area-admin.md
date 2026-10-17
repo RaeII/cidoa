@@ -27,7 +27,7 @@ Cena e painel = sessões **independentes**. Login numa nunca abre a outra; logou
 
 | | Cena (`/`) | Painel (`/dale`) |
 | --- | --- | --- |
-| Cookie httpOnly | `token_access` (path `/`) | `token_admin` (path `/api/admin`, sameSite `strict`, TTL 8h) |
+| Cookie httpOnly | `token_access` (path `/`) | `token_admin` (path `/api/admin`, sameSite `strict`, TTL 30 dias) |
 | JWT `type` | `user` | `admin` |
 | Login | código por e-mail, Google, cadastro (`/auth/*`) | senha, `POST /admin/auth/login` — só conta admin |
 | Confirma sessão | `GET /user/me` | `GET /admin/auth/me` |
@@ -233,6 +233,10 @@ Cadastro segue mínimo (e-mail + nome + username). Depois da conta existir, [[ht
 
 ---
 
+## Administração de ONGs
+
+Menu **ONGs** → `/dale/ongs`; cadastro, nome/foto, ativação e exclusão. `listOngs`, `createOng`, `updateOng`, `deleteOng` em `admin.routes.ts`. Ver [[ongs]].
+
 ## Criar o primeiro admin
 
 Sem signup público. No **backend** (cidoa-back):
@@ -281,3 +285,7 @@ Cria/promove usuário com `is_admin=true` + senha bcrypt. Depois é só logar em
 ## Primeiros inscritos
 
 Menu **Primeiros inscritos** → `/dale/primeiros-inscritos`. Configura combo e quantidade; libera aos primeiros cadastros, inclusive anteriores. Sessão admin em GET/PUT `/admin/early-signups`. Ver [[primeiros-inscritos]].
+
+## Validade da sessão admin
+
+JWT e cookie `token_admin`: 30 dias fixos no código do backend, sem variável de ambiente. Novo prazo exige reiniciar backend e fazer novo login; tokens já emitidos mantêm vencimento anterior.

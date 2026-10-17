@@ -254,7 +254,7 @@ const sections: LegalSection[] = [
           head={["Nome", "Tipo", "Para quê", "Duração"]}
           rows={[
             ["token_access", "Cookie próprio, essencial", "Manter você conectado", "7 dias, ou até você sair"],
-            ["token_admin", "Cookie próprio, essencial", "Sessão do painel administrativo (só equipe)", "8 horas, ou até sair"],
+            ["token_admin", "Cookie próprio, essencial", "Sessão do painel administrativo (só equipe)", "30 dias, ou até sair"],
             ["sidebar_state", "Cookie próprio, preferência", "Lembrar o menu lateral do painel (só equipe)", "7 dias"],
             ["g_state", "Cookie gravado no nosso domínio pela ferramenta de login do Google", "Guardar o estado do login com Google", "Definida pelo Google"],
             ["Cookies em accounts.google.com", "Terceiro (Google)", "Login com Google", "Definida pelo Google"],

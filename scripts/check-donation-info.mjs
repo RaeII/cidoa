@@ -38,6 +38,9 @@ const props = {
   onRetry: () => { retried = true; },
 };
 const tree = DonationInfoSection(props);
+const profileImage = "data:image/jpeg;base64,aW1hZ2Vt";
+const withImage = DonationInfoSection({ ...props, ongs: [{ id: 20, name: "Patas", profile_image: profileImage }] });
+assert.equal(find(withImage, (item) => item.src === profileImage).length, 1, "Cartão usa a imagem cadastrada da ONG");
 const html = renderToStaticMarkup(tree);
 assert.match(html, /src="\/cat_dog.jpeg"[^>]*width="1024" height="947"/);
 assert.match(html, /<div class="pixel [^"]*aspect-square bg-muted"><picture><source srcSet="\/cat_dog.webp" type="image\/webp"\/>/, "Foto 1:1 na moldura do DS (5.3), WebP com JPG de reserva");

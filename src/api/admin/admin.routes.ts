@@ -13,6 +13,9 @@ import type {
   IbgeStatus,
   UpdateCategoryInput,
   UpdateOptionInput,
+  AdminOng,
+  OngInput,
+  OngPage,
 } from "./admin.types";
 
 // Rotas /admin do backend — todas exigem sessão admin (cookie httpOnly
@@ -64,6 +67,25 @@ export async function setUserAdmin(id: number, isAdmin: boolean) {
  */
 export async function deleteUser(id: number) {
   await http.delete(`/admin/users/${id}`);
+}
+
+export async function listOngs(params: { search?: string; page?: number; limit?: number } = {}) {
+  const { data } = await http.get<OngPage>("/admin/ongs", { params });
+  return data;
+}
+
+export async function createOng(input: OngInput) {
+  const { data } = await http.post<{ data: AdminOng }>("/admin/ongs", input);
+  return data.data;
+}
+
+export async function updateOng(id: number, input: Partial<OngInput>) {
+  const { data } = await http.put<{ data: AdminOng }>(`/admin/ongs/${id}`, input);
+  return data.data;
+}
+
+export async function deleteOng(id: number) {
+  await http.delete(`/admin/ongs/${id}`);
 }
 
 // ─── Primeiros inscritos ────────────────────────────────────────

@@ -44,6 +44,7 @@ const Pass = lazy(() => import("./pages/admin/Pass"));
 const EarlySignups = lazy(() => import("./pages/admin/EarlySignups"));
 const Ibge = lazy(() => import("./pages/admin/Ibge"));
 const Users = lazy(() => import("./pages/admin/Users"));
+const Ongs = lazy(() => import("./pages/admin/Ongs"));
 const Terms = lazy(() => import("./pages/legal/Terms"));
 const Privacy = lazy(() => import("./pages/legal/Privacy"));
 
@@ -116,6 +117,7 @@ export default function App() {
               <Route path="/dale/primeiros-inscritos" element={<EarlySignups />} />
               <Route path="/dale/ibge" element={<Ibge />} />
               <Route path="/dale/usuarios" element={<Users />} />
+              <Route path="/dale/ongs" element={<Ongs />} />
             </Route>
           </Route>
 

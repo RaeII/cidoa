@@ -177,3 +177,7 @@ Achados de `auditoria-termos` + `pesquisa-legal` (15/10/2026) que o texto contor
 ---
 
 Ver também: [[index]], [[html-components]], [[area-admin]], [[desingn-system-index]].
+
+## Duração do cookie administrativo
+
+Política de Privacidade: `token_admin` dura 30 dias ou até sair. Mesmo prazo do JWT administrativo, fixado no código do backend, sem variável de ambiente. Sessão administrativa exige novo login para receber novo prazo.

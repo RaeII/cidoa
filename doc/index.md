@@ -93,6 +93,7 @@ scripts/
   encode-webp.mjs              ← texturas PBR + HDRI → `.webp` (1K), `.low.webp` (512, mobile), `.pmrem.webp` (`npm run textures:webp`)
   encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`); superado pelo WebP
   check-pass.mjs               ← ordenação do passe sem servidor/navegador
+  check-admin-ongs.mjs         ← cadastro/edição de ONG, foto, status e erros, sem servidor/navegador
   check-consent.mjs            ← aceite no cadastro + aviso de cookies, sem servidor/navegador
   check-analytics.mjs          ← Consent Mode, aceite/recusa, revogação e tag única; sem servidor/navegador
   check-city-search.mjs        ← busca de cidade (acento, prefixo antes de substring, UF, limite) sem navegador
@@ -138,6 +139,7 @@ src/
     Terms.tsx                   ← /termos
     Privacy.tsx                 ← /privacidade
   pages/admin/
+    Ongs.tsx                    ← /dale/ongs: criar, editar nome/foto, ativar/desativar, excluir
     Pass.tsx                    ← página dedicada /dale/passe
     Users.tsx                   ← /dale/usuarios: busca conta, menu ⋮ (admin/excluir), paginação
   components/
@@ -316,6 +318,7 @@ doc/
     personalizacoes.md           ← CRUD do catálogo de personalizações
     ibge.md                      ← vincular catálogo geográfico do IBGE
     usuarios.md                  ← listar contas, dar/tirar admin, excluir usuário; o que admin ganha
+    ongs.md                      ← cadastro, foto, ativação e exclusão de ONGs
 ```
 
 ## Fluxo da Aplicação
@@ -552,6 +555,7 @@ flowchart LR
 | Onboarding do 1º login (cidade, como conheceu, pular) | [[html-components#OnboardingDialog.tsx]] · [[area-admin#Perfil progressivo (onboarding)]] |
 | Campo Cidade (busca) / chips "Como conheceu?" | [[html-components#ProfileDetailsFields.tsx]] · busca em `src/lib/citySearch.ts` |
 | Rótulos das origens ("Instagram", "Uma ONG"…) | `DISCOVERY_LABELS` em [[html-components#ProfileDetailsFields.tsx]] |
+| Gerenciar ONGs: nome, foto, status e exclusão | [[ongs]] |
 | Gerar/excluir edifícios fictícios em massa (admin) | [[edificios-teste]] |
 | Vincular catálogo do IBGE (regiões/estados/municípios) | [[ibge]] |
 | Colocar um usuário como admin | [[usuarios]] |
