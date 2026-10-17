@@ -42,6 +42,7 @@ const bundle = await build({
             return cache.get(folder);
           };
           export const loadFacadeTextureSet = async (value) => peekFacadeTextureSet(value);
+          export const loadFacadeNormals = async () => {};
         `,
       }));
     },

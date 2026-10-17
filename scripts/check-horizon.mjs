@@ -12,6 +12,12 @@ const mocks = {
     export class WebGLRenderer {
       capabilities = { getMaxAnisotropy: () => 4 };
       domElement = {};
+      debug = {};
+      getContext() { return { RENDERER: 0, getExtension: () => null, getParameter: () => "headless" }; }
+      getRenderTarget() { return null; }
+      setRenderTarget() {}
+      compileAsync() { return Promise.resolve(); }
+      initTexture() {}
       setPixelRatio() {}
       setSize() {}
       render(scene, camera) { globalThis.horizonCheck.frame = { scene, camera }; }
@@ -23,7 +29,8 @@ const mocks = {
     export class OrbitControls {
       target = new Vector3();
       constructor(camera) { this.camera = camera; }
-      update() { this.camera.lookAt(this.target); }
+      // Real devolve true quando a câmera mexeu; o teste move a câmera por fora a cada passo.
+      update() { this.camera.lookAt(this.target); return true; }
       dispose() {}
     }
   `,
@@ -36,6 +43,7 @@ const mocks = {
     export const initFacadeTextureLoader = () => {};
     export const peekFacadeTextureSet = () => null;
     export const loadFacadeTextureSet = async () => null;
+    export const loadFacadeNormals = async () => {};
   `,
   facadeTextureManifest: `
     export const resolveFacadeFolder = (value) => value;
@@ -68,7 +76,13 @@ const bundle = await build({
 const api = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].contents).toString("base64")}`);
 globalThis.horizonCheck = {};
 globalThis.window = { devicePixelRatio: 1, addEventListener() {}, removeEventListener() {} };
-globalThis.requestAnimationFrame = (callback) => { globalThis.horizonCheck.nextFrame = callback; return 1; };
+// Runtime nasce em etapas (await de frame): rAF roda sozinho até a criação terminar.
+let autoFrames = true;
+globalThis.requestAnimationFrame = (callback) => {
+  globalThis.horizonCheck.nextFrame = callback;
+  if (autoFrames) setTimeout(() => callback(performance.now()), 0);
+  return 1;
+};
 globalThis.cancelAnimationFrame = () => {};
 let stats;
 const settings = Object.fromEntries(
@@ -76,15 +90,22 @@ const settings = Object.fromEntries(
     .map((name) => [`${name[0].toLowerCase()}${name.slice(1)}Settings`, api[`createDefault${name}Settings`]()]),
 );
 settings.reflectionSettings.enabled = false; // Sem captura GPU; alcance do probe verificado abaixo.
-const runtime = api.createCitySceneRuntime({
+const runtime = await api.createCitySceneRuntime({
   ...settings,
   mount: { clientWidth: 1920, clientHeight: 1080, appendChild() {}, contains: () => false },
   onStatsChange: (value) => { stats = value; },
 });
 let time = performance.now();
-const advance = () => {
-  for (let i = 0; i < 6; i++) globalThis.horizonCheck.nextFrame(time += 50);
+// Assíncrono: compilação e fila de customização do runtime cedem a main thread (setTimeout).
+const advance = async () => {
+  for (let i = 0; i < 6; i++) {
+    globalThis.horizonCheck.nextFrame(time += 50);
+    await delay(0);
+  }
 };
+autoFrames = false;
+await delay(0);
+await advance();
 const { scene, camera } = globalThis.horizonCheck.frame;
 runtime.addDonations(Array.from({ length: 500 }, (_, i) => i + 1));
 const ground = scene.children.find((mesh) => mesh.isMesh && mesh.position.y === -0.05);
@@ -103,7 +124,7 @@ assert(probe.children.every((face) => face.far === 260), "Alcance do reflexo foi
 const terrainTransform = terrain.matrix.clone();
 for (const [x, y, z] of [[0, 30, 200], [70, 20, 0], [0, 15, -70], [-60, 40, 60], [450, 80, 250]]) {
   camera.position.set(x, y, z);
-  advance();
+  await advance();
   camera.updateMatrixWorld(true);
   terrain.updateMatrixWorld(true);
   assert(terrain.matrix.equals(terrainTransform), "Câmera moveu o terreno");
@@ -117,12 +138,12 @@ for (const [x, y, z] of [[0, 30, 200], [70, 20, 0], [0, 15, -70], [-60, 40, 60],
 
 // Encurtar e reabrir a distância só deve mudar os prédios enviados ao render.
 camera.position.set(0, 30, 200);
-advance();
+await advance();
 const projection = camera.projectionMatrix.clone();
 const counts = [];
 for (const distance of [600, 100, 600]) {
   runtime.updateHorizonSettings({ ...settings.horizonSettings, distance, fogDensity: 0 });
-  advance();
+  await advance();
   assert(camera.projectionMatrix.equals(projection), "Slider alterou a projeção da câmera");
   assert.deepEqual(terrain.geometry.attributes.position.array, terrainPositions, "Slider alterou as montanhas");
   assert.deepEqual(terrain.geometry.attributes.color.array, terrainColors, "Slider recoloriu as montanhas");
@@ -142,10 +163,10 @@ assert.deepEqual(counts[2], counts[0], "Prédios não reapareceram ao ampliar a 
 
 camera.position.set(0, 30, 0);
 runtime.updateHorizonSettings({ ...settings.horizonSettings, distance: 600, backDistance: 10 });
-advance();
+await advance();
 const hiddenBehind = stats.culled;
 runtime.updateHorizonSettings({ ...settings.horizonSettings, distance: 600, backDistance: 600 });
-advance();
+await advance();
 assert(stats.culled < hiddenBehind, "Controle traseiro não restaurou os prédios");
 // Os formatos compartilham material e reutilizam as duas geometrias.
 const planeGeometry = ground.geometry;
@@ -153,7 +174,7 @@ let circleGeometry;
 for (const groundEdgeMode of ["circular", "square", "straight", "circular", "straight"]) {
   for (const groundDistance of [40, 300, 2200]) {
     runtime.updateHorizonSettings({ ...settings.horizonSettings, groundEdgeMode, groundDistance });
-    advance();
+    await advance();
     if (groundEdgeMode === "circular") {
       circleGeometry ??= ground.geometry;
       assert.equal(ground.geometry, circleGeometry);
@@ -183,7 +204,7 @@ for (const aspect of [9 / 16, 16 / 9, 32 / 9]) {
         runtime.updateHorizonSettings({ ...settings.horizonSettings, renderDistance, groundDistance });
         for (let yaw = 0; yaw < Math.PI * 2; yaw += Math.PI / 4) {
           camera.position.set(Math.sin(yaw) * 23 + 5, yaw < Math.PI ? 19 : 70, Math.cos(yaw) * 23 - 5);
-          advance();
+          await advance();
           camera.updateMatrixWorld(true);
           ground.updateMatrixWorld(true);
           const forward = camera.getWorldDirection(new THREE.Vector3());
@@ -219,7 +240,7 @@ camera.aspect = 16 / 9;
 camera.zoom = 1;
 camera.updateProjectionMatrix();
 runtime.updateHorizonSettings(settings.horizonSettings);
-advance();
+await advance();
 // Horizonte curto não corta montanhas; slider longo ainda amplia o far.
 assert.equal(terrain.material.userData.cullUniforms, undefined, "Recorte do terreno voltou a seguir a câmera");
 for (const renderDistance of [60, 200, 600, 2000]) {
@@ -228,24 +249,24 @@ for (const renderDistance of [60, 200, 600, 2000]) {
     renderDistance,
     groundDistance: renderDistance * 1.1,
   });
-  advance();
+  await advance();
   const bounds = terrain.geometry.boundingSphere;
   assert(camera.far >= renderDistance, "Far ficou menor que o horizonte");
   assert(camera.far > camera.position.distanceTo(bounds.center) + bounds.radius, "Far corta a malha fixa");
   assert(ground.scale.x / 2 > camera.far, "Laterais do chão encolheram");
 }
 runtime.updateHorizonSettings({ ...settings.horizonSettings, distance: 100, backDistance: 10 });
-advance();
+await advance();
 assert.deepEqual(terrain.geometry.attributes.position.array, terrainPositions);
 runtime.updateHorizonSettings(settings.horizonSettings);
-advance();
+await advance();
 runtime.updateGroundSettings(settings.groundSettings);
 runtime.updateHorizonSettings(settings.horizonSettings);
-advance();
+await advance();
 
 runtime.updateTerrainSettings({ ...settings.terrainSettings, enabled: false });
 await delay(100); // Rebuild do terreno tem debounce de 60ms.
-advance();
+await advance();
 assert(ground.visible && !terrain.visible, "Desligar montanhas removeu o chão");
 assert.equal(camera.far, settings.horizonSettings.renderDistance, "Sem relevo, far não voltou ao horizonte configurado");
 
