@@ -48,12 +48,20 @@ function applyAnalyticsConsent(consent: AnalyticsConsent | null) {
   window.gtag!("config", MEASUREMENT_ID, {
     allow_google_signals: false,
     allow_ad_personalization_signals: false,
+    // Código de indicação (?ref=) identifica quem indicou: não vai ao Analytics.
+    page_location: stripReferral(location.href),
   });
   const script = document.createElement("script");
   script.async = true;
   script.src = `https://www.googletagmanager.com/gtag/js?id=${MEASUREMENT_ID}`;
   document.head.appendChild(script);
   initialized = true;
+}
+
+function stripReferral(href: string) {
+  const url = new URL(href);
+  url.searchParams.delete("ref");
+  return url.href;
 }
 
 export function initializeAnalytics() {

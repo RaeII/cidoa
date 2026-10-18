@@ -171,7 +171,7 @@ src/
     AuthDialog.tsx                ← login por e-mail ou Google; cadastro confirma nome + username + aceite dos termos. `AuthPanel` = corpo reusável
     IntroVideoDialog.tsx          ← vídeo de apresentação do 1º acesso (mudo, loop, sem controles); mobile + "Entrar", desktop + login à direita
     TermsConsent.tsx              ← caixa de aceite somente no cadastro, sem declaração de idade
-    CookieNotice.tsx              ← aviso padrão, único botão Aceitar cookies; desativação na política de privacidade
+    CookieNotice.tsx              ← aviso de cookies: Recusar / Aceitar (GA só após aceite)
     AuthProvider.tsx              ← sessão da cena (cookie token_access), só na rota /
     AdminAuthProvider.tsx         ← sessão do painel (cookie token_admin), só em /dale/*
     RequireAdmin.tsx              ← guarda de /dale: exige sessão do painel

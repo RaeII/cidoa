@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { PixelArrow } from "@/components/ui/pixel-icon";
-import { IS_PRELAUNCH, LEGAL_UPDATED_AT, PRIVACY_PATH, TERMS_PATH } from "@/lib/legal";
+import { LEGAL_UPDATED_AT, PRIVACY_PATH, TERMS_PATH } from "@/lib/legal";
 
 export type LegalSection = { id: string; title: string; body: ReactNode };
 
@@ -42,7 +42,7 @@ export function LegalPage({
 
         <header className="mt-14">
           <p className="font-mono text-[13px] tracking-[0.06em] text-primary">
-            {IS_PRELAUNCH ? "Pré-lançamento · versão" : "Versão"} de {LEGAL_UPDATED_AT}
+            Versão de {LEGAL_UPDATED_AT}
           </p>
           <h1 className="mt-6 max-w-[16ch] text-[2.5rem] font-semibold leading-[0.98] tracking-[-0.025em] text-balance sm:text-6xl">
             {title}

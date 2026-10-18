@@ -312,13 +312,13 @@ Perfil progressivo do 1º login: **Cidade** + **Como conheceu o Cidoe?**. Tudo o
 
 Caixa de aceite usada somente no passo de cadastro do `AuthDialog`; fluxo em [[termos-e-privacidade#Aceite no cadastro]].
 
-- Texto: "Aceito os Termos de Uso e li a Política de Privacidade." Sem declaração de idade.
+- Texto: "Tenho 18 anos ou mais, aceito os Termos de Uso e li a Política de Privacidade." Declaração de idade no ato do aceite (CC art. 180) — ver [[termos-e-privacidade#Idade mínima]].
 - Obrigatória, nunca pré-marcada. **Criar conta** fica desabilitado até marcar; o envio também valida o aceite e inclui `termsVersion: LEGAL_VERSION`. Links em nova aba preservam o formulário.
 - Conta existente entra diretamente. Não existe modal de reaceite nem bloqueio por `terms_version` no `AuthMenu`.
 
 ### `CookieNotice.tsx`
 
-Banner global de cookies, separado do cadastro e montado no `App.tsx`. Mensagem padrão: **Usamos cookies para melhorar sua experiência. Saiba mais em nossa Política de Privacidade.** Link em nova aba e único botão **Aceitar cookies**. Sem overlay nem bloqueio; respeita a navegação móvel e fica abaixo dos diálogos.
+Banner global de cookies, separado do cadastro e montado no `App.tsx`. Mensagem: **Usamos cookies essenciais para o site funcionar. Se você aceitar, também usamos o Google Analytics para medir o uso do site. Saiba mais na Política de Privacidade.** Link em nova aba; botões **Recusar** (`outline`) e **Aceitar**, mesmo tamanho (Guia de Cookies ANPD: recusar na primeira camada). Sem overlay nem bloqueio; respeita a navegação móvel e fica abaixo dos diálogos.
 
 Escolha persiste em `cidoa:analytics-consent` (`granted` / `denied`). Google Analytics só carrega após aceite; publicidade desativada. Em `/privacidade#cookies`, **Preferências de cookies** reabre o banner via evento `cidoa:cookie-preferences`; **Desativar cookies opcionais** salva recusa e interrompe novos envios, inclusive nas outras abas, com confirmação por toast. Confirmação antiga `cidoa:cookie-notice` não autoriza análise. Se storage bloqueado, escolha vale na visita atual. Ver [[termos-e-privacidade#Google Analytics]].
 

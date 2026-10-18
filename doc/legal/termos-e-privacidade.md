@@ -26,10 +26,13 @@ Mesmo código nas duas branches; só `LEGAL_EDITION` (`src/lib/legal.ts`) muda:
 
 | Branch | `LEGAL_EDITION` | `LEGAL_VERSION` | Texto |
 |---|---|---|---|
-| `beta` (produção hoje, pré-lançamento) | `"prelaunch"` | `2026-10-16-beta` | Tudo simulado: sem pagamento, simulação só no navegador, seção "Pré-lançamento: tudo é teste", ONGs não recebem dado |
-| `main` (lançamento) | `"launch"` | `2026-10-16` | Pix via **Woovi** direto para a conta da ONG (Cidoe não recebe nem repassa dinheiro), edifício público, devolução encaminhada à ONG |
+| `beta` (produção hoje, pré-lançamento) | `"prelaunch"` | `2026-10-18-beta` | Texto definitivo **+** avisos de pré-lançamento: pagamento inativo, simulação só no navegador, seção "Pré-lançamento: tudo é teste" |
+| `main` (lançamento) | `"launch"` | `2026-10-18` | Texto definitivo: Pix via **Woovi** direto para a conta da ONG (Cidoe não recebe nem repassa dinheiro), edifício público, devolução encaminhada à ONG |
 
-- Texto comum escrito uma vez; `IS_PRELAUNCH ? … : …` só onde difere. Seção exclusiva entra com `...(IS_PRELAUNCH ? [secao] : [])`.
+- **Texto definitivo nas duas**: beta já descreve lançamento real (Woovi, edifício público, ONG recebe Pix). Quem aceita na beta não aceita outra versão no lançamento.
+- `IS_PRELAUNCH` só **acrescenta** aviso (`IS_PRELAUNCH && …`, `...(IS_PRELAUNCH ? [secao] : [])`). Nunca `IS_PRELAUNCH ? … : …` escondendo cláusula de lançamento. Nada de "no lançamento estes termos mudam".
+- Paridade: toda cláusula da main existe na beta (ex.: 18+ em Termos "Resumo"/"Conta" e Política "Menores de idade"). Conferir com `diff` entre worktrees.
+- Mudança relevante depois: aviso **só no site** 15 dias antes de valer (sem e-mail); discordou → encerra conta sem custo; continuou usando → vale. Sem modal de reaceite.
 - Edição faz parte da versão registrada no cadastro. O login não compara versões nem solicita novo aceite.
 - Merge `main → beta` mantém a linha da beta (só a beta mexe nela). Nunca commitar `"prelaunch"` na main.
 - Documentos valem só para **usuários** (com ou sem conta, e quem escreve ao contato). ONGs terão termos próprios quando o cadastro de ONGs abrir.
@@ -84,7 +87,7 @@ flowchart TD
   E --> F
 ```
 
-- **Caixa** (`src/components/TermsConsent.tsx`): "Aceito os Termos de Uso e li a Política de Privacidade." Nunca pré-marcada. Links em nova aba preservam o cadastro em andamento. Sem declaração de idade.
+- **Caixa** (`src/components/TermsConsent.tsx`): "Tenho 18 anos ou mais, aceito os Termos de Uso e li a Política de Privacidade." Nunca pré-marcada. Links em nova aba preservam o cadastro em andamento. Aceite gravado (`user_terms_acceptance`) = prova da declaração de idade, sem coluna nova.
 - **Cadastro**: botão **Criar conta** desabilitado até marcar; `handleProfileSubmit` também valida o aceite. `completeRegistration({ …, termsVersion: LEGAL_VERSION })` vale para e-mail e Google. O backend mantém a validação obrigatória e registra versão, data e histórico `signup`.
 - **Login**: conta existente entra diretamente. Não há modal de reaceite, comparação com `user.terms_version`, migração ou aceite automático de contas antigas.
 - **Pós-login**: indicação e onboarding mantêm suas regras de prioridade, sem bloqueio por versão dos termos.
@@ -92,10 +95,10 @@ flowchart TD
 ## Aviso de cookies
 
 - `src/components/CookieNotice.tsx`, montado globalmente em `App.tsx`, independente da sessão e do aceite dos termos.
-- Banner discreto: **Usamos cookies para melhorar sua experiência. Saiba mais em nossa Política de Privacidade.** Link para `/privacidade#cookies` em nova aba; único botão **Aceitar cookies**. Sem overlay, captura de foco ou bloqueio da navegação; fica acima da navegação móvel e abaixo dos diálogos.
+- Banner discreto: **Usamos cookies essenciais para o site funcionar. Se você aceitar, também usamos o Google Analytics para medir o uso do site.** Link para `/privacidade#cookies` em nova aba; botões **Recusar** e **Aceitar**, mesmo tamanho. `?ref=` sai do `page_location` enviado ao GA (`analytics.ts`). Sem overlay, captura de foco ou bloqueio da navegação; fica acima da navegação móvel e abaixo dos diálogos.
 - Escolha: `localStorage["cidoa:analytics-consent"] = "granted" | "denied"`. Valor ausente/inválido mostra banner; `cidoa:cookie-notice = acknowledged` antigo não concede consentimento. Storage bloqueado: escolha vale na visita atual.
 - Política inclui **Preferências de cookies**, que dispara `cidoa:cookie-preferences` e reabre o banner, e **Desativar cookies opcionais**, que salva `denied`, interrompe novos envios e confirma por toast. Evento `storage` sincroniza revogação entre abas. Cookies existentes podem ser apagados pelo navegador.
-- Política documenta análise, dados, finalidade por consentimento, compartilhamento com Google, `_ga` / `_ga_*` (até 2 anos, renovados com uso) e chave local. Versão atualizada em **16/10/2026**; aceite dos termos permanece exclusivo do cadastro.
+- Política documenta análise, dados, finalidade por consentimento, compartilhamento com Google, `_ga` / `_ga_*` (até 2 anos, renovados com uso) e chave local. Versão atualizada em **18/10/2026**; aceite dos termos permanece exclusivo do cadastro.
 - Verificação: `node scripts/check-consent.mjs` e `node scripts/check-analytics.mjs`, `npm run build`, `npm run lint`; sem servidor ou navegador.
 
 ## Google Analytics
@@ -129,7 +132,7 @@ flowchart TD
 ## Mudar os termos
 
 1. Editar texto em `Terms.tsx` / `Privacy.tsx`.
-2. Mudança relevante (dado novo, terceiro novo, finalidade nova, regra nova) → nova data em `LEGAL_DATE` + `LEGAL_UPDATED_AT`. A nova versão é registrada nos próximos cadastros, sem modal no login. Correção de digitação → sem versão nova.
+2. Mudança relevante (dado novo, terceiro novo, finalidade nova, regra nova) → nova data em `LEGAL_DATE` + `LEGAL_UPDATED_AT`. A nova versão é registrada nos próximos cadastros, sem modal no login. Contas existentes: aviso no site 15 dias antes de valer (texto promete; sem e-mail). Correção de digitação → sem versão nova.
 3. Rodar `revisor-termos` (ver [[#Agentes]]) antes de publicar.
 
 ---
@@ -143,10 +146,22 @@ Definidos em `.claude/agents/` (carregam em sessão nova do Claude Code):
 | `auditoria-termos` | Varre front (main + beta) e back; acha dado coletado, terceiro, cookie, retenção e risco de exibição errada/remoção/teste, com `arquivo:linha` + cláusula sugerida |
 | `pesquisa-legal` | LGPD, Marco Civil, CDC, ANPD, requisitos do Google; checklist com fonte primária; o que é nulo |
 | `revisor-termos` | Confere textos contra pedidos do dono, lei, Google e código; veredito + correções |
+| `pesquisa-idade` | Idade mínima: lei (CC, LGPD art. 14, ECA Digital) + prática de Vakinha e afins; diz se vai na caixa de aceite |
+| `benchmark-termos` | Lê termos de Vakinha, Apoia.se, Catarse, Benfeitoria, Kickante, Abrace uma Causa, GoFundMe; lista o que adotar/melhorar, sem copiar e sem promessa por e-mail |
 
 Rodar de novo quando: feature nova coleta dado, entra terceiro (PSP, analytics), muda retenção, ou antes de sair do pré-lançamento.
 
 ---
+
+## Idade mínima
+
+Decisão 18/10/2026 (`pesquisa-idade`): **18+ para conta e contribuição**, declarado na caixa de aceite.
+
+- Lei não obriga site de doação a exigir 18. Mercado: Vakinha, Apoia.se, Catarse, Kickante, GoFundMe exigem 18 para conta (regra fica no texto ou em data de nascimento; Vakinha escreve "você declara que é maior de 18" junto ao botão).
+- Por quê 18: aceite e doação de menor são nulos (<16) ou anuláveis (16–17) — CC arts. 104, 166, 171. Com 18, LGPD art. 14 sai de cena; abrir para menores traz ECA Digital inteiro (Lei 15.211/2025, vigente desde 17/03/2026).
+- Por quê na caixa: CC art. 180 — menor de 16–17 não invoca idade se "declarou-se maior no ato de obrigar-se". Sem atrito extra. Data de nascimento = dado a mais e pouco confiável (ANPD).
+- Autodeclaração permitida: ECA Digital art. 9º §1º proíbe só para conteúdo impróprio a menores. Login Google não prova 18 (conta Google no Brasil: 13+). Menor consegue pagar Pix.
+- ⚖️ Risco aberto: ANPD pode ver o Cidoe como de "acesso provável" por menores (cidade 3D aberta sem conta) → avaliação de risco e avisos dos arts. 5º–8º mesmo com regra de 18. Validar com advogado.
 
 ## Pendências fora do texto
 
@@ -159,16 +174,26 @@ Achados de `auditoria-termos` + `pesquisa-legal` (15/10/2026) que o texto contor
   - devolução e MED por webhook → reduzir ou remover o edifício;
   - corrigir cobrança paga com edifício apagado aparecendo "expirada" e pagamento com destino inválido.
 - Dono decidiu não publicar documento (CPF) na página.
-- **Aviso no perfil**: Termos prometem avisar remoção e resultado de denúncia **no perfil do usuário** (não por e-mail). Hoje o perfil não tem área de avisos — criar antes de remover conteúdo de alguém.
+- **Sem promessa por e-mail (dono, 18/10/2026)**: único e-mail da app = código de acesso. Avisos só **no site**: mudança relevante dos documentos (15 dias antes), fim do pré-lançamento (15 dias antes), encerramento do Cidoe (30 dias). Motivo de remoção só **a pedido** (usuário escreve ao contato). Não reintroduzir aviso por e-mail no texto sem rotina de envio pronta.
+- **"Aviso no site" sem lugar fixo**: hoje só existe `CookieNotice`. Antes da 1ª mudança relevante ou do fim do pré-lançamento: faixa global na cidade (publicação → data de vigência) + bloco "O que mudou" no `LegalPage` (sugestão `benchmark-termos`, 18/10/2026).
+- **Remoção por ordem judicial** (Marco Civil art. 20): lei manda comunicar o motivo ao autor quando houver contato → responder pelo e-mail da conta nesses casos, mesmo sem promessa no texto.
+- **Sem suspensão de conta** no back (só editar edifício ou excluir usuário) → Termos não prometem suspensão; medida = retirar conteúdo ou excluir conta.
+- **Benchmark (18/10/2026)**: aplicados aviso contra golpe, uso do dinheiro decidido pela ONG, MED só para golpe/falha, ITCMD/IR, sigilo do denunciante, denúncia contra ONG (`ong.is_active`), conteúdo público copiável, Pix não anônimo para ONG, exclusão em até 15 dias, robôs, cópia dos dados se o Cidoe fechar. Não adotados: taxas, foro fixo, arbitragem, teto de responsabilidade, licença perpétua, títulos em pergunta.
+- **Versão `2026-10-18`**: quem cadastrou com `2026-10-16-beta` aceitou texto que anunciava nova versão no lançamento → cobre com o aviso de 15 dias **no site** ao publicar. Contas com `terms_version` NULL (antes da 0021): mesmo aviso.
+- **Exclusão apaga contribuições** (`purgeUser` → `DELETE FROM donation`): com Pix real, registro vale como prova → guardar anonimizado e ajustar retenção.
+- **Catálogo**: Termos prometem item retirado do catálogo continuar nos edifícios onde aplicado ou equivalente. Confirmar no render.
+- **Decreto 7.962 art. 2** (CPF/CNPJ + endereço do fornecedor) e **CDC art. 49** (arrependimento 7 dias, dinheiro com a ONG): avaliar com advogado antes de ativar Pix; pôr devolução em 7 dias no contrato com ONGs.
 - **Dados de teste em produção**: `POST /admin/test-buildings` sem trava de ambiente e sem marca de teste; `DELETE` apaga doações reais; ONGs do seed são fictícias e somam em "Total arrecadado".
 - **main**: campo "doar"/"gerar" visível a qualquer visitante (beta já restringe a admin).
 - **Holograma** sem reencode (pode levar EXIF/GPS); foto do Google guardada como URL.
 - ~~**Terceiros em todo acesso**~~ resolvido: fontes self-hosted (`public/fonts`) e GIS só baixa ao abrir login (ou ponteiro no "Entrar") — ver [[html-components#Carregamento inicial (casca)]]. Visitante que não loga não fala com Google (exceto Analytics após aceite).
 - **Titular**: sem exclusão/exportação pela interface (hoje por e-mail, admin executa); exclusão não limpa `email_suppression` (declarado na política).
-- **Operacional** (promessas do texto): confirmar denúncia e analisar em até 30 dias; responder ao denunciante pelo contato da denúncia; imagem íntima com prioridade máxima; comunicar às autoridades conteúdo de abuso infantil; avisar remoção no perfil (exceto teste/pedido do usuário); dar o motivo de suspensão/exclusão por e-mail a pedido; contestação em até 30 dias e resposta em até 30 dias; corrigir registro em 10 dias úteis; encaminhar pedido de devolução à ONG; responder titular em 15 dias; guardar mensagens até 1 ano após o assunto fechar; aviso de encerramento com 30 dias; comunicar incidente à ANPD; beta: devolver valor pago por engano. Relatório anual de denúncias **não** foi prometido (vinha de decreto não confirmado).
+- **Operacional** (promessas do texto): confirmar denúncia e analisar em até 30 dias; responder ao denunciante pelo contato da denúncia; imagem íntima com prioridade máxima; comunicar às autoridades conteúdo de abuso infantil; dar o motivo de remoção/suspensão/exclusão a pedido; responder contestação em até 30 dias; responder contato em até 5 dias úteis; corrigir registro em 10 dias úteis; encaminhar pedido de devolução à ONG; responder titular em 15 dias; guardar mensagens até 1 ano após o assunto fechar; aviso no site: encerramento com 30 dias, mudança relevante e fim do pré-lançamento com 15 dias; comunicar incidente à ANPD; beta: Pix pago por engano → pedir devolução a quem recebeu e acompanhar. Relatório anual de denúncias **não** foi prometido (vinha de decreto não confirmado).
 - **Prova do aceite** some com a conta (CASCADE). Guardar 5 anos após exclusão (CDC art. 27) exige `SET NULL` + hash do e-mail e mudar a retenção da política.
 - **Validar com advogado** os decretos citados pela pesquisa (Decreto 12.975/2026 → arts. 16-E/20-A do Decreto 8.771; Decreto 12.976/2026).
-- **Fatos do dono já no texto**: hospedagem no Brasil; backups por até 3 meses (mais antigos apagados); controlador pessoa física sem documento na página.
+- **Caixa `contato@cidoe.com.br`**: Política cita "provedor de e-mail" genérico (MX → `inbound-smtp.sa-east-1.amazonaws.com`). Confirmar provedor e país onde as mensagens ficam; fora do Brasil → declarar em "Transferência".
+- **Fatos do dono já no texto**: hospedagem no Brasil; controlador pessoa física sem documento na página.
+- **Backup ainda não existe (18/10/2026)** — política já promete: cópias por até 3 meses, mais antigas apagadas automaticamente, dados no Brasil. Antes de guardar dado real de contribuição: rotina automática (`pg_dump` agendado) com rotação de 90 dias, destino no Brasil, restauração testada. Sem rotina, conferir texto de "Por quanto tempo guardamos".
 - **Runbook de backup contradiz a política** (`cidoa-back/dev/prod/server/006-escalabilidade-operacao.md`): usa `-mtime +14` (14 dias) → passar para `+90`; sugere cópia externa em S3/B2/Drive (fora do Brasil) → manter no Brasil ou declarar a transferência na política.
 - **Caixa `contato@cidoe.com.br`**: provedor e país (se fora do Brasil, declarar em "Transferência para fora do Brasil").
 - **Recompensas do pré-lançamento**: texto da beta diz que continuam valendo no lançamento (tela promete recompensa — CDC art. 30). Confirmar.

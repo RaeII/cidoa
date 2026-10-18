@@ -12,8 +12,8 @@ export function CookieNotice() {
     return () => window.removeEventListener(COOKIE_PREFERENCES_EVENT, reopen);
   }, []);
 
-  function confirm() {
-    setAnalyticsConsent("granted");
+  function choose(consent: "granted" | "denied") {
+    setAnalyticsConsent(consent);
     setDismissed(true);
   }
 
@@ -25,7 +25,8 @@ export function CookieNotice() {
       className="fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] left-4 z-40 flex flex-col items-start gap-4 pixel bevel-edge bg-card p-5 text-card-foreground md:bottom-6 md:left-auto md:max-w-md"
     >
       <p className="text-sm leading-relaxed">
-        Usamos cookies para melhorar sua experiência. Saiba mais em nossa{" "}
+        Usamos cookies essenciais para o site funcionar. Se você aceitar, também usamos o Google Analytics para medir
+        o uso do site. Saiba mais na{" "}
         <a
           href={`${PRIVACY_PATH}#cookies`}
           target="_blank"
@@ -36,7 +37,10 @@ export function CookieNotice() {
         </a>
         .
       </p>
-      <Button type="button" size="sm" onClick={confirm}>Aceitar cookies</Button>
+      <div className="flex gap-3">
+        <Button type="button" size="sm" variant="outline" onClick={() => choose("denied")}>Recusar</Button>
+        <Button type="button" size="sm" onClick={() => choose("granted")}>Aceitar</Button>
+      </div>
     </section>
   );
 }

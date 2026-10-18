@@ -5,15 +5,15 @@
  */
 
 /**
- * Edição do texto: `prelaunch` (branch beta: tudo simulado, sem pagamento) ou
- * `launch` (branch main: Pix via Woovi direto para a ONG). Única linha que muda
- * entre as branches — merge main → beta mantém a da beta.
+ * Edição do texto: `prelaunch` (branch beta) ou `launch` (branch main). O texto é o
+ * definitivo nas duas; `prelaunch` só acrescenta os avisos de pré-lançamento. Única
+ * linha que muda entre as branches — merge main → beta mantém a da beta.
  */
 export const LEGAL_EDITION = "prelaunch" as "prelaunch" | "launch";
 export const IS_PRELAUNCH = LEGAL_EDITION === "prelaunch";
 
-export const LEGAL_DATE = "2026-10-16";
-export const LEGAL_UPDATED_AT = "16 de outubro de 2026";
+export const LEGAL_DATE = "2026-10-18";
+export const LEGAL_UPDATED_AT = "18 de outubro de 2026";
 /** Versão aceita no cadastro (vai ao back), incluindo a edição mostrada. */
 export const LEGAL_VERSION = IS_PRELAUNCH ? `${LEGAL_DATE}-beta` : LEGAL_DATE;
 

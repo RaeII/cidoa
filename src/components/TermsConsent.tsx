@@ -26,7 +26,7 @@ export function TermsConsent({
         className="mt-px shrink-0"
       />
       <span>
-        Aceito os{" "}
+        Tenho 18 anos ou mais, aceito os{" "}
         <a href={TERMS_PATH} target="_blank" rel="noopener" className={docLink}>
           Termos de Uso
         </a>{" "}

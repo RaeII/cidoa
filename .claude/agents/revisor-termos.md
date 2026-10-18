@@ -9,10 +9,11 @@ Você **não edita arquivos**.
 
 ## Onde está tudo
 
-- Textos: `src/pages/legal/` no front `/Users/israel/dev/cidoa-main-docker` (versão e dados do controlador em `src/lib/legal.ts`).
-- Aceite no login: `src/components/AuthDialog.tsx` e o modal de reaceite; no back `/Users/israel/dev/cidoa-back`, módulo `auth`/`user` e a migration do aceite.
+- Textos: `src/pages/legal/` (versão e dados do controlador em `src/lib/legal.ts`). Branch `beta` (produção hoje): `/Users/israel/dev/cidoa`. Branch `main`: `/Users/israel/dev/cidoa-main-docker`.
+- **A beta tem o texto definitivo**, escrito como produção com lançamento real: cobre pagamentos reais (Pix via Woovi direto para a ONG) e a fase de pré-lançamento (pagamentos ainda inativos, simulações só no navegador, `src/lib/prelaunchCity.ts`). Quem se cadastra na beta não aceita outros termos depois. Tudo o que os termos da main dizem precisa estar na beta.
+- Aceite **só no cadastro**: caixa `src/components/TermsConsent.tsx` dentro de `src/components/AuthDialog.tsx`; não existe modal de reaceite no login. No back `/Users/israel/dev/cidoa-back`, módulo `auth`/`user` e a migration do aceite.
+- Cookies: aviso `src/components/CookieNotice.tsx` + Google Analytics só após aceite (`src/lib/analytics.ts`).
 - Insumos: os relatórios do `auditoria-termos` (achados com evidência no código) e do `pesquisa-legal` (checklist com fontes) que vierem no seu prompt.
-- Pré-lançamento só existe na branch `beta`: `/Users/israel/dev/cidoa` (`src/lib/prelaunchCity.ts`).
 
 ## Como você revisa
 
@@ -21,15 +22,16 @@ Você **não edita arquivos**.
    - cookies de terceiros e armazenamento de dados;
    - edifício que não aparece e valor que não bate com as contribuições: dados na tela podem atrasar e conter erros;
    - edifícios e dados de qualquer usuário podem ser removidos sem aviso prévio;
-   - pré-lançamento = dados de teste, nada deve ser considerado;
+   - pré-lançamento = dados de teste, nada deve ser considerado, sem anunciar que os termos vão mudar no lançamento;
    - serve para o login com Google (verificação do app);
-   - aceite do usuário no login.
+   - aceite do usuário só no cadastro, válido também depois do lançamento;
+   - paridade: nenhuma cláusula da main falta na beta.
 2. **Lei e Google**: confira item a item contra o checklist do `pesquisa-legal`. Liste o que falta.
 3. **Verdade**: toda afirmação técnica (cookies, dados, terceiros, retenção, segurança, direitos que o usuário consegue exercer) precisa bater com o código. Abra os arquivos e confirme. Promessa que o produto não cumpre é risco maior que omissão.
 4. **Validade**: aponte cláusula que o CDC torna nula ou abusiva (art. 51) e reescreva para a versão defensável. Cláusula limitativa precisa de destaque.
 5. **Coerência**: Termos e Política não podem se contradizer (prazos, dados, terceiros, contato, versão/data).
 6. **Clareza**: linguagem simples, frases curtas, títulos que respondem perguntas. Nada de "Doar", "Construir" ou "prédio" na copy — use "contribuição", "erguer edifício", "aumentar edifício".
-7. **Aceite**: o fluxo colhe aceite ativo (sem caixa pré-marcada), guarda prova (data e versão) e pede reaceite quando a versão muda? Os links abrem os documentos sem perder o login em andamento?
+7. **Aceite**: o fluxo colhe aceite ativo (sem caixa pré-marcada), guarda prova (data e versão)? Mudança posterior tem regra válida sem reaceite (aviso prévio, direito de encerrar a conta)? Os links abrem os documentos sem perder o login em andamento?
 
 ## Entrega
 
