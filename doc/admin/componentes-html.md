@@ -14,7 +14,7 @@ aliases:
 # Componentes & Renderização HTML
 
 > [!abstract] Escopo
-> Front do Cidoa = **dois mundos**. Cena 3D (Three.js, rota pública `/`) documentada em [[index]] e nas pastas `scene/`. Este doc cobre a **base de UI HTML da área admin** — componentes, tema, roteamento, shadcn/ui. Nada de Three.js aqui. Admin em si (login, dashboard, auth) fica em [[area-admin]].
+> Front do Cidoe = **dois mundos**. Cena 3D (Three.js, rota pública `/`) documentada em [[index]] e nas pastas `scene/`. Este doc cobre a **base de UI HTML da área admin** — componentes, tema, roteamento, shadcn/ui. Nada de Three.js aqui. Admin em si (login, dashboard, auth) fica em [[area-admin]].
 
 Padrão copiado do repo **base_vite** (mesmo backend). Reutiliza componente antes de escrever novo.
 

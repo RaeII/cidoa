@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Cidoa is a 3D city scene editor built with React 19, Three.js, TypeScript, and Vite. It renders buildings as visual representations of donations — the highest-value donation always occupies the center of a square spiral. Configurable lighting, PBR textures, and HDRI environment are all controllable via a real-time UI panel. There is no shadow system: the scene is lit by ambient light + HDRI IBL only, so `castShadow`/`receiveShadow` flags must not be reintroduced without adding a shadow-casting light first.
+Cidoe is a 3D city scene editor built with React 19, Three.js, TypeScript, and Vite. It renders buildings as visual representations of donations — the highest-value donation always occupies the center of a square spiral. Configurable lighting, PBR textures, and HDRI environment are all controllable via a real-time UI panel. There is no shadow system: the scene is lit by ambient light + HDRI IBL only, so `castShadow`/`receiveShadow` flags must not be reintroduced without adding a shadow-casting light first.
 
 ## Commands
 

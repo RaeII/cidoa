@@ -1,6 +1,6 @@
 import type { City } from "../location/location.types";
 
-/** "Como conheceu o Cidoa?" — enum fechado do backend. Rótulos no `ProfileDetailsFields`. */
+/** "Como conheceu o Cidoe?" — enum fechado do backend. Rótulos no `ProfileDetailsFields`. */
 export type DiscoverySource =
   | "instagram"
   | "tiktok"

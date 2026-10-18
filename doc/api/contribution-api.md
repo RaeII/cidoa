@@ -71,6 +71,6 @@ Pago → `onPaid` → editor relê `/donation/me` e mescla na cidade — ver [[d
 
 `PIX_SIMULATED=1` no `.env` do back.
 
-- QR = SVG "TESTE"; recebedor "Cidoa"; validade 60 min.
+- QR = SVG "TESTE"; recebedor "Cidoe"; validade 60 min.
 - `getChargeStatus` → `paid` 6 s depois de criar; edifício gravado no banco.
 - **Valor R$ 13** nunca paga e expira em 15 s → testa tela "Este código expirou.".

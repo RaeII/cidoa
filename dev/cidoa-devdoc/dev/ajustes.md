@@ -9,4 +9,4 @@
 - [] corrigir registro errado em 10 dias úteis;
 - [] publicar um resumo anual das denúncias.
 - [] manter backup por 3 meses
-- [] fazer email contato@cidoa.com.br
+- [] fazer email contato@cidoe.com.br

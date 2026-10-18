@@ -12,7 +12,7 @@ aliases:
 
 # HTML Components
 
-Componentes React DOM do painel lateral do Cidoa.
+Componentes React DOM do painel lateral do Cidoe.
 
 > [!info] O que é "HTML" aqui
 > Componentes que renderizam tags como `div`, `section`, `input`, `select` e `label`. Não são arquivos HTML estáticos — são componentes React puros de interface.
@@ -294,7 +294,7 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre por **Meus edifíci
 
 ### `OnboardingDialog.tsx`
 
-Perfil progressivo do 1º login: **Cidade** + **Como conheceu o Cidoa?**. Tudo opcional. Montado no `AuthMenu` (ramo logado).
+Perfil progressivo do 1º login: **Cidade** + **Como conheceu o Cidoe?**. Tudo opcional. Montado no `AuthMenu` (ramo logado).
 
 - **Quando abre** — `user.onboarding_completed_at === null` e `blocked` falso. `AuthMenu` passa `blocked` = aceite dos termos pendente ([[#TermsDialog.tsx]]) || indicação pendente (`?ref=`) || `GameMenu` aberto || `ShareDialog` aberto || `onboardingBlocked` do editor (contribuição, card do edifício, administração ou edição de perfil abertos). `AuthDialog` nem existe no ramo logado. Não empilha modal.
 - **Uma vez por conta** — estado do servidor (`onboarding_completed_at`), não `localStorage`. Conta antiga também vê uma vez (sem backfill no back).
@@ -334,7 +334,7 @@ Campos compartilhados entre [[#OnboardingDialog.tsx|OnboardingDialog]] e aba Per
   - ARIA: `role="combobox"`, `aria-expanded`, `aria-controls`, `aria-autocomplete="list"`, `aria-activedescendant`; lista `role="listbox"` / `role="option"` + `aria-selected`. Foco nunca sai do input (`mousedown` com `preventDefault` em opção e no X).
   - Blur sem clicar: texto que aponta pra 1 cidade só (resultado único ou nome exato único, `pickTypedCity`) escolhe; ambíguo ("Bom Jesus") volta pra cidade atual; texto apagado = sem cidade. Botão X (44 px) limpa.
   - Lista inline (`absolute`, sem portal): herda tema do contexto. Na aba Perfil o painel rola: `scrollIntoView({ block: "nearest" })` mostra a lista inteira. Hover ativa por `mousemove` (rolar sob mouse parado não troca opção).
-- **Como conheceu o Cidoa?** — chips Radix `RadioGroup` (`role="radiogroup"`/`radio`, setas navegam e marcam). Rótulos em `DISCOVERY_LABELS` (lugar único): Instagram, TikTok, YouTube, Facebook, WhatsApp, Google, Amigo ou familiar, Uma ONG, Outro. "Outro" revela input (máx 100). Marcado = `bg-primary` verde (chip de seleção do DS). Chip `h-10`.
+- **Como conheceu o Cidoe?** — chips Radix `RadioGroup` (`role="radiogroup"`/`radio`, setas navegam e marcam). Rótulos em `DISCOVERY_LABELS` (lugar único): Instagram, TikTok, YouTube, Facebook, WhatsApp, Google, Amigo ou familiar, Uma ONG, Outro. "Outro" revela input (máx 100). Marcado = `bg-primary` verde (chip de seleção do DS). Chip `h-10`.
 - **Tema** — só tokens (`foreground`, `popover`, `muted`, `primary`); mesmo visual no diálogo e no GameMenu. Campos `field`, chips de seleção do DS, opção destacada com `menu-cursor`.
 
 | Prop | Tipo | Descrição |

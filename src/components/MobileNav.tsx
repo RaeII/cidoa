@@ -6,7 +6,7 @@ import { MOBILE_PRIMARY_COUNT, navItems, type NavItem } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { CidoaLogo } from "@/components/ui/pixel-icon";
+import { CidoeLogo } from "@/components/ui/pixel-icon";
 import {
   Sheet,
   SheetClose,
@@ -78,9 +78,9 @@ function MoreSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex w-3/4 flex-col gap-0 p-0 sm:max-w-sm">
         <SheetHeader className="flex-row items-center gap-2 border-b">
-          <CidoaLogo className="size-8" />
+          <CidoeLogo className="size-8" />
           <div className="grid text-left leading-tight">
-            <SheetTitle>Cidoa</SheetTitle>
+            <SheetTitle>Cidoe</SheetTitle>
             <SheetDescription className="mono-label">Admin</SheetDescription>
           </div>
         </SheetHeader>

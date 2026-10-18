@@ -75,7 +75,7 @@ export function DonationInfoSection({
               Cada contribuição ergue um edifício.
             </h2>
             <p className="mt-8 max-w-[46ch] text-lg leading-normal text-pretty text-muted-foreground sm:text-[22px]">
-              Cidoa transforma contribuições em edifícios e apoia ONGs de proteção animal:
+              Cidoe transforma contribuições em edifícios e apoia ONGs de proteção animal:
               resgate, castração, tratamento veterinário e adoção responsável.
             </p>
           </div>
@@ -190,7 +190,7 @@ export function DonationInfoSection({
           <nav aria-label="Documentos legais" className="flex flex-wrap items-baseline gap-x-5 gap-y-2 font-mono text-xs text-muted-foreground">
             <a href={TERMS_PATH} className="underline decoration-2 underline-offset-3 hover:bg-accent hover:text-primary">Termos de Uso</a>
             <a href={PRIVACY_PATH} className="underline decoration-2 underline-offset-3 hover:bg-accent hover:text-primary">Política de Privacidade</a>
-            <span>Cidoa · Proteção animal</span>
+            <span>Cidoe · Proteção animal</span>
           </nav>
         </footer>
       </div>

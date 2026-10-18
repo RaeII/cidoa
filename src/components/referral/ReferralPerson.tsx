@@ -11,7 +11,7 @@ export function ReferralPerson({
   person: ReferrerPreview;
   className?: string;
 }) {
-  const name = person.name?.trim() || "Usuário Cidoa";
+  const name = person.name?.trim() || "Usuário Cidoe";
 
   return (
     <div className={cn("pixel pixel-thin flex items-center gap-3 bg-card p-3", className)}>

@@ -24,9 +24,9 @@ export function LegalPage({
   sections: readonly LegalSection[];
 }) {
   useEffect(() => {
-    document.title = `${title} · Cidoa`;
+    document.title = `${title} · Cidoe`;
     return () => {
-      document.title = "Cidoa";
+      document.title = "Cidoe";
     };
   }, [title]);
 

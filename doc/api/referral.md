@@ -31,7 +31,7 @@ Fluxo público de captura, validação, confirmação e compartilhamento de indi
 - Campo no `AuthDialog` fica escondido: aparece só com `?ref=` na URL ou clique em
   "Tenho um código de indicação" (botão com ícone `Gift` e borda tracejada, último componente do modal).
 - Aberto, vira bloco destacado: borda tracejada `border-primary/40`, fundo `bg-primary/5`, ícone `Gift`,
-  título "Alguém te indicou o Cidoa?" + descrição curta. Label do input só "Código de indicação".
+  título "Alguém te indicou o Cidoe?" + descrição curta. Label do input só "Código de indicação".
   Input com fundo sólido (`bg-background`) — label flutuante corta a borda e precisa da mesma cor atrás.
   `mt-3` no bloco (aberto ou fechado) separa do botão de login; `p-4` + `space-y-4` dão respiro ao input.
 - Código informado precisa ter 8 caracteres (`A-Z` sem `I`/`O`, `2-9`) e passar por `GET /api/referral/preview/:code`.

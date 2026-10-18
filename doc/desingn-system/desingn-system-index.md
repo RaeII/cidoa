@@ -11,7 +11,7 @@ aliases:
 
 # Sistema de Design
 
-Regra visual de toda interface HTML do Cidoa (cena pública + `/dale`). Fonte: `Cidoe Design System.html` nesta pasta (v1.0, out 2026 — "Cidoe" no arquivo = Cidoa aqui). Seções do arquivo: 01 Princípios · 02 Cor · 03 Tipografia · 04 Assinatura de jogo · 05 Imagem · 06 Componentes · 07 Interface sobre a cidade · 08 Redes sociais. Número entre parênteses nesta página (ex.: 6.6) = subseção do arquivo. Cena 3D fora do escopo: canvas pinta próprio céu/chão.
+Regra visual de toda interface HTML do Cidoe (cena pública + `/dale`). Fonte: `Cidoe Design System.html` nesta pasta (v1.0, out 2026). Seções do arquivo: 01 Princípios · 02 Cor · 03 Tipografia · 04 Assinatura de jogo · 05 Imagem · 06 Componentes · 07 Interface sobre a cidade · 08 Redes sociais. Número entre parênteses nesta página (ex.: 6.6) = subseção do arquivo. Cena 3D fora do escopo: canvas pinta próprio céu/chão.
 
 > [!abstract] Ideia em uma linha
 > Clareza de app financeiro (confiança) + detalhe pequeno e preciso de videogame 8 bits. Dinheiro sério, jogo = recompensa. Cidade 3D protagonista; interface só emoldura.
@@ -96,7 +96,7 @@ Regras:
 
 ## Assinatura de jogo
 
-Cinco detalhes formam a identidade. Com moderação — juntos, fazem a tela parecer Cidoa.
+Cinco detalhes formam a identidade. Com moderação — juntos, fazem a tela parecer Cidoe.
 
 ### 1 · Canto em pixel — `pixel`
 
@@ -148,7 +148,7 @@ Carregando sem progresso conhecido: `<BlockLoader />` (três blocos acendem em s
 
 ### 5 · Ícones em pixel
 
-Grade 8×8, uma ou duas cores da marca. `pixel-icon.tsx`: `PixelClose`, `PixelCheck`, `PixelChevronDown`, `PixelArrow`, `PixelHeart`, `PixelPaw`, `PixelBuilding`, `PixelCoin` (sempre âmbar), `CidoaLogo`, `ErrorMark` ("!" de erro), `PixelPhoto` (foto indisponível). Gato/cachorro (`PixelCat`, `PixelDog`) usam pelagem real — mascote espiando por cima de modal/card, só onde o pai não tem `overflow` (senão corta).
+Grade 8×8, uma ou duas cores da marca. `pixel-icon.tsx`: `PixelClose`, `PixelCheck`, `PixelChevronDown`, `PixelArrow`, `PixelHeart`, `PixelPaw`, `PixelBuilding`, `PixelCoin` (sempre âmbar), `CidoeLogo`, `ErrorMark` ("!" de erro), `PixelPhoto` (foto indisponível). Gato/cachorro (`PixelCat`, `PixelDog`) usam pelagem real — mascote espiando por cima de modal/card, só onde o pai não tem `overflow` (senão corta).
 
 Lucide segue onde não há ícone pixel; terminação reta via CSS global (`.lucide`).
 
@@ -299,7 +299,7 @@ HUD ocupa só os cantos. **Placa de papel sólido** garante leitura sobre qualqu
 | Peça | Spec |
 |---|---|
 | Placa de HUD | `pixel bevel-edge bg-background` (ou `bg-card`), `px-4 py-2.5 pb-3` |
-| Nível/XP | `CidoaLogo` + `mono-label` + `BlockBar size="sm"` |
+| Nível/XP | `CidoeLogo` + `mono-label` + `BlockBar size="sm"` |
 | Contador | Placa + ícone pixel + número em mono 14px |
 | Info de edifício | Placa: kicker mono verde ("Edifício #12.847"), título 20px 600, meta `text-muted-foreground` |
 | CTA principal | Botão `default` `size="lg"` com ícone pixel, canto inferior |

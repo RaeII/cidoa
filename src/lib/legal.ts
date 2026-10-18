@@ -20,7 +20,7 @@ export const LEGAL_VERSION = IS_PRELAUNCH ? `${LEGAL_DATE}-beta` : LEGAL_DATE;
 
 /** Controlador dos dados (LGPD art. 5 VI e art. 9 III). Pessoa física: sem documento na página. */
 export const LEGAL_CONTROLLER = "Israel Zeferino";
-export const LEGAL_EMAIL = "contato@cidoa.com.br";
+export const LEGAL_EMAIL = "contato@cidoe.com.br";
 
 export const TERMS_PATH = "/termos";
 export const PRIVACY_PATH = "/privacidade";

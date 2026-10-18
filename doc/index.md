@@ -1,5 +1,5 @@
 ---
-title: Cidoa — Visão Geral
+title: Cidoe — Visão Geral
 tags:
   - cidoa
   - arquitetura
@@ -9,9 +9,9 @@ aliases:
   - Home
 ---
 
-# Cidoa — Documentação
+# Cidoe — Documentação
 
-Cidoa é uma cena 3D de cidade procedural feita com `React 19`, `Three.js`, `TypeScript` e `Vite`. Gera prédios baseados em doações, com texturas PBR, iluminação configurável e sistema de sombras — tudo controlável via painel em tempo real.
+Cidoe é uma cena 3D de cidade procedural feita com `React 19`, `Three.js`, `TypeScript` e `Vite`. Gera prédios baseados em doações, com texturas PBR, iluminação configurável e sistema de sombras — tudo controlável via painel em tempo real.
 
 > [!abstract] Para quem é essa documentação?
 > O objetivo é ajudar um dev júnior a entender por onde a aplicação começa, onde cada responsabilidade fica, em qual arquivo mexer e como os dados saem do React e chegam na cena 3D.
@@ -22,6 +22,8 @@ Cidoa é uma cena 3D de cidade procedural feita com `React 19`, `Three.js`, `Typ
 ## Como a Documentação Está Organizada
 
 Produção: [Docker e GHCR](../prod/README.md) — build local com Bun, imagens por branch, Compose sem build e proxy `/api`.
+
+Domínio: `https://cidoe.com.br`, marca **Cidoe**. `cidoa.com.br` sem uso. Nomes internos seguem `cidoa`: repo, banco, imagem Docker, chaves `cidoa:*` do navegador e cache `cidoa-env-v2` — renomear chave apaga cidade e consentimento salvos.
 
 As páginas ficam em pastas que **espelham as pastas do código** — assim você acha o doc pelo mesmo caminho do arquivo.
 

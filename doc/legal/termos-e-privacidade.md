@@ -27,7 +27,7 @@ Mesmo código nas duas branches; só `LEGAL_EDITION` (`src/lib/legal.ts`) muda:
 | Branch | `LEGAL_EDITION` | `LEGAL_VERSION` | Texto |
 |---|---|---|---|
 | `beta` (produção hoje, pré-lançamento) | `"prelaunch"` | `2026-10-15-beta` | Tudo simulado: sem pagamento, simulação só no navegador, seção "Pré-lançamento: tudo é teste", ONGs não recebem dado |
-| `main` (lançamento) | `"launch"` | `2026-10-15` | Pix via **Woovi** direto para a conta da ONG (Cidoa não recebe nem repassa dinheiro), edifício público, devolução encaminhada à ONG |
+| `main` (lançamento) | `"launch"` | `2026-10-15` | Pix via **Woovi** direto para a conta da ONG (Cidoe não recebe nem repassa dinheiro), edifício público, devolução encaminhada à ONG |
 
 - Texto comum escrito uma vez; `IS_PRELAUNCH ? … : …` só onde difere. Seção exclusiva entra com `...(IS_PRELAUNCH ? [secao] : [])`.
 - Edição faz parte da versão → quem aceitou na beta aceita de novo quando a main for ao ar. Sem passo manual.
@@ -35,7 +35,7 @@ Mesmo código nas duas branches; só `LEGAL_EDITION` (`src/lib/legal.ts`) muda:
 - Documentos valem só para **usuários** (com ou sem conta, e quem escreve ao contato). ONGs terão termos próprios quando o cadastro de ONGs abrir.
 
 > [!danger] main não vai ao ar antes da integração Woovi
-> O texto `launch` afirma que o Pix é gerado pela Woovi direto para a conta da ONG. Hoje a main só tem `PIX_SIMULATED` (nunca em produção) com `receiverName: "Cidoa"`. Publicar a main antes da integração = texto falso.
+> O texto `launch` afirma que o Pix é gerado pela Woovi direto para a conta da ONG. Hoje a main só tem `PIX_SIMULATED` (nunca em produção) com `receiverName: "Cidoe"`. Publicar a main antes da integração = texto falso.
 
 ---
 
@@ -123,7 +123,7 @@ Rodar de novo quando: feature nova coleta dado, entra terceiro (PSP, analytics),
 Achados de `auditoria-termos` + `pesquisa-legal` (15/10/2026) que o texto contorna mas o produto ainda deve resolver:
 
 - **Integração Woovi (antes de ativar Pix real)** — o texto da main já promete:
-  - recebedor do Pix = conta da ONG na Woovi (hoje o simulado mostra `receiverName: "Cidoa"`);
+  - recebedor do Pix = conta da ONG na Woovi (hoje o simulado mostra `receiverName: "Cidoe"`);
   - enviar à Woovi só valor, ONG e código da cobrança (sem nome, e-mail ou CPF) e **descartar** nome/CPF do pagador que vierem na confirmação;
   - cancelar na Woovi a cobrança substituída ("gerar novo código invalida o anterior"); se um código antigo for pago mesmo assim, registrar a contribuição;
   - devolução e MED por webhook → reduzir ou remover o edifício;
@@ -140,7 +140,7 @@ Achados de `auditoria-termos` + `pesquisa-legal` (15/10/2026) que o texto contor
 - **Validar com advogado** os decretos citados pela pesquisa (Decreto 12.975/2026 → arts. 16-E/20-A do Decreto 8.771; Decreto 12.976/2026) e se a autodeclaração 18+ basta perante o ECA Digital (cidade pública com conteúdo de usuário sem moderação prévia).
 - **Fatos do dono já no texto**: hospedagem no Brasil; backups por até 3 meses (mais antigos apagados); controlador pessoa física sem documento na página.
 - **Runbook de backup contradiz a política** (`cidoa-back/dev/prod/server/006-escalabilidade-operacao.md`): usa `-mtime +14` (14 dias) → passar para `+90`; sugere cópia externa em S3/B2/Drive (fora do Brasil) → manter no Brasil ou declarar a transferência na política.
-- **Caixa `contato@cidoa.com.br`**: provedor e país (se fora do Brasil, declarar em "Transferência para fora do Brasil").
+- **Caixa `contato@cidoe.com.br`**: provedor e país (se fora do Brasil, declarar em "Transferência para fora do Brasil").
 - **Recompensas do pré-lançamento**: texto da beta diz que continuam valendo no lançamento (tela promete recompensa — CDC art. 30). Confirmar.
 - **Beta e main no ar ao mesmo tempo** contra o mesmo banco: cada troca de site pede reaceite. Manter só uma no ar.
 - **Dono**: prazo dos logs do proxy HTTPS do host; e-mail de suporte no console do Google (conta Google ou grupo administrado); URLs `/`, `/privacidade`, `/termos` no console depois do deploy.
