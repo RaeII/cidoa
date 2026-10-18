@@ -11,7 +11,7 @@ FROM nginxinc/nginx-unprivileged:stable-alpine
 LABEL org.opencontainers.image.source="https://github.com/RaeII/cidoa" \
       org.opencontainers.image.url="https://github.com/RaeII/cidoa" \
       org.opencontainers.image.title="cidoa-front" \
-      org.opencontainers.image.description="Front do Cidoa (Nginx + SPA)" \
+      org.opencontainers.image.description="Front do Cidoe (Nginx + SPA)" \
       org.opencontainers.image.version="" \
       org.opencontainers.image.revision="" \
       org.opencontainers.image.created="" \

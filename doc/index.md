@@ -106,9 +106,13 @@ scripts/
 public/
   basis/                       ← transcoder basis do KTX2Loader (js + wasm)
   fonts/                       ← Manrope + JetBrains Mono self-hosted (woff2 latin/latin-ext) → [[desingn-system-index]]
-  city-poster-{portrait,landscape}.webp ← pôster da cidade no HTML até o 1º frame 3D → [[html-components#Carregamento inicial (casca)]]
-  favicon.svg                  ← `CidoeLogo` em hex (aba do navegador)
+  favicon-32.png               ← logo oficial verde-oliva 32px (aba do navegador)
+  logo.webp                    ← logo oficial verde-oliva 192px: placa da marca + hero da home → [[html-components]]
+  logo-branca.webp             ← logo oficial branca 192px: `CidoeLogo` no tema escuro (admin)
+  og-image.jpg                 ← `Cidoe.png` em 1200×630; prévia de link (`og:image` absoluto em `index.html`)
+  logo-{branca,preta,verde-oliva}.png, Cidoe.png ← originais da marca (1254px / 1733×908), fonte dos derivados
   robots.txt                   ← libera tudo; sem ele nginx devolvia `index.html`
+  video-cidoe.mp4              ← vídeo de apresentação 1080×1920, 15 s → [[html-components#IntroVideoDialog.tsx]]
 src/
   App.tsx
   main.tsx                      ← entry; restaura consentimento do Analytics; reload em `vite:preloadError` (chunk de deploy antigo)
@@ -164,10 +168,10 @@ src/
     OnboardingDialog.tsx          ← 1º login: cidade + como conheceu, opcional, uma vez por conta, "Pular"
     ProfileDetailsFields.tsx      ← campos compartilhados onboarding/Perfil: busca de cidade + chips de origem
     GameMenu.tsx                  ← menu estilo GTA: abas perfil/edifícios/personalizações/indicações, dia/noite, sair
-    AuthDialog.tsx                ← login por e-mail ou Google; cadastro confirma nome + username + aceite dos termos
+    AuthDialog.tsx                ← login por e-mail ou Google; cadastro confirma nome + username + aceite dos termos. `AuthPanel` = corpo reusável
+    IntroVideoDialog.tsx          ← vídeo de apresentação do 1º acesso (mudo, loop, sem controles); mobile + "Entrar", desktop + login à direita
     TermsConsent.tsx              ← caixa de aceite somente no cadastro, sem declaração de idade
     CookieNotice.tsx              ← aviso padrão, único botão Aceitar cookies; desativação na política de privacidade
-    CityPoster.tsx                ← pôster da cidade (mesmo do index.html); fade quando a cena pinta → [[html-components#Carregamento inicial (casca)]]
     AuthProvider.tsx              ← sessão da cena (cookie token_access), só na rota /
     AdminAuthProvider.tsx         ← sessão do painel (cookie token_admin), só em /dale/*
     RequireAdmin.tsx              ← guarda de /dale: exige sessão do painel
@@ -181,7 +185,7 @@ src/
       CityControlPanel.tsx
       BuildingHeightInput.tsx
       BuildingLayoutCard.tsx       ← card flutuante: modo de layout + teto de edifícios na tela
-      DonationLoadOverlay.tsx
+      DonationLoadOverlay.tsx      ← card de carregamento; `cover` = página de loading inicial (sem imagem, sai com tudo carregado) → [[html-components#Carregamento inicial (casca)]]
       DonationFilterBar.tsx
       DonationInfoSection.tsx     ← home: hero, 01 Impacto, 02 até 6 cartões de ONG, rodapé; fundo `pattern-paws` (DS)
       BuildingInfoModal.tsx          ← card só-leitura do prédio clicado; lápis só p/ dono/admin
@@ -463,6 +467,7 @@ flowchart LR
 | Alterar a UI do painel de configuração           | [[html-components#CityControlPanel.tsx]]          |
 | Granulado de render sob carga (padrão `0`)       | aba **tela** em [[html-components#CityControlPanel.tsx]] · `setGrain` em [[scene-runtime#Granulado (setGrain)]] |
 | Menu do usuário (abas, perfil, edifícios, sair)    | [[html-components#GameMenu.tsx]]                  |
+| Vídeo de apresentação do 1º acesso               | [[html-components#IntroVideoDialog.tsx]]          |
 | Modo noite: toggle no menu do usuário            | [[area-admin#Modo noite (menu do usuário)]]       |
 | Modo noite: céu escuro e estrelas                | [[scene-builders#loadEnvironment.ts]]             |
 | Modo noite: luz, IBL e névoa                     | [[scene-runtime#Modo noite]] · `NIGHT_PRESET` em [[scene-config#environmentConfig.ts]] |
@@ -495,7 +500,7 @@ flowchart LR
 | Textura sorteada por edifício (cidade variada)   | [[scene-textures#Sorteio por edifício]] · [[scene-managers#Grupos de fachada]] |
 | Mexer no pipeline WebP (qualidade, variante 512 mobile, HDRI) | [[scene-textures#Pipeline WebP]] · `scripts/encode-webp.mjs` |
 | Mexer no pipeline KTX2 (codec, tamanho, qualidade) | [[scene-textures#Pipeline KTX2 (fallback, fora do caminho padrão)]] · `scripts/encode-ktx2.mjs` |
-| Velocidade da home (PageSpeed): pôster, fontes, GSI sob demanda, cache nginx | [[html-components#Carregamento inicial (casca)]] · `index.html` · `docker/nginx.conf` |
+| Página de loading / velocidade da home (PageSpeed): loading no HTML, fontes, GSI sob demanda, cache nginx | [[html-components#Carregamento inicial (casca)]] · `index.html` · `docker/nginx.conf` |
 | Modo leve mobile (`IS_LOW_TIER`: texturas 512, céu 2K, DPR/FPS) | `src/scene/utils/deviceTier.ts` · [[scene-textures]] · [[scene-runtime]] |
 | Alterar o canvas ou a ligação com o hook         | [[three-components]]                              |
 | Alterar fórmulas de luz, clamp ou material       | [[scene-utils]]                                   |

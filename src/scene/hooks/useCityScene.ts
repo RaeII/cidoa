@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useEffectEvent, useRef, type RefObject } from "react";
 import { createCitySceneRuntime, type CitySceneRuntime } from "../runtime/createCitySceneRuntime";
+import { DEFAULT_SCENE_STATS } from "../config/citySceneConfig";
 import type {
   BlockLayoutSettings,
   BuildingCustomization,
@@ -113,8 +114,8 @@ export function useCityScene({
     const initial = settingsRef.current;
     void (async () => {
       // Sem WebGL (robôs, verificação do Google, GPU bloqueada) ou com WebGL por software o
-      // runtime rejeita: sem o catch o React desmonta a página inteira. Cena fica vazia
-      // (pôster no lugar), resto da home segue.
+      // runtime rejeita: sem o catch o React desmonta a página inteira. Cena fica vazia e
+      // sceneReady libera o loading — nada mais vai carregar; resto da home segue.
       try {
         runtime = await createCitySceneRuntime({
           mount,
@@ -127,6 +128,7 @@ export function useCityScene({
       } catch (error) {
         console.warn("Cena 3D indisponível:", error);
         pendingCallsRef.current = null;
+        if (!cancelled) handleStatsChange({ ...DEFAULT_SCENE_STATS, sceneReady: true });
         return;
       }
       if (cancelled) {

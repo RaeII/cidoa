@@ -39,7 +39,7 @@ Quando [[three-components|CitySceneCanvas]] monta:
 4. Reaplica o que mudou durante a criação (compara identidade com o snapshot usado), chama `setFacadeTexturePool` e `setGrain` (efeitos deles rodaram com runtime `null`) e drena a fila de chamadas imperativas
 
 > [!warning] Sem WebGL / WebGL por software
-> `await createCitySceneRuntime` em `try/catch`. Sem WebGL (robô, verificação do login com Google, GPU bloqueada) o renderer lança erro; com WebGL por software (SwiftShader, llvmpipe) o runtime rejeita de propósito. Sem catch React desmonta app inteiro → home em branco. Com catch: `runtimeRef` fica `null`, fila de chamadas vira `null` (descarta), efeitos viram no-op (`?.`), `sceneReady` nunca liga → pôster fica, resto da home renderiza.
+> `await createCitySceneRuntime` em `try/catch`. Sem WebGL (robô, verificação do login com Google, GPU bloqueada) o renderer lança erro; com WebGL por software (SwiftShader, llvmpipe) o runtime rejeita de propósito. Sem catch React desmonta app inteiro → home em branco. Com catch: `runtimeRef` fica `null`, fila de chamadas vira `null` (descarta), efeitos viram no-op (`?.`), catch emite `sceneReady: true` (nada mais vai carregar) → página de loading sai, resto da home renderiza.
 
 > [!note] settingsRef
 > Settings mais recentes numa ref atualizada por effect sem deps (roda antes do effect de criação). Criação lê o snapshot; o que mudar enquanto o runtime nasce é reaplicado no fim. Atualizações depois disso: efeitos de sincronização.

@@ -61,7 +61,7 @@ Fonte: [Requisitos da página inicial do app](https://support.google.com/cloud/a
 |---|---|
 | Identifica app/marca | Placa da cena (**Cidoe**, sem logo), `<title>`, `favicon.svg` |
 | Descreve funcionalidade | Hero da `DonationInfoSection` + `<noscript>` |
-| Explica finalidade dos dados do Google | Parágrafo sob o hero → `/privacidade#google` |
+| Explica finalidade dos dados do Google | Só em `/privacidade#google` (parágrafo da home removido a pedido do dono — risco na verificação) |
 | Link fácil para política (mesma URL do console) | Rodapé da home (seta da cena leva até ele), aviso de cookies, `<noscript>` |
 | Visível sem login | `/` pública; nada atrás de `AuthProvider` |
 | Domínio verificado, sem redirecionar | Console usa `https://cidoe.com.br` exato — `www.` e `http://` redirecionam (301), não cadastrar |

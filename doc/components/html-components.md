@@ -32,15 +32,20 @@ Esses componentes:
 
 Meta: 1º paint útil antes do bundle; Three.js não atrasa FCP/LCP. Lighthouse mobile local: FCP 3,0–3,4 s → 1,5 s; LCP 4,1–4,4 s → 2,0 s.
 
-1. **`index.html`** — `#root` já traz `<picture id="city-poster">`: `public/city-poster-portrait.webp` (`orientation: portrait`) ou `city-poster-landscape.webp`. Estilo inline (absolute, topo, `100vh`, `object-fit: cover`). Script inline remove fora de `/`.
-2. **`App.tsx`** — rota `/` com `Suspense` próprio: `SceneFallback` = `CityPoster` + mesmo `DonationLoadOverlay` da cena ("Carregando doações…"). Mesmo tamanho → card da cena não vira LCP tardio. React limpa `#root` no 1º commit e repõe mesmo pôster (mesma URL em cache, mesma caixa) → sem pisca, sem CLS.
-3. **`afterPaint()`** (`App.tsx`) — duplo rAF (aba oculta resolve na hora). `CitySceneEditor` lazy só chama `import()` depois: casca (pôster + `CookieNotice`) pinta antes de baixar/avaliar cena. Mesmo truque no `Toaster` — Radix Toast fora do `index.js`; store do toast vive fora do React, `toast()` antes do mount aparece quando monta.
-4. **`CityPoster.tsx`** — `<CityPoster hidden={loadState.status === "ready" && donationsApplied} />` logo após o canvas, abaixo de overlay/UI (sem z-index). Fade 500 ms por opacity; `transitionend` desmonta, não volta — rebuild por filtro usa só [[#DonationLoadOverlay.tsx|DonationLoadOverlay]].
+Decisão do dono: loading = só página de loading. **Nenhuma imagem** baixa nem aparece até ela sair; sai só com **tudo** carregado. Sem pôster da cidade (removido).
 
-> [!warning] Pôster não é LCP
-> Chrome ignora imagem que cobre viewport inteira (trata como fundo). LCP mobile = parágrafo do [[#CookieNotice.tsx|CookieNotice]] (texto vem no `index.js`). Logo: `index.js` enxuto, nada pesado antes do paint, preload só da Manrope latin. Pôster ajuda FCP real e Speed Index.
+1. **`index.html`** — `#root` já traz `#scene-loading`: mesmo markup/classes do [[#DonationLoadOverlay.tsx|DonationLoadOverlay]] `cover` (fundo `bg-background`, card "Carregando doações…" + `BlockLoader` + "0.0 MB"). Classes resolvem no 1º paint em produção (CSS no `<head>`); em dev pisca sem estilo até o JS. Script inline remove fora de `/`. Mudou o card? Ajustar aqui também.
+2. **`App.tsx`** — rota `/` com `Suspense` próprio: `SceneFallback` = `DonationLoadOverlay cover` com estado `loading`. React limpa `#root` no 1º commit e repõe o mesmo card → sem pisca, sem CLS, sem LCP novo.
+3. **`afterPaint()`** (`App.tsx`) — duplo rAF (aba oculta resolve na hora). `CitySceneEditor` lazy só chama `import()` depois: casca (loading + `CookieNotice`) pinta antes de baixar/avaliar cena. Mesmo truque no `Toaster` — Radix Toast fora do `index.js`; store do toast vive fora do React, `toast()` antes do mount aparece quando monta.
+4. **`CitySceneEditor`** — `<DonationLoadOverlay cover hidden={booted} />` logo após o canvas. `booted` liga **uma vez**: `loadState` pronto + `donationsApplied` + catálogo resolvido (pool de texturas) + `sceneReady` ([[scene-runtime#Desempenho (TBT e celular)]]: HDRI, shaders, fila de customização e nenhuma textura baixando). Lê `sceneReadyRef` (atualizado síncrono no `onStatsChange`), não o state: catálogo que chega troca o pool no effect do canvas, que roda antes e já derruba `sceneReady` — state ainda teria o `true` velho. Fade 500 ms; `transitionend` desmonta.
+5. **Até `booted`** não montam: placa da marca (logo), `AuthMenu`, `ContributeDialog`, seta/engrenagem, [[#DonationInfoSection.tsx|DonationInfoSection]] (foto, avatares). Sem imagem, sem foco por Tab atrás do loading, sem diálogo de onboarding por cima. `CookieNotice` (texto, consentimento) segue visível.
 
-- **Regenerar pôster** — screenshot da cena pronta sem UI (412×915 @2x e 1600×900), `ffmpeg` scale 432 / 1024 px + `gblur=sigma=1.6`, `cwebp -q 40 -m 6` (~25 KB cada). Cache do nginx = 30 dias: trocar conteúdo pede nome novo (ajustar `index.html` + `CityPoster`).
+> [!note] Custo
+> Loading espera ~11 MB de fachadas do cenário inicial. Medido (headless, ~5 Mbps sem cache): última textura 11,24 s → loading sai 11,28 s; logo e foto começam a baixar no instante da saída. Sem WebGL: hook marca `sceneReady`, loading sai normal.
+
+> [!warning] LCP
+> LCP mobile = parágrafo do [[#CookieNotice.tsx|CookieNotice]] ou texto do card de loading (os dois no HTML/`index.js`). Logo: `index.js` enxuto, nada pesado antes do paint, preload só da Manrope latin.
+
 - **Fontes** self-hosted — [[desingn-system-index#Tipografia]].
 - **GIS** sob demanda — [[area-admin]] (`AuthDialog`).
 - **nginx** (`docker/nginx.conf`) — `^~ /assets/`: `Cache-Control: public, max-age=31536000, immutable` (sem `always`: 404 de chunk não fica em cache). Arquivos de `public/` (webp/jpg/png/svg/woff2/ico): `expires 30d`. HTML: `no-cache`. gzip nível 6, ≥ 1 KB, + `text/plain`, `text/javascript`, `application/manifest+json`. `/api` e `/healthz` intactos.
@@ -49,19 +54,22 @@ Meta: 1º paint útil antes do bundle; Three.js não atrasa FCP/LCP. Lighthouse 
 
 ### Placa da marca (`CitySceneEditor.tsx`)
 
-Placa compacta `pixel pixel-thin bg-background`, sem bisel. Duas linhas:
+Placa compacta `pixel pixel-thin bg-background`, sem bisel. Logo oficial `public/logo.webp` 32px à esquerda (`alt=""`: nome já no texto) + duas linhas:
 1. **Cidoe** 14px 600 + kicker mono verde **Pré-lançamento**.
 2. **Pagamentos simulados. Cidade salva só neste navegador.**
 
-Sem logo, sem links (decisão do dono). Termos/Privacidade ficam no rodapé da [[#DonationInfoSection.tsx]] (seta inferior direita da cena) e no aviso de cookies. Marca visível na 1ª tela, sem rolar nem entrar = requisito da página inicial do login com Google ([[termos-e-privacidade#Página inicial — requisitos do Google]]). Texto 12px, entrelinha 16px, padding 8px horizontal / 6px vertical; `aside aria-label="Cidoe"`.
+Sem links (decisão do dono). Termos/Privacidade ficam no rodapé da [[#DonationInfoSection.tsx]] (seta inferior direita da cena) e no aviso de cookies. Marca visível na 1ª tela, sem rolar nem entrar = requisito da página inicial do login com Google ([[termos-e-privacidade#Página inicial — requisitos do Google]]). Texto 12px, entrelinha 16px, padding 8px horizontal / 6px vertical; `aside aria-label="Cidoe"`.
 
-Ocupa apenas a largura do conteúdo, limitada à tela, com margem externa de 16px. Aviso e menu ficam lado a lado quando há espaço; em telas estreitas, o menu quebra para baixo, alinhado à direita. Espaço entre eles de 8px. Espaços vazios do cabeçalho deixam passar os gestos para a cena.
+Ocupa apenas a largura do conteúdo, margem externa de 16px. Placa e menu sempre na mesma linha, espaço 8px; nunca quebra. Espaços vazios do cabeçalho deixam passar os gestos para a cena.
+
+> [!note] Mobile (< `sm`)
+> Placa vira só o kicker **Pré-lançamento** (altura 40px = botões). Logo, aviso e nome somem; **Cidoe** fica `sr-only`. Menu logado: avatar sem nome (`sr-only`), gap 8px. Cabe em 320px.
 
 ### `DonationInfoSection.tsx`
 
-Seção abaixo da cena pública = home do projeto. Composição do [[desingn-system-index|DS]]: hero display → `01 Impacto` → `02 Explore as ONGs da cidade` → rodapé. Fundo `bg-background pattern-paws` (pegadas do DS, 420px). Container `max-w-[1240px]`, `pt-24 pb-[120px]`. Cabeçalho de seção = `PixelPaw` + número mono verde + título 44px, gap 18px, conteúdo a 36px (`mt-9`). Espaço entre blocos: 128px (hero → 01), 112px (01 → 02), 120px (rodapé). Sem hairline: só espaço. Snapshot público mais simulações locais do mesmo `useDonations`; valores rotulados como simulados (**Valor simulado**, **ONGs na cidade**), sem arrecadação real. Hero e seção 02 com copy de pré-lançamento.
+Seção abaixo da cena pública = home do projeto. Composição do [[desingn-system-index|DS]]: hero display → `01 Impacto` → `02 Explore as ONGs da cidade` → rodapé. Fundo `bg-background pattern-paws` (pegadas do DS, 420px). Container `max-w-[1240px]`, `pt-24 pb-[120px]` (mobile `pt-16 pb-24`). Cabeçalho de seção = `PixelPaw` + número mono verde + título 44px, gap 18px, conteúdo a 36px (`mt-9`). Espaço entre blocos: 128px (hero → 01), 112px (01 → 02), 120px (rodapé); mobile 80px em todos. Sem hairline: só espaço. Snapshot público mais simulações locais do mesmo `useDonations`; valores rotulados como simulados (**Valor simulado**, **ONGs na cidade**), sem arrecadação real. Hero e seção 02 com copy de pré-lançamento.
 
-- Hero: kicker mono 13px; título display (até 72px, `leading-[0.98]`, `max-w-[14ch]`); texto 22px `leading-normal` `muted-foreground` = o que o app faz (contribuição → edifício, valor → altura; cadastro, simulação, personalização, indicação); gap 32px. Abaixo, 15px `muted-foreground`: dados usados no login com Google (nome, e-mail, foto) e para quê + link **Como tratamos seus dados** → `/privacidade#google`. Descrição + finalidade dos dados = requisito da página inicial do Google ([[termos-e-privacidade#Página inicial — requisitos do Google]]).
+- Hero: kicker mono 13px com logo oficial `public/logo.webp` 48px antes (`loading="lazy"`, abaixo da dobra); título display (até 72px, `leading-[0.98]`, `max-w-[14ch]`); texto 22px `leading-normal` `muted-foreground` = o que o app faz (contribuição → edifício, valor → altura; cadastro, simulação, personalização, indicação); gap 32px. Política de Privacidade linkada só no rodapé.
 - Impacto: placa `pixel bevel-edge bg-card` com total em display verde (Manrope); três placas contador (ícone pixel + número + `mono-label`). Soma em centavos, quantidade de edifícios, ONGs beneficiárias e cidades. Valores acompanham filtros da cena; teto de renderização vale só no canvas.
 - Foto: `<Photo ratio="1/1">` ([[desingn-system-index#Moldura (5.3)|moldura do DS]], 3px, sem bisel) com `public/cat_dog.webp` e `public/cat_dog.jpeg` de reserva — JPG cópia idêntica da `video-2` (1024 × 947); 1:1 recorta só as laterais. `PixelDog` espia por cima (DS 6.6). Foto de banco: trocar por foto de ONG quando houver ([[desingn-system-index#Desvios conscientes]]).
 - ONGs: no máximo **6 cartões** (DS 6.6, grade 1/2/3 colunas), por quantidade de edifícios apoiando; ONG selecionada permanece visível, desempate pelo nome. Cartão: `gap-3.5`; cidades (mono 11px), avatar 72px com `ong.profile_image` (fallback: iniciais; edição em [[ongs]]), nome 26px, edifícios 15px com número em `strong`, botão primário largura total **Ver na cidade**. ONG filtrada = `pixel-ink-verde bg-secondary` + selo **No filtro**. Sem barra de meta: API não expõe meta da ONG. Sem lista individual de edifícios.
@@ -134,12 +142,14 @@ Card flutuante no canto superior esquerdo. Tira do painel os dois controles que 
 
 ### `DonationLoadOverlay.tsx`
 
-Overlay de carregamento do snapshot de doações do backend ([[donation-api]]). Card central sobre o canvas enquanto o dataset carrega. No load inicial, pôster da cidade fica por baixo — ver [[#Carregamento inicial (casca)]].
+Overlay de carregamento do snapshot de doações do backend ([[donation-api]]). Duas instâncias no editor:
+- **`cover`** = página de loading inicial: fundo opaco `bg-background`, sem imagem, `pointer-events-auto` (bloqueia a cena). `hidden` → fade 500 ms e desmonta de vez. Ver [[#Carregamento inicial (casca)]].
+- **sem `cover`** = rebuild por filtro após o boot: card sobre a cena visível.
 
 **Responsabilidades:**
 - Placa central: `BlockLoader` (ou `BlockBar` quando há total) + progresso por bytes (`X-Snapshot-Bytes`) ou só MB carregados quando o header não vem (gzip zera `total` — ver [[donation-api#Gotcha: barra de progresso com gzip]])
 - Estado de erro: mensagem + botão **"Tentar novamente"** (chama `retry` do `useDonations`)
-- Fundo `pointer-events-none` — não bloqueia interação com a cena embaixo
+- Sem `cover`: fundo `pointer-events-none` — não bloqueia interação com a cena embaixo
 - Mascara o **freeze do rebuild**: só some depois de `setDonations` aplicar (o `rebuildInstances` trava o frame; overlay cobre o congelamento). Vale pro load inicial **e pra troca de filtro** — o editor derruba `donationsApplied`, espera duplo `requestAnimationFrame` (garante 1 paint do overlay; rAF simples dispara antes do paint) e só então chama `setDonations`
 
 **Props:**
@@ -174,6 +184,8 @@ Barra de filtros das doações, temporariamente fora da interface na branch `bet
 ### `ContributeDialog.tsx`
 
 Pré-lançamento: **Simular contribuição** → formulário (ONG/cidade/valor, novo ou aumentar) → **Confirmar pagamento simulado** → **Ver meu edifício**. Login exigido; mínimo R$ 5, máximo 3 edifícios locais por conta/navegador. Nenhum Pix, QR, Copia e Cola ou polling. Criação/aumento chama `simulateContribution`, grava localStorage e atualiza cidade via evento local. Falha de armazenamento não confirma pagamento.
+
+Gatilho: `lg` centrado a 24px do rodapé. Mobile: `left-4 right-20 bottom-4`, texto 14px — mesma linha da seta da [[#DonationInfoSection.tsx]] (`bottom-4 right-4`; admin sobe para `bottom-[4.75rem]`, livra a engrenagem).
 
 `Flow` (`form` | `pay` | `done`) captura conta. Outra sessão não reaproveita simulação. Fechar confirmação libera nova simulação; fechar pagamento mantém etapa somente em memória. Troca de etapa foca título. Administração independente no card/Meus edifícios.
 
@@ -258,6 +270,20 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre por **Meus edifíci
 | `referralSummary` / `referralError` | | Vêm do `AuthMenu` |
 
 `myDonations` montado no `CitySceneEditor`: `allDonations` (dataset sem filtro, do `useDonations`) ∩ `ownedDonationIds`. Lista não depende do filtro/teto da cena. `handleOpenDonation` mantém `pendingFocusRef` até edifício existir no rebuild; chegada atrasada após pagamento não perde seleção. Fechar card/trocar conta cancela foco pendente.
+
+---
+
+### `IntroVideoDialog.tsx`
+
+Vídeo de apresentação (`public/video-cidoe.mp4`, retrato 9:16) no 1º acesso de visitante. `autoPlay muted loop playsInline`, sem `controls`, `aria-hidden`. Montado no `AuthMenu` (ramo deslogado) → só aparece depois de `booted`, sobre a cidade pronta.
+
+- **Mobile (< 768, `useIsMobile`)** — quase tela cheia (`100dvh − 1rem`), vídeo `object-cover`, botão **Acessar Cidoe** largura total embaixo. Clique só fecha vídeo (`DialogClose`) → cidade, sem login. Título `sr-only` "Cidoe".
+- **Desktop** — vídeo à esquerda (altura `min(40rem, 100dvh − 4rem)`, 9:16), login à direita (`w-96`): `AuthPanel` do [[area-admin#Login público na cena (passwordless)|AuthDialog]], mesmo fluxo e mesma indicação. Login concluído fecha.
+- **X** próprio (`DialogClose` com `bg-background`: legível sobre o vídeo). Esc e clique fora também fecham. Fechar descarta código de indicação digitado.
+- **Quando abre** (`AuthMenu`) — `!localStorage["cidoa:intro-video-seen"]` && sessão resolvida && deslogado && sem `?ref=` na entrada && `AuthDialog` fechado. Link de indicação vai direto pro login, sem vídeo.
+- **Uma vez** — grava `cidoa:intro-video-seen` ao abrir e sempre que houver usuário logado. Conta logada nunca vê: sessão = cookie httpOnly, sobrevive a limpar o `localStorage`. Limpar tudo (cookie junto) = visitante anônimo, vê de novo; sem como identificar antes do login. Storage bloqueado = tratado como visto (não repete a cada visita).
+- Código digitado no painel do vídeo não abre `AuthDialog` por cima: `open={effectiveAuthOpen && !showIntro}`.
+- Chave listada na [[termos-e-privacidade|Política de Privacidade]] (tabela de cookies e armazenamento).
 
 ---
 

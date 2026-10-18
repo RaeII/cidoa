@@ -2,7 +2,6 @@ import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { AdminAuthProvider } from "./components/AdminAuthProvider";
 import { AuthProvider } from "./components/AuthProvider";
-import { CityPoster } from "./components/CityPoster";
 import { CookieNotice } from "./components/CookieNotice";
 import { DonationLoadOverlay } from "./components/html/DonationLoadOverlay";
 import { RequireAdmin } from "./components/RequireAdmin";
@@ -23,7 +22,7 @@ function afterPaint() {
 
 // Code-split por página (doc/regras/04-performance do base_vite): a cena 3D
 // (Three.js, pesada) e a área /dale (admin) viram chunks separados. A cena só
-// começa a baixar depois que a casca (pôster, aviso de cookies) pinta: o
+// começa a baixar depois que a casca (loading, aviso de cookies) pinta: o
 // download e a avaliação do Three.js não atrasam o 1º paint útil (LCP).
 const CitySceneEditor = lazy(() =>
   afterPaint()
@@ -61,15 +60,14 @@ function PageFallback() {
 const SCENE_LOADING = { status: "loading", loadedBytes: 0, totalBytes: null } as const;
 
 /**
- * Enquanto o chunk da cena baixa: mesmo pôster do index.html + o MESMO card de carregamento
- * da cena. Texto do mesmo tamanho não vira LCP novo quando a cena monta o dela; com
+ * Enquanto o chunk da cena baixa: a MESMA página de loading do index.html e da cena (sem
+ * imagem). Texto do mesmo tamanho não vira LCP novo quando a cena monta a dela; com
  * "Carregando…" menor aqui, o "Carregando doações…" da cena virava LCP tardio (~4,6 s mobile).
  */
 function SceneFallback() {
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-background">
-      <CityPoster />
-      <DonationLoadOverlay state={SCENE_LOADING} onRetry={() => {}} />
+    <div className="relative h-svh w-full overflow-hidden bg-background">
+      <DonationLoadOverlay cover state={SCENE_LOADING} onRetry={() => {}} />
     </div>
   );
 }
@@ -81,8 +79,8 @@ export default function App() {
         {/* Duas sessões independentes: cena (AuthProvider) e painel (AdminAuthProvider).
             Cada área só monta a própria — login numa nunca abre a outra. */}
         <Routes>
-          {/* Cena 3D pública. Enquanto o chunk da cena baixa, segue o mesmo pôster
-              estático do index.html (sem flash do "Carregando…"). */}
+          {/* Cena 3D pública. Enquanto o chunk da cena baixa, segue a mesma página de
+              loading do index.html (sem flash do "Carregando…"). */}
           <Route
             path="/"
             element={

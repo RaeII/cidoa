@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Gift } from "lucide-react";
 import { ApiError } from "@/api/http";
 import { requestLoginCode } from "@/api/auth/auth.routes";
@@ -50,6 +50,22 @@ const GOOGLE_CLIENT_ID =
   import.meta.env.VITE_GOOGLE_CLIENT_ID ??
   "234751630839-1cclfe773dck1v00tmknubila9e8tbq4.apps.googleusercontent.com";
 
+// GIS avisa se `initialize` roda de novo: inicializa uma vez por página. O callback
+// chama o painel montado no momento (cada abertura monta um novo).
+let googleInitialized = false;
+let onGoogleCredential: (credential: string) => void = () => {};
+
+type AuthPanelProps = {
+  referralCode: string;
+  referralPreview: ReferrerPreview | null;
+  referralLoading: boolean;
+  referralError: string | null;
+  onReferralCodeChange: (code: string) => void;
+  onReferralApplied: () => void;
+  /** Login ou cadastro concluído. */
+  onDone: () => void;
+};
+
 /** Segundos até `iso` (cooldown de reenvio), nunca negativo. */
 function secondsUntil(iso: string): number {
   return Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 1000));
@@ -63,32 +79,46 @@ function secondsUntil(iso: string): number {
 export function AuthDialog({
   open,
   onOpenChange,
+  onCancelReferral,
+  ...panel
+}: Omit<AuthPanelProps, "onDone"> & {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCancelReferral: () => void;
+}) {
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onCancelReferral();
+        onOpenChange(next);
+      }}
+    >
+      {/* text-foreground: o body da cena pinta texto branco, que sumiria no tema claro. */}
+      <DialogContent className="text-foreground sm:max-w-sm">
+        <AuthPanel {...panel} onDone={() => onOpenChange(false)} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Conteúdo do login (título + passos + indicação), dentro de um `Dialog`: o
+ * `AuthDialog` e a metade direita do vídeo de apresentação no desktop. Estado vive
+ * só enquanto montado: fechar o modal desmonta e a próxima abertura começa limpa.
+ */
+export function AuthPanel({
   referralCode,
   referralPreview,
   referralLoading,
   referralError,
   onReferralCodeChange,
-  onCancelReferral,
   onReferralApplied,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  referralCode: string;
-  referralPreview: ReferrerPreview | null;
-  referralLoading: boolean;
-  referralError: string | null;
-  onReferralCodeChange: (code: string) => void;
-  onCancelReferral: () => void;
-  onReferralApplied: () => void;
-}) {
+  onDone,
+}: AuthPanelProps) {
   const { loginWithCode, completeRegistration, loginWithGoogle } = useAuth();
 
   const googleBtnRef = useRef<HTMLDivElement>(null);
-  // Handler do callback do Google guardado em ref: o GIS chama fora do ciclo do
-  // React, então lemos sempre a versão mais recente sem reinicializar o botão.
-  const handleGoogleRef = useRef<(credential: string) => void>(() => {});
-  // GIS avisa se `initialize` roda de novo — uma vez basta, o callback lê o ref acima.
-  const googleInitRef = useRef(false);
 
   const [step, setStep] = useState<Step>("email");
   const [name, setName] = useState("");
@@ -115,36 +145,6 @@ export function AuthDialog({
     return true;
   }
 
-  // Reset ao fechar — reabrir sempre começa limpo no passo de e-mail.
-  const reset = useCallback(() => {
-    setStep("email");
-    setName("");
-    setUsername("");
-    setEmail("");
-    setCode("");
-    setChallenge(null);
-    setRegistration(null);
-    setAcceptedTerms(false);
-    setError(null);
-    setSubmitting(false);
-    setResendIn(0);
-    setShowReferral(false);
-    setShowReferralError(false);
-  }, []);
-
-  function handleOpenChange(next: boolean) {
-    if (!next) {
-      reset();
-      onCancelReferral();
-    }
-    onOpenChange(next);
-  }
-
-  function closeAfterAuth() {
-    reset();
-    onOpenChange(false);
-  }
-
   // Contagem regressiva do cooldown de reenvio.
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -152,16 +152,17 @@ export function AuthDialog({
     return () => clearInterval(t);
   }, [resendIn]);
 
-  // Mantém o handler do Google sempre atualizado (fecha no sucesso, mostra erro).
+  // Mantém o handler do Google sempre atualizado (fecha no sucesso, mostra erro):
+  // o GIS chama fora do ciclo do React, sem reinicializar o botão.
   useEffect(() => {
-    handleGoogleRef.current = async (credential: string) => {
+    onGoogleCredential = async (credential: string) => {
       if (blockedByReferral()) return;
       setError(null);
       setSubmitting(true);
       try {
         const result = await loginWithGoogle(credential);
         if (result.status === "authenticated") {
-          closeAfterAuth();
+          onDone();
           return;
         }
 
@@ -182,22 +183,22 @@ export function AuthDialog({
   // Inicializa e renderiza o botão do Google no passo de e-mail. O script GIS só
   // baixa aqui (sob demanda); renderiza quando terminar de carregar.
   useEffect(() => {
-    if (!open || step !== "email" || !GOOGLE_CLIENT_ID) return;
+    if (step !== "email" || !GOOGLE_CLIENT_ID) return;
 
     let cancelled = false;
     const render = () => {
       const id = window.google?.accounts?.id;
       const el = googleBtnRef.current;
       if (cancelled || !id || !el) return;
-      if (!googleInitRef.current) {
+      if (!googleInitialized) {
         id.initialize({
           client_id: GOOGLE_CLIENT_ID,
-          callback: (r) => handleGoogleRef.current(r.credential),
+          callback: (r) => onGoogleCredential(r.credential),
           // Diálogo nativo do navegador (FedCM) em vez do popup — o popup gera aviso
           // de COOP no console. Navegador sem FedCM cai no popup sozinho.
           use_fedcm_for_button: true,
         });
-        googleInitRef.current = true;
+        googleInitialized = true;
       }
       // Botão real do GIS: fica invisível (opacity 0) sobre o botão custom, então
       // o visual não importa — só precisa cobrir a área do clique. `width` casa
@@ -216,7 +217,7 @@ export function AuthDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, step]);
+  }, [step]);
 
   async function sendCode() {
     setError(null);
@@ -249,7 +250,7 @@ export function AuthDialog({
     try {
       const result = await loginWithCode({ challengeId: challenge.challengeId, code });
       if (result.status === "authenticated") {
-        closeAfterAuth();
+        onDone();
         return;
       }
 
@@ -286,7 +287,7 @@ export function AuthDialog({
         termsVersion: LEGAL_VERSION,
       });
       if (referralCode) onReferralApplied();
-      closeAfterAuth();
+      onDone();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Erro ao criar a conta");
     } finally {
@@ -300,203 +301,200 @@ export function AuthDialog({
       ? `Digite o código enviado para ${email}.`
       : step === "profile"
         ? "Confira seus dados antes de criar a conta."
-        : null;
+        : "Entre com Google ou e-mail.";
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      {/* aria-describedby={undefined} silencia o aviso do Radix quando não há descrição.
-          text-foreground: o body da cena pinta texto branco, que sumiria no tema claro. */}
-      <DialogContent className="text-foreground sm:max-w-sm" {...(description ? {} : { "aria-describedby": undefined })}>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          {description && <DialogDescription>{description}</DialogDescription>}
-        </DialogHeader>
+    <>
+      <DialogHeader>
+        <DialogTitle>{title}</DialogTitle>
+        {/* Passo de e-mail: descrição só pro leitor de tela (Radix exige uma). */}
+        <DialogDescription className={step === "email" ? "sr-only" : undefined}>{description}</DialogDescription>
+      </DialogHeader>
 
-        {step === "email" ? (
-          <div className="space-y-5">
-            {/* Botão custom visível + botão real do GIS invisível por cima (recebe o clique). */}
-            <div
-              className={`group relative h-10 ${referralBlocked ? "opacity-50" : ""}`}
-              onClick={referralBlocked ? () => setShowReferralError(true) : undefined}
+      {step === "email" ? (
+        <div className="space-y-5">
+          {/* Botão custom visível + botão real do GIS invisível por cima (recebe o clique). */}
+          <div
+            className={`group relative h-10 ${referralBlocked ? "opacity-50" : ""}`}
+            onClick={referralBlocked ? () => setShowReferralError(true) : undefined}
+          >
+            <button
+              type="button"
+              aria-hidden
+              tabIndex={-1}
+              className={cn(buttonVariants({ variant: "outline" }), "pointer-events-none absolute inset-0 w-full gap-3 group-hover:bg-accent")}
             >
-              <button
-                type="button"
-                aria-hidden
-                tabIndex={-1}
-                className={cn(buttonVariants({ variant: "outline" }), "pointer-events-none absolute inset-0 w-full gap-3 group-hover:bg-accent")}
-              >
-                <GoogleG className="size-5" />
-                Continuar com Google
-              </button>
-              <div
-                ref={googleBtnRef}
-                className={`absolute inset-0 opacity-0 ${referralBlocked ? "pointer-events-none" : ""}`}
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="h-px flex-1 bg-border" />
-              <span className="mono-label text-muted-foreground">ou</span>
-              <span className="h-px flex-1 bg-border" />
-            </div>
-            <form onSubmit={handleEmailSubmit} className="space-y-4">
-            <Input
-              id="auth-email"
-              label="E-mail"
-              type="email"
-              required
-              autoComplete="email"
-              autoFocus
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              <GoogleG className="size-5" />
+              Continuar com Google
+            </button>
+            <div
+              ref={googleBtnRef}
+              className={`absolute inset-0 opacity-0 ${referralBlocked ? "pointer-events-none" : ""}`}
             />
-            {error && <FormError>{error}</FormError>}
-            <Button type="submit" disabled={submitting} className="w-full">
-              {submitting ? "Enviando…" : "Continuar com E-mail"}
-            </Button>
-            </form>
           </div>
-        ) : step === "code" ? (
-          <form onSubmit={handleCodeSubmit} className="space-y-4">
-            {challenge?.debugCode && (
-              <p className="bg-secondary px-3 py-2 text-center text-sm text-secondary-foreground">
-                Código (dev):{" "}
-                <span className="font-mono font-semibold text-foreground">{challenge.debugCode}</span>
+          <div className="flex items-center gap-3">
+            <span className="h-px flex-1 bg-border" />
+            <span className="mono-label text-muted-foreground">ou</span>
+            <span className="h-px flex-1 bg-border" />
+          </div>
+          <form onSubmit={handleEmailSubmit} className="space-y-4">
+          <Input
+            id="auth-email"
+            label="E-mail"
+            type="email"
+            required
+            autoComplete="email"
+            autoFocus
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          {error && <FormError>{error}</FormError>}
+          <Button type="submit" disabled={submitting} className="w-full">
+            {submitting ? "Enviando…" : "Continuar com E-mail"}
+          </Button>
+          </form>
+        </div>
+      ) : step === "code" ? (
+        <form onSubmit={handleCodeSubmit} className="space-y-4">
+          {challenge?.debugCode && (
+            <p className="bg-secondary px-3 py-2 text-center text-sm text-secondary-foreground">
+              Código (dev):{" "}
+              <span className="font-mono font-semibold text-foreground">{challenge.debugCode}</span>
+            </p>
+          )}
+          <Input
+            id="auth-code"
+            label="Código de 6 dígitos"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            autoFocus
+            maxLength={6}
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          />
+          {error && <FormError>{error}</FormError>}
+          <Button
+            type="submit"
+            disabled={submitting || code.length !== 6}
+            className="w-full"
+          >
+            {submitting ? "Validando…" : "Continuar"}
+          </Button>
+          <div className="flex items-center justify-between text-sm">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setStep("email");
+                setError(null);
+              }}
+            >
+              Trocar e-mail
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={resendIn > 0 || submitting}
+              onClick={sendCode}
+            >
+              {resendIn > 0 ? `Reenviar (${resendIn}s)` : "Reenviar código"}
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <form onSubmit={handleProfileSubmit} className="space-y-4">
+          {/* E-mail já verificado (código ou Google): só confirmação, não editável. */}
+          <Input
+            id="auth-confirm-email"
+            label="E-mail"
+            type="email"
+            value={email}
+            readOnly
+            disabled
+          />
+          <Input
+            id="auth-name"
+            label="Nome"
+            required
+            minLength={2}
+            maxLength={100}
+            autoComplete="name"
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <Input
+            id="auth-username"
+            label="Nome de usuário"
+            required
+            minLength={3}
+            maxLength={45}
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+          <TermsConsent id="auth-terms" checked={acceptedTerms} onChange={setAcceptedTerms} />
+          {error && <FormError>{error}</FormError>}
+          <Button type="submit" disabled={submitting || !acceptedTerms} className="w-full">
+            {submitting ? "Criando conta…" : "Criar conta"}
+          </Button>
+        </form>
+      )}
+
+      {/* Bloco de indicação destacado (fundo verde claro) pra não se confundir com os
+          campos de login logo acima. */}
+      {referralOpen ? (
+        <div className="mt-3 space-y-4 bg-secondary p-4">
+          <div className="flex items-start gap-2.5">
+            <span className="flex size-8 shrink-0 items-center justify-center bg-primary text-primary-foreground">
+              <Gift className="size-4" aria-hidden />
+            </span>
+            <div className="space-y-0.5">
+              <p className="text-sm font-semibold">Alguém te indicou o Cidoe?</p>
+              <p className="text-xs text-muted-foreground">
+                Opcional. Cole o código de quem te convidou.
+              </p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Input
+              id="auth-referral-code"
+              label="Código de indicação"
+              className="font-mono tracking-[0.15em]"
+              placeholder="A1B2C3D4E5F60718"
+              maxLength={16}
+              autoCapitalize="characters"
+              spellCheck={false}
+              autoFocus={showReferral}
+              aria-invalid={showReferralError && referralError ? true : undefined}
+              value={referralCode}
+              onChange={(event) => {
+                setShowReferralError(false);
+                onReferralCodeChange(event.target.value);
+              }}
+            />
+            {referralLoading && (
+              <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                <BlockLoader />
+                Verificando indicação…
               </p>
             )}
-            <Input
-              id="auth-code"
-              label="Código de 6 dígitos"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              autoFocus
-              maxLength={6}
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            />
-            {error && <FormError>{error}</FormError>}
-            <Button
-              type="submit"
-              disabled={submitting || code.length !== 6}
-              className="w-full"
-            >
-              {submitting ? "Validando…" : "Continuar"}
-            </Button>
-            <div className="flex items-center justify-between text-sm">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setStep("email");
-                  setError(null);
-                }}
-              >
-                Trocar e-mail
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={resendIn > 0 || submitting}
-                onClick={sendCode}
-              >
-                {resendIn > 0 ? `Reenviar (${resendIn}s)` : "Reenviar código"}
-              </Button>
-            </div>
-          </form>
-        ) : (
-          <form onSubmit={handleProfileSubmit} className="space-y-4">
-            {/* E-mail já verificado (código ou Google): só confirmação, não editável. */}
-            <Input
-              id="auth-confirm-email"
-              label="E-mail"
-              type="email"
-              value={email}
-              readOnly
-              disabled
-            />
-            <Input
-              id="auth-name"
-              label="Nome"
-              required
-              minLength={2}
-              maxLength={100}
-              autoComplete="name"
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-            <Input
-              id="auth-username"
-              label="Nome de usuário"
-              required
-              minLength={3}
-              maxLength={45}
-              autoComplete="username"
-              autoCapitalize="none"
-              spellCheck={false}
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-            />
-            <TermsConsent id="auth-terms" checked={acceptedTerms} onChange={setAcceptedTerms} />
-            {error && <FormError>{error}</FormError>}
-            <Button type="submit" disabled={submitting || !acceptedTerms} className="w-full">
-              {submitting ? "Criando conta…" : "Criar conta"}
-            </Button>
-          </form>
-        )}
-
-        {/* Bloco de indicação destacado (fundo verde claro) pra não se confundir com os
-            campos de login logo acima. */}
-        {referralOpen ? (
-          <div className="mt-3 space-y-4 bg-secondary p-4">
-            <div className="flex items-start gap-2.5">
-              <span className="flex size-8 shrink-0 items-center justify-center bg-primary text-primary-foreground">
-                <Gift className="size-4" aria-hidden />
-              </span>
-              <div className="space-y-0.5">
-                <p className="text-sm font-semibold">Alguém te indicou o Cidoe?</p>
-                <p className="text-xs text-muted-foreground">
-                  Opcional. Cole o código de quem te convidou.
-                </p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Input
-                id="auth-referral-code"
-                label="Código de indicação"
-                className="font-mono tracking-[0.15em]"
-                placeholder="A1B2C3D4E5F60718"
-                maxLength={16}
-                autoCapitalize="characters"
-                spellCheck={false}
-                autoFocus={showReferral}
-                aria-invalid={showReferralError && referralError ? true : undefined}
-                value={referralCode}
-                onChange={(event) => {
-                  setShowReferralError(false);
-                  onReferralCodeChange(event.target.value);
-                }}
-              />
-              {referralLoading && (
-                <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <BlockLoader />
-                  Verificando indicação…
-                </p>
-              )}
-              {showReferralError && referralError && <FormError>{referralError}</FormError>}
-              {referralPreview && (
-                <ReferralPerson label="Você foi indicado por" person={referralPreview} />
-              )}
-            </div>
+            {showReferralError && referralError && <FormError>{referralError}</FormError>}
+            {referralPreview && (
+              <ReferralPerson label="Você foi indicado por" person={referralPreview} />
+            )}
           </div>
-        ) : (
-          <Button type="button" variant="outline" className="mt-3 w-full" onClick={() => setShowReferral(true)}>
-            <Gift className="text-primary" aria-hidden />
-            Tenho um código de indicação
-          </Button>
-        )}
-      </DialogContent>
-    </Dialog>
+        </div>
+      ) : (
+        <Button type="button" variant="outline" className="mt-3 h-auto min-h-10 w-full whitespace-normal py-2" onClick={() => setShowReferral(true)}>
+          <Gift className="text-primary" aria-hidden />
+          Tenho um código de indicação
+        </Button>
+      )}
+    </>
   );
 }

@@ -118,7 +118,7 @@ Cria e atualiza a luz da cena.
 
 ### `loadEnvironment.ts`
 
-Carrega e configura o ambiente HDRI/skybox.
+Carrega e configura o ambiente HDRI/skybox. Callbacks: `onLoaded(envMap, bg)` no sucesso, `onFailed()` se o HDRI falhar (runtime marca o céu como resolvido → página de loading não trava).
 
 **Responsabilidades:**
 - Carregar HDRI em **dois arquivos WebP por tier**, gerados de `src/assets/environment/DaySkyHDRI040B_4K_TONEMAPPED.jpg` por `npm run textures:webp` (ver [[scene-textures#Pipeline WebP]]). JPG fonte fica no repo, fora do dist:

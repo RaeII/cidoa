@@ -67,25 +67,20 @@ export function DonationInfoSection({
 
   return (
     <section id="donation-info" aria-labelledby="donation-info-title" className="min-h-screen w-full bg-background pattern-paws text-foreground">
-      <div className="mx-auto w-full max-w-[1240px] px-6 pt-24 pb-[120px] sm:px-10">
-        <header className="grid items-center gap-16 lg:grid-cols-[1.1fr_1fr]">
+      <div className="mx-auto w-full max-w-[1240px] px-6 pt-16 pb-24 sm:px-10 sm:pt-24 sm:pb-[120px]">
+        <header className="grid items-center gap-10 lg:gap-16 lg:grid-cols-[1.1fr_1fr]">
           <div>
-            <p className="font-mono text-[13px] tracking-[0.06em] text-primary">Pré-lançamento</p>
-            <h2 id="donation-info-title" className="mt-8 max-w-[14ch] text-[2.75rem] font-semibold leading-[0.98] tracking-[-0.025em] text-balance sm:text-6xl lg:text-7xl">
+            <p className="flex items-center gap-3 font-mono text-[13px] tracking-[0.06em] text-primary">
+              <img src="/logo.webp" alt="Cidoe" width={48} height={48} loading="lazy" className="size-12" />
+              Pré-lançamento
+            </p>
+            <h2 id="donation-info-title" className="mt-6 sm:mt-8 max-w-[14ch] text-[2.75rem] font-semibold leading-[0.98] tracking-[-0.025em] text-balance sm:text-6xl lg:text-7xl">
               Conheça o Cidoe e teste sua cidade.
             </h2>
-            <p className="mt-8 max-w-[46ch] text-lg leading-normal text-pretty text-muted-foreground sm:text-[22px]">
+            <p className="mt-6 sm:mt-8 max-w-[46ch] text-lg leading-normal text-pretty text-muted-foreground sm:text-[22px]">
               Cada contribuição para uma ONG de proteção animal ergue um edifício na cidade; o valor define a altura.
               Cadastre-se, simule contribuições, personalize seus edifícios e indique amigos. Nesta versão, os
               edifícios que você cria ficam apenas neste navegador.
-            </p>
-            {/* Finalidade dos dados do Google na página inicial: requisito da verificação do login com Google. */}
-            <p className="mt-6 max-w-[52ch] text-[15px] leading-relaxed text-pretty text-muted-foreground">
-              No login com Google, usamos só seu nome, e-mail e foto para criar sua conta, fazer login e mostrar seu
-              perfil. Não acessamos Gmail, Drive nem contatos.{" "}
-              <a href={`${PRIVACY_PATH}#google`} className="underline decoration-2 underline-offset-3 hover:bg-accent hover:text-primary">
-                Como tratamos seus dados
-              </a>
             </p>
           </div>
           <div className="relative">
@@ -103,11 +98,11 @@ export function DonationInfoSection({
         </header>
 
         {loadState.status === "loading" ? (
-          <div role="status" className="mt-32 flex items-center gap-3 text-muted-foreground">
+          <div role="status" className="mt-20 sm:mt-32 flex items-center gap-3 text-muted-foreground">
             <BlockLoader /><span>Carregando ONGs e contribuições…</span>
           </div>
         ) : loadState.status === "error" ? (
-          <div className="mt-32 space-y-4">
+          <div className="mt-20 sm:mt-32 space-y-4">
             <p role="alert" className="flex items-center gap-2 text-sm text-destructive">
               <ErrorMark />Não foi possível carregar as contribuições.
             </p>
@@ -115,7 +110,7 @@ export function DonationInfoSection({
           </div>
         ) : (
           <>
-            <div className="mt-32">
+            <div className="mt-20 sm:mt-32">
               <SectionHead index="01">Impacto</SectionHead>
               <div className="mt-9 grid gap-5 sm:grid-cols-3">
                 <div className="pixel bevel-edge bg-card px-6 pt-5 pb-7 sm:col-span-3">
@@ -140,7 +135,7 @@ export function DonationInfoSection({
               </div>
             </div>
 
-            <div className="mt-28">
+            <div className="mt-20 sm:mt-28">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <SectionHead index="02">Explore as ONGs da cidade</SectionHead>
                 {hasFilter && <Button variant="ghost" onClick={() => onFilterChange({})}>Limpar filtros</Button>}
@@ -194,7 +189,7 @@ export function DonationInfoSection({
           </>
         )}
 
-        <footer className="mt-[120px] flex flex-wrap items-baseline justify-between gap-6">
+        <footer className="mt-20 sm:mt-[120px] flex flex-wrap items-baseline justify-between gap-6">
           <p className="max-w-[24ch] text-[28px] font-semibold leading-[1.2]">Uma cidade feita de cuidado, um edifício de cada vez.</p>
           <nav aria-label="Documentos legais" className="flex flex-wrap items-baseline gap-x-5 gap-y-2 font-mono text-xs text-muted-foreground">
             <a href={TERMS_PATH} className="underline decoration-2 underline-offset-3 hover:bg-accent hover:text-primary">Termos de Uso</a>

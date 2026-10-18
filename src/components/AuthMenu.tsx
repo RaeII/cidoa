@@ -14,8 +14,9 @@ import type { ReferrerPreview, ReferralSummary } from "@/api/referral/referral.t
 import type { CustomizationCatalog } from "@/api/customizationApi";
 import { useAuth } from "@/hooks/useAuth";
 import { loadGoogleIdentity } from "@/lib/googleIdentity";
-import { AuthDialog } from "@/components/AuthDialog";
+import { AuthDialog, AuthPanel } from "@/components/AuthDialog";
 import { GameMenu, type MyDonation } from "@/components/GameMenu";
+import { IntroVideoDialog } from "@/components/IntroVideoDialog";
 import { OnboardingDialog } from "@/components/OnboardingDialog";
 import { ReferralDialog } from "@/components/referral/ReferralDialog";
 import { ShareDialog } from "@/components/referral/ShareDialog";
@@ -26,6 +27,25 @@ import { PixelBuilding } from "@/components/ui/pixel-icon";
 
 function initialReferralCode() {
   return normalizeReferralCode(new URLSearchParams(window.location.search).get("ref") ?? "");
+}
+
+const INTRO_SEEN_KEY = "cidoa:intro-video-seen";
+
+/** Storage bloqueado conta como visto: sem como lembrar, melhor não repetir a cada visita. */
+function introSeen() {
+  try {
+    return localStorage.getItem(INTRO_SEEN_KEY) !== null;
+  } catch {
+    return true;
+  }
+}
+
+function markIntroSeen() {
+  try {
+    localStorage.setItem(INTRO_SEEN_KEY, "1");
+  } catch {
+    /* storage bloqueado */
+  }
 }
 
 function messageFrom(error: unknown, fallback: string) {
@@ -58,7 +78,7 @@ export function AuthMenu({
   onAuthOpenChange,
   onboardingBlocked,
 }: AuthMenuProps) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const [initialCode] = useState(initialReferralCode);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuTab, setMenuTab] = useState("donations");
@@ -81,10 +101,19 @@ export function AuthMenu({
   const [applyError, setApplyError] = useState<string | null>(null);
   const [appliedReferrer, setAppliedReferrer] = useState<ReferrerPreview | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [introOpen, setIntroOpen] = useState(() => !introSeen());
 
   const summary = summaryState?.userId === user?.id ? summaryState?.data ?? null : null;
   const summaryError = summaryState?.userId === user?.id ? summaryState?.error ?? null : null;
   const effectiveAuthOpen = authOpen || (!isAuthenticated && referralCode !== "");
+  // Só visitante: sessão (cookie httpOnly) sobrevive a limpar o localStorage, então
+  // conta logada nunca vê. Link de indicação já abre o login, sem vídeo antes.
+  const showIntro = introOpen && !isLoading && !isAuthenticated && initialCode === "" && !authOpen;
+
+  // Viu uma vez ou entrou na conta → não mostra mais neste navegador.
+  useEffect(() => {
+    if (showIntro || user) markIntroSeen();
+  }, [showIntro, user]);
 
   useEffect(() => {
     if (!REFERRAL_CODE_PATTERN.test(referralCode)) return;
@@ -215,7 +244,7 @@ export function AuthMenu({
 
     return (
       <>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <Button
             type="button"
             variant="outline"
@@ -245,7 +274,7 @@ export function AuthMenu({
           <Button
             type="button"
             variant="outline"
-            className="max-w-[14rem] pl-1.25 pr-3"
+            className="max-w-[14rem] pl-1.25 pr-1.25 sm:pr-3"
             title={firstName}
             aria-haspopup="dialog"
             onClick={() => {
@@ -260,7 +289,7 @@ export function AuthMenu({
                 {firstName.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <span className="truncate">{visibleName}</span>
+            <span className="truncate max-sm:sr-only">{visibleName}</span>
           </Button>
         </div>
         <GameMenu
@@ -299,7 +328,7 @@ export function AuthMenu({
 
   return (
     <>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* Deslogado não tem menu — o mesmo toggle fica ao lado do "Entrar". */}
         <NightToggle night={night} onNightChange={onNightChange} />
         {/* Ponteiro/foco no "Entrar" já adianta o script do Google (carrega sob demanda). */}
@@ -314,7 +343,8 @@ export function AuthMenu({
         </Button>
       </div>
       <AuthDialog
-        open={effectiveAuthOpen}
+        // Código digitado no login do vídeo (desktop) não abre um segundo modal por cima.
+        open={effectiveAuthOpen && !showIntro}
         onOpenChange={onAuthOpenChange}
         referralCode={referralCode}
         referralPreview={referralPreview}
@@ -323,6 +353,25 @@ export function AuthMenu({
         onReferralCodeChange={changeReferralCode}
         onCancelReferral={clearPendingReferral}
         onReferralApplied={clearPendingReferral}
+      />
+      <IntroVideoDialog
+        open={showIntro}
+        onOpenChange={(next) => {
+          // Fechar no X descarta o código digitado, igual ao AuthDialog.
+          if (!next) clearPendingReferral();
+          setIntroOpen(next);
+        }}
+        panel={
+          <AuthPanel
+            referralCode={referralCode}
+            referralPreview={referralPreview}
+            referralLoading={referralLoading}
+            referralError={referralError}
+            onReferralCodeChange={changeReferralCode}
+            onReferralApplied={clearPendingReferral}
+            onDone={() => setIntroOpen(false)}
+          />
+        }
       />
     </>
   );

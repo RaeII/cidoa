@@ -51,14 +51,13 @@ export function PixelCoin({ className, ...props }: IconProps) {
   )
 }
 
-/** Marca: três edifícios verdes, janela âmbar acesa. */
-export function CidoeLogo({ className, ...props }: IconProps) {
+/** Logo oficial (public/): verde-oliva no claro, branca no escuro. */
+export function CidoeLogo({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 -2 14 14" width={28} height={28} shapeRendering="crispEdges" aria-hidden="true" className={cn("shrink-0", className)} {...props}>
-      <path fill="var(--color-verde)" d="M5 -2h1v1h-1zM8 -2h1v1h-1zM5 -1h2v1h-2zM7 -1h2v1h-2zM0 5h4v7h-4zM5 0h4v12h-4zM10 3h4v9h-4z" />
-      <path fill="var(--color-ambar)" d="M6 2h2v2h-2z" />
-      <path fill="var(--color-papel)" d="M1 7h2v1h-2zM11 5h2v1h-2zM11 8h2v1h-2zM6 6h2v1h-2zM6 9h2v3h-2z" />
-    </svg>
+    <>
+      <img src="/logo.webp" alt="" width={28} height={28} className={cn("shrink-0 dark:hidden", className)} />
+      <img src="/logo-branca.webp" alt="" width={28} height={28} className={cn("hidden shrink-0 dark:block", className)} />
+    </>
   )
 }
 
