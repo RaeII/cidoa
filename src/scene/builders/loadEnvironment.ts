@@ -105,6 +105,7 @@ export function loadEnvironment(
   initialRenderDistance: number,
   onLoaded?: (envMap: THREE.Texture, bgTexture: THREE.Texture) => void,
   isCancelled?: () => boolean,
+  onFailed?: () => void,
 ): EnvironmentUpdater {
   let skyMesh: THREE.Mesh | null = null;
   let skyGeometry: THREE.SphereGeometry | null = null;
@@ -164,7 +165,10 @@ export function loadEnvironment(
 
   void Promise.all([load(SKY_URL), load(pmremUrl)]).then(
     ([texture, pmremSource]) => buildSky(texture, pmremSource),
-    (err) => console.warn("[environment] HDRI falhou", err),
+    (err) => {
+      console.warn("[environment] HDRI falhou", err);
+      if (!isCancelled?.()) onFailed?.();
+    },
   );
 
   return {

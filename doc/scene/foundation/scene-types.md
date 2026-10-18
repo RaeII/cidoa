@@ -311,11 +311,11 @@ type SceneStats = {
   culled: number;            // prédios ocultos pelo cull de distância (frontal + traseiro)
   fpsMode: string;           // modo FPS atual
   chunks: number;            // chunks carregados
-  sceneReady: boolean;       // 1º frame com HDRI, shaders prontos e doações aplicadas (monotônico)
+  sceneReady: boolean;       // frame com HDRI resolvido, shaders prontos, doações aplicadas e nenhuma textura baixando
 }
 ```
 
-`sceneReady` esconde o pôster (`CityPoster`) no `CitySceneEditor`. Sem WebGL nunca liga — pôster fica. Ver [[scene-runtime#Desempenho (TBT e celular)]].
+`sceneReady` libera a página de loading no `CitySceneEditor` ([[html-components#Carregamento inicial (casca)]]). Não monotônico: volta a `false` quando o `DefaultLoadingManager` começa a baixar. Sem WebGL o hook emite `true`. Ver [[scene-runtime#Desempenho (TBT e celular)]].
 
 ## Tipos de Personalização
 

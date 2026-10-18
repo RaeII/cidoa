@@ -19,7 +19,6 @@ import { saveDonationCustomization } from "../api/donationApi";
 import { useCustomizationCatalog } from "./hooks/useCustomizationCatalog";
 import { DonationLoadOverlay } from "./html/DonationLoadOverlay";
 import { DonationFilterBar } from "./html/DonationFilterBar";
-import { CityPoster } from "./CityPoster";
 import { DonationInfoSection } from "./html/DonationInfoSection";
 import { ContributeDialog } from "./html/donate/ContributeDialog";
 import { BuildingProfileDialog } from "./html/donate/BuildingProfileForm";
@@ -29,6 +28,7 @@ import {
 } from "../api/contributionApi";
 import { toast } from "./ui/toast";
 import { Button } from "./ui/button";
+import { cn } from "@/lib/utils";
 import { PixelChevronDown } from "./ui/pixel-icon";
 import { DEFAULT_SCENE_STATS } from "../scene/config/citySceneConfig";
 import { createDefaultBlockLayoutSettings } from "../scene/config/blockLayoutConfig";
@@ -77,6 +77,13 @@ export function CitySceneEditor() {
   const [horizonSettings, setHorizonSettings] = useState(createDefaultHorizonSettings);
   const [blockLayoutSettings, setBlockLayoutSettings] = useState(createDefaultBlockLayoutSettings);
   const [sceneStats, setSceneStats] = useState<SceneStats>({ ...DEFAULT_SCENE_STATS });
+  // sceneReady síncrono: o runtime avisa "baixando" dentro do effect do canvas (pool novo do
+  // catálogo), antes do effect que libera o loading — o state ainda estaria com o valor velho.
+  const sceneReadyRef = useRef(false);
+  const handleStatsChange = useCallback((stats: SceneStats) => {
+    sceneReadyRef.current = stats.sceneReady;
+    setSceneStats(stats);
+  }, []);
   const [cameraDebugInfo, setCameraDebugInfo] = useState<CameraDebugInfo | null>(null);
   const [hoverInfo, setHoverInfo] = useState<{ value: number; x: number; y: number } | null>(null);
   const [showControlPanel, setShowControlPanel] = useState(false);
@@ -207,6 +214,14 @@ export function CitySceneEditor() {
       cancelAnimationFrame(rafInner);
     };
   }, [visibleDonations, loadState.status]);
+
+  // Página de loading sai uma vez só, com tudo pronto: doações aplicadas, catálogo (pool de
+  // texturas) resolvido e cena sem nada baixando/compilando. Depois disso rebuilds usam o overlay.
+  const [booted, setBooted] = useState(false);
+  useEffect(() => {
+    if (booted || loadState.status !== "ready" || !donationsApplied || !customizationCatalog) return;
+    if (sceneReadyRef.current) setBooted(true);
+  }, [booted, loadState.status, donationsApplied, customizationCatalog, sceneStats.sceneReady]);
 
   // Pool de sorteio de textura por edifício: todas as texturas ATIVAS do
   // catálogo. Desligado o sorteio, a lista vai vazia e a cidade inteira usa
@@ -451,8 +466,9 @@ export function CitySceneEditor() {
     [buildingSettings.color, queueSave],
   );
 
+  // Painel, geradores de doação e log da câmera são ferramentas de admin.
   const shortcuts: KeyboardShortcut[] = [
-    {
+    ...(isAdmin ? [{
       key: "m",
       ctrl: true,
       description: "Abrir/fechar painel de controle",
@@ -470,7 +486,7 @@ export function CitySceneEditor() {
       ctrl: true,
       description: "Mostrar/esconder log da câmera",
       handler: () => setUIVisibility((prev) => ({ ...prev, cameraLog: !prev.cameraLog })),
-    },
+    }] : []),
     {
       key: "?",
       shift: true,
@@ -544,8 +560,9 @@ export function CitySceneEditor() {
   }, []);
 
   return (
-    <div ref={scrollRef} className="h-screen w-full overflow-y-auto overflow-x-hidden bg-background [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-    <div id="city-scene" className="relative h-screen w-full overflow-hidden bg-background">
+    <div ref={scrollRef} className="h-svh w-full overflow-y-auto overflow-x-hidden bg-background [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    {/* svh: no mobile, h-screen (100vh) passa por baixo da barra do navegador e esconde os botões do rodapé. */}
+    <div id="city-scene" className="relative h-svh w-full overflow-hidden bg-background">
       <CitySceneCanvas
         ref={canvasRef}
         buildingSettings={buildingSettings}
@@ -559,26 +576,36 @@ export function CitySceneEditor() {
         blockLayoutSettings={blockLayoutSettings}
         facadeTexturePool={facadeTexturePool}
         grain={grain}
-        onStatsChange={setSceneStats}
-        onCameraDebugChange={uiVisibility.cameraLog ? setCameraDebugInfo : undefined}
+        onStatsChange={handleStatsChange}
+        onCameraDebugChange={isAdmin && uiVisibility.cameraLog ? setCameraDebugInfo : undefined}
         onHoverChange={handleHoverChange}
         onBuildingClick={handleBuildingClick}
       />
-      {/* Pôster do index.html segue sobre o canvas até a 1ª aplicação das doações. */}
-      <CityPoster hidden={loadState.status === "ready" && donationsApplied && sceneStats.sceneReady} />
-      <div className="absolute right-4 top-4 z-20">
-        <AuthMenu
-          night={environmentSettings.night}
-          onNightChange={(night) => setEnvironmentSettings((prev) => ({ ...prev, night }))}
-          myDonations={myDonations}
-          catalog={customizationCatalog}
-          onOpenDonation={handleOpenDonation}
-          authOpen={authOpen}
-          onAuthOpenChange={setAuthOpen}
-          onboardingBlocked={contributeOpen || infoBuildingId !== null || selectedBuildingId !== null || profileEditId !== null}
-        />
+      {/* Página de loading (a mesma do index.html) cobre a cena até tudo carregar. */}
+      <DonationLoadOverlay cover hidden={booted} state={loadState} onRetry={retry} />
+      {/* UI só depois do loading: nenhuma imagem (logo, fotos, avatares) baixa antes. */}
+      {booted && (
+      <div className="pointer-events-none absolute inset-x-4 top-4 z-30 flex items-start justify-between gap-2">
+        {/* Marca visível sem rolar nem entrar (página inicial do login com Google). Mobile: só o logo. */}
+        <aside aria-label="Cidoe" className="pointer-events-auto pixel pixel-thin flex items-center gap-2 bg-background px-2 py-1.5 max-sm:h-10 max-sm:py-0">
+          <img src="/logo.webp" alt="" width={32} height={32} className="size-8 shrink-0" />
+          <strong className="text-sm font-semibold text-foreground max-sm:sr-only">Cidoe</strong>
+        </aside>
+        <div className="pointer-events-auto shrink-0">
+          <AuthMenu
+            night={environmentSettings.night}
+            onNightChange={(night) => setEnvironmentSettings((prev) => ({ ...prev, night }))}
+            myDonations={myDonations}
+            catalog={customizationCatalog}
+            onOpenDonation={handleOpenDonation}
+            authOpen={authOpen}
+            onAuthOpenChange={setAuthOpen}
+            onboardingBlocked={contributeOpen || infoBuildingId !== null || selectedBuildingId !== null || profileEditId !== null}
+          />
+        </div>
       </div>
-      {loadState.status === "ready" && uiVisibility.donationFilter && (
+      )}
+      {booted && uiVisibility.donationFilter && (
         <DonationFilterBar
           cities={cities}
           ongs={ongs}
@@ -586,7 +613,7 @@ export function CitySceneEditor() {
           onChange={setFilter}
         />
       )}
-      {loadState.status === "ready" && (
+      {booted && (
         <ContributeDialog
           open={contributeOpen}
           onOpenChange={setContributeOpen}
@@ -597,10 +624,10 @@ export function CitySceneEditor() {
           onViewBuilding={handleOpenDonation}
         />
       )}
-      {(loadState.status !== "ready" || !donationsApplied) && (
+      {booted && (loadState.status !== "ready" || !donationsApplied) && (
         <DonationLoadOverlay state={loadState} onRetry={retry} />
       )}
-      {uiVisibility.cameraLog && cameraDebugInfo && (
+      {isAdmin && uiVisibility.cameraLog && cameraDebugInfo && (
         <div className="pixel bevel-edge absolute bottom-4 left-4 z-30 w-[min(21rem,calc(100vw-2rem))] select-text bg-background px-3 pt-2 pb-3 font-mono text-[11px] leading-5 text-muted-foreground">
           <div className="mb-1 font-sans text-xs font-semibold text-foreground">Camera default</div>
           <div>
@@ -638,13 +665,15 @@ export function CitySceneEditor() {
           }
         />
       )}
-      <BuildingHeightInput
-        onSubmit={handleDonation}
-        onBulkSubmit={handleBulkDonation}
-        blockLayoutSettings={blockLayoutSettings}
-        onBlockLayoutChange={setBlockLayoutSettings}
-        visibility={uiVisibility}
-      />
+      {booted && isAdmin && (
+        <BuildingHeightInput
+          onSubmit={handleDonation}
+          onBulkSubmit={handleBulkDonation}
+          blockLayoutSettings={blockLayoutSettings}
+          onBlockLayoutChange={setBlockLayoutSettings}
+          visibility={uiVisibility}
+        />
+      )}
       {infoBuildingId !== null && infoBuilding && (
         <BuildingInfoModal
           value={infoBuilding.value}
@@ -675,7 +704,7 @@ export function CitySceneEditor() {
           onClose={handleCloseManagement}
         />
       )}
-      {showControlPanel && (
+      {isAdmin && showControlPanel && (
         <CityControlPanel
           buildingSettings={buildingSettings}
           textureSettings={textureSettings}
@@ -711,12 +740,12 @@ export function CitySceneEditor() {
           onClose={() => setShowShortcutsHelp(false)}
         />
       )}
-      {!showControlPanel && (
-        <Button variant="outline" size="icon-lg" onClick={scrollToInfo} aria-label="Ver ONGs e contribuições" title="ONGs e contribuições" className="absolute bottom-[4.75rem] right-4 z-30">
+      {booted && (!isAdmin || !showControlPanel) && (
+        <Button variant="outline" size="icon-lg" onClick={scrollToInfo} aria-label="Ver ONGs e contribuições" title="ONGs e contribuições" className={cn("absolute right-4 z-30", isAdmin ? "bottom-[4.75rem]" : "bottom-4")}>
           <PixelChevronDown />
         </Button>
       )}
-      {!showControlPanel && (
+      {booted && isAdmin && !showControlPanel && (
         <Button
           variant="outline"
           size="icon-lg"
@@ -736,6 +765,7 @@ export function CitySceneEditor() {
         </Button>
       )}
     </div>
+    {booted && (
     <DonationInfoSection
       donations={donations}
       ongs={ongs}
@@ -748,6 +778,7 @@ export function CitySceneEditor() {
       }}
       onRetry={retry}
     />
+    )}
     {inInfo && (
       <Button variant="outline" onClick={scrollToScene} title="Voltar para a cena" aria-label="Voltar para a cena" className="fixed bottom-4 right-4 z-40">
         <PixelChevronDown className="rotate-180" />

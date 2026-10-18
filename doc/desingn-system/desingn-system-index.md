@@ -148,7 +148,7 @@ Carregando sem progresso conhecido: `<BlockLoader />` (três blocos acendem em s
 
 ### 5 · Ícones em pixel
 
-Grade 8×8, uma ou duas cores da marca. `pixel-icon.tsx`: `PixelClose`, `PixelCheck`, `PixelChevronDown`, `PixelArrow`, `PixelHeart`, `PixelPaw`, `PixelBuilding`, `PixelCoin` (sempre âmbar), `CidoeLogo`, `ErrorMark` ("!" de erro), `PixelPhoto` (foto indisponível). Gato/cachorro (`PixelCat`, `PixelDog`) usam pelagem real — mascote espiando por cima de modal/card, só onde o pai não tem `overflow` (senão corta).
+Grade 8×8, uma ou duas cores da marca. `pixel-icon.tsx`: `PixelClose`, `PixelCheck`, `PixelChevronDown`, `PixelArrow`, `PixelHeart`, `PixelPaw`, `PixelBuilding`, `PixelCoin` (sempre âmbar), `CidoeLogo` (exceção: logo oficial em `<img>`, verde-oliva no claro / branca no `.dark`), `ErrorMark` ("!" de erro), `PixelPhoto` (foto indisponível). Gato/cachorro (`PixelCat`, `PixelDog`) usam pelagem real — mascote espiando por cima de modal/card, só onde o pai não tem `overflow` (senão corta).
 
 Lucide segue onde não há ícone pixel; terminação reta via CSS global (`.lucide`).
 
@@ -276,7 +276,7 @@ Logo de ONG (e imagem de holograma no [[html-components#BuildingCustomizer.tsx|p
 | Card | `pixel bevel-edge bg-card`, padding com +4px embaixo | `ui/card.tsx` |
 | Foto | `<Photo ratio>`: moldura 3px, `object-cover`, espera e falha do DS. Ver [[#Imagem]] | `ui/photo.tsx` |
 | Avatar | Quadrado, `pixel-thin`, `sm` 32 · `default` 48 · `lg` 72; iniciais mono sobre verde-100. Ver [[#Avatares e logos (5.6)]] | `ui/avatar.tsx` |
-| Modal | `pixel bevel-edge bevel-w-6 bg-background`, overlay `bg-tinta/72`, título 26px. Fluxo com etapas: `DialogKicker` (barra verde + rótulo mono + fechar). Detalhe em [[#Modal de contribuição (6.7)]] | `ui/dialog.tsx` |
+| Modal | `pixel bevel-edge bevel-w-6 bg-background`, overlay `bg-tinta/72`, título 26px. Base com `max-h-[calc(100dvh-2rem)] overflow-y-auto`: tela baixa rola, não corta. Fluxo com etapas: `DialogKicker` (barra verde + rótulo mono + fechar). Detalhe em [[#Modal de contribuição (6.7)]] | `ui/dialog.tsx` |
 | Menu/Select | Popover `pixel bg-popover`, item com `menu-cursor` | `ui/select.tsx`, `ui/dropdown-menu.tsx` |
 
 ### Botão
@@ -366,7 +366,7 @@ App diverge do arquivo do DS só aqui. Mudar qualquer linha = decisão explícit
 | Foto da home | foto da ONG, mín. 1200px, legenda com crédito e ano | `cat_dog.jpeg`/`.webp` de banco de imagem, 1024px, sem legenda | ainda sem foto de ONG; crédito desconhecido — não inventar. Trocar quando houver |
 | Imagem enviada pelo usuário | WebP, mín. 1200px | JPEG; edifício 800px, perfil 400px (`resizeImage`) | backend do perfil só aceita JPEG/PNG; Safari não gera WebP em `canvas`; JSON limitado a 1 MB |
 
-**Hex permitido** (exceção ao "tokens only"): logo de terceiros na cor oficial (Google em `AuthDialog`; WhatsApp, Facebook, LinkedIn em `ShareDialog` — X usa tinta), pelagem dos mascotes, valores de cor da cena 3D nos painéis de controle (dado do material, não estilo).
+**Hex permitido** (exceção ao "tokens only"): logo de terceiros na cor oficial (Google em `AuthDialog`; WhatsApp, Facebook, LinkedIn em `ShareDialog` — X usa tinta), pelagem dos mascotes, valores de cor da cena 3D nos painéis de controle (dado do material, não estilo). Logo oficial = PNG/WebP em `public/` (`logo.webp`, `logo-branca.webp`, `favicon-32.png`); admin usa via `CidoeLogo`.
 
 **Fora do app:** templates de redes sociais (seção 08 do DS: 1080×1920, 1080×1080, 1920×1080, zonas seguras) vivem só no arquivo HTML.
 

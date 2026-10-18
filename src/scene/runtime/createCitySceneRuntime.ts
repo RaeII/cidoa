@@ -142,7 +142,7 @@ export async function createCitySceneRuntime({
   });
   if (isSoftwareGL(renderer.getContext())) {
     // Sem GPU cada shader PBR trava a main thread por segundos (profile SwiftShader: 7 s e
-    // 17 s numa tarefa). Mesmo caminho do "sem WebGL": o hook captura e o pôster fica.
+    // 17 s numa tarefa). Mesmo caminho do "sem WebGL": o hook captura e libera o loading.
     renderer.dispose();
     renderer.forceContextLoss();
     throw new Error("WebGL por software");
@@ -211,7 +211,10 @@ export async function createCitySceneRuntime({
     compileRequested = true;
     renderNeeded = true;
   };
+  // HDRI resolvido: carregou ou falhou (falha não pode prender o loading da página).
   let envLoaded = false;
+  // Algum arquivo do manager default ainda baixando (HDRI, fachadas, topo, normais).
+  let assetsLoading = false;
   // setDonations/addDonation já chegou ao menos uma vez (cidade vazia não é "pronta").
   let donationsReceived = false;
 
@@ -227,10 +230,25 @@ export async function createCitySceneRuntime({
   // Asset assíncrono que chega DEPOIS da primeira captura tem que sujar o cube. Sem isso o
   // HDRI (fetch + decode de um JPG 4K) entra na cena bem depois do frame 4 e o reflexo fica
   // sem céu até alguma outra mudança — antes a órbita escondia o problema recapturando sempre.
-  // onLoad do manager default cobre TextureLoader (HDRI) e KTX2Loader (fachadas).
-  THREE.DefaultLoadingManager.onLoad = markCubeDirty;
+  // onLoad do manager default cobre TextureLoader/ImageBitmapLoader (HDRI, fachadas) e KTX2Loader.
+  // onStart derruba sceneReady na hora (síncrono): o editor lê isso antes de liberar o loading.
+  // Manager é global: runtime descartado (StrictMode, remount) só limpa se ainda for o dono.
+  const handleLoadStart = () => {
+    assetsLoading = true;
+    emitStatsPatch({ sceneReady: false });
+  };
+  const handleLoadEnd = () => {
+    assetsLoading = false;
+    markCubeDirty();
+  };
   // Cada arquivo que chega pode ligar um define (map, normalMap…) num material → programa novo.
-  THREE.DefaultLoadingManager.onProgress = requestCompile;
+  const handleLoadProgress = (_url: string, loaded: number, total: number) => {
+    assetsLoading = loaded < total;
+    requestCompile();
+  };
+  THREE.DefaultLoadingManager.onStart = handleLoadStart;
+  THREE.DefaultLoadingManager.onLoad = handleLoadEnd;
+  THREE.DefaultLoadingManager.onProgress = handleLoadProgress;
   // Objeto novo na cena (prédio custom, letreiro, luz do LED, grupo instanciado realocado).
   scene.addEventListener("childadded", requestCompile);
 
@@ -248,6 +266,10 @@ export async function createCitySceneRuntime({
       markCubeDirty();
     },
     () => isDisposed,
+    () => {
+      envLoaded = true;
+      requestRender();
+    },
   );
 
   const lightingRig = createLightingRig(scene, lightSettings);
@@ -784,9 +806,9 @@ export async function createCitySceneRuntime({
     if (donationManager.tickAnimations(time / 1000, delta * 1000)) renderNeeded = true;
 
     renderer.render(scene, camera);
-    // Sinal pro pôster sair (uma vez só): 1º frame com céu, shaders prontos e a cidade já
-    // recebida — fila de customização vazia, garantido pelo gate acima.
-    if (envLoaded && donationsReceived) emitStatsPatch({ sceneReady: true });
+    // Sinal pro loading da página sair: frame com céu, shaders prontos, cidade recebida, fila
+    // de customização vazia (gate acima) e nenhuma textura baixando. Volta a false no onStart.
+    if (envLoaded && donationsReceived && !assetsLoading) emitStatsPatch({ sceneReady: true });
   };
 
   // 1º frame no próximo rAF, não dentro do effect de mount.
@@ -1003,8 +1025,10 @@ export async function createCitySceneRuntime({
       clearTimeout(customizationTimer);
       window.removeEventListener("resize", handleResize);
       scene.removeEventListener("childadded", requestCompile);
-      THREE.DefaultLoadingManager.onLoad = () => {};
-      THREE.DefaultLoadingManager.onProgress = () => {};
+      const manager = THREE.DefaultLoadingManager;
+      if (manager.onStart === handleLoadStart) manager.onStart = () => {};
+      if (manager.onLoad === handleLoadEnd) manager.onLoad = () => {};
+      if (manager.onProgress === handleLoadProgress) manager.onProgress = () => {};
       controls.removeEventListener("change", handleControlsChange);
       controls.dispose();
       donationManager.dispose();

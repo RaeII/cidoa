@@ -11,6 +11,12 @@ import {
   type CustomizationCatalog,
 } from "../../api/customizationApi";
 
+// Falha vira catálogo vazio: `null` é só "carregando" — o loading da cena espera por ele.
+const EMPTY_CATALOG: CustomizationCatalog = {
+  shapes: [], rooftops: [], edgeLights: [], colors: [], textures: [],
+  features: { sign: null, hologram: null },
+};
+
 /**
  * Carrega o catálogo de personalizações do backend uma vez no mount.
  * Enquanto `null`, o painel mostra estado de carregamento.
@@ -39,6 +45,7 @@ export function useCustomizationCatalog(refreshKey = 0): CustomizationCatalog | 
       .catch((err: unknown) => {
         if (controller.signal.aborted || axios.isCancel(err)) return;
         console.error("Falha ao carregar catálogo de personalizações", err);
+        setCatalog(EMPTY_CATALOG);
       });
     return () => controller.abort();
   }, []);

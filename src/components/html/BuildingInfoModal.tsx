@@ -34,7 +34,7 @@ export function BuildingInfoModal({
 }: BuildingInfoModalProps) {
   return (
     // Overlay sem dim/blur e pointer-events-none: cena visível e interativa atrás.
-    <div className="pointer-events-none absolute inset-0 z-40 flex items-start justify-end p-4 pt-24 min-[900px]:p-6 min-[900px]:pt-32">
+    <div className="pointer-events-none absolute inset-0 z-40 flex items-start justify-end p-4 pt-18 min-[900px]:p-6 min-[900px]:pt-32">
       <div
         role="dialog"
         aria-label="Informações do edifício"

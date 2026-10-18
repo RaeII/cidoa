@@ -263,7 +263,7 @@ export type SceneStats = {
   culled: number;
   fpsMode: string;
   chunks: number;
-  /** Último frame saiu com céu (HDRI) carregado, shaders prontos e sem customização na fila. */
+  /** Último frame saiu com céu (HDRI) resolvido, shaders prontos, sem customização na fila e sem textura baixando. */
   sceneReady: boolean;
 };
 
