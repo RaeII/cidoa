@@ -625,6 +625,15 @@ export async function createCitySceneRuntime({
   // com render sob demanda o intervalo ocioso não é lentidão.
   let renderedLastTick = false;
 
+  // "change" e não o retorno do update() do loop: zoom (roda/pinça) é aplicado inteiro no
+  // update() do próprio handler do evento — o do loop devolve false e o frame não saía
+  // (câmera andava sem redesenhar e "teleportava" no próximo frame pedido por outra coisa).
+  const handleControlsChange = () => {
+    renderNeeded = true;
+    cullPending = true;
+  };
+  controls.addEventListener("change", handleControlsChange);
+
   const animate = (time: number) => {
     animationId = requestAnimationFrame(animate);
     if (time - lastFrameAt < frameIntervalMs - 2) return;
@@ -632,11 +641,8 @@ export async function createCitySceneRuntime({
     const delta = Math.min((time - lastTime) / 1000, 0.05);
     lastTime = time;
 
-    // update() devolve true enquanto a câmera se move (inclui o damping assentando).
-    if (controls.update()) {
-      renderNeeded = true;
-      cullPending = true;
-    }
+    // Damping assentando: a mudança chega pelo "change" (handleControlsChange).
+    controls.update();
 
     // Interpolar câmera durante animação de foco
     if (cameraAnim) {
@@ -1023,6 +1029,7 @@ export async function createCitySceneRuntime({
       if (manager.onStart === handleLoadStart) manager.onStart = () => {};
       if (manager.onLoad === handleLoadEnd) manager.onLoad = () => {};
       if (manager.onProgress === handleLoadProgress) manager.onProgress = () => {};
+      controls.removeEventListener("change", handleControlsChange);
       controls.dispose();
       donationManager.dispose();
       groundPlane.dispose();

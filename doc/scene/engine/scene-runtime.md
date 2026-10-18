@@ -63,7 +63,7 @@ createCitySceneRuntime({mount, settings...})   // async
 
 A cada tick do rAF (modo leve: no máximo 30/s). **Render sob demanda**: tick sem mudança sai cedo e o canvas segura o último frame.
 
-0. Gate: `controls.update()` devolve `true` com câmera em movimento (inclui damping) → frame. Também pedem frame: `cameraAnim`, `markCubeDirty` (toda mudança de cena), `requestRender` (resize, granulado, reflexo, foco), cull pendente, captura de cube pendente, holograma visível (`tickAnimations` → `true`). Frame **não sai** com passe de compilação em curso ou fila de customização drenando.
+0. Gate: evento `change` do OrbitControls (`handleControlsChange`) com câmera em movimento → frame. Não usar retorno do `controls.update()` do loop: zoom (roda/pinça) aplica inteiro no `update()` do handler do evento → loop vê `false`, câmera anda sem redesenhar e "teleporta". Também pedem frame: `cameraAnim`, `markCubeDirty` (toda mudança de cena), `requestRender` (resize, granulado, reflexo, foco), cull pendente, captura de cube pendente, holograma visível (`tickAnimations` → `true`). Frame **não sai** com passe de compilação em curso ou fila de customização drenando.
 1. `controls.update()` — aplica damping do OrbitControls (modo leve: fator `1-(1-f)²`, mesmo tempo de assentar a 30 fps)
 2. `groundPlane.setPosition(camera.x, camera.z)` — chão segue a câmera
 3. `environmentUpdater.updatePosition(...)` — skybox segue a câmera
@@ -278,7 +278,7 @@ dispose()
   ├── removeEventListener('pointerup')     ← clique (raycast)
   ├── cancelAnimationFrame
   ├── removeEventListener('resize')
-  ├── controls.dispose()
+  ├── controls.removeEventListener("change") + controls.dispose()
   ├── donationManager.dispose()            ← inclui acessórios de topo, signs, focus mesh
   ├── groundPlane.dispose()
   ├── terrainRig.dispose()                 ← relevo procedural
