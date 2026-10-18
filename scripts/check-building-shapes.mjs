@@ -14,7 +14,7 @@ import { build } from "esbuild";
 const bundle = await build({
   stdin: {
     contents: ["createBuildingShapeMesh", "createEdgeLightMesh", "createPreviewScene", "createParapetMesh",
-      "createResidentialBuildingMesh", "createHologramMesh"]
+      "createResidentialBuildingMesh", "createApartmentBuildingMesh", "createHologramMesh"]
       .map((name) => `export * from './src/scene/builders/${name}.ts';`).join("\n"),
     resolveDir: process.cwd(),
   },
@@ -24,6 +24,7 @@ const { BUILDING_SHAPES, createBuildingShapeMesh, createUnitBuildingGeometry, cr
   disposeBuildingShapeSharedResources, createEdgeLightMesh, resolveSubject, frameBox,
   createParapetGeometry, getParapetHeightScale, createBuildingParapets,
   setResidentialBuildingHeight, setResidentialStoneMaps, getResidentialFloorCount,
+  setApartmentBuildingHeight, getApartmentFloorCount, getApartmentTierFootprints, getApartmentRoofOffset,
   createHologramMesh, setHologramImage, disposeHologramMesh } =
   await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].contents).toString("base64")}`);
 
@@ -95,6 +96,48 @@ for (const shape of BUILDING_SHAPES) {
     tall.addEventListener("dispose", () => { disposed = true; });
     disposeBuildingShapeSharedResources();
     assert.ok(disposed, "residential: dispose não libera geometria");
+  }
+  if (shape === "apartment") {
+    for (const axis of ["x", "y", "z"]) {
+      // Peitoril lateral 3 mm aquém do lote (0,997); pilastra encosta no lote em Z.
+      assert.ok(size[axis] <= 1 + 1e-6 && size[axis] > 0.99, `apartment: dimensão ${axis} fora do lote`);
+    }
+    assert.equal(materials.length, 6, "apartment: 6 slots (reboco, topo, vidro, guarda-corpo, caixilho, acabamento)");
+    assert.equal(mesh.geometry.groups.length, 6, "apartment: 1 draw call por material");
+    mesh.geometry.groups.forEach((group, i) => assert.equal(group.materialIndex, i, "apartment: grupo fora do slot"));
+    for (const name of ["position", "normal", "aProjPosition", "aProjNormal"]) {
+      assert.ok(mesh.geometry.getAttribute(name).array.every(Number.isFinite), `apartment: ${name} inválido`);
+    }
+    // Rasgo das sacadas é vão real na frente e nos fundos; pilastra ao lado é cheia.
+    mesh.updateMatrixWorld(true);
+    const hitZ = (x, dir) => new THREE.Raycaster(new THREE.Vector3(x, 0, -2 * dir), new THREE.Vector3(0, 0, dir))
+      .intersectObject(mesh)[0]?.point.z;
+    for (const dir of [1, -1]) {
+      assert.ok(Math.abs(hitZ(-0.145, dir) + dir * 0.36) < 0.01, "apartment: rasgo das sacadas fechado");
+      assert.ok(Math.abs(hitZ(0.05, dir) + dir * 0.5) < 1e-3, "apartment: pilastra ausente");
+    }
+    // Pé-direito real: nº de andares segue a altura, geometria cacheada por andar.
+    const preview = mesh.geometry;
+    setApartmentBuildingHeight(mesh, 16);
+    const tall = mesh.geometry;
+    assert.notEqual(tall, preview, "apartment: altura não trocou nº de andares");
+    assert.ok(tall.getAttribute("position").count > preview.getAttribute("position").count, "apartment: prédio alto com menos andares");
+    setApartmentBuildingHeight(mesh, 16);
+    assert.equal(mesh.geometry, tall, "apartment: cache por andar não reaproveitado");
+    assert.equal(getApartmentFloorCount(0.5), 1, "apartment: prédio mínimo sem andar");
+    assert.equal(getApartmentFloorCount(1000), 60, "apartment: teto de andares");
+    // Letreiro na platibanda e LED no contorno ficam dentro da altura do prédio.
+    const [body, tank] = getApartmentTierFootprints(1, 1, 16);
+    assert.ok(body.topY < 16 && tank.topY === 16 && tank.width < 1, "apartment: tiers do LED");
+    assert.ok(Math.abs(getApartmentRoofOffset(16) - (body.topY - 8)) < 1e-9, "apartment: letreiro fora da platibanda");
+    assert.ok(materials[3].transparent && materials[3].userData.baseOpacity < 1, "apartment: guarda-corpo opaco");
+    for (const material of materials.slice(2)) {
+      assert.equal(typeof material.userData.authoredEnvMapIntensity, "number", "apartment: vidro fora da captura do envMap");
+    }
+    let disposed = false;
+    tall.addEventListener("dispose", () => { disposed = true; });
+    disposeBuildingShapeSharedResources();
+    assert.ok(disposed, "apartment: dispose não libera geometria");
   }
   console.log(`ok ${shape} — ${size.toArray().map((n) => n.toFixed(2)).join(" × ")}`);
 }

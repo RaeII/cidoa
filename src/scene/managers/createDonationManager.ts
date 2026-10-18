@@ -48,6 +48,10 @@ import {
   setResidentialStoneMaps,
 } from "../builders/createResidentialBuildingMesh";
 import {
+  APARTMENT_ROOFTOP_SCALE,
+  setApartmentBuildingHeight,
+} from "../builders/createApartmentBuildingMesh";
+import {
   createBuildingShapeMesh,
   createUnitBuildingGeometry,
   disposeBuildingShapeSharedResources,
@@ -1499,9 +1503,9 @@ export function createDonationManager({
       mat.envMapIntensity = top.envMapIntensity;
       if (previousMask !== textureDefineMask(mat)) mat.needsUpdate = true;
     }
-    // Pedra do residencial usa o mesmo concreto do topo (chega async, liga/desliga junto).
+    // Pedra/reboco dos residenciais usa o mesmo concreto do topo (chega async, liga/desliga junto).
     for (const entry of customShapeMeshes.values()) {
-      if (entry.shape === "residential") {
+      if (entry.shape === "residential" || entry.shape === "apartment") {
         setResidentialStoneMaps(entry.facadeMat, settings.enabled ? topSet : null);
       }
     }
@@ -2275,9 +2279,15 @@ export function createDonationManager({
     if (!group.visible) return;
     const shape = customShapeMeshes.get(donationId)?.shape;
     const isYachthouse = shape === "yachthouse";
-    // Residencial: acessório sobre a casa de máquinas (topo do mesh), escalado a ela.
+    // Residenciais: acessório sobre a casa de máquinas/caixa d'água (topo do mesh), escalado a ela.
     group.scale.setScalar(
-      isYachthouse ? YACHTHOUSE_ROOF.width : shape === "residential" ? RESIDENTIAL_ROOFTOP_SCALE : 1,
+      isYachthouse
+        ? YACHTHOUSE_ROOF.width
+        : shape === "residential"
+          ? RESIDENTIAL_ROOFTOP_SCALE
+          : shape === "apartment"
+            ? APARTMENT_ROOFTOP_SCALE
+            : 1,
     );
     group.position.set(
       tmpTransformPosition.x + (isYachthouse ? YACHTHOUSE_TOWER_CENTERS[0] * tmpTransformScale.x : 0),
@@ -2628,8 +2638,8 @@ export function createDonationManager({
           if (!tmpColor.equals(currentBuildingColor)) {
             setEmpireBuildingMeshColor(sceneMesh, customization.color);
           }
-        } else if (shape === "residential") {
-          // Builder pinta pedra travertino; cor da customização só se ≠ global (igual Empire).
+        } else if (shape === "residential" || shape === "apartment") {
+          // Builder pinta pedra/reboco; cor da customização só se ≠ global (igual Empire).
           setResidentialStoneMaps(facadeMat, currentTextureSettings.enabled ? topSet : null);
           tmpColor.set(customization.color);
           if (!tmpColor.equals(currentBuildingColor)) facadeMat.color.set(customization.color);
@@ -2653,6 +2663,8 @@ export function createDonationManager({
       if (entry.shape === "residential") {
         // Nº de andares acompanha a altura (troca geometria do cache se mudou).
         setResidentialBuildingHeight(entry.mesh, transform.scale.y);
+      } else if (entry.shape === "apartment") {
+        setApartmentBuildingHeight(entry.mesh, transform.scale.y);
       }
     }
 

@@ -366,7 +366,7 @@ Registro único formato → builder. Ponto de entrada de **todo** consumidor de 
 > [!important] Não chame o dispose no admin
 > As geometrias são cache module-level compartilhado. `disposeBuildingShapeSharedResources()` é do teardown do manager; o preview do admin só descarta os **materiais** que criou.
 
-**Checagem:** `node scripts/check-building-shapes.mjs` — monta os 11 formatos com bundle em memória (sem servidor, watcher, navegador ou WebGL) e afirma geometria não-degenerada, altura unitária e slots de material na ordem fachada/topo. Cobre também o preview do admin: `resolveSubject` pra toda key semeada e o `frameBox` ignorando volumétrico.
+**Checagem:** `node scripts/check-building-shapes.mjs` — monta os 13 formatos com bundle em memória (sem servidor, watcher, navegador ou WebGL) e afirma geometria não-degenerada, altura unitária e slots de material na ordem fachada/topo. Cobre também o preview do admin: `resolveSubject` pra toda key semeada e o `frameBox` ignorando volumétrico.
 
 > [!note] Guards irmãos nos acessórios
 > `isRooftopType` ([[scene-builders#createRooftopMesh.ts|createRooftopMesh]]) e `isEdgeLightType` ([[scene-builders#createEdgeLightMesh.ts|createEdgeLightMesh]]) seguem o mesmo padrão: `key in FACTORIES`, pra validar key vinda do catálogo antes de chamar o builder.
@@ -390,7 +390,7 @@ Cena isolada com **uma** personalização para o admin ([[personalizacoes#Previe
 - Enquadramento ignora feixes de luz e inclui a área do holograma; `frame()` recalcula os limites após carregar a imagem.
 - `dispose()` — materiais, caixa e clones de textura locais + acessórios/letreiro/holograma. Geometrias e mapas compartilhados com a cidade permanecem vivos.
 - `disposeHologramMesh` incrementa `loadToken`: imagem que chega depois do fechamento não recria textura descartada.
-- `node scripts/check-building-shapes.mjs` verifica os 12 formatos com acessórios, mudança de cor, proporções, descarte e a corrida de imagem atrasada do holograma.
+- `node scripts/check-building-shapes.mjs` verifica os 13 formatos com acessórios, mudança de cor, proporções, descarte e a corrida de imagem atrasada do holograma.
 
 **Quando mexer aqui:**
 - Dar preview a outra categoria do catálogo (novo `kind` + entrada em `VIEW` + `PREVIEW_KIND` no admin)
@@ -631,6 +631,42 @@ getResidentialFloorCount(height: number): number
 getResidentialTierFootprints(width?: number, depth?: number, height?: number): ResidentialTierFootprint[]
 getResidentialRoofOffset(height: number): number
 RESIDENTIAL_ROOFTOP_SCALE: number
+```
+
+---
+
+### `createApartmentBuildingMesh.ts`
+
+Modelo `apartment`: torre residencial de reboco branco (ref. `edificio.png`). Mesmo esquema do [[#createResidentialBuildingMesh.ts]] — andares pela altura, 6 slots autorais, sem textura de fachada.
+
+**Detalhes modelados:**
+- Corpo = `ExtrudeGeometry` do contorno da planta: degrau de 0,6 m nos 4 cantos, rasgo de sacadas (5 × 2,5 m) na frente `+Z` e nos fundos `−Z`, pilastra cega 30 cm saliente ao lado do rasgo. Planta espelhada frente/fundos
+- Janelas recortadas em grade: laterais `±X` com 6 colunas (sala/quarto 1,5 m de correr com montante + banheiro 0,7 m alta), frente/fundos com 4. Caixilho + vidro + peitoril saliente
+- Sacada por andar no rasgo: laje cinza, guarda-corpo de vidro esverdeado com corrimão, porta de correr no fundo
+- Térreo: embasamento cinza recuado 0,3 m (beiral do corpo aparece), entrada envidraçada na frente, portão nos fundos, básculas nas laterais
+- Cobertura: platibanda 1,2 m (contorno recuado 0,2 m, mesmo `Shape` com furo), piso (slot topo), caixa d'água central com tampa e casa de máquinas com porta
+
+**Como funciona:**
+- Medidas em metros (pé-direito 3 m, térreo 4 m). Footprint 20×20 m; tudo montado em metros, não indexado (`ExtrudeGeometry` não tem índice), e escalado **uma vez** pra unit box no fim. Lateral em 9,85 m: peitoril cabe no lote
+- Quads (`PlaneGeometry`) em janela/porta — sem as 5 faces escondidas de caixa. ~800 vértices por andar
+- `insetOutline`: recua contorno retilíneo andando `t` na normal interna das 2 arestas vizinhas (exato em 90°) → furo da platibanda e piso
+- **Nº de andares segue a altura** (`getApartmentFloorCount`, 0,1 un./m, 1–60); manager chama `setApartmentBuildingHeight(mesh, scale.y)` em todo sync. Cache por nº de andares
+- Slots: `0 reboco` (= `facadeMaterial`, recebe cor), `1 topo`, `2 vidro`, `3 guarda-corpo`, `4 caixilho`, `5 acabamento` (lajes, peitoris, embasamento)
+- Reboco: `clearTextureSlots`, cor off-white `0xd9d6d0` (branco puro estoura com ambient ~8 + exposição 1,45), roughness 1, `normalScale` 0,35. Textura de superfície Concrete024 via `setResidentialStoneMaps` (mesmo set do residential)
+- Slots próprios via `createSceneMaterial` (exportado do residential): `envMap` da fachada, `authoredEnvMapIntensity`, guarda-corpo com `baseOpacity`
+- `APARTMENT_ROOFTOP_SCALE` (0,3): acessório de topo na caixa d'água. `getApartmentTierFootprints` (LED: corpo até a platibanda + caixa d'água) e `getApartmentRoofOffset` (letreiro apoiado no topo da platibanda)
+- `check-building-shapes.mjs`: lote, 6 slots/grupos, atributos finitos, rasgo vazado e pilastra cheia por raycast (frente e fundos), andares por altura com cache, piso/teto de andares, tiers do LED, letreiro, vidros marcados p/ envMap, dispose
+- Catálogo: migration backend `0023_apartment_building.sql`, key `apartment`, label **Residencial (janelas)**. Ver [[customization-api]]
+
+**API:**
+```typescript
+createApartmentBuildingMesh(facadeMaterial: THREE.Material, topMaterial: THREE.Material): THREE.Mesh
+setApartmentBuildingHeight(mesh: THREE.Mesh, height: number): void
+disposeApartmentBuildingSharedResources(): void
+getApartmentFloorCount(height: number): number
+getApartmentTierFootprints(width?: number, depth?: number, height?: number): ResidentialTierFootprint[]
+getApartmentRoofOffset(height: number): number
+APARTMENT_ROOFTOP_SCALE: number
 ```
 
 ---

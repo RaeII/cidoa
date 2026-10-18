@@ -266,7 +266,7 @@ export function getResidentialRoofOffset(height: number): number {
 // Material com envMap = cubemap dinâmico da cena (reflete a cidade).
 // `authoredEnvMapIntensity` → manager zera na captura e restaura este valor
 // (em vez do envMapIntensity global das fachadas texturizadas).
-function createSceneMaterial(
+export function createSceneMaterial(
   envMap: THREE.Texture | null,
   params: THREE.MeshStandardMaterialParameters,
 ): THREE.MeshStandardMaterial {

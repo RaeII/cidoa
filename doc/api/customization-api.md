@@ -95,6 +95,10 @@ Key `yachthouse`, label **Yachthouse (torres gêmeas)**. Migration backend `0012
 
 Key `residential`, label **Residencial (sacadas)**. Migration backend `0015_residential_building.sql` inclui opção em `shape`, ordem 12, presa a código, **sem requisito** (grátis até admin configurar liberação). Painel e preview reutilizam catálogo; aplicar migration e aguardar cache público (até 60 s). Enum `buildingShape` do backend aceita `residential`. Builder em [[scene-builders#createResidentialBuildingMesh.ts]].
 
+## Modelo Residencial (janelas)
+
+Key `apartment`, label **Residencial (janelas)**. Migration backend `0023_apartment_building.sql` inclui opção em `shape`, ordem 13, presa a código, **sem requisito** (grátis até admin configurar liberação). Enum `buildingShape` do backend aceita `apartment`. Aplicar migration e aguardar cache público (até 60 s). Builder em [[scene-builders#createApartmentBuildingMesh.ts]].
+
 ## Combinação dos requisitos
 
 `unlock.mode`: `all` exige todos os eixos preenchidos; `any` libera ao atingir um deles. Eixo `null` não conta como alternativa cumprida. Catálogo antigo sem `mode` usa `all` no front. Migration backend `0013_customization_unlock_mode.sql` adiciona modo sem alterar conquistas existentes. Ver [[passe-front]].
