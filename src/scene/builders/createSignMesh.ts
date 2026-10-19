@@ -17,7 +17,7 @@ import {
 } from "./createTaipeiBuildingMesh";
 import { getTaperedFootprintScaleAtHeightRatio } from "./createTaperedBuildingMesh";
 import { TWIST_TOTAL_ANGLE } from "./createTwistedBuildingMesh";
-import { YACHTHOUSE_BODY, YACHTHOUSE_TOWER_CENTERS } from "./createYachthouseBuildingMesh";
+import { getYachthouseTowerFootprints } from "./createYachthouseBuildingMesh";
 
 // Margem lateral dentro da placa (fração da largura do canvas)
 const PADDING = 0.12;
@@ -59,11 +59,11 @@ export function createSignMesh(
 
   const group = new THREE.Group();
   if (shape === "yachthouse") {
-    for (const x of YACHTHOUSE_TOWER_CENTERS) {
-      const sign = createSignMesh(trimmed, buildingW * YACHTHOUSE_BODY.width,
-        buildingD * (YACHTHOUSE_BODY.depth + 0.044), buildingH * YACHTHOUSE_BODY.top, sides);
+    // Repete nas duas torres, logo abaixo do coroamento recuado.
+    for (const { x, tiers: [body] } of getYachthouseTowerFootprints(buildingW, buildingD, buildingH)) {
+      const sign = createSignMesh(trimmed, body.width, body.depth, body.topY, sides);
       if (sign) {
-        sign.position.set(x * buildingW, -(1 - YACHTHOUSE_BODY.top) * buildingH / 2, 0);
+        sign.position.set(x, (body.topY - buildingH) / 2, 0);
         group.add(sign);
       }
     }

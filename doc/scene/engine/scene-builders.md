@@ -346,6 +346,9 @@ disposeEdgeLightSharedResources(): void                             // libera ge
 
 ### `createBuildingShapeMesh.ts`
 
+> [!tip] Formato novo ou edição de modelo
+> Passo a passo, pontos de integração, render de avaliação (`scripts/render-building.mjs`) e limpeza: [[novo-edificio]].
+
 Registro único formato → builder. Ponto de entrada de **todo** consumidor de formato: [[scene-managers|DonationManager]] na cena e [[three-components#CustomizationPreview.tsx|CustomizationPreview]] no admin.
 
 **Responsabilidades:**
@@ -385,7 +388,7 @@ Cena isolada com **uma** personalização para o admin ([[personalizacoes#Previe
 - Fundo escuro no LED e na aparência completa: halo é `AdditiveBlending` e some em fundo claro
 - `frame(aspect)` / `place(distance)` — enquadramento por bounding sphere, separados pra resize não desfazer o giro do usuário
 - `frameBox(root)` — bounding box que **ignora volumétrico** (transparente com `depthWrite: false`): o feixe do holofote tem 10 unidades e deixaria o prédio um ponto
-- `BuildingPreviewAppearance` opcional em `createPreviewScene(resolved, appearance)`: aparência, mapas de fachada/topo e callback após carregar holograma. Combina formato, cor, textura, topo, LED, letreiro e holograma com os builders existentes. Yachthouse recebe acessórios nas duas torres; residencial usa a pedra do topo.
+- `BuildingPreviewAppearance` opcional em `createPreviewScene(resolved, appearance)`: aparência, mapas de fachada/topo e callback após carregar holograma. Combina formato, cor, textura, topo, LED, letreiro e holograma com os builders existentes. Yatchcasa (`yachthouse`) usa altura própria e recebe acessórios nas duas torres; residenciais usam a pedra do topo (Yatchcasa não: dourado é textureless).
 - `tick(elapsed, deltaMs)` anima o holograma; `updateStyle(customization)` atualiza cor, tint e opacidade sem reconstruir o modelo/decodificar GIF.
 - Enquadramento ignora feixes de luz e inclui a área do holograma; `frame()` recalcula os limites após carregar a imagem.
 - `dispose()` — materiais, caixa e clones de textura locais + acessórios/letreiro/holograma. Geometrias e mapas compartilhados com a cidade permanecem vivos.
@@ -585,15 +588,39 @@ ONE_TRADE_SIGN_Y_OFFSET_RATIO: number
 
 ### `createYachthouseBuildingMesh.ts`
 
-Modelo `yachthouse` inspirado nas fotos do Yachthouse Residence Club: duas torres sobre embasamento comum; plantas chanfradas; 64 intervalos de pavimento com faixas em relevo; faixa vertical contínua; coroamentos recuados, coberturas em balanço e mastros internos.
+Modelo `yachthouse`, nome **Yatchcasa** (ref. `Yatchcasa .png` na raiz). Segue padrão de [[#createResidentialBuildingMesh.ts]]: metros, andares pela altura, slots autorais, sem textura de fachada.
 
-- Um `Mesh` unitário `1×1×1`, centrado; as duas torres pertencem à mesma doação e ao mesmo lote.
-- `BoxGeometry` + `ExtrudeGeometry`, consolidadas por `mergeGeometries` em dois grupos: fachada (0), acabamento/topo (1). Materiais PBR recebidos do manager; sem textura ou material extra.
-- `aProjPosition` / `aProjNormal` preservam shader triplanar. Geometria compartilhada; temporárias descartadas após merge; cache liberado pelo registro geral.
-- `YACHTHOUSE_TOWER_CENTERS`, `YACHTHOUSE_BODY`, `YACHTHOUSE_ROOF`: proporções usadas pelos acessórios. LED contorna cada torre/coroamento; letreiro repete nas duas torres, abaixo do recuo; topo fica na cobertura da torre esquerda, com escala reduzida.
-- `createYachthouseBuildingMesh(facadeMaterial, topMaterial)` cria mesh; `disposeYachthouseBuildingSharedResources()` libera cache.
-- `check-building-shapes.mjs`: testa dimensões, atributos finitos, dois grupos, vão central por raycast, presença das torres/base, compartilhamento e descarte/recriação do cache; registro e preview entram nas checagens dos 11 formatos.
-- Catálogo: migration backend `0012_yachthouse_building.sql`, key `yachthouse`, label **Yachthouse (torres gêmeas)**. Aplicar migration para opção aparecer no painel e admin; catálogo tem cache de até 60 s. Ver [[customization-api]].
+**Detalhes modelados:**
+- Embasamento retangular bege (lote todo em X, 68% em Z): rodapé, faixa de vidro fumê recuada 30 cm com montantes, platibanda
+- Duas torres lado a lado em X (20,4×21 m, vão 4 m ≈ 1/5 da torre, como na ref.), planta chanfrada; pano de vidro fumê azul-escuro contínuo com montantes escuros; rodapé escuro de 0,6 m sobre o embasamento
+- Sacada (40 cm, 35 cm saliente) em toda laje, contornando cantos chanfrados: **face lateral dourada, tampas escuras** — de cima lê como linha fina, não laje bege
+- Rasgo vertical envidraçado (3,2 m × 1,2 m) no meio da frente e dos fundos, pilastras douradas nas bordas; faixas param no rasgo
+- Faixa larga (0,9 m) no recuo → coroamento 1,3 m recuado, 3 andares de 3,6 m com faixas finas; tampa do recuo e do coroamento no slot topo
+- Cobertura: casa de máquinas envidraçada, laje em balanço (slot topo), mastro cônico de 18 m do lado do vão
+
+**Como funciona:**
+- Lote 50×50 m = unit box; mesh `1×1×0,68` centrado. Pé-direito 3,2 m, embasamento 12,8 m
+- **Nº de andares segue a altura** (`getYachthouseFloorCount`, 0,04 un./m, 1–81). Escala vertical própria: torre esbelta, 0,1 un./m do residencial deixaria faixas ralas. Manager chama `setYachthouseBuildingHeight(mesh, scale.y)` em todo sync; geometria cacheada por nº de andares
+- Prévia usa `YACHTHOUSE_PREVIEW_HEIGHT` (4,5 → 22 andares, ~12:1 como real); geometria padrão do registro usa mesma altura
+- `mergeGeometries` por slot → **5 grupos = 5 draw calls**: `0 dourado` (= `facadeMaterial`, recebe cor da customização), `1 topo` (laje em balanço, tampa dos recuos), `2 vidro`, `3 esquadria/mastro/tampa das sacadas`, `4 embasamento bege`
+- Faixa vira 2 partes: `band()` extruda e separa grupos do `ExtrudeGeometry` (0 = tampas → slot escuro/topo, 1 = laterais → dourado)
+- Dourado: `clearTextureSlots` (sem Concrete024 — metal liso), cor `0xa67c3e`, metalness 0,6, roughness 0,35; mais claro vira creme na luz da cena. Vidro `0x24405e` (metalness 0,9), esquadria `0x2f3438`, embasamento `0x76695a` fosco — `createSceneMaterial` reflete a cidade
+- `YACHTHOUSE_TOWER_CENTERS` (±0,244), `YACHTHOUSE_ROOFTOP_SCALE` (0,26): acessório na laje da torre esquerda, mastro fica atrás dela. `getYachthouseTowerFootprints` (por torre: corpo + coroamento → LED; corpo → letreiro nas duas torres) e `getYachthouseRoofOffset` (topo da laje)
+- `check-building-shapes.mjs`: lote, 5 slots/grupos, vão entre torres (aberto, < 5 m) e rasgo por raycast, dourado sem tampa (< 1% da área olhando pra cima), andares por altura com cache, piso/teto, tiers e cobertura, vidros marcados p/ envMap, dispose
+- Catálogo: key `yachthouse` (contrato, não muda). Backend `0012_yachthouse_building.sql` cria; `0024_yatchcasa_label.sql` renomeia label para **Yatchcasa**. Ver [[customization-api]]
+
+**API:**
+```typescript
+createYachthouseBuildingMesh(facadeMaterial: THREE.Material, topMaterial: THREE.Material): THREE.Mesh
+setYachthouseBuildingHeight(mesh: THREE.Mesh, height: number): void
+disposeYachthouseBuildingSharedResources(): void
+getYachthouseFloorCount(height: number): number
+getYachthouseTowerFootprints(width?: number, depth?: number, height?: number): YachthouseTowerFootprint[]
+getYachthouseRoofOffset(height: number): number
+YACHTHOUSE_TOWER_CENTERS: readonly [number, number]
+YACHTHOUSE_ROOFTOP_SCALE: number
+YACHTHOUSE_PREVIEW_HEIGHT: number
+```
 
 ---
 

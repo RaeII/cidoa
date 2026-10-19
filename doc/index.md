@@ -66,6 +66,7 @@ scripts/
   check-building-management.mjs ← administração, posse, descarte e foco após filtro/pagamento; sem servidor/navegador
   check-donation-info.mjs      ← foto, totais, 5 ONGs em linhas, filtros e transição cena/seção; sem servidor/navegador
   check-building-shapes.mjs    ← checa os 13 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
+  render-building.mjs          ← PNG headless de um formato com a luz da cidade: 4 vistas + referência (`node scripts/render-building.mjs <formato>`) → [[novo-edificio]]
   check-building-textures.mjs  ← troca de textura no destaque padrão; reuso de meshes/cache, sem navegador
   check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
 public/
@@ -226,7 +227,7 @@ src/
       createEmpireBuildingMesh.ts
       createTaipeiBuildingMesh.ts
       createOneTradeBuildingMesh.ts
-      createYachthouseBuildingMesh.ts ← torres gêmeas sobre embasamento comum
+      createYachthouseBuildingMesh.ts ← Yatchcasa: torres gêmeas de vidro azul-escuro, linhas douradas, embasamento bege
       createResidentialBuildingMesh.ts ← torre residencial com sacadas, vidro refletindo a cena
       createApartmentBuildingMesh.ts ← torre de reboco branco, janelas em grade, rasgo de sacadas
       createHologramMesh.ts
@@ -266,6 +267,7 @@ doc/
       scene-hooks.md
       scene-managers.md
       scene-builders.md
+      novo-edificio.md           ← guia: criar/editar modelo de edifício, render de avaliação, limpeza
       scene-textures.md          ← texturas: manifesto, loader lazy/async/cache, pipeline WebP/KTX2, por-edifício
     foundation/                  ← base de dados consumida pelo engine
       scene-config.md
@@ -490,7 +492,8 @@ flowchart LR
 | Alterar torre Hearst (hearst)                    | [[scene-builders#createHearstBuildingMesh.ts]]    |
 | Alterar torre Empire State (empire)              | [[scene-builders#createEmpireBuildingMesh.ts]]    |
 | Alterar torre Taipei 101 (taipei)                | [[scene-builders#createTaipeiBuildingMesh.ts]]    |
-| Alterar torres Yachthouse (yachthouse)           | [[scene-builders#createYachthouseBuildingMesh.ts]] |
+| Alterar torres Yatchcasa (yachthouse)            | [[scene-builders#createYachthouseBuildingMesh.ts]] |
+| Criar/editar modelo de edifício, avaliar visual, limpar ao fim | [[novo-edificio]] · `scripts/render-building.mjs` |
 | Alterar torre residencial com sacadas (residential) | [[scene-builders#createResidentialBuildingMesh.ts]] |
 | Alterar torre de reboco com janelas (apartment)  | [[scene-builders#createApartmentBuildingMesh.ts]] |
 | Alterar torre One Trade (one-trade)              | [[scene-builders#createOneTradeBuildingMesh.ts]]  |

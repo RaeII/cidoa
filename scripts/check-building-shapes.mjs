@@ -14,7 +14,7 @@ import { build } from "esbuild";
 const bundle = await build({
   stdin: {
     contents: ["createBuildingShapeMesh", "createEdgeLightMesh", "createPreviewScene", "createParapetMesh",
-      "createResidentialBuildingMesh", "createApartmentBuildingMesh", "createHologramMesh"]
+      "createResidentialBuildingMesh", "createApartmentBuildingMesh", "createYachthouseBuildingMesh", "createHologramMesh"]
       .map((name) => `export * from './src/scene/builders/${name}.ts';`).join("\n"),
     resolveDir: process.cwd(),
   },
@@ -25,6 +25,7 @@ const { BUILDING_SHAPES, createBuildingShapeMesh, createUnitBuildingGeometry, cr
   createParapetGeometry, getParapetHeightScale, createBuildingParapets,
   setResidentialBuildingHeight, setResidentialStoneMaps, getResidentialFloorCount,
   setApartmentBuildingHeight, getApartmentFloorCount, getApartmentTierFootprints, getApartmentRoofOffset,
+  setYachthouseBuildingHeight, getYachthouseFloorCount, getYachthouseTowerFootprints, getYachthouseRoofOffset,
   createHologramMesh, setHologramImage, disposeHologramMesh } =
   await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].contents).toString("base64")}`);
 
@@ -41,28 +42,64 @@ for (const shape of BUILDING_SHAPES) {
   // Unitária: quem escala é a cena. Folga pra antena/coroamento passar do topo.
   assert.ok(size.y > 0.5 && size.y < 1.5, `${shape}: altura ${size.y} — geometria não é unitária`);
   if (shape === "yachthouse") {
-    for (const axis of ["x", "y", "z"]) {
-      assert.ok(Math.abs(size[axis] - 1) < 1e-6, `yachthouse: dimensão ${axis} fora do lote`);
-    }
-    assert.equal(mesh.geometry.groups.length, 2, "yachthouse: só dois draw calls");
+    // Embasamento ocupa o lote em X; em Z fica 32% recuado (barra longa da referência).
+    assert.ok(Math.abs(size.x - 1) < 1e-6 && Math.abs(size.y - 1) < 1e-6, "yachthouse: fora do lote");
+    assert.ok(size.z > 0.6 && size.z < 0.75, `yachthouse: embasamento com profundidade ${size.z}`);
+    assert.equal(materials.length, 5, "yachthouse: 5 slots (dourado, topo, vidro, esquadria, embasamento)");
+    assert.equal(mesh.geometry.groups.length, 5, "yachthouse: 1 draw call por material");
+    mesh.geometry.groups.forEach((group, i) => assert.equal(group.materialIndex, i, "yachthouse: grupo fora do slot"));
     for (const name of ["position", "normal", "aProjPosition", "aProjNormal"]) {
-      const attribute = mesh.geometry.getAttribute(name);
-      assert.equal(attribute.count, mesh.geometry.getAttribute("position").count);
-      assert.ok(attribute.array.every(Number.isFinite), `yachthouse: ${name} inválido`);
+      assert.ok(mesh.geometry.getAttribute(name).array.every(Number.isFinite), `yachthouse: ${name} inválido`);
     }
-    // Vão real entre torres; fachada dos dois lados responde ao picking.
+    // Vão real entre torres; torres e embasamento respondem ao picking.
     mesh.updateMatrixWorld(true);
     const cast = (x, y) => new THREE.Raycaster(new THREE.Vector3(x, y, 2), new THREE.Vector3(0, 0, -1)).intersectObject(mesh);
     assert.equal(cast(0, 0).length, 0, "yachthouse: vão central fechado");
-    assert.ok(cast(-0.255, 0).length > 0 && cast(0.255, 0).length > 0, "yachthouse: torre ausente");
+    assert.ok(cast(-0.3, 0).length > 0 && cast(0.3, 0).length > 0, "yachthouse: torre ausente");
+    assert.ok(cast(0.05, 0).length > 0, "yachthouse: vão entre torres passa de 5 m");
     assert.ok(cast(0, -0.45).length > 0, "yachthouse: embasamento ausente");
-    const second = createBuildingShapeMesh(shape, facade, top, createUnitBuildingGeometry());
-    assert.equal(second.geometry, mesh.geometry, "yachthouse: cache não compartilhado");
+    // Rasgo envidraçado: vidro recuado 1,2 m no meio da face (0,179 = fundo do rasgo; ≥ 0,203 = face).
+    const faceZ = (x) => cast(x, 0)[0]?.point.z;
+    assert.ok(Math.abs(faceZ(0.26) - 0.179) < 1e-3 && faceZ(0.32) > 0.2, "yachthouse: rasgo vertical ausente");
+    // Faixa de sacada: lateral dourada (slot 0), tampa escura — só o topo das
+    // pilastras (escondido sob a faixa) fica no dourado olhando pra cima.
+    const trim = mesh.geometry.groups[0];
+    const pos = mesh.geometry.getAttribute("position");
+    const tri = new THREE.Triangle();
+    const normal = new THREE.Vector3();
+    let flat = 0;
+    let total = 0;
+    for (let i = trim.start; i < trim.start + trim.count; i += 3) {
+      tri.setFromAttributeAndIndices(pos, i, i + 1, i + 2);
+      const area = tri.getArea();
+      total += area;
+      if (Math.abs(tri.getNormal(normal).y) > 0.5) flat += area;
+    }
+    assert.ok(flat / total < 0.01, `yachthouse: topo de faixa dourado (${(flat / total).toFixed(3)})`);
+    // Pé-direito real: nº de andares segue a altura, geometria cacheada por andar.
+    const preview = mesh.geometry;
+    setYachthouseBuildingHeight(mesh, 16);
+    const tall = mesh.geometry;
+    assert.notEqual(tall, preview, "yachthouse: altura não trocou nº de andares");
+    assert.ok(tall.getAttribute("position").count > preview.getAttribute("position").count, "yachthouse: prédio alto com menos andares");
+    setYachthouseBuildingHeight(mesh, 16);
+    assert.equal(mesh.geometry, tall, "yachthouse: cache por andar não reaproveitado");
+    assert.equal(getYachthouseFloorCount(0.5), 1, "yachthouse: prédio mínimo sem andar");
+    assert.equal(getYachthouseFloorCount(1000), 81, "yachthouse: teto de andares");
+    // LED/letreiro dentro do prédio; acessório na cobertura, abaixo do mastro.
+    const towers = getYachthouseTowerFootprints(1, 1, 16);
+    assert.equal(towers.length, 2, "yachthouse: duas torres");
+    const [body, crown] = towers[0].tiers;
+    assert.ok(body.topY === crown.bottomY && crown.topY < 16 && crown.width < body.width, "yachthouse: tiers do LED");
+    const roof = getYachthouseRoofOffset(16);
+    assert.ok(roof > crown.topY - 8 && roof < 8, "yachthouse: acessório fora da cobertura");
+    for (const material of materials.slice(2)) {
+      assert.equal(typeof material.userData.authoredEnvMapIntensity, "number", "yachthouse: vidro fora da captura do envMap");
+    }
     let disposed = false;
-    mesh.geometry.addEventListener("dispose", () => { disposed = true; });
+    tall.addEventListener("dispose", () => { disposed = true; });
     disposeBuildingShapeSharedResources();
     assert.ok(disposed, "yachthouse: dispose não libera geometria");
-    assert.notEqual(createBuildingShapeMesh(shape, facade, top, createUnitBuildingGeometry()).geometry, mesh.geometry);
   }
   if (shape === "residential") {
     for (const axis of ["x", "y", "z"]) {

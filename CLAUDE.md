@@ -75,12 +75,20 @@ doc/
 | Types | `doc/scene/foundation/scene-types.md` |
 | Utils | `doc/scene/foundation/scene-utils.md` |
 | Builders | `doc/scene/engine/scene-builders.md` |
+| Building-model workflow / `scripts/render-building.mjs` | `doc/scene/engine/novo-edificio.md` |
 | Managers | `doc/scene/engine/scene-managers.md` |
 | Runtime | `doc/scene/engine/scene-runtime.md` |
 | Hook | `doc/scene/engine/scene-hooks.md` |
 | Visual: tokens (`src/index.css`), primitivos `src/components/ui/` | `doc/desingn-system/desingn-system-index.md` |
 
 Cross-reference with Obsidian wikilinks by **filename**, not path (`[[scene-runtime]]`, `[[scene-types#BuildingSettings]]`) — they resolve from any folder, so moving a page does not break links. Filenames must stay unique across the vault.
+
+## Building models
+
+New or edited building shape → follow `doc/scene/engine/novo-edificio.md` (reference measuring, builder pattern, every integration point, backend catalog, checks, docs, cleanup).
+
+- Visual check: `node scripts/render-building.mjs <shape> [--height n] [--ref img] [--slot i=hex,metal,rough]` — 4 views lit like the city. Reuse or extend it; never write a one-off render harness.
+- Leave no screenshots, crops, bundles or throwaway scripts in the repo or temp dirs when done (`rm -rf "${TMPDIR:-/tmp}/cidoa-render"`). Never delete or commit the owner's reference image without asking.
 
 ## UI style
 
