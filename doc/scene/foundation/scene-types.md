@@ -357,8 +357,9 @@ type BuildingShape =
   | "empire"         // torre art déco inspirada no Empire State Building
   | "taipei"         // torre em módulos empilhados inspirada no Taipei 101
   | "one-trade"      // torre facetada com base chanfrada e pináculo One Trade
-  | "yachthouse"     // torres gêmeas, faixas horizontais e coroamentos recuados
+  | "yachthouse"     // Yatchcasa: torres gêmeas de vidro azul-escuro, linhas douradas, coroamento recuado
   | "residential"    // torre residencial: sacadas, guarda-corpo de vidro, aletas terracota
+  | "apartment"      // torre de reboco branco: janelas em grade, rasgo de sacadas, caixa d'água
 ```
 
 Quando `buildingShape !== "default"`, a doação é desenhada como um `Mesh` próprio (ver [[scene-builders]]) e pula a alocação no `InstancedMesh`. O manager mantém clones de material (facade + top) por edifício customizado.

@@ -1,3 +1,12 @@
 - [ ] Edificio preto com textura e modelo padrão fica piscando
 - [ ] Colocar paratibanda nos modelos de edificios com quinas
 - [ ] Ajustar o link de indicação, está copiando um mensagem junto
+
+- [ ] limpesa de metadados nas imagens
+- [ ] aviso de remoção de dados e edifcios
+- [] avisar por e-mail cada remoção;
+- [] responder contestações e pedidos de dados em 15 dias;
+- [] corrigir registro errado em 10 dias úteis;
+- [] publicar um resumo anual das denúncias.
+- [] manter backup por 3 meses
+- [] fazer email contato@cidoe.com.br

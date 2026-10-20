@@ -20,7 +20,13 @@ import { createSignMesh, disposeSignMesh } from "./createSignMesh";
 import { createHologramMesh, disposeHologramMesh, positionHologram, setHologramImage, setHologramOpacity, setHologramTint, tickHologram } from "./createHologramMesh";
 import { setEmpireBuildingMeshColor } from "./createEmpireBuildingMesh";
 import { getResidentialRoofOffset, RESIDENTIAL_ROOFTOP_SCALE, setResidentialStoneMaps } from "./createResidentialBuildingMesh";
-import { YACHTHOUSE_ROOF, YACHTHOUSE_TOWER_CENTERS } from "./createYachthouseBuildingMesh";
+import { APARTMENT_ROOFTOP_SCALE } from "./createApartmentBuildingMesh";
+import {
+  getYachthouseRoofOffset,
+  YACHTHOUSE_PREVIEW_HEIGHT,
+  YACHTHOUSE_ROOFTOP_SCALE,
+  YACHTHOUSE_TOWER_CENTERS,
+} from "./createYachthouseBuildingMesh";
 import { createParapetGeometry, createParapetMaterial, getParapetHeightScale } from "./createParapetMesh";
 
 /** O que mostrar. `key` vem do catálogo — pode não ter builder no front. */
@@ -67,9 +73,12 @@ export function resolveSubject({ kind, key }: PreviewSubject): ResolvedSubject |
 
 /** Prédio + acessório, prontos pra cena. */
 function buildSubject(resolved: ResolvedSubject, appearance?: BuildingPreviewAppearance) {
-  const { height } = VIEW[resolved.kind];
   const customization = appearance?.customization;
   const shape = customization?.buildingShape ?? (resolved.kind === "shape" ? resolved.shape : "default");
+  // Yatchcasa é esbelta: altura própria (= a da geometria padrão do builder).
+  const height = resolved.kind === "shape" && shape === "yachthouse"
+    ? YACHTHOUSE_PREVIEW_HEIGHT
+    : VIEW[resolved.kind].height;
   const accessory =
     !customization && resolved.kind === "rooftop"
       ? createRooftopMesh(resolved.type, { width: 1, depth: 1 })
@@ -112,7 +121,7 @@ function buildSubject(resolved: ResolvedSubject, appearance?: BuildingPreviewApp
     if (shape === "empire") setEmpireBuildingMeshColor(building, customization.color);
     else facadeMat.color.set(customization.color);
     topMat.color.set("#b9b6b1");
-    if (shape === "residential") setResidentialStoneMaps(facadeMat, appearance?.topTextures ?? null);
+    if (shape === "residential" || shape === "apartment") setResidentialStoneMaps(facadeMat, appearance?.topTextures ?? null);
     else applyMaps(facadeMat, appearance?.facadeTextures);
     applyMaps(topMat, appearance?.topTextures);
   }
@@ -142,12 +151,13 @@ function buildSubject(resolved: ResolvedSubject, appearance?: BuildingPreviewApp
   if (customization) {
     const centers = shape === "yachthouse" ? YACHTHOUSE_TOWER_CENTERS : [0];
     for (const x of centers) {
-      const scale = shape === "residential" ? RESIDENTIAL_ROOFTOP_SCALE : 1;
-      const footprint = shape === "yachthouse" ? YACHTHOUSE_ROOF : { width: scale, depth: scale };
-      const rooftop = createRooftopMesh(customization.rooftopType, footprint);
+      const scale = shape === "residential" ? RESIDENTIAL_ROOFTOP_SCALE
+        : shape === "apartment" ? APARTMENT_ROOFTOP_SCALE
+          : shape === "yachthouse" ? YACHTHOUSE_ROOFTOP_SCALE : 1;
+      const rooftop = createRooftopMesh(customization.rooftopType, { width: scale, depth: scale });
       if (rooftop) {
         rooftop.name = "rooftop";
-        const roofHeight = shape === "yachthouse" ? (YACHTHOUSE_ROOF.height - 0.5) * height : shape === "residential" ? getResidentialRoofOffset(height) : height / 2;
+        const roofHeight = shape === "yachthouse" ? getYachthouseRoofOffset(height) : shape === "residential" ? getResidentialRoofOffset(height) : height / 2;
         rooftop.position.set(x, roofHeight, 0);
         root.add(rooftop);
         rooftops.push(rooftop);

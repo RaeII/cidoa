@@ -87,13 +87,17 @@ flowchart LR
   Fmt --> Admin[Admin · Personalizações]
 ```
 
-## Modelo Yachthouse
+## Modelo Yatchcasa
 
-Key `yachthouse`, label **Yachthouse (torres gêmeas)**. Migration backend `0012_yachthouse_building.sql` inclui opção em `shape`, ordem 11, presa a código. Painel e preview reutilizam catálogo existente; aplicar migration e aguardar cache público (até 60 s) para disponibilizar opção. Builder em [[scene-builders#createYachthouseBuildingMesh.ts]].
+Key `yachthouse`, label **Yatchcasa**. Migration backend `0012_yachthouse_building.sql` inclui opção em `shape`, ordem 11, presa a código; `0024_yatchcasa_label.sql` renomeia label (key mantida). Painel e preview reutilizam catálogo existente; aplicar migration e aguardar cache público (até 60 s) para disponibilizar opção. Builder em [[scene-builders#createYachthouseBuildingMesh.ts]].
 
 ## Modelo Residencial
 
 Key `residential`, label **Residencial (sacadas)**. Migration backend `0015_residential_building.sql` inclui opção em `shape`, ordem 12, presa a código, **sem requisito** (grátis até admin configurar liberação). Painel e preview reutilizam catálogo; aplicar migration e aguardar cache público (até 60 s). Enum `buildingShape` do backend aceita `residential`. Builder em [[scene-builders#createResidentialBuildingMesh.ts]].
+
+## Modelo Residencial (janelas)
+
+Key `apartment`, label **Residencial (janelas)**. Migration backend `0023_apartment_building.sql` inclui opção em `shape`, ordem 13, presa a código, **sem requisito** (grátis até admin configurar liberação). Enum `buildingShape` do backend aceita `apartment`. Aplicar migration e aguardar cache público (até 60 s). Builder em [[scene-builders#createApartmentBuildingMesh.ts]].
 
 ## Combinação dos requisitos
 

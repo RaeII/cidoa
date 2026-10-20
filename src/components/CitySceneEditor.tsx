@@ -437,6 +437,7 @@ export function CitySceneEditor() {
     [buildingSettings.color, queueSave],
   );
 
+  // Painel é ferramenta de admin.
   const shortcuts: KeyboardShortcut[] = [
     ...(isAdmin ? [{
       key: "m",

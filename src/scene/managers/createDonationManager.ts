@@ -41,12 +41,21 @@ import {
 } from "../builders/createHologramMesh";
 import { DEFAULT_HOLOGRAM_COLOR, DEFAULT_HOLOGRAM_OPACITY } from "../types";
 import { setEmpireBuildingMeshColor } from "../builders/createEmpireBuildingMesh";
-import { YACHTHOUSE_ROOF, YACHTHOUSE_TOWER_CENTERS } from "../builders/createYachthouseBuildingMesh";
+import {
+  getYachthouseRoofOffset,
+  setYachthouseBuildingHeight,
+  YACHTHOUSE_ROOFTOP_SCALE,
+  YACHTHOUSE_TOWER_CENTERS,
+} from "../builders/createYachthouseBuildingMesh";
 import {
   RESIDENTIAL_ROOFTOP_SCALE,
   setResidentialBuildingHeight,
   setResidentialStoneMaps,
 } from "../builders/createResidentialBuildingMesh";
+import {
+  APARTMENT_ROOFTOP_SCALE,
+  setApartmentBuildingHeight,
+} from "../builders/createApartmentBuildingMesh";
 import {
   createBuildingShapeMesh,
   createUnitBuildingGeometry,
@@ -1499,9 +1508,9 @@ export function createDonationManager({
       mat.envMapIntensity = top.envMapIntensity;
       if (previousMask !== textureDefineMask(mat)) mat.needsUpdate = true;
     }
-    // Pedra do residencial usa o mesmo concreto do topo (chega async, liga/desliga junto).
+    // Pedra/reboco dos autorais usa o mesmo concreto do topo (chega async, liga/desliga junto).
     for (const entry of customShapeMeshes.values()) {
-      if (entry.shape === "residential") {
+      if (entry.shape === "residential" || entry.shape === "apartment") {
         setResidentialStoneMaps(entry.facadeMat, settings.enabled ? topSet : null);
       }
     }
@@ -2275,13 +2284,22 @@ export function createDonationManager({
     if (!group.visible) return;
     const shape = customShapeMeshes.get(donationId)?.shape;
     const isYachthouse = shape === "yachthouse";
-    // Residencial: acessório sobre a casa de máquinas (topo do mesh), escalado a ela.
+    // Residenciais: acessório sobre a casa de máquinas/caixa d'água (topo do mesh), escalado a ela.
+    // Yatchcasa: sobre a cobertura em balanço da torre esquerda (abaixo do mastro).
     group.scale.setScalar(
-      isYachthouse ? YACHTHOUSE_ROOF.width : shape === "residential" ? RESIDENTIAL_ROOFTOP_SCALE : 1,
+      isYachthouse
+        ? YACHTHOUSE_ROOFTOP_SCALE
+        : shape === "residential"
+          ? RESIDENTIAL_ROOFTOP_SCALE
+          : shape === "apartment"
+            ? APARTMENT_ROOFTOP_SCALE
+            : 1,
     );
     group.position.set(
       tmpTransformPosition.x + (isYachthouse ? YACHTHOUSE_TOWER_CENTERS[0] * tmpTransformScale.x : 0),
-      tmpTransformPosition.y + tmpTransformScale.y * (isYachthouse ? YACHTHOUSE_ROOF.height - 0.5 : 0.5),
+      tmpTransformPosition.y + (isYachthouse
+        ? getYachthouseRoofOffset(tmpTransformScale.y)
+        : tmpTransformScale.y * 0.5),
       tmpTransformPosition.z,
     );
   };
@@ -2628,9 +2646,10 @@ export function createDonationManager({
           if (!tmpColor.equals(currentBuildingColor)) {
             setEmpireBuildingMeshColor(sceneMesh, customization.color);
           }
-        } else if (shape === "residential") {
-          // Builder pinta pedra travertino; cor da customização só se ≠ global (igual Empire).
-          setResidentialStoneMaps(facadeMat, currentTextureSettings.enabled ? topSet : null);
+        } else if (shape === "residential" || shape === "apartment" || shape === "yachthouse") {
+          // Builder pinta pedra/reboco/dourado; cor da customização só se ≠ global (igual Empire).
+          // Dourado do Yatchcasa é metal liso: sem o concreto.
+          if (shape !== "yachthouse") setResidentialStoneMaps(facadeMat, currentTextureSettings.enabled ? topSet : null);
           tmpColor.set(customization.color);
           if (!tmpColor.equals(currentBuildingColor)) facadeMat.color.set(customization.color);
         }
@@ -2653,6 +2672,10 @@ export function createDonationManager({
       if (entry.shape === "residential") {
         // Nº de andares acompanha a altura (troca geometria do cache se mudou).
         setResidentialBuildingHeight(entry.mesh, transform.scale.y);
+      } else if (entry.shape === "apartment") {
+        setApartmentBuildingHeight(entry.mesh, transform.scale.y);
+      } else if (entry.shape === "yachthouse") {
+        setYachthouseBuildingHeight(entry.mesh, transform.scale.y);
       }
     }
 
