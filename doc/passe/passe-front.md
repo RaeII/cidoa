@@ -37,7 +37,7 @@ GET /customization/me       → quanto eu tenho + o que ganhei (por usuário, se
       lib/unlock.ts  → badge, frase, "faltam X"
               ↓
    admin /dale/passe: define regra → PassTrack: trilha reutilizável
-      cena: mostra cadeado (próxima integração)
+      cena: cadeado + RewardDialog com conquista, motivo e próxima meta
 ```
 
 ## Contrato do requisito
@@ -64,10 +64,23 @@ Backend envia `mode`; ausente no catálogo antigo = `all`. Regras grátis contin
 | Peça | Situação |
 | --- | --- |
 | `unlock` no catálogo | ✅ [[customization-api]] |
-| `fetchMyUnlocks()` | ✅ escrito, ainda sem consumidor |
+| `fetchMyUnlocks()` | ✅ hook da cena; progresso, conquistas e avisos pendentes |
 | `lib/unlock.ts` | ✅ [[passe-formatacao]] |
 | UI admin (página Passe, trilha visual, dialog) | ✅ [[passe-admin-ui]] |
-| Cadeado no `BuildingManageDialog` | ⏳ [[passe-cena]] |
+| Cadeado no `BuildingManageDialog` | ✅ [[passe-cena]] |
+| Aviso de conquista | ✅ `RewardDialog`, Motion sob demanda, confirmação persistida |
+
+## Notificação de recompensa
+
+`useCustomizationCatalog` reaproveita `/customization/me` no login/reload e pagamento confirmado. Abrir menu da conta também atualiza conquistas — encontra indicações recebidas em outra sessão. Sem timer de recompensas; polling Pix existente continua exclusivo da cobrança pendente.
+
+`AuthMenu` monta `RewardDialog` via lazy import só com pendências. Espera termos, onboarding, indicação, menu, compartilhamento, pagamento, ajuda e edição/info do edifício liberarem tela. Sem interromper formulário aberto. Onboarding pulado offline, ainda não confirmado no servidor: avisos aguardam conclusão persistida.
+
+Modal agrupa lote: item principal com miniatura + motivo; demais itens com miniatura/motivo próprios. Próxima conquista segue `sortPassRewards`, ignora grátis e conquistadas, usa `formatUnlockRemaining` para metas AND/OR. Sem próxima meta: incentivo neutro. Animação Motion: entrada curta + oito partículas quadradas âmbar, sem loop; movimento reduzido = fade sem partículas. Cores, borda pixel, botão e Dialog do DS.
+
+X, Esc, clique fora ou Continuar dispensam lote apresentado; um POST idempotente, sem nova leitura. Backend conserva pendências se rede falhar. Histórico anterior à migration 0026 marcado visto; sem enxurrada retroativa. Preservação administrativa de item já usado também não notifica. Grants novos por doação, indicação ou primeiros inscritos ficam pendentes.
+
+Testes: `bun test tests/reward-notifications.test.ts` (motivo/ordem/metas); `node scripts/check-reward-notifications.mjs` (ciclo do hook, requests, contas, abort, offline). Contrato: [[customization-api]].
 
 ## Relacionado
 

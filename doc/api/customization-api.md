@@ -49,6 +49,7 @@ type MyUnlocks = {
   progress: { donated: number; referrals: number };
   unlockedOptionIds: number[];      // inclui presentes de cadastro, mesmo quando item é grátis
   unlockedCategoryKeys: string[];   // 'sign', 'hologram'
+  pendingRewards: RewardNotification[]; // até 100 avisos ainda não dispensados
 };
 ```
 
@@ -64,13 +65,23 @@ Tipo e todas as funções de exibição vivem em [`src/lib/unlock.ts`](../../src
 
 ## `useCustomizationCatalog()`
 
-Hook: carrega catálogo 1× no mount, retorna `CustomizationCatalog | null`. `null` = carregando (ou falha logada). Consumido em [[html-components#CitySceneEditor|CitySceneEditor]], passado ao [[html-components#BuildingManageDialog.tsx|BuildingManageDialog]] e ao [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] via prop `catalog`.
+Hook: carrega catálogo 1× no mount, retorna `{ catalog, rewards: { pending, next, dismiss } }`. `catalog: null` = carregando; falha vira catálogo vazio. Consumido em [[html-components#CitySceneEditor|CitySceneEditor]], passado ao [[html-components#BuildingManageDialog.tsx|BuildingManageDialog]] e ao [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] via prop `catalog`. `rewards` segue para `AuthMenu` → `RewardDialog`.
 
 Endpoint cacheado no backend (staleness ≤60s), mas o cache é **invalidado a cada escrita do admin** — mudança de regra aparece na cena na hora.
 
 Hook busca `/customization/me` por usuário autenticado. Dados vinculados ao ID impedem reutilizar conquistas de outra sessão. Opções/features recebem `isUnlocked` derivado de grátis, ledger ou progresso; admin visualiza todos. Erro/carregamento de conquistas mantém itens pagos bloqueados. Ver [[passe-cena]] e [[primeiros-inscritos]].
 
-`useCustomizationCatalog(refreshKey = 0)` refaz conquistas ao mudar a chave, sem baixar novamente o catálogo; o editor incrementa após pagamento confirmado. `useMemo` mantém a referência do catálogo normalizado entre alterações visuais e estatísticas da cena.
+`useCustomizationCatalog(refreshKey = 0)` refaz conquistas ao mudar a chave, sem baixar novamente o catálogo; editor incrementa após pagamento confirmado e ao abrir menu da conta. Login/reload consulta por mudança de usuário. Sem polling, foco de janela ou listeners de visibilidade adicionais. `useMemo` mantém catálogo, avisos e próxima meta entre alterações visuais/estatísticas.
+
+## Avisos de conquistas
+
+`pendingRewards`: `key` (`option:ID` ou `category:ID`), `label`, `categoryKey`, `categoryLabel`, `optionKey` (nullable), `value` e `unlock`. Visual vem junto, mesmo com catálogo cacheado antigo. `unlock` = snapshot histórico; null = presente dos primeiros inscritos. Nunca inferir conquista comparando listas locais de acesso: grátis/admin/presente também liberam acesso.
+
+`acknowledgeRewards(keys)` → `POST /customization/me/rewards/acknowledge`, `{ keys: string[] }`, 204. Um lote ao dispensar modal; sem GET seguinte. Backend limita 100 chaves e escopa pela sessão. Confirma só chaves apresentadas; conquista concorrente continua pendente.
+
+Hook oculta dispensadas imediatamente, inclusive contra GET atrasado. Falha no POST: toast, permanece fechado nesta sessão; servidor conserva pendência para próxima visita. Logout/troca de conta não reaproveita dados alheios; request anterior abortado. Duas abas já abertas podem mostrar mesmo aviso antes da confirmação; futuras leituras respeitam confirmação persistida.
+
+Deploy: migration backend `0026_reward_notifications.sql` → backend → frontend. Front tolera `pendingRewards` ausente durante transição, sem inventar avisos. Ver [[passe-front]].
 
 ## Fluxo
 
@@ -102,6 +113,10 @@ Key `apartment`, label **Residencial (janelas)**. Migration backend `0023_apartm
 ## Modelo Varanda Gourmet
 
 Key `gourmet`, label **Varanda Gourmet**. Migration backend `0025_gourmet_building.sql` inclui opção em `shape`, ordem 14, presa a código, **sem requisito** (grátis até admin configurar liberação). Enum `buildingShape` do backend aceita `gourmet`. Aplicar migration e aguardar cache público (até 60 s). Builder em [[scene-builders#createGourmetBuildingMesh.ts]].
+
+## Modelo Loftifício
+
+Key `loft`, label **Loftifício** (loft + edifício). Migration backend `0027_loft_building.sql` inclui opção em `shape`, ordem 15, presa a código, **sem requisito** (grátis até admin configurar liberação). Enum `buildingShape` do backend aceita `loft`. Aplicar migration e aguardar cache público (até 60 s). Builder em [[scene-builders#createLoftBuildingMesh.ts]].
 
 ## Combinação dos requisitos
 

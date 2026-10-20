@@ -17,7 +17,7 @@ A ponte entre React e Three.js: `src/scene/hooks/useCityScene.ts`.
 
 ## Catálogo no fluxo de contribuição
 
-`src/components/hooks/useCustomizationCatalog.ts` também atende o [[html-components#BuildingCustomizer.tsx|menu do edifício]] dentro do pagamento. O catálogo é carregado uma vez; `refreshKey` opcional refaz somente as conquistas da sessão quando `CitySceneEditor` confirma um pagamento. O resultado normalizado usa `useMemo`, mantendo a referência entre estatísticas da cena e mudanças de aparência. Ver [[customization-api#useCustomizationCatalog()]].
+`src/components/hooks/useCustomizationCatalog.ts` atende o [[html-components#BuildingCustomizer.tsx|menu do edifício]] e as notificações do passe. Retorna `{ catalog, rewards }`. Catálogo carregado uma vez; `refreshKey` refaz somente conquistas quando `CitySceneEditor` confirma pagamento ou usuário abre menu da conta. Login/reload busca por usuário. Mesma resposta alimenta permissões, pendências e próxima meta, sem polling adicional. `useMemo` mantém referências entre estatísticas da cena. Avisos dispensados filtrados por sessão, inclusive contra resposta atrasada; ACK em lote ao fechar. Ver [[customization-api#useCustomizationCatalog()]] e [[passe-front]].
 
 ## Objetivo do Hook
 

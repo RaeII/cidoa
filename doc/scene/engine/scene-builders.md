@@ -733,6 +733,41 @@ GOURMET_TOWER_SCALE: number
 
 ---
 
+### `createLoftBuildingMesh.ts`
+
+Modelo `loft`, label **Loftifício** (ref. `loft.png`): torre de reboco bege com faixas verticais de pastilha verde recuadas, pilotis aberto e térreo de garagem. Mesmo esquema do [[#createApartmentBuildingMesh.ts]] — andares pela altura, 6 slots autorais, sem textura de fachada.
+
+**Detalhes modelados:**
+- 4 faces, mesma gramática: pilastra de canto em L + pilastra central bege na face 9,9 m; faixa de pastilha verde 50 cm recuada (9,4 m) entre elas. Frente/fundos: faixas em `x ∈ ±[1,6; 5,8]`; laterais: `z ∈ ±[2,6; 6,4]`
+- Janelas de alumínio por andar: quadrada 1 m em coluna nas pilastras de canto; na faixa verde, 2 folhas 1,7 m (montante) junto ao canto + quadrada junto ao centro; pilastra central com basculante (frente/fundos) ou quadrada (laterais)
+- Térreo 3 m: muro de pastilha recuado (9,6 m), portão verde-escuro em cada vão de faixa, porta de pedestre + marquise de vidro na frente, cornija bege 30 cm
+- Pilotis 3,8 m aberto: 20 pilares sob as pilastras (vaza de lado a lado), portaria de pastilha com porta de vidro, piso em concreto (slot topo — sem sombra na cena, piso bege fecharia o vão), viga de transição bege
+- Cobertura: bege 60 cm acima da última janela + platibanda 1,2 m, piso (slot topo), casa de máquinas com porta, caixa d'água central (topo do mesh), 2 casinhas de canto
+
+**Como funciona:**
+- Grade única: pilastra → pilar do pilotis; faixa verde → vão de portão. Núcleo = caixa de pastilha; pilastras = caixas bege por cima (sem face coplanar sobreposta)
+- Metros (pé-direito 2,9 m, base 6,8 m). Lote 20×20 m; tudo não indexado, escala **uma vez** pra unit box no fim. Cornija em 9,95 m e marquise em 9,98 m: cabem no lote
+- Janela = 2 quads (caixilho + vidro) + montante na de 2 folhas. ~128 triângulos por andar; 51 andares ≈ 7k tris — metade do apartment/gourmet
+- **Nº de andares segue a altura** (`getLoftFloorCount`, 0,1 un./m, 1–60); manager chama `setLoftBuildingHeight(mesh, scale.y)` em todo sync. Cache por nº de andares. Mesh nasce com altura 6 (= prévia do admin: lote 1 × altura 3)
+- Slots: `0 reboco bege` (= `facadeMaterial`, recebe cor: pilastras, cornija, pilares, platibanda, casas), `1 topo`, `2 vidro`, `3 alumínio`, `4 pastilha verde`, `5 portão`
+- Bege `0xd3c4a8` × Concrete024 via `setResidentialStoneMaps` (≈ ×0,54) lê bege claro; `normalScale` 0,35. Sem textura (render, texturas off) sai quase branco — calibrado com `--slot 0=726a5b,0,1`. Pastilha `0x47534a` acetinada (rough 0,45), portão `0x1c3a34`
+- `LOFT_ROOFTOP_SCALE` (0,24): acessório na caixa d'água. `getLoftTierFootprints` (LED: corpo até a platibanda + caixa d'água) e `getLoftRoofOffset` (letreiro no topo da platibanda, face do lote como apartment)
+- `check-building-shapes.mjs`: lote, 6 slots/grupos, atributos finitos, faixa verde recuada e pilastras rentes por raycast, pilotis vazado e térreo fechado, andares por altura com cache, piso/teto, tiers do LED, letreiro, materiais marcados p/ envMap, dispose
+- Catálogo: migration backend `0027_loft_building.sql`, key `loft`, label **Loftifício**. Ver [[customization-api]]
+
+**API:**
+```typescript
+createLoftBuildingMesh(facadeMaterial: THREE.Material, topMaterial: THREE.Material): THREE.Mesh
+setLoftBuildingHeight(mesh: THREE.Mesh, height: number): void
+disposeLoftBuildingSharedResources(): void
+getLoftFloorCount(height: number): number
+getLoftTierFootprints(width?: number, depth?: number, height?: number): ResidentialTierFootprint[]
+getLoftRoofOffset(height: number): number
+LOFT_ROOFTOP_SCALE: number
+```
+
+---
+
 ## O que Builders NÃO Fazem
 
 Builders não decidem:

@@ -45,6 +45,7 @@ import { setEmpireBuildingMeshColor } from "./src/scene/builders/createEmpireBui
 import { setResidentialBuildingHeight } from "./src/scene/builders/createResidentialBuildingMesh.ts";
 import { setApartmentBuildingHeight } from "./src/scene/builders/createApartmentBuildingMesh.ts";
 import { setGourmetBuildingHeight } from "./src/scene/builders/createGourmetBuildingMesh.ts";
+import { setLoftBuildingHeight } from "./src/scene/builders/createLoftBuildingMesh.ts";
 import { setYachthouseBuildingHeight } from "./src/scene/builders/createYachthouseBuildingMesh.ts";
 import { getLightMetrics } from "./src/scene/utils/lighting.ts";
 import { DEFAULT_LIGHT_SETTINGS } from "./src/scene/config/lightConfig.ts";
@@ -56,6 +57,7 @@ const HEIGHT_SETTERS = {
   residential: setResidentialBuildingHeight,
   apartment: setApartmentBuildingHeight,
   gourmet: setGourmetBuildingHeight,
+  loft: setLoftBuildingHeight,
   yachthouse: setYachthouseBuildingHeight,
 };
 const LOT = 2; // DONATION_LAYOUT.buildingWidth/Depth do manager

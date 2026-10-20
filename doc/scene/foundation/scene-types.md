@@ -362,6 +362,7 @@ type BuildingShape =
   | "residential"    // torre residencial: sacadas, guarda-corpo de vidro, aletas terracota
   | "apartment"      // torre de reboco branco: janelas em grade, rasgo de sacadas, caixa d'água
   | "gourmet"        // Varanda Gourmet: torre bege e creme, sacadas curvas, pilastras com rasgo
+  | "loft"           // Loftifício: torre bege, faixas de pastilha verde, pilotis, portões
 ```
 
 Quando `buildingShape !== "default"`, a doação é desenhada como um `Mesh` próprio (ver [[scene-builders]]) e pula a alocação no `InstancedMesh`. O manager mantém clones de material (facade + top) por edifício customizado.

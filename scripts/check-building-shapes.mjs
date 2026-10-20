@@ -14,7 +14,7 @@ import { build } from "esbuild";
 const bundle = await build({
   stdin: {
     contents: ["createBuildingShapeMesh", "createEdgeLightMesh", "createPreviewScene", "createParapetMesh",
-      "createResidentialBuildingMesh", "createApartmentBuildingMesh", "createGourmetBuildingMesh", "createYachthouseBuildingMesh", "createHologramMesh"]
+      "createResidentialBuildingMesh", "createApartmentBuildingMesh", "createGourmetBuildingMesh", "createLoftBuildingMesh", "createYachthouseBuildingMesh", "createHologramMesh"]
       .map((name) => `export * from './src/scene/builders/${name}.ts';`).join("\n"),
     resolveDir: process.cwd(),
   },
@@ -26,6 +26,7 @@ const { BUILDING_SHAPES, createBuildingShapeMesh, createUnitBuildingGeometry, cr
   setResidentialBuildingHeight, setResidentialStoneMaps, getResidentialFloorCount,
   setApartmentBuildingHeight, getApartmentFloorCount, getApartmentTierFootprints, getApartmentRoofOffset,
   setGourmetBuildingHeight, getGourmetFloorCount, getGourmetTierFootprints, getGourmetRoofOffset,
+  setLoftBuildingHeight, getLoftFloorCount, getLoftTierFootprints, getLoftRoofOffset,
   setYachthouseBuildingHeight, getYachthouseFloorCount, getYachthouseTowerFootprints, getYachthouseRoofOffset,
   createHologramMesh, setHologramImage, disposeHologramMesh } =
   await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].contents).toString("base64")}`);
@@ -220,6 +221,46 @@ for (const shape of BUILDING_SHAPES) {
     tall.addEventListener("dispose", () => { disposed = true; });
     disposeBuildingShapeSharedResources();
     assert.ok(disposed, "gourmet: dispose não libera geometria");
+  }
+  if (shape === "loft") {
+    // Cornija/marquise ainda dentro do lote; caixa d'água encosta no topo.
+    assert.ok(size.x <= 1 && size.x > 0.99 && size.z <= 1 && size.z > 0.99 && Math.abs(size.y - 1) < 1e-6, "loft: fora do lote");
+    assert.equal(materials.length, 6, "loft: 6 slots (reboco, topo, vidro, alumínio, pastilha, portão)");
+    assert.equal(mesh.geometry.groups.length, 6, "loft: 1 draw call por material");
+    mesh.geometry.groups.forEach((group, i) => assert.equal(group.materialIndex, i, "loft: grupo fora do slot"));
+    for (const name of ["position", "normal", "aProjPosition", "aProjNormal"]) {
+      assert.ok(mesh.geometry.getAttribute(name).array.every(Number.isFinite), `loft: ${name} inválido`);
+    }
+    // Faixa verde 50 cm atrás das pilastras (0,495) em toda a torre; pilotis vaza de lado a lado.
+    mesh.updateMatrixWorld(true);
+    const cast = (origin, dir) => new THREE.Raycaster(origin, dir).intersectObject(mesh);
+    const front = (x, y) => cast(new THREE.Vector3(x, y, 2), new THREE.Vector3(0, 0, -1))[0].point.z;
+    const ys = Array.from({ length: 40 }, (_, i) => -0.3 + i * 0.015);
+    assert.ok(ys.every((y) => Math.abs(front(0.17, y) - 0.47) < 1e-3), "loft: faixa verde fora do recuo");
+    assert.ok(ys.every((y) => Math.abs(front(0.45, y) - 0.495) < 1e-3 && Math.abs(front(0.05, y) - 0.495) < 1e-3), "loft: pilastra ausente");
+    assert.equal(cast(new THREE.Vector3(2, -0.42, 0.4), new THREE.Vector3(-1, 0, 0)).length, 0, "loft: pilotis fechado");
+    assert.ok(cast(new THREE.Vector3(2, -0.48, 0.4), new THREE.Vector3(-1, 0, 0)).length > 0, "loft: térreo vazado");
+    // Pé-direito real: nº de andares segue a altura, geometria cacheada por andar.
+    const preview = mesh.geometry;
+    setLoftBuildingHeight(mesh, 16);
+    const tall = mesh.geometry;
+    assert.notEqual(tall, preview, "loft: altura não trocou nº de andares");
+    assert.ok(tall.getAttribute("position").count > preview.getAttribute("position").count, "loft: prédio alto com menos andares");
+    setLoftBuildingHeight(mesh, 16);
+    assert.equal(mesh.geometry, tall, "loft: cache por andar não reaproveitado");
+    assert.equal(getLoftFloorCount(0.5), 1, "loft: prédio mínimo sem andar");
+    assert.equal(getLoftFloorCount(1000), 60, "loft: teto de andares");
+    // LED: corpo até a platibanda + caixa d'água no topo; letreiro na platibanda.
+    const [body, tank] = getLoftTierFootprints(1, 1, 16);
+    assert.ok(body.width === 1 && tank.width < 0.5 && tank.topY === 16, "loft: tiers do LED");
+    assert.ok(Math.abs(getLoftRoofOffset(16) - (body.topY - 8)) < 1e-9, "loft: letreiro fora da platibanda");
+    for (const material of materials.slice(2)) {
+      assert.equal(typeof material.userData.authoredEnvMapIntensity, "number", "loft: material fora da captura do envMap");
+    }
+    let disposed = false;
+    tall.addEventListener("dispose", () => { disposed = true; });
+    disposeBuildingShapeSharedResources();
+    assert.ok(disposed, "loft: dispose não libera geometria");
   }
   console.log(`ok ${shape} — ${size.toArray().map((n) => n.toFixed(2)).join(" × ")}`);
 }

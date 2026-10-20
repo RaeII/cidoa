@@ -2,9 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useAuth } from "@/hooks/useAuth";
 import { canUseCustomization } from "@/lib/unlock";
+import { getNextReward } from "@/lib/rewardNotifications";
+import { toast } from "@/components/ui/toast";
 import {
   fetchCustomizationCatalog,
   fetchMyUnlocks,
+  acknowledgeRewards,
   type MyUnlocks,
   type CatalogOption,
   type CatalogFeature,
@@ -21,11 +24,12 @@ const EMPTY_CATALOG: CustomizationCatalog = {
  * Carrega o catálogo de personalizações do backend uma vez no mount.
  * Enquanto `null`, o painel mostra estado de carregamento.
  */
-export function useCustomizationCatalog(refreshKey = 0): CustomizationCatalog | null {
+export function useCustomizationCatalog(refreshKey = 0) {
   const { user, isAdmin } = useAuth();
   const userId = user?.id;
   const [catalog, setCatalog] = useState<CustomizationCatalog | null>(null);
   const [unlocks, setUnlocks] = useState<{ userId: number; data: MyUnlocks } | null>(null);
+  const [dismissed, setDismissed] = useState<{ userId: number; keys: string[] } | null>(null);
 
   useEffect(() => {
     if (!userId || isAdmin) return;
@@ -50,7 +54,7 @@ export function useCustomizationCatalog(refreshKey = 0): CustomizationCatalog | 
     return () => controller.abort();
   }, []);
 
-  return useMemo(() => {
+  const resolvedCatalog = useMemo(() => {
     if (!catalog) return null;
     // Nunca reaproveita benefícios de outra sessão durante login/logout.
     const mine = userId && unlocks?.userId === userId ? unlocks.data : null;
@@ -66,4 +70,36 @@ export function useCustomizationCatalog(refreshKey = 0): CustomizationCatalog | 
       features: { sign: feature("sign", catalog.features.sign), hologram: feature("hologram", catalog.features.hologram) },
     };
   }, [catalog, unlocks, userId, isAdmin]);
+
+  const mine = !isAdmin && userId && unlocks?.userId === userId ? unlocks.data : null;
+  const pending = useMemo(() => {
+    const dismissedKeys = new Set(dismissed && dismissed.userId === userId ? dismissed.keys : []);
+    return (mine?.pendingRewards ?? []).filter((reward) => !dismissedKeys.has(reward.key));
+  }, [dismissed, mine, userId]);
+  const next = useMemo(() => resolvedCatalog && mine
+    ? getNextReward(resolvedCatalog, mine.progress) : null, [resolvedCatalog, mine]);
+
+  function dismissRewards(keys: string[]) {
+    if (!userId || !keys.length) return;
+    setDismissed((previous) => ({
+      userId, keys: [...(previous?.userId === userId ? previous.keys : []), ...keys],
+    }));
+    // Fecha mesmo offline; sem confirmação no servidor, reaparece na próxima visita.
+    void acknowledgeRewards(keys).catch(() => {
+      toast.error("Não foi possível salvar o aviso como visto.", {
+        description: "Suas recompensas estão garantidas. O aviso poderá reaparecer.",
+      });
+    });
+  }
+
+  return {
+    catalog: resolvedCatalog,
+    rewards: {
+      pending,
+      next,
+      dismiss: dismissRewards,
+    },
+  };
 }
+
+export type RewardNotifications = ReturnType<typeof useCustomizationCatalog>["rewards"];

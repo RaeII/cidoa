@@ -22,6 +22,7 @@ import { setEmpireBuildingMeshColor } from "./createEmpireBuildingMesh";
 import { getResidentialRoofOffset, RESIDENTIAL_ROOFTOP_SCALE, setResidentialStoneMaps } from "./createResidentialBuildingMesh";
 import { APARTMENT_ROOFTOP_SCALE } from "./createApartmentBuildingMesh";
 import { GOURMET_ROOFTOP_SCALE } from "./createGourmetBuildingMesh";
+import { LOFT_ROOFTOP_SCALE } from "./createLoftBuildingMesh";
 import {
   getYachthouseRoofOffset,
   YACHTHOUSE_PREVIEW_HEIGHT,
@@ -122,7 +123,7 @@ function buildSubject(resolved: ResolvedSubject, appearance?: BuildingPreviewApp
     if (shape === "empire") setEmpireBuildingMeshColor(building, customization.color);
     else facadeMat.color.set(customization.color);
     topMat.color.set("#b9b6b1");
-    if (shape === "residential" || shape === "apartment" || shape === "gourmet") setResidentialStoneMaps(facadeMat, appearance?.topTextures ?? null);
+    if (shape === "residential" || shape === "apartment" || shape === "gourmet" || shape === "loft") setResidentialStoneMaps(facadeMat, appearance?.topTextures ?? null);
     else applyMaps(facadeMat, appearance?.facadeTextures);
     applyMaps(topMat, appearance?.topTextures);
   }
@@ -155,6 +156,7 @@ function buildSubject(resolved: ResolvedSubject, appearance?: BuildingPreviewApp
       const scale = shape === "residential" ? RESIDENTIAL_ROOFTOP_SCALE
         : shape === "apartment" ? APARTMENT_ROOFTOP_SCALE
           : shape === "gourmet" ? GOURMET_ROOFTOP_SCALE
+          : shape === "loft" ? LOFT_ROOFTOP_SCALE
           : shape === "yachthouse" ? YACHTHOUSE_ROOFTOP_SCALE : 1;
       const rooftop = createRooftopMesh(customization.rooftopType, { width: scale, depth: scale });
       if (rooftop) {

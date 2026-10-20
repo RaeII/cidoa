@@ -39,7 +39,8 @@ export type BuildingShape =
   | "yachthouse"
   | "residential"
   | "apartment"
-  | "gourmet";
+  | "gourmet"
+  | "loft";
 
 export type BuildingCustomization = {
   color: string;

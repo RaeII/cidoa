@@ -61,6 +61,10 @@ import {
   setGourmetBuildingHeight,
 } from "../builders/createGourmetBuildingMesh";
 import {
+  LOFT_ROOFTOP_SCALE,
+  setLoftBuildingHeight,
+} from "../builders/createLoftBuildingMesh";
+import {
   createBuildingShapeMesh,
   createUnitBuildingGeometry,
   disposeBuildingShapeSharedResources,
@@ -1514,7 +1518,7 @@ export function createDonationManager({
     }
     // Pedra/reboco dos autorais usa o mesmo concreto do topo (chega async, liga/desliga junto).
     for (const entry of customShapeMeshes.values()) {
-      if (entry.shape === "residential" || entry.shape === "apartment" || entry.shape === "gourmet") {
+      if (entry.shape === "residential" || entry.shape === "apartment" || entry.shape === "gourmet" || entry.shape === "loft") {
         setResidentialStoneMaps(entry.facadeMat, settings.enabled ? topSet : null);
       }
     }
@@ -2299,7 +2303,9 @@ export function createDonationManager({
             ? APARTMENT_ROOFTOP_SCALE
             : shape === "gourmet"
               ? GOURMET_ROOFTOP_SCALE
-              : 1,
+              : shape === "loft"
+                ? LOFT_ROOFTOP_SCALE
+                : 1,
     );
     group.position.set(
       tmpTransformPosition.x + (isYachthouse ? YACHTHOUSE_TOWER_CENTERS[0] * tmpTransformScale.x : 0),
@@ -2652,7 +2658,7 @@ export function createDonationManager({
           if (!tmpColor.equals(currentBuildingColor)) {
             setEmpireBuildingMeshColor(sceneMesh, customization.color);
           }
-        } else if (shape === "residential" || shape === "apartment" || shape === "gourmet" || shape === "yachthouse") {
+        } else if (shape === "residential" || shape === "apartment" || shape === "gourmet" || shape === "loft" || shape === "yachthouse") {
           // Builder pinta pedra/reboco/dourado; cor da customização só se ≠ global (igual Empire).
           // Dourado do Yatchcasa é metal liso: sem o concreto.
           if (shape !== "yachthouse") setResidentialStoneMaps(facadeMat, currentTextureSettings.enabled ? topSet : null);
@@ -2682,6 +2688,8 @@ export function createDonationManager({
         setApartmentBuildingHeight(entry.mesh, transform.scale.y);
       } else if (entry.shape === "gourmet") {
         setGourmetBuildingHeight(entry.mesh, transform.scale.y);
+      } else if (entry.shape === "loft") {
+        setLoftBuildingHeight(entry.mesh, transform.scale.y);
       } else if (entry.shape === "yachthouse") {
         setYachthouseBuildingHeight(entry.mesh, transform.scale.y);
       }
