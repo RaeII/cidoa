@@ -100,7 +100,7 @@ scripts/
   check-contribution.mjs       ← máscara monetária + confirmação da simulação local; sem servidor/navegador
   check-building-management.mjs ← administração, posse, descarte e foco após filtro/pagamento; sem servidor/navegador
   check-donation-info.mjs      ← foto, totais, 5 ONGs em linhas, filtros e transição cena/seção; sem servidor/navegador
-  check-building-shapes.mjs    ← checa os 13 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
+  check-building-shapes.mjs    ← checa os 14 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
   render-building.mjs          ← PNG headless de um formato com a luz da cidade: 4 vistas + referência (`node scripts/render-building.mjs <formato>`) → [[novo-edificio]]
   check-building-textures.mjs  ← troca de textura no destaque padrão; reuso de meshes/cache, sem navegador
   check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
@@ -267,6 +267,7 @@ src/
       createYachthouseBuildingMesh.ts ← Yatchcasa: torres gêmeas de vidro azul-escuro, linhas douradas, embasamento bege
       createResidentialBuildingMesh.ts ← torre residencial com sacadas, vidro refletindo a cena
       createApartmentBuildingMesh.ts ← torre de reboco branco, janelas em grade, rasgo de sacadas
+      createGourmetBuildingMesh.ts ← Varanda Gourmet: torre bege e creme, sacadas curvas, pilastras com rasgo
       createHologramMesh.ts
       loadEnvironment.ts
     managers/
@@ -350,7 +351,7 @@ Ele guarda todos os estados:
 - `showControlPanel` — toggle do painel de configuração (escondido por padrão)
 - `infoBuildingId` — edifício clicado; abre [[html-components#BuildingInfoModal.tsx|BuildingInfoModal]]
 - `selectedBuildingId` — edifício em administração; diálogo só renderiza se `canEdit` (dono ou admin, ver [[donation-api#Quem pode editar]])
-- `buildingCustomizations` — `Map<donationId, BuildingCustomization>` com cor, formato (default/twisted/octagonal/setback/tapered/chrysler/hearst/empire/taipei/one-trade/yachthouse/residential/apartment), acessório de topo (holofotes, heliponto, jardim suspenso ou helicóptero com casco único, vidros integrados e rotores proporcionais), letreiro, LED de arestas e holograma cyberpunk. **Persistido**: nasce do snapshot, cada mudança grava em `donation.customization` no banco — ver [[donation-api#Personalização persistida]]
+- `buildingCustomizations` — `Map<donationId, BuildingCustomization>` com cor, formato (default/twisted/octagonal/setback/tapered/chrysler/hearst/empire/taipei/one-trade/yachthouse/residential/apartment/gourmet), acessório de topo (holofotes, heliponto, jardim suspenso ou helicóptero com casco único, vidros integrados e rotores proporcionais), letreiro, LED de arestas e holograma cyberpunk. **Persistido**: nasce do snapshot, cada mudança grava em `donation.customization` no banco — ver [[donation-api#Personalização persistida]]
 - Falha da gravação (sem login, prédio de outro, opção travada) → toast por edifício, ver [[donation-api#Personalização persistida]]
 
 E entrega para:
@@ -424,6 +425,7 @@ flowchart TD
     BS --> YC[createYachthouseBuildingMesh]
     BS --> RS[createResidentialBuildingMesh]
     BS --> AP[createApartmentBuildingMesh]
+    BS --> GM[createGourmetBuildingMesh]
     M --> HG[createHologramMesh]
     E --> C
     P --> C
@@ -447,7 +449,7 @@ flowchart LR
     Runtime --> DM[donationManager]
     DM --> |cor| IC[instanceColor]
     DM --> |formato| BS[createBuildingShapeMesh]
-    BS --> SH["builder do formato<br/>twisted · octagonal · setback · tapered · chrysler<br/>hearst · empire · taipei · one-trade · yachthouse · residential · apartment"]
+    BS --> SH["builder do formato<br/>twisted · octagonal · setback · tapered · chrysler<br/>hearst · empire · taipei · one-trade · yachthouse · residential · apartment · gourmet"]
     DM --> |topo| RM[createRooftopMesh]
     DM --> |sign| SM[createSignMesh]
     DM --> |LED| EL[createEdgeLightMesh]
@@ -534,6 +536,7 @@ flowchart LR
 | Criar/editar modelo de edifício, avaliar visual, limpar ao fim | [[novo-edificio]] · `scripts/render-building.mjs` |
 | Alterar torre residencial com sacadas (residential) | [[scene-builders#createResidentialBuildingMesh.ts]] |
 | Alterar torre de reboco com janelas (apartment)  | [[scene-builders#createApartmentBuildingMesh.ts]] |
+| Alterar torre Varanda Gourmet (gourmet)          | [[scene-builders#createGourmetBuildingMesh.ts]] |
 | Alterar torre One Trade (one-trade)              | [[scene-builders#createOneTradeBuildingMesh.ts]]  |
 
 | Alterar torre Chrysler (chrysler) | [[scene-builders#createChryslerBuildingMesh.ts]] |

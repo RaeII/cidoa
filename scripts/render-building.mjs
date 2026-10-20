@@ -44,6 +44,7 @@ import { BUILDING_SHAPES, createBuildingShapeMesh, createUnitBuildingGeometry } 
 import { setEmpireBuildingMeshColor } from "./src/scene/builders/createEmpireBuildingMesh.ts";
 import { setResidentialBuildingHeight } from "./src/scene/builders/createResidentialBuildingMesh.ts";
 import { setApartmentBuildingHeight } from "./src/scene/builders/createApartmentBuildingMesh.ts";
+import { setGourmetBuildingHeight } from "./src/scene/builders/createGourmetBuildingMesh.ts";
 import { setYachthouseBuildingHeight } from "./src/scene/builders/createYachthouseBuildingMesh.ts";
 import { getLightMetrics } from "./src/scene/utils/lighting.ts";
 import { DEFAULT_LIGHT_SETTINGS } from "./src/scene/config/lightConfig.ts";
@@ -54,6 +55,7 @@ import { DEFAULT_GROUND_SETTINGS } from "./src/scene/config/groundConfig.ts";
 const HEIGHT_SETTERS = {
   residential: setResidentialBuildingHeight,
   apartment: setApartmentBuildingHeight,
+  gourmet: setGourmetBuildingHeight,
   yachthouse: setYachthouseBuildingHeight,
 };
 const LOT = 2; // DONATION_LAYOUT.buildingWidth/Depth do manager

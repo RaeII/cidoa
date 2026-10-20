@@ -49,6 +49,10 @@ import {
   createApartmentBuildingMesh,
   disposeApartmentBuildingSharedResources,
 } from "./createApartmentBuildingMesh";
+import {
+  createGourmetBuildingMesh,
+  disposeGourmetBuildingSharedResources,
+} from "./createGourmetBuildingMesh";
 
 type ShapeMeshBuilder = (
   facadeMaterial: THREE.Material,
@@ -73,6 +77,7 @@ const SHAPE_BUILDERS: Record<Exclude<BuildingShape, "default">, ShapeMeshBuilder
   yachthouse: createYachthouseBuildingMesh,
   residential: createResidentialBuildingMesh,
   apartment: createApartmentBuildingMesh,
+  gourmet: createGourmetBuildingMesh,
 };
 
 /** Toda key de formato conhecida pelo front (inclui `default`). */
@@ -161,4 +166,5 @@ export function disposeBuildingShapeSharedResources(): void {
   disposeYachthouseBuildingSharedResources();
   disposeResidentialBuildingSharedResources();
   disposeApartmentBuildingSharedResources();
+  disposeGourmetBuildingSharedResources();
 }

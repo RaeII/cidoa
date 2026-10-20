@@ -38,7 +38,8 @@ export type BuildingShape =
   | "one-trade"
   | "yachthouse"
   | "residential"
-  | "apartment";
+  | "apartment"
+  | "gourmet";
 
 export type BuildingCustomization = {
   color: string;

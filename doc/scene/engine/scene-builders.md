@@ -369,7 +369,7 @@ Registro único formato → builder. Ponto de entrada de **todo** consumidor de 
 > [!important] Não chame o dispose no admin
 > As geometrias são cache module-level compartilhado. `disposeBuildingShapeSharedResources()` é do teardown do manager; o preview do admin só descarta os **materiais** que criou.
 
-**Checagem:** `node scripts/check-building-shapes.mjs` — monta os 13 formatos com bundle em memória (sem servidor, watcher, navegador ou WebGL) e afirma geometria não-degenerada, altura unitária e slots de material na ordem fachada/topo. Cobre também o preview do admin: `resolveSubject` pra toda key semeada e o `frameBox` ignorando volumétrico.
+**Checagem:** `node scripts/check-building-shapes.mjs` — monta os 14 formatos com bundle em memória (sem servidor, watcher, navegador ou WebGL) e afirma geometria não-degenerada, altura unitária e slots de material na ordem fachada/topo. Cobre também o preview do admin: `resolveSubject` pra toda key semeada e o `frameBox` ignorando volumétrico.
 
 > [!note] Guards irmãos nos acessórios
 > `isRooftopType` ([[scene-builders#createRooftopMesh.ts|createRooftopMesh]]) e `isEdgeLightType` ([[scene-builders#createEdgeLightMesh.ts|createEdgeLightMesh]]) seguem o mesmo padrão: `key in FACTORIES`, pra validar key vinda do catálogo antes de chamar o builder.
@@ -393,7 +393,7 @@ Cena isolada com **uma** personalização para o admin ([[personalizacoes#Previe
 - Enquadramento ignora feixes de luz e inclui a área do holograma; `frame()` recalcula os limites após carregar a imagem.
 - `dispose()` — materiais, caixa e clones de textura locais + acessórios/letreiro/holograma. Geometrias e mapas compartilhados com a cidade permanecem vivos.
 - `disposeHologramMesh` incrementa `loadToken`: imagem que chega depois do fechamento não recria textura descartada.
-- `node scripts/check-building-shapes.mjs` verifica os 13 formatos com acessórios, mudança de cor, proporções, descarte e a corrida de imagem atrasada do holograma.
+- `node scripts/check-building-shapes.mjs` verifica os 14 formatos com acessórios, mudança de cor, proporções, descarte e a corrida de imagem atrasada do holograma.
 
 **Quando mexer aqui:**
 - Dar preview a outra categoria do catálogo (novo `kind` + entrada em `VIEW` + `PREVIEW_KIND` no admin)
@@ -694,6 +694,41 @@ getApartmentFloorCount(height: number): number
 getApartmentTierFootprints(width?: number, depth?: number, height?: number): ResidentialTierFootprint[]
 getApartmentRoofOffset(height: number): number
 APARTMENT_ROOFTOP_SCALE: number
+```
+
+---
+
+### `createGourmetBuildingMesh.ts`
+
+Modelo `gourmet`, label **Varanda Gourmet** (ref. `residencial.png`): torre bege e creme com pilha de sacadas curvas na frente. Mesmo esquema do [[#createApartmentBuildingMesh.ts]] — andares pela altura, 6 slots autorais, sem textura de fachada.
+
+**Detalhes modelados:**
+- Frente `+Z`: vão de 11,2 m entre pilastras creme de 3 m nos cantos. Sacada curva por andar: laje branca 35 cm (arco com flecha 1,2 m além da face), guarda-corpo de vidro + corrimão de alumínio, pano de vidro curvo 2 m recuado com 5 montantes
+- Laterais `±X` e fundos `−Z`: 2 pilastras bege 60 cm salientes por face, rasgo entre elas pintado de bege com janela estreita de banheiro. Janelas quadradas 1,1 m em coluna nas pilastras e no creme
+- Embasamento creme 3,2 m no lote todo (torre 17,2 m sobre ele): portaria envidraçada na frente, porta nos fundos
+- Cobertura: platibanda 1,1 m com frente curva (`Shape` com furo, mesmo contorno recuado 25 cm), piso (slot topo), caixa d'água central (topo do mesh) + 2 casas de máquinas bege com tampa, porta e veneziana
+
+**Como funciona:**
+- Metros (pé-direito 3 m, embasamento 3,2 m). Lote 20×20 m; tudo não indexado, escala **uma vez** pra unit box no fim. Embasamento em 9,92 m: portaria saliente cabe no lote
+- Curva = arco de círculo único (`ARC_R`, centro `ARC_Z`) passando por `(±BAY, TOWER)`: laje (`Extrude` do "D" arco + corda atrás do vidro), vidro e guarda-corpo (`CylinderGeometry` aberto com `thetaStart/Length`), corrimão (`Extrude` de faixa entre 2 raios) e platibanda reusam o mesmo centro
+- Laje, guarda-corpo e corrimão: molde único por geometria, `clone().translate()` por andar. Janela = 2 quads (caixilho + vidro). ~310 triângulos por andar; 51 andares ≈ 16k tris, mesmo custo do apartment
+- **Nº de andares segue a altura** (`getGourmetFloorCount`, 0,1 un./m, 1–60); manager chama `setGourmetBuildingHeight(mesh, scale.y)` em todo sync. Cache por nº de andares. Mesh nasce com altura 6 (= prévia do admin: lote 1 × altura 3)
+- Slots: `0 bege` (= `facadeMaterial`, recebe cor: pilastras, rasgo, casas de máquinas), `1 topo`, `2 vidro`, `3 guarda-corpo`, `4 caixilho`, `5 creme` (núcleo, pilastras da frente, lajes, platibanda, embasamento)
+- Bege `0xab9c84` × Concrete024 via `setResidentialStoneMaps` (média do mapa ≈ ×0,54) lê taupe claro; `normalScale` 0,35. Sem textura (render, texturas off) sai mais claro. Creme `0x9a8f7c` sem textura lê creme, não branco
+- `GOURMET_ROOFTOP_SCALE` (0,3): acessório na caixa d'água. `GOURMET_TOWER_SCALE` (0,86): letreiro na face da torre. `getGourmetTierFootprints` (LED: embasamento + torre até a platibanda + caixa d'água) e `getGourmetRoofOffset` (letreiro no topo da platibanda)
+- `check-building-shapes.mjs`: lote, 6 slots/grupos, atributos finitos, sacada curva além da face e pilastra creme rente por raycast, pilastra bege saliente e rasgo recuado, andares por altura com cache, piso/teto, tiers do LED, letreiro, vidros marcados p/ envMap, dispose
+- Catálogo: migration backend `0025_gourmet_building.sql`, key `gourmet`, label **Varanda Gourmet**. Ver [[customization-api]]
+
+**API:**
+```typescript
+createGourmetBuildingMesh(facadeMaterial: THREE.Material, topMaterial: THREE.Material): THREE.Mesh
+setGourmetBuildingHeight(mesh: THREE.Mesh, height: number): void
+disposeGourmetBuildingSharedResources(): void
+getGourmetFloorCount(height: number): number
+getGourmetTierFootprints(width?: number, depth?: number, height?: number): ResidentialTierFootprint[]
+getGourmetRoofOffset(height: number): number
+GOURMET_ROOFTOP_SCALE: number
+GOURMET_TOWER_SCALE: number
 ```
 
 ---
