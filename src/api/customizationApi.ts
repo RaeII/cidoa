@@ -1,5 +1,6 @@
 import { http } from "./http";
 import type { UnlockProgress, UnlockRule } from "@/lib/unlock";
+import type { PassReward } from "@/lib/pass";
 
 /** Uma opção do catálogo. `value` = hex p/ cor, caminho/URL p/ textura, null p/ shape/topo/led. */
 export type CatalogOption = {
@@ -76,7 +77,15 @@ export type MyUnlocks = {
   unlockedOptionIds: number[];
   /** Keys de categoria-feature liberadas (`sign`, `hologram`). */
   unlockedCategoryKeys: string[];
+  pendingRewards: RewardNotification[];
 };
+
+/** Motivo vem do snapshot do ledger; não acompanha edições posteriores do catálogo. */
+export type RewardNotification = Omit<PassReward, "optionKey"> & { optionKey: string | null };
+
+export async function acknowledgeRewards(keys: string[]): Promise<void> {
+  await http.post("/customization/me/rewards/acknowledge", { keys });
+}
 
 export async function fetchMyUnlocks(
   opts: { signal?: AbortSignal } = {},

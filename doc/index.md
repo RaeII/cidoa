@@ -93,6 +93,7 @@ scripts/
   encode-webp.mjs              ← texturas PBR + HDRI → `.webp` (1K), `.low.webp` (512, mobile), `.pmrem.webp` (`npm run textures:webp`)
   encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`); superado pelo WebP
   check-pass.mjs               ← ordenação do passe sem servidor/navegador
+  check-reward-notifications.mjs ← requests, sessão, respostas atrasadas e confirmação dos avisos; sem servidor/navegador
   check-admin-ongs.mjs         ← cadastro/edição de ONG, foto, status e erros, sem servidor/navegador
   check-consent.mjs            ← aceite no cadastro + aviso de cookies, sem servidor/navegador
   check-analytics.mjs          ← Consent Mode, aceite/recusa, revogação e tag única; sem servidor/navegador
@@ -100,7 +101,7 @@ scripts/
   check-contribution.mjs       ← máscara monetária + confirmação da simulação local; sem servidor/navegador
   check-building-management.mjs ← administração, posse, descarte e foco após filtro/pagamento; sem servidor/navegador
   check-donation-info.mjs      ← foto, totais, 5 ONGs em linhas, filtros e transição cena/seção; sem servidor/navegador
-  check-building-shapes.mjs    ← checa os 14 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
+  check-building-shapes.mjs    ← checa os 15 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
   render-building.mjs          ← PNG headless de um formato com a luz da cidade: 4 vistas + referência (`node scripts/render-building.mjs <formato>`) → [[novo-edificio]]
   check-building-textures.mjs  ← troca de textura no destaque padrão; reuso de meshes/cache, sem navegador
   check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
@@ -150,6 +151,7 @@ src/
   components/
     pass/
       PassTrack.tsx             ← trilha/grade reutilizável, um cartão por recompensa
+      RewardDialog.tsx          ← conquista com Motion sob demanda, motivo histórico e próxima meta → [[passe-front]]
     customization/
       CustomizationImage.tsx    ← miniatura compartilhada com catálogo
       BuildingCustomizer.tsx   ← menu reutilizável por categorias, grade e prévia 3D; lazy na administração do edifício
@@ -205,6 +207,7 @@ src/
       PointLightControls.tsx
   lib/
     analytics.ts                   ← GA4 G-GEHP0ENSCR: produção, Consent Mode básico v2, tag após aceite, revogação
+    rewardNotifications.ts         ← motivo histórico + próxima conquista na ordem do passe
     legal.ts                       ← versão dos termos, controlador, e-mail de contato, rotas legais
     googleIdentity.ts              ← `loadGoogleIdentity()`: GSI sob demanda (abre login), promise única
     image.ts                       ← valida e reduz imagens proporcionalmente para até 400 px
@@ -268,6 +271,7 @@ src/
       createResidentialBuildingMesh.ts ← torre residencial com sacadas, vidro refletindo a cena
       createApartmentBuildingMesh.ts ← torre de reboco branco, janelas em grade, rasgo de sacadas
       createGourmetBuildingMesh.ts ← Varanda Gourmet: torre bege e creme, sacadas curvas, pilastras com rasgo
+      createLoftBuildingMesh.ts    ← Loftifício: torre bege, faixas de pastilha verde, pilotis, portões
       createHologramMesh.ts
       loadEnvironment.ts
     managers/
@@ -351,7 +355,7 @@ Ele guarda todos os estados:
 - `showControlPanel` — toggle do painel de configuração (escondido por padrão)
 - `infoBuildingId` — edifício clicado; abre [[html-components#BuildingInfoModal.tsx|BuildingInfoModal]]
 - `selectedBuildingId` — edifício em administração; diálogo só renderiza se `canEdit` (dono ou admin, ver [[donation-api#Quem pode editar]])
-- `buildingCustomizations` — `Map<donationId, BuildingCustomization>` com cor, formato (default/twisted/octagonal/setback/tapered/chrysler/hearst/empire/taipei/one-trade/yachthouse/residential/apartment/gourmet), acessório de topo (holofotes, heliponto, jardim suspenso ou helicóptero com casco único, vidros integrados e rotores proporcionais), letreiro, LED de arestas e holograma cyberpunk. **Persistido**: nasce do snapshot, cada mudança grava em `donation.customization` no banco — ver [[donation-api#Personalização persistida]]
+- `buildingCustomizations` — `Map<donationId, BuildingCustomization>` com cor, formato (default/twisted/octagonal/setback/tapered/chrysler/hearst/empire/taipei/one-trade/yachthouse/residential/apartment/gourmet/loft), acessório de topo (holofotes, heliponto, jardim suspenso ou helicóptero com casco único, vidros integrados e rotores proporcionais), letreiro, LED de arestas e holograma cyberpunk. **Persistido**: nasce do snapshot, cada mudança grava em `donation.customization` no banco — ver [[donation-api#Personalização persistida]]
 - Falha da gravação (sem login, prédio de outro, opção travada) → toast por edifício, ver [[donation-api#Personalização persistida]]
 
 E entrega para:
@@ -426,6 +430,7 @@ flowchart TD
     BS --> RS[createResidentialBuildingMesh]
     BS --> AP[createApartmentBuildingMesh]
     BS --> GM[createGourmetBuildingMesh]
+    BS --> LF[createLoftBuildingMesh]
     M --> HG[createHologramMesh]
     E --> C
     P --> C
@@ -449,7 +454,7 @@ flowchart LR
     Runtime --> DM[donationManager]
     DM --> |cor| IC[instanceColor]
     DM --> |formato| BS[createBuildingShapeMesh]
-    BS --> SH["builder do formato<br/>twisted · octagonal · setback · tapered · chrysler<br/>hearst · empire · taipei · one-trade · yachthouse · residential · apartment · gourmet"]
+    BS --> SH["builder do formato<br/>twisted · octagonal · setback · tapered · chrysler<br/>hearst · empire · taipei · one-trade · yachthouse · residential · apartment · gourmet · loft"]
     DM --> |topo| RM[createRooftopMesh]
     DM --> |sign| SM[createSignMesh]
     DM --> |LED| EL[createEdgeLightMesh]
@@ -537,6 +542,7 @@ flowchart LR
 | Alterar torre residencial com sacadas (residential) | [[scene-builders#createResidentialBuildingMesh.ts]] |
 | Alterar torre de reboco com janelas (apartment)  | [[scene-builders#createApartmentBuildingMesh.ts]] |
 | Alterar torre Varanda Gourmet (gourmet)          | [[scene-builders#createGourmetBuildingMesh.ts]] |
+| Alterar torre Loftifício (loft)                  | [[scene-builders#createLoftBuildingMesh.ts]]    |
 | Alterar torre One Trade (one-trade)              | [[scene-builders#createOneTradeBuildingMesh.ts]]  |
 
 | Alterar torre Chrysler (chrysler) | [[scene-builders#createChryslerBuildingMesh.ts]] |

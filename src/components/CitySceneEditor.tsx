@@ -117,7 +117,7 @@ export function CitySceneEditor() {
     retry,
   } = useDonations();
   const [customizationRevision, setCustomizationRevision] = useState(0);
-  const customizationCatalog = useCustomizationCatalog(customizationRevision);
+  const { catalog: customizationCatalog, rewards } = useCustomizationCatalog(customizationRevision);
   const { user, isAdmin } = useAuth();
   const { ids: ownedDonationIds } = useOwnedDonationIds();
 
@@ -561,10 +561,12 @@ export function CitySceneEditor() {
             onNightChange={(night) => setEnvironmentSettings((prev) => ({ ...prev, night }))}
             myDonations={myDonations}
             catalog={customizationCatalog}
+            rewards={rewards}
+            onRefreshRewards={() => setCustomizationRevision((revision) => revision + 1)}
             onOpenDonation={handleOpenDonation}
             authOpen={authOpen}
             onAuthOpenChange={setAuthOpen}
-            onboardingBlocked={contributeOpen || infoBuildingId !== null || selectedBuildingId !== null || profileEditId !== null}
+            onboardingBlocked={contributeOpen || showShortcutsHelp || infoBuildingId !== null || selectedBuildingId !== null || profileEditId !== null}
           />
         </div>
       </div>

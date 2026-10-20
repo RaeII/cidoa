@@ -183,7 +183,7 @@ Barra de filtros das doações, temporariamente fora da interface na branch `bet
 
 ### `ContributeDialog.tsx`
 
-Pré-lançamento: **Simular contribuição** → formulário (ONG/cidade/valor, novo ou aumentar) → **Confirmar pagamento simulado** → **Ver meu edifício**. Login exigido; mínimo R$ 5, máximo 3 edifícios locais por conta/navegador. Nenhum Pix, QR, Copia e Cola ou polling. Criação/aumento chama `simulateContribution`, grava localStorage e atualiza cidade via evento local. Falha de armazenamento não confirma pagamento.
+Pré-lançamento: **Simular contribuição** → formulário (ONG/cidade/valor, novo ou aumentar) → **Confirmar pagamento simulado** → **Ver meu edifício**. Login exigido; mínimo R$ 5, máximo 3 edifícios locais por conta/navegador. Nenhum Pix, QR, Copia e Cola ou polling. Criação/aumento chama `simulateContribution`, grava localStorage e atualiza cidade via evento local. Falha de armazenamento não conclui simulação.
 
 Gatilho: `lg` centrado a 24px do rodapé. Mobile: `left-4 right-20 bottom-4`, texto 14px — mesma linha da seta da [[#DonationInfoSection.tsx]] (`bottom-4 right-4`; admin sobe para `bottom-[4.75rem]`, livra a engrenagem).
 
@@ -708,3 +708,11 @@ Consumidor atual: `/dale/passe` ([[passe-admin-ui]]), com configuração e prév
 `EarlySignups.tsx` administra combo e primeiros N inscritos; detalhes em [[primeiros-inscritos]]. `BuildingManageDialog` passa catálogo ao `BuildingCustomizer`: opções bloqueadas continuam visíveis, botões desabilitados, cadeado e requisito (`formatUnlockCta`). Letreiro/holograma usam `fieldset disabled`. Grátis disponível sem login; conquistas permanentes dispensam requisitos. Ver [[passe-cena]].
 
 Passe: `UnlockDialog` permite doação, indicação, doação + indicação e doação ou indicação. Com ambos os eixos ligados, radios selecionam `all`/`any`; cartão mostra `+`/`ou`. Ver [[passe-admin-ui]].
+
+## `RewardDialog.tsx`
+
+`src/components/pass/RewardDialog.tsx`: modal de conquistas, carregado sob demanda pelo `AuthMenu`. `CitySceneEditor` passa `rewards` do mesmo `useCustomizationCatalog` que resolve permissões. Simulação concluída e abertura do menu incrementam `customizationRevision`; sem polling adicional.
+
+Miniaturas `CustomizationImage`, motivo original do ledger, lote de itens e próxima meta restante. Motion (`LazyMotion`/`domAnimation`) anima entrada e oito quadrados âmbar; sem loop, movimento reduzido respeitado. Dialog/fechar/foco/teclado pelo Radix existente. Aguarda onboarding e demais modais; nunca fecha fluxo de pagamento para anunciar recompensa.
+
+Dispensar fecha imediatamente e confirma lote no backend. Falha conserva aviso para próxima visita, com toast. Regras/testes: [[passe-front#Notificação de recompensa]]; contrato: [[customization-api#Avisos de conquistas]].

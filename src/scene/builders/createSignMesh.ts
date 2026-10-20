@@ -11,6 +11,7 @@ import {
 import { getResidentialRoofOffset } from "./createResidentialBuildingMesh";
 import { getApartmentRoofOffset } from "./createApartmentBuildingMesh";
 import { GOURMET_TOWER_SCALE, getGourmetRoofOffset } from "./createGourmetBuildingMesh";
+import { getLoftRoofOffset } from "./createLoftBuildingMesh";
 import { getSetbackFootprintScaleAtHeightRatio } from "./createSetbackBuildingMesh";
 import {
   TAIPEI_SIGN_Y_OFFSET_RATIO,
@@ -78,20 +79,23 @@ export function createSignMesh(
   const isResidential = shape === "residential" && buildingH > 0;
   const isApartment = shape === "apartment" && buildingH > 0;
   const isGourmet = shape === "gourmet" && buildingH > 0;
+  const isLoft = shape === "loft" && buildingH > 0;
 
   // Altura do letreiro consistente em todos os lados
   const signH = Math.max(buildingW, buildingD) * SIGN_HEIGHT_RATIO;
 
   // Empire, Taipei e One Trade tem mastros estreitos no topo; o letreiro fica no corpo principal.
   // Residencial: letreiro apoiado na laje de cobertura, à frente do guarda-corpo.
-  // Apartment e Varanda Gourmet: apoiado no topo da platibanda.
+  // Apartment, Varanda Gourmet e Loftifício: apoiado no topo da platibanda.
   const yOffset = isResidential
     ? getResidentialRoofOffset(buildingH) + signH / 2
     : isApartment
       ? getApartmentRoofOffset(buildingH) + signH / 2
       : isGourmet
         ? getGourmetRoofOffset(buildingH) + signH / 2
-        : buildingH * (
+        : isLoft
+          ? getLoftRoofOffset(buildingH) + signH / 2
+          : buildingH * (
           isEmpire
             ? 0.1
             : isTaipei

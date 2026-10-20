@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Share2 } from "lucide-react";
 import { ApiError } from "@/api/http";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/api/referral/referral.logic";
 import type { ReferrerPreview, ReferralSummary } from "@/api/referral/referral.types";
 import type { CustomizationCatalog } from "@/api/customizationApi";
+import type { RewardNotifications } from "@/components/hooks/useCustomizationCatalog";
 import { useAuth } from "@/hooks/useAuth";
 import { loadGoogleIdentity } from "@/lib/googleIdentity";
 import { AuthDialog, AuthPanel } from "@/components/AuthDialog";
@@ -24,6 +25,8 @@ import { NightToggle } from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PixelBuilding } from "@/components/ui/pixel-icon";
+
+const RewardDialog = lazy(() => import("@/components/pass/RewardDialog"));
 
 function initialReferralCode() {
   return normalizeReferralCode(new URLSearchParams(window.location.search).get("ref") ?? "");
@@ -59,6 +62,8 @@ type AuthMenuProps = {
   /** Edifícios próprios da sessão. */
   myDonations: readonly MyDonation[];
   catalog: CustomizationCatalog | null;
+  rewards: RewardNotifications;
+  onRefreshRewards: () => void;
   onOpenDonation: (donationId: number) => void;
   /** Login controlado pelo editor: o modal de contribuição também pede login. */
   authOpen: boolean;
@@ -73,6 +78,8 @@ export function AuthMenu({
   onNightChange,
   myDonations,
   catalog,
+  rewards,
+  onRefreshRewards,
   onOpenDonation,
   authOpen,
   onAuthOpenChange,
@@ -102,6 +109,11 @@ export function AuthMenu({
   const [appliedReferrer, setAppliedReferrer] = useState<ReferrerPreview | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [introOpen, setIntroOpen] = useState(() => !introSeen());
+
+  function changeMenuOpen(open: boolean) {
+    setMenuOpen(open);
+    if (open && !menuOpen) onRefreshRewards();
+  }
 
   const summary = summaryState?.userId === user?.id ? summaryState?.data ?? null : null;
   const summaryError = summaryState?.userId === user?.id ? summaryState?.error ?? null : null;
@@ -253,7 +265,7 @@ export function AuthMenu({
             aria-haspopup="dialog"
             onClick={() => {
               setMenuTab("donations");
-              setMenuOpen(true);
+              changeMenuOpen(true);
             }}
           >
             <PixelBuilding />
@@ -278,7 +290,7 @@ export function AuthMenu({
             title={firstName}
             aria-haspopup="dialog"
             onClick={() => {
-              setMenuOpen(true);
+              changeMenuOpen(true);
               void refreshSummary();
             }}
           >
@@ -294,7 +306,7 @@ export function AuthMenu({
         </div>
         <GameMenu
           open={menuOpen}
-          onOpenChange={setMenuOpen}
+          onOpenChange={changeMenuOpen}
           tab={menuTab}
           onTabChange={setMenuTab}
           night={night}
@@ -320,6 +332,11 @@ export function AuthMenu({
           onConfirm={confirmReferral}
           onCancel={clearPendingReferral}
         />
+        {rewards.pending.length > 0 && user.onboarding_completed_at !== null && !effectiveAuthOpen && referralCode === "" && !menuOpen && !shareOpen && !onboardingBlocked && (
+          <Suspense fallback={null}>
+            <RewardDialog key={user.id} rewards={rewards} />
+          </Suspense>
+        )}
         {/* Não empilha modal: espera indicação pendente, menu e compartilhar fecharem. */}
         <OnboardingDialog blocked={referralCode !== "" || menuOpen || shareOpen || onboardingBlocked} />
       </>
