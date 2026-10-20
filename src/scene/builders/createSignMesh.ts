@@ -10,6 +10,7 @@ import {
 } from "./createOneTradeBuildingMesh";
 import { getResidentialRoofOffset } from "./createResidentialBuildingMesh";
 import { getApartmentRoofOffset } from "./createApartmentBuildingMesh";
+import { GOURMET_TOWER_SCALE, getGourmetRoofOffset } from "./createGourmetBuildingMesh";
 import { getSetbackFootprintScaleAtHeightRatio } from "./createSetbackBuildingMesh";
 import {
   TAIPEI_SIGN_Y_OFFSET_RATIO,
@@ -76,18 +77,21 @@ export function createSignMesh(
   const isOneTrade = shape === "one-trade" && buildingH > 0;
   const isResidential = shape === "residential" && buildingH > 0;
   const isApartment = shape === "apartment" && buildingH > 0;
+  const isGourmet = shape === "gourmet" && buildingH > 0;
 
   // Altura do letreiro consistente em todos os lados
   const signH = Math.max(buildingW, buildingD) * SIGN_HEIGHT_RATIO;
 
   // Empire, Taipei e One Trade tem mastros estreitos no topo; o letreiro fica no corpo principal.
   // Residencial: letreiro apoiado na laje de cobertura, à frente do guarda-corpo.
-  // Apartment: apoiado no topo da platibanda.
+  // Apartment e Varanda Gourmet: apoiado no topo da platibanda.
   const yOffset = isResidential
     ? getResidentialRoofOffset(buildingH) + signH / 2
     : isApartment
       ? getApartmentRoofOffset(buildingH) + signH / 2
-      : buildingH * (
+      : isGourmet
+        ? getGourmetRoofOffset(buildingH) + signH / 2
+        : buildingH * (
           isEmpire
             ? 0.1
             : isTaipei
@@ -193,6 +197,8 @@ export function createSignMesh(
       faceWorldW = cfg.faceW * taipeiScale;
     } else if (isOneTrade) {
       faceWorldW = cfg.faceW * oneTradeScale;
+    } else if (isGourmet) {
+      faceWorldW = cfg.faceW * GOURMET_TOWER_SCALE;
     } else if (isHearst) {
       faceWorldW = cfg.faceW * (cfg.offsetZ !== 0 ? hearstXSpanRatio : hearstZSpanRatio);
     } else if (isEmpire) {
@@ -296,6 +302,8 @@ export function createSignMesh(
                   ? taipeiScale
                   : isOneTrade
                     ? oneTradeScale
+                  : isGourmet
+                    ? GOURMET_TOWER_SCALE
                   : 1
           );
       const footprintD = isEmpire
@@ -311,6 +319,8 @@ export function createSignMesh(
                   ? taipeiScale
                   : isOneTrade
                     ? oneTradeScale
+                  : isGourmet
+                    ? GOURMET_TOWER_SCALE
                   : 1
           );
       const normalOffset = cfg.offsetZ !== 0 ? footprintD / 2 : footprintW / 2;

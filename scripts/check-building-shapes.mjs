@@ -14,7 +14,7 @@ import { build } from "esbuild";
 const bundle = await build({
   stdin: {
     contents: ["createBuildingShapeMesh", "createEdgeLightMesh", "createPreviewScene", "createParapetMesh",
-      "createResidentialBuildingMesh", "createApartmentBuildingMesh", "createYachthouseBuildingMesh", "createHologramMesh"]
+      "createResidentialBuildingMesh", "createApartmentBuildingMesh", "createGourmetBuildingMesh", "createYachthouseBuildingMesh", "createHologramMesh"]
       .map((name) => `export * from './src/scene/builders/${name}.ts';`).join("\n"),
     resolveDir: process.cwd(),
   },
@@ -25,6 +25,7 @@ const { BUILDING_SHAPES, createBuildingShapeMesh, createUnitBuildingGeometry, cr
   createParapetGeometry, getParapetHeightScale, createBuildingParapets,
   setResidentialBuildingHeight, setResidentialStoneMaps, getResidentialFloorCount,
   setApartmentBuildingHeight, getApartmentFloorCount, getApartmentTierFootprints, getApartmentRoofOffset,
+  setGourmetBuildingHeight, getGourmetFloorCount, getGourmetTierFootprints, getGourmetRoofOffset,
   setYachthouseBuildingHeight, getYachthouseFloorCount, getYachthouseTowerFootprints, getYachthouseRoofOffset,
   createHologramMesh, setHologramImage, disposeHologramMesh } =
   await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].contents).toString("base64")}`);
@@ -175,6 +176,50 @@ for (const shape of BUILDING_SHAPES) {
     tall.addEventListener("dispose", () => { disposed = true; });
     disposeBuildingShapeSharedResources();
     assert.ok(disposed, "apartment: dispose não libera geometria");
+  }
+  if (shape === "gourmet") {
+    for (const axis of ["x", "y", "z"]) {
+      // Embasamento 8 cm aquém do lote (0,992); portaria saliente ainda dentro.
+      assert.ok(size[axis] <= 1 + 1e-6 && size[axis] > 0.99, `gourmet: dimensão ${axis} fora do lote`);
+    }
+    assert.equal(materials.length, 6, "gourmet: 6 slots (bege, topo, vidro, guarda-corpo, caixilho, creme)");
+    assert.equal(mesh.geometry.groups.length, 6, "gourmet: 1 draw call por material");
+    mesh.geometry.groups.forEach((group, i) => assert.equal(group.materialIndex, i, "gourmet: grupo fora do slot"));
+    for (const name of ["position", "normal", "aProjPosition", "aProjNormal"]) {
+      assert.ok(mesh.geometry.getAttribute(name).array.every(Number.isFinite), `gourmet: ${name} inválido`);
+    }
+    // Sacadas curvas saem além da face (0,43) no meio; pilastra creme do canto é rente.
+    // Lateral: pilastra bege saliente (0,46), rasgo entre elas recuado.
+    mesh.updateMatrixWorld(true);
+    const hit = (origin, dir) => new THREE.Raycaster(origin, dir).intersectObject(mesh)[0]?.point;
+    const front = (x, y) => hit(new THREE.Vector3(x, y, 2), new THREE.Vector3(0, 0, -1)).z;
+    const side = (z) => hit(new THREE.Vector3(2, 0, z), new THREE.Vector3(-1, 0, 0)).x;
+    const ys = Array.from({ length: 40 }, (_, i) => -0.3 + i * 0.015);
+    assert.ok(Math.max(...ys.map((y) => front(0, y))) > 0.48, "gourmet: sacada curva ausente");
+    assert.ok(ys.every((y) => Math.abs(front(0.355, y) - 0.43) < 3e-3), "gourmet: pilastra creme fora da face");
+    assert.ok(side(-0.275) > 0.455 && side(-0.125) < 0.44, "gourmet: pilastra bege ou rasgo ausente");
+    // Pé-direito real: nº de andares segue a altura, geometria cacheada por andar.
+    const preview = mesh.geometry;
+    setGourmetBuildingHeight(mesh, 16);
+    const tall = mesh.geometry;
+    assert.notEqual(tall, preview, "gourmet: altura não trocou nº de andares");
+    assert.ok(tall.getAttribute("position").count > preview.getAttribute("position").count, "gourmet: prédio alto com menos andares");
+    setGourmetBuildingHeight(mesh, 16);
+    assert.equal(mesh.geometry, tall, "gourmet: cache por andar não reaproveitado");
+    assert.equal(getGourmetFloorCount(0.5), 1, "gourmet: prédio mínimo sem andar");
+    assert.equal(getGourmetFloorCount(1000), 60, "gourmet: teto de andares");
+    // LED: embasamento no lote, torre recuada, caixa d'água no topo; letreiro na platibanda.
+    const [plinth, tower, tank] = getGourmetTierFootprints(1, 1, 16);
+    assert.ok(plinth.width === 1 && tower.width < 1 && tank.width < tower.width && tank.topY === 16, "gourmet: tiers do LED");
+    assert.ok(Math.abs(getGourmetRoofOffset(16) - (tower.topY - 8)) < 1e-9, "gourmet: letreiro fora da platibanda");
+    assert.ok(materials[3].transparent && materials[3].userData.baseOpacity < 1, "gourmet: guarda-corpo opaco");
+    for (const material of materials.slice(2)) {
+      assert.equal(typeof material.userData.authoredEnvMapIntensity, "number", "gourmet: vidro fora da captura do envMap");
+    }
+    let disposed = false;
+    tall.addEventListener("dispose", () => { disposed = true; });
+    disposeBuildingShapeSharedResources();
+    assert.ok(disposed, "gourmet: dispose não libera geometria");
   }
   console.log(`ok ${shape} — ${size.toArray().map((n) => n.toFixed(2)).join(" × ")}`);
 }
