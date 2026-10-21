@@ -1,3 +1,4 @@
+import type { RewardNotifications } from "@/components/hooks/useCustomizationCatalog";
 import { Building2, Lock, LogOut, MapPin, Palette, UserRound, Users } from "lucide-react";
 import { Dialog as DialogPrimitive, Tabs } from "radix-ui";
 import type { CatalogFeature, CatalogOption, CustomizationCatalog } from "@/api/customizationApi";
@@ -37,6 +38,7 @@ type GameMenuProps = {
   onOpenDonation: (donationId: number) => void;
   referralSummary: ReferralSummary | null;
   referralError: string | null;
+  rewards: RewardNotifications;
 };
 
 // Estrutura do menu de pausa do GTA V em placas de papel do DS (borda em pixel + bisel sólido).
@@ -46,9 +48,6 @@ const tabClass =
 // Inativa no celular mostra só o ícone; o nome volta no sm+.
 const tabLabel = "hidden group-data-[state=active]:inline sm:inline";
 const panelClass = "min-h-0 flex-1 overflow-y-auto px-4 py-5 outline-none sm:px-8 sm:py-7";
-
-// Meta fixa por enquanto; recompensas de indicação do banco serão ajustadas depois.
-const REFERRAL_GOAL = 2;
 
 type UnlockItem = {
   key: string;
@@ -97,6 +96,7 @@ export function GameMenu({
   onOpenDonation,
   referralSummary,
   referralError,
+  rewards,
 }: GameMenuProps) {
   const { user, logout } = useAuth();
   if (!user) return null;
@@ -107,8 +107,8 @@ export function GameMenu({
   const groups = catalog ? catalogGroups(catalog) : [];
   const unlockedCount = groups.reduce((n, g) => n + g.items.filter((item) => item.isUnlocked).length, 0);
   const itemCount = groups.reduce((n, g) => n + g.items.length, 0);
-  const referralCount = referralSummary?.referral_count ?? 0;
-  const referralsLeft = REFERRAL_GOAL - referralCount;
+  const referralGoal = rewards.choice?.referralMin ?? rewards.nextChoice?.referralMin;
+  const referralsLeft = referralGoal == null ? null : Math.max(0, referralGoal - rewards.signupReferrals);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -244,21 +244,20 @@ export function GameMenu({
                 <div className="m-auto w-full max-w-md space-y-4 text-center">
                   {referralSummary && (
                     <>
-                      {referralsLeft > 0 && (
+                      {referralGoal != null && referralsLeft != null && referralsLeft > 0 && (
                         <div className="pixel pixel-thin bg-card px-5 py-4 text-left">
                           <p className="text-sm text-muted-foreground">
                             <strong className="flex items-center gap-2 text-2xl font-semibold text-foreground">
                               <PixelCoin className="size-5" />
                               {referralsLeft === 1 ? "Falta" : "Faltam"} apenas {referralsLeft}
                             </strong>{" "}
-                            {referralsLeft === 1 ? "indicação" : "indicações"} para desbloquear sua recompensa
+                            {referralsLeft === 1 ? "indicação" : "indicações"} para escolher sua recompensa. Basta a pessoa se cadastrar
                           </p>
-                          {/* Barra começa com 1 bloco bônus (efeito de progresso dotado); o próximo acende em âmbar. */}
                           <div className="mt-3" aria-hidden="true">
                             <BlockBar
-                              value={referralCount + 1}
-                              max={REFERRAL_GOAL + 1}
-                              blocks={REFERRAL_GOAL + 1}
+                              value={rewards.signupReferrals}
+                              max={referralGoal}
+                              blocks={Math.min(10, referralGoal)}
                               label="Indicações"
                             />
                           </div>
@@ -271,7 +270,8 @@ export function GameMenu({
                         </p>
                         <SharePanel url={referralSummary.link} />
                       </div>
-                      {referralsLeft <= 0 && (
+                      {rewards.choice && <Button variant="reward" onClick={() => onOpenChange(false)}>Escolher minha recompensa</Button>}
+                      {(referralsLeft === null || referralsLeft === 0) && (
                         <p className="text-muted-foreground">
                           <strong className="text-2xl font-semibold text-foreground">
                             {referralSummary.referral_count.toLocaleString("pt-BR")}

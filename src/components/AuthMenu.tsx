@@ -320,6 +320,7 @@ export function AuthMenu({
           onOpenDonation={onOpenDonation}
           referralSummary={summary}
           referralError={summaryError}
+          rewards={rewards}
         />
         {summary && (
           <ShareDialog open={shareOpen} onOpenChange={setShareOpen} url={summary.link} />
@@ -337,7 +338,7 @@ export function AuthMenu({
           onCancel={clearPendingReferral}
         />
         <TermsDialog />
-        {rewards.pending.length > 0 && user.onboarding_completed_at !== null && !needsTerms && !effectiveAuthOpen && referralCode === "" && !menuOpen && !shareOpen && !onboardingBlocked && (
+        {(rewards.pending.length > 0 || rewards.choice) && user.onboarding_completed_at !== null && !needsTerms && !effectiveAuthOpen && referralCode === "" && !menuOpen && !shareOpen && !onboardingBlocked && (
           <Suspense fallback={null}>
             <RewardDialog key={user.id} rewards={rewards} />
           </Suspense>

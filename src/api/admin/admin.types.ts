@@ -23,9 +23,8 @@ export interface OngPage {
 
 export interface EarlySignupInput {
   isActive: boolean;
-  userLimit: number;
-  optionIds: number[];
-  categoryIds: number[];
+  userLimit: number | null;
+  tiers: { referralMin: number; optionIds: number[]; categoryIds: number[] }[];
 }
 
 export interface EarlySignupSettings extends EarlySignupInput {

@@ -1,43 +1,45 @@
 ---
-title: Admin · Primeiros inscritos
+title: Admin · Recompensas por indicação
 tags: [cidoa, admin, passe]
-aliases: [Benefícios de cadastro]
+aliases: [Benefícios de cadastro, Primeiros inscritos]
 ---
 
-# Primeiros inscritos
+# Recompensas por indicação
 
 Página `/dale/primeiros-inscritos` · `src/pages/admin/EarlySignups.tsx`. Menu desktop e mobile via `src/lib/nav.ts`; rota lazy protegida por `RequireAdmin`.
 
+Etapas por meta de cadastros indicados. Indicado não precisa contribuir. Cada etapa: usuário escolhe **um** item. Não escolhidos seguem regra do [[passe-front|passe]] — lá indicação só conta com contribuição do indicado.
+
 ## Administrar
 
-1. Definir quantidade dos primeiros inscritos (1–1.000.000).
-2. Selecionar modelo, textura, cor, topo, LED, letreiro e/ou holograma. Um item basta; vários formam combo.
-3. Ativar **Distribuir benefícios** e salvar. Backend também concede aos cadastros antigos elegíveis.
+1. **Limitar aos primeiros inscritos** (switch). Desligado = todo cadastro comum participa. Ligado = primeiros N (1–1.000.000), contando desde início da plataforma.
+2. **Adicionar etapa** (até 10). Cada etapa: meta de cadastros indicados (inteira, única) + itens oferecidos (modelo, textura, cor, topo, LED, letreiro, holograma).
+3. Ativar **Distribuir benefícios** e salvar.
 
-Cards mostram estado salvo, usuários já beneficiados e posições restantes para novos cadastros. Seleção com miniaturas compartilhadas (`CustomizationImage`), resumo do combo e indicação de alterações pendentes. Erro mantém formulário; carregamento permite tentar novamente.
+Exemplo: etapa 2 → Loftifício ou Varanda Gourmet; etapa 5 → Yatchcasa ou Residencial. Usuário com 5 indicações escolhe duas vezes.
+
+Cards: estado salvo, usuários com escolha, posições restantes (ou "Sem limite"). Botões de etapa alternam grade de itens. Item grátis ou inativo desabilitado (só desmarca). Aviso de alteração pendente; erro mantém formulário.
 
 ## Regras
 
-- Ordem desde o início da plataforma. Cadastros anteriores incluídos; administrador no cadastro não ocupa posição. Conta desativada preserva posição, recebe após reativação se ainda elegível.
-- Recompensa = liberação de uso, não criação de doação/prédio nem aplicação automática do visual.
-- Benefício dispensa requisitos de doação/indicação. Demais usuários continuam usando regras do [[passe-front]]. Item grátis já disponível para todos; card informa isso.
-- Pausar interrompe novas concessões. Retomar reconcilia primeiros N; cadastro durante pausa também ocupa posição histórica.
-- Reduzir limite/remover item não revoga conquistas. Contagem histórica pode superar limite reduzido.
-- Adicionar item concede aos primeiros N ativos quando distribuição ativa. Beneficiário fora do limite atual conserva itens antigos, não ganha novos.
-- Ativação exige combo não vazio, itens e categorias ativos. Padrões `default`/`none` não entram. Rascunho pausado aceita itens inativos.
-- Opção vinculada ao combo não pode ser excluída do catálogo; remover do combo primeiro.
+- Ativação exige etapa, itens ativos e com regra no passe. Padrões `default`/`none` não entram. Rascunho pausado aceita itens inativos.
+- Meta identifica etapa: remover e recriar mesma meta não renova escolhas.
+- Pausar esconde ofertas; escolhas feitas permanecem. Reduzir limite não revoga.
+- Opção usada em etapa não pode ser excluída do catálogo; remover da etapa primeiro.
+- Recompensa = liberação de uso, não cria edifício nem aplica visual.
 
 ## Integração
 
-`getEarlySignupSettings` / `saveEarlySignupSettings` em `src/api/admin/admin.routes.ts`; tipos `EarlySignupInput` / `EarlySignupSettings` em `admin.types.ts`.
+`getEarlySignupSettings` / `saveEarlySignupSettings` em `src/api/admin/admin.routes.ts`; tipos `EarlySignupInput` (`userLimit: number | null`, `tiers`) / `EarlySignupSettings` em `admin.types.ts`.
 
 | Método | Endpoint | Uso |
 | --- | --- | --- |
-| GET | `/api/admin/early-signups` | Configuração, IDs e contagens |
-| PUT | `/api/admin/early-signups` | Salvar configuração + distribuir atomicamente |
+| GET | `/api/admin/early-signups` | Configuração, etapas e contagens |
+| PUT | `/api/admin/early-signups` | Salvar etapas, limite e ativação |
+| POST | `/api/customization/me/rewards/choose` | Escolha do usuário na cena |
 
-Cena: `useCustomizationCatalog` consulta `/customization/me` por sessão, mescla conquistas permanentes e requisitos via `canUseCustomization`; painel mantém opções bloqueadas visíveis com cadeado. Ver [[passe-cena]] e [[customization-api]].
+Cena: `/customization/me` traz `signupRewards`; `RewardDialog` abre escolha. Backend recalcula oferta e recusa item/etapa forjados — front nunca é autoridade. Ver [[customization-api#Escolha por indicação]] e [[html-components#RewardDialog.tsx]].
 
 ## Verificação
 
-`npm run build`, `npm run lint`, `node scripts/check-customization-access.mjs`. Sem servidor/navegador.
+`npm run build`, `npm run lint`, `node scripts/check-reward-notifications.mjs`. Backend: `bun test tests/reward-notifications.test.ts tests/early-signups.test.ts`.

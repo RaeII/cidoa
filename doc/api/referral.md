@@ -74,7 +74,7 @@ flowchart TD
 - Sem `navigator.share`: evita menu nativo do SO. Cópia usa `navigator.clipboard`; falha → toast de erro.
 - Ícones de marca são SVG inline (lucide 1.x não tem marcas).
 - Aba Indicações do menu mostra código + `SharePanel` direto abaixo, sem modal extra.
-- Topo da aba: falta p/ meta fixa de 2 indicações (`REFERRAL_GOAL`, não lê recompensas do banco) + barra com 1 segmento bônus pré-preenchido. Meta batida → contagem "N pessoas indicadas".
+- Topo da aba: falta p/ etapa de escolha disponível/próxima (`rewards.choice`/`nextChoice`, ver [[primeiros-inscritos]]) + barra. Contagem = cadastros indicados (`signupReferrals`), sem contribuição. Etapa alcançada → botão **Escolher minha recompensa**. Sem campanha → contagem "N pessoas indicadas".
 - Bloco “Você foi indicado por” só aparece quando `referrer` existe.
 - Total só aparece quando `referral_count > 0`.
 

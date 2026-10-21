@@ -116,7 +116,7 @@ src/
   components/
     pass/
       PassTrack.tsx             ← trilha/grade reutilizável, um cartão por recompensa
-      RewardDialog.tsx          ← conquista com Motion sob demanda, motivo histórico e próxima meta → [[passe-front]]
+      RewardDialog.tsx          ← conquista com Motion sob demanda + escolha por indicação (cards-radio) → [[passe-front]]
     customization/
       CustomizationImage.tsx    ← miniatura compartilhada com catálogo
       BuildingCustomizer.tsx   ← menu reutilizável por categorias, grade e prévia 3D; lazy na administração do edifício
@@ -586,10 +586,11 @@ hooks    → ponte React ↔ runtime
 > - **Texto de interface enxuto** — label diz o que é; descrição só quando label não basta,
 >   uma frase curta e direta. Sem descrição decorativa nem explicação longa.
 
-## Benefícios dos primeiros inscritos
+## Recompensas por indicação (primeiros inscritos)
 
-- [[primeiros-inscritos]] — página própria `/dale/primeiros-inscritos`; combo, quantidade, ativação e contagem histórica.
+- [[primeiros-inscritos]] — página `/dale/primeiros-inscritos`; etapas por meta de cadastros indicados, uma escolha por etapa, sem contribuição do indicado; limite de inscritos opcional.
 - `src/pages/admin/EarlySignups.tsx` — gestão; `src/api/admin/admin.routes.ts` + `admin.types.ts` — contrato.
+- Cena: `RewardDialog` (escolha) + aba Indicações do `GameMenu`; `chooseSignupReward` em `customizationApi.ts` → [[customization-api#Escolha por indicação]]. Backend valida tudo.
 - `scripts/check-customization-access.mjs` — verifica presente permanente, requisitos e sessão ausente.
 
 ## Passe: doação ou indicação

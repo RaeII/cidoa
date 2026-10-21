@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { useAuth } from "@/hooks/useAuth";
 import { canUseCustomization } from "@/lib/unlock";
@@ -8,6 +8,7 @@ import {
   fetchCustomizationCatalog,
   fetchMyUnlocks,
   acknowledgeRewards,
+  chooseSignupReward,
   type MyUnlocks,
   type CatalogOption,
   type CatalogFeature,
@@ -31,16 +32,22 @@ export function useCustomizationCatalog(refreshKey = 0) {
   const [unlocks, setUnlocks] = useState<{ userId: number; data: MyUnlocks } | null>(null);
   const [dismissed, setDismissed] = useState<{ userId: number; keys: string[] } | null>(null);
 
+  const requestVersion = useRef(0);
+  const choosing = useRef(false);
+  const [reload, setReload] = useState(0);
+  const [deferred, setDeferred] = useState<{ userId: number; refreshKey: number } | null>(null);
+
   useEffect(() => {
+    const version = ++requestVersion.current;
     if (!userId || isAdmin) return;
     const controller = new AbortController();
     fetchMyUnlocks({ signal: controller.signal }).then((data) => {
-      if (!controller.signal.aborted) setUnlocks({ userId, data });
+      if (!controller.signal.aborted && version === requestVersion.current) setUnlocks({ userId, data });
     }).catch((err: unknown) => {
       if (!controller.signal.aborted && !axios.isCancel(err)) console.error("Falha ao carregar benefícios", err);
     });
     return () => controller.abort();
-  }, [userId, isAdmin, refreshKey]);
+  }, [userId, isAdmin, refreshKey, reload]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -92,11 +99,34 @@ export function useCustomizationCatalog(refreshKey = 0) {
     });
   }
 
+  const campaign = mine?.signupRewards;
+  const availableChoice = campaign?.tiers.find((tier) => tier.referralMin <= campaign.referrals);
+  const choice = deferred?.userId === userId && deferred?.refreshKey === refreshKey ? null : availableChoice;
+  const nextChoice = campaign?.tiers.find((tier) => tier.referralMin > campaign.referrals);
+
+  async function choose(referralMin: number, key: string) {
+    if (!userId || choosing.current) return;
+    choosing.current = true;
+    const version = ++requestVersion.current;
+    try {
+      const data = await chooseSignupReward(referralMin, key);
+      if (version === requestVersion.current) setUnlocks({ userId, data });
+    } catch (error) {
+      if (version === requestVersion.current) setReload((value) => value + 1);
+      throw error;
+    } finally { choosing.current = false; }
+  }
+
   return {
     catalog: resolvedCatalog,
     rewards: {
       pending,
       next,
+      choice,
+      nextChoice,
+      signupReferrals: campaign?.referrals ?? 0,
+      choose,
+      deferChoice: () => { if (userId) setDeferred({ userId, refreshKey }); },
       dismiss: dismissRewards,
     },
   };
