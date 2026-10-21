@@ -2,7 +2,8 @@ import type { CustomizationCatalog } from "../api/customizationApi";
 import { sortPassRewards, type PassReward } from "./pass";
 import { formatBRL, formatReferrals, formatUnlockRemaining, type UnlockProgress, type UnlockRule } from "./unlock";
 
-export function formatRewardReason(rule: UnlockRule): string {
+export function formatRewardReason(rule: UnlockRule, signupReferralMin?: number | null): string {
+  if (signupReferralMin != null) return `Você indicou ${signupReferralMin} ${signupReferralMin === 1 ? "pessoa que se cadastrou" : "pessoas que se cadastraram"}.`;
   if (!rule) return "Presente por estar entre os primeiros inscritos.";
   const reasons: string[] = [];
   if (rule.donationMin != null) reasons.push(`${formatBRL(rule.donationMin)} em doações acumuladas`);

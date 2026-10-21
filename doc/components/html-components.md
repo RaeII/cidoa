@@ -256,7 +256,7 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre por **Meus edifíci
 |---|---|
 | Meus edifícios | Total doado + edifícios próprios numerados, maior valor 1º. **Ver na cidade** sempre disponível: fecha menu e chama `handleOpenDonation` (foco + [[#BuildingInfoModal.tsx\|card]]). Oculto por filtro/teto → limpa ambos e aguarda rebuild. Não cria cobrança. |
 | Personalizações | Catálogo agrupado (formato, topo, LED, cor, textura, letreiro/holograma) com `isUnlocked`. Travado mostra requisito via `formatUnlockRequirement` ([[passe-formatacao]]). |
-| Indicações | Topo: "Faltam apenas N indicações para desbloquear sua recompensa" + barra. Meta fixa `REFERRAL_GOAL = 2` (recompensas do banco ajustadas depois); N = meta − `referral_count`; barra começa com 1 segmento bônus (`(count+1)/(meta+1)`). Meta batida → total indicado. Depois: código (quebra linha se não cabe) + `SharePanel` inline (redes + copiar link, sem modal), quem indicou ([[referral]]). Some p/ admin. |
+| Indicações | Topo: "Faltam apenas N indicações para escolher sua recompensa" + barra até 10 blocos. Meta = etapa disponível ou próxima de `rewards` ([[primeiros-inscritos]]); N = meta − `signupReferrals` (cadastros). Etapa alcançada → botão `reward` **Escolher minha recompensa** (fecha menu; `RewardDialog` abre). Sem campanha ou meta batida → total indicado. Depois: código (quebra linha se não cabe) + `SharePanel` inline (redes + copiar link, sem modal), quem indicou ([[referral]]). Some p/ admin. |
 | Perfil | `ProfilePanel.tsx`: avatar 72 px (`size="lg"`) + nome + e-mail no topo; nome e username lado a lado (sm+); abaixo [[#ProfileDetailsFields.tsx\|Cidade + Como conheceu]], mesmo formulário e mesmo Salvar (`PUT /user/me`). `hasChanges` conta cidade, origem e texto de "Outro" (só com "Outro" escolhido). Salvar → toast. Canto inferior direito: **Sair** discreto (texto cinza, hover vermelho; fecha + `logout()`). |
 
 | Prop | Tipo | Descrição |
@@ -705,7 +705,7 @@ Consumidor atual: `/dale/passe` ([[passe-admin-ui]]), com configuração e prév
 
 ## Benefícios de cadastro e cadeados
 
-`EarlySignups.tsx` administra combo e primeiros N inscritos; detalhes em [[primeiros-inscritos]]. `BuildingManageDialog` passa catálogo ao `BuildingCustomizer`: opções bloqueadas continuam visíveis, botões desabilitados, cadeado e requisito (`formatUnlockCta`). Letreiro/holograma usam `fieldset disabled`. Grátis disponível sem login; conquistas permanentes dispensam requisitos. Ver [[passe-cena]].
+`EarlySignups.tsx` administra etapas de recompensa por indicação e limite opcional; detalhes em [[primeiros-inscritos]]. `BuildingManageDialog` passa catálogo ao `BuildingCustomizer`: opções bloqueadas continuam visíveis, botões desabilitados, cadeado e requisito (`formatUnlockCta`). Letreiro/holograma usam `fieldset disabled`. Grátis disponível sem login; conquistas permanentes dispensam requisitos. Ver [[passe-cena]].
 
 Passe: `UnlockDialog` permite doação, indicação, doação + indicação e doação ou indicação. Com ambos os eixos ligados, radios selecionam `all`/`any`; cartão mostra `+`/`ou`. Ver [[passe-admin-ui]].
 
@@ -716,3 +716,5 @@ Passe: `UnlockDialog` permite doação, indicação, doação + indicação e do
 Miniaturas `CustomizationImage`, motivo original do ledger, lote de itens e próxima meta restante. Motion (`LazyMotion`/`domAnimation`) anima entrada e oito quadrados âmbar; sem loop, movimento reduzido respeitado. Dialog/fechar/foco/teclado pelo Radix existente. Aguarda onboarding e demais modais; nunca fecha fluxo de pagamento para anunciar recompensa.
 
 Dispensar fecha imediatamente e confirma lote no backend. Falha conserva aviso para próxima visita, com toast. Regras/testes: [[passe-front#Notificação de recompensa]]; contrato: [[customization-api#Avisos de conquistas]].
+
+**Escolha por indicação** — sem aviso pendente e com `rewards.choice`: kicker "Recompensa por indicação", grade 2 colunas de cards-radio (DS: `pixel pixel-thin`, selecionado `bg-secondary pixel-ink-verde` + quadrado verde), botão `reward` **Desbloquear escolha** (`BlockLoader` enquanto salva), **Escolher depois** `ghost`. Erro do backend em linha `ErrorMark`. Fechar/adiar esconde até próximo refresh (abrir menu). Sucesso devolve `/me` com grant pendente → mesmo modal celebra item. Várias etapas alcançadas: uma por vez, menor meta primeiro. Caixa **Próxima escolha** mostra meta seguinte e quanto falta.

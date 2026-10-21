@@ -41,7 +41,7 @@ export function PassTrack<T extends PassReward>({ rewards, onConfigure, layout =
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">{isGrid ? "Grade de recompensas" : "Trilha de recompensas"}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Por dificuldade estimada, da mais fácil à mais difícil. {isGrid ? "Quatro personalizações por linha." : "Explore para o lado."}</p>
+          <p className="mt-1 text-sm text-muted-foreground">No passe, indicação conta quando a pessoa indicada contribui. {isGrid ? "Quatro personalizações por linha." : "Explore para o lado."}</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="mono-label mr-2 text-muted-foreground">{ordered.length} recompensas</span>

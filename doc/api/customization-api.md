@@ -65,7 +65,7 @@ Tipo e todas as funções de exibição vivem em [`src/lib/unlock.ts`](../../src
 
 ## `useCustomizationCatalog()`
 
-Hook: carrega catálogo 1× no mount, retorna `{ catalog, rewards: { pending, next, dismiss } }`. `catalog: null` = carregando; falha vira catálogo vazio. Consumido em [[html-components#CitySceneEditor|CitySceneEditor]], passado ao [[html-components#BuildingManageDialog.tsx|BuildingManageDialog]] e ao [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] via prop `catalog`. `rewards` segue para `AuthMenu` → `RewardDialog`.
+Hook: carrega catálogo 1× no mount, retorna `{ catalog, rewards: { pending, next, choice, nextChoice, signupReferrals, choose, deferChoice, dismiss } }`. `catalog: null` = carregando; falha vira catálogo vazio. Consumido em [[html-components#CitySceneEditor|CitySceneEditor]], passado ao [[html-components#BuildingManageDialog.tsx|BuildingManageDialog]] e ao [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] via prop `catalog`. `rewards` segue para `AuthMenu` → `RewardDialog`.
 
 Endpoint cacheado no backend (staleness ≤60s), mas o cache é **invalidado a cada escrita do admin** — mudança de regra aparece na cena na hora.
 
@@ -75,11 +75,19 @@ Hook busca `/customization/me` por usuário autenticado. Dados vinculados ao ID 
 
 ## Avisos de conquistas
 
-`pendingRewards`: `key` (`option:ID` ou `category:ID`), `label`, `categoryKey`, `categoryLabel`, `optionKey` (nullable), `value` e `unlock`. Visual vem junto, mesmo com catálogo cacheado antigo. `unlock` = snapshot histórico; null = presente dos primeiros inscritos. Nunca inferir conquista comparando listas locais de acesso: grátis/admin/presente também liberam acesso.
+`pendingRewards`: `key` (`option:ID` ou `category:ID`), `label`, `categoryKey`, `categoryLabel`, `optionKey` (nullable), `value` e `unlock`. Visual vem junto, mesmo com catálogo cacheado antigo. `unlock` = snapshot histórico; null = presente/escolha. `signupReferralMin` (opcional) = item escolhido na etapa de N indicações; motivo vira "Você indicou N pessoas que se cadastraram". Nunca inferir conquista comparando listas locais de acesso: grátis/admin/presente também liberam acesso.
 
 `acknowledgeRewards(keys)` → `POST /customization/me/rewards/acknowledge`, `{ keys: string[] }`, 204. Um lote ao dispensar modal; sem GET seguinte. Backend limita 100 chaves e escopa pela sessão. Confirma só chaves apresentadas; conquista concorrente continua pendente.
 
 Hook oculta dispensadas imediatamente, inclusive contra GET atrasado. Falha no POST: toast, permanece fechado nesta sessão; servidor conserva pendência para próxima visita. Logout/troca de conta não reaproveita dados alheios; request anterior abortado. Duas abas já abertas podem mostrar mesmo aviso antes da confirmação; futuras leituras respeitam confirmação persistida.
+
+## Escolha por indicação
+
+`signupRewards` em `/customization/me`: `null` (campanha pausada/fora do limite) ou `{ referrals, tiers: [{ referralMin, rewards: RewardNotification[] }] }`. `referrals` = cadastros indicados, sem contribuição. Só etapas não escolhidas e itens não conquistados.
+
+Hook deriva `choice` (menor etapa com `referralMin <= referrals`), `nextChoice` (primeira acima) e `signupReferrals`. `choose(referralMin, key)` → `POST /customization/me/rewards/choose`, resposta = `/me` completo; trava clique duplo (`choosing`), descarta GET mais antigo (`requestVersion`). Erro: relê `/me` e repassa erro ao modal. `deferChoice()` esconde até `refreshKey` mudar.
+
+Backend é autoridade: recalcula oferta, recusa etapa não alcançada (`409`), chave fora da oferta (`400`), segunda escolha (`409`); retry da mesma escolha é no-op. Ver [[primeiros-inscritos]].
 
 Deploy: migration backend `0026_reward_notifications.sql` → backend → frontend. Front tolera `pendingRewards` ausente durante transição, sem inventar avisos. Ver [[passe-front]].
 

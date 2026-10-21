@@ -78,10 +78,21 @@ export type MyUnlocks = {
   /** Keys de categoria-feature liberadas (`sign`, `hologram`). */
   unlockedCategoryKeys: string[];
   pendingRewards: RewardNotification[];
+  signupRewards: SignupRewards;
 };
 
 /** Motivo vem do snapshot do ledger; não acompanha edições posteriores do catálogo. */
-export type RewardNotification = Omit<PassReward, "optionKey"> & { optionKey: string | null };
+export type RewardNotification = Omit<PassReward, "optionKey"> & { optionKey: string | null; signupReferralMin?: number | null };
+
+export type SignupRewards = {
+  referrals: number;
+  tiers: { referralMin: number; rewards: RewardNotification[] }[];
+} | null;
+
+export async function chooseSignupReward(referralMin: number, key: string): Promise<MyUnlocks> {
+  const { data } = await http.post<{ data: MyUnlocks }>("/customization/me/rewards/choose", { referralMin, key });
+  return data.data;
+}
 
 export async function acknowledgeRewards(keys: string[]): Promise<void> {
   await http.post("/customization/me/rewards/acknowledge", { keys });

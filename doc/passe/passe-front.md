@@ -69,6 +69,7 @@ Backend envia `mode`; ausente no catálogo antigo = `all`. Regras grátis contin
 | UI admin (página Passe, trilha visual, dialog) | ✅ [[passe-admin-ui]] |
 | Cadeado no `BuildingManageDialog` | ✅ [[passe-cena]] |
 | Aviso de conquista | ✅ `RewardDialog`, Motion sob demanda, confirmação persistida |
+| Escolha por indicação | ✅ `RewardDialog` (cards-radio), validada no backend — [[primeiros-inscritos]] |
 
 ## Notificação de recompensa
 
@@ -76,11 +77,13 @@ Beta: mesmo modal da main para conquistas reais do backend. Sem reaceite de term
 
 `useCustomizationCatalog` reaproveita `/customization/me` no login/reload e ao concluir simulação. Abrir menu da conta também atualiza conquistas — encontra indicações recebidas em outra sessão. Doações simuladas não contam como doações reais nem geram conquistas no backend. Indicações e presentes de cadastro continuam reais. Sem polling de recompensas ou Pix nesta branch.
 
-`AuthMenu` monta `RewardDialog` via lazy import só com pendências. Espera onboarding, indicação, menu, compartilhamento, pagamento, ajuda e edição/info do edifício liberarem tela. Sem interromper formulário aberto. Onboarding pulado offline, ainda não confirmado no servidor: avisos aguardam conclusão persistida.
+Passe conta indicação só com contribuição real do indicado (`progress.referrals`) — no pré-lançamento não avança. Etapas de escolha contam cadastros (`signupReferrals`), sem contribuição: recompensa por indicação do pré-lançamento vem daí ([[primeiros-inscritos]]). `PassTrack` avisa: "No passe, indicação conta quando a pessoa indicada contribui."
+
+`AuthMenu` monta `RewardDialog` via lazy import só com pendências ou escolha disponível (`rewards.choice`). Pendência tem prioridade; escolha aparece depois. Espera onboarding, indicação, menu, compartilhamento, pagamento, ajuda e edição/info do edifício liberarem tela. Sem interromper formulário aberto. Onboarding pulado offline, ainda não confirmado no servidor: avisos aguardam conclusão persistida.
 
 Modal agrupa lote: item principal com miniatura + motivo; demais itens com miniatura/motivo próprios. Próxima conquista segue `sortPassRewards`, ignora grátis e conquistadas, usa `formatUnlockRemaining` para metas AND/OR. Sem próxima meta: incentivo neutro. Animação Motion: entrada curta + oito partículas quadradas âmbar, sem loop; movimento reduzido = fade sem partículas. Cores, borda pixel, botão e Dialog do DS.
 
-X, Esc, clique fora ou Continuar dispensam lote apresentado; um POST idempotente, sem nova leitura. Backend conserva pendências se rede falhar. Histórico anterior à migration 0026 marcado visto; sem enxurrada retroativa. Preservação administrativa de item já usado também não notifica. Grants novos por doação, indicação ou primeiros inscritos ficam pendentes.
+X, Esc, clique fora ou Continuar dispensam lote apresentado; um POST idempotente, sem nova leitura. Backend conserva pendências se rede falhar. Histórico anterior à migration 0026 marcado visto; sem enxurrada retroativa. Preservação administrativa de item já usado também não notifica. Grants novos por doação, indicação ou escolha por indicação ficam pendentes.
 
 Testes: `bun test tests/reward-notifications.test.ts` (motivo/ordem/metas); `node scripts/check-reward-notifications.mjs` (ciclo do hook, requests, contas, abort, offline). Contrato: [[customization-api]].
 

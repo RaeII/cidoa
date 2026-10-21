@@ -285,7 +285,7 @@ Cria/promove usuário com `is_admin=true` + senha bcrypt. Depois é só logar em
 
 ## Primeiros inscritos
 
-Menu **Primeiros inscritos** → `/dale/primeiros-inscritos`. Configura combo e quantidade; libera aos primeiros cadastros, inclusive anteriores. Sessão admin em GET/PUT `/admin/early-signups`. Ver [[primeiros-inscritos]].
+Menu **Primeiros inscritos** → `/dale/primeiros-inscritos`. Etapas de recompensa por indicação (uma escolha por meta, sem contribuição do indicado) + limite de inscritos opcional. Sessão admin em GET/PUT `/admin/early-signups`. Ver [[primeiros-inscritos]].
 
 ## Validade da sessão admin
 

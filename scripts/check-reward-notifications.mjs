@@ -25,6 +25,7 @@ const react = {
     if (!(index in slots)) slots[index] = initial;
     return [slots[index], (value) => { slots[index] = typeof value === "function" ? value(slots[index]) : value; }];
   },
+  useRef(initial) { const index = cursor++; if (!(index in slots)) slots[index] = { current: initial }; return slots[index]; },
   useMemo(compute) { cursor++; return compute(); },
   useEffect(effect, deps) {
     const index = cursor++;
