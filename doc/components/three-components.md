@@ -97,7 +97,7 @@ Sem essa separação, qualquer mudança simples no container exigiria mexer no c
 
 ## `CustomizationPreview.tsx`
 
-Mostra **uma** personalização fora da cena. Usado no admin ([[personalizacoes]]) pra ver o modelo, não só o nome. Só cola React + `WebGLRenderer`: quem monta a cena é [[scene-builders#createPreviewScene.ts|createPreviewScene]], que por sua vez usa os mesmos builders da cena — nada é remodelado aqui.
+Mostra **uma** personalização fora da cena. Usado no admin ([[personalizacoes]]) e nos modais de conquista e escolha por indicação ([[html-components#RewardDialog.tsx]]) pra ver o modelo, não só o nome. Só cola React + `WebGLRenderer`: quem monta a cena é [[scene-builders#createPreviewScene.ts|createPreviewScene]], que por sua vez usa os mesmos builders da cena — nada é remodelado aqui.
 
 **Assunto** (`PreviewSubject`) = `{ kind, key }`, key crua do catálogo: `shape` (Formato), `rooftop` (Topo), `edgeLight` (LED).
 
@@ -106,14 +106,18 @@ Dois exports, mesma cena interna:
 | Export | Uso | Custo |
 |---|---|---|
 | `CustomizationThumb` | miniatura na lista | render 1× por assunto → PNG data URL em cache module-level; depois é só `<img>`. **Um** `WebGLRenderer` compartilhado p/ todas as thumbs — renderer por thumb estoura limite de contextos (~16) e browser derruba o da cena principal |
-| `CustomizationPreview` | preview grande no dialog | canvas vivo com `OrbitControls` (arrastar/zoom, auto-rotate), 1 contexto WebGL enquanto montado |
+| `CustomizationPreview` | preview grande no dialog | canvas vivo com `OrbitControls` (arrastar/zoom, auto-rotate), 1 contexto WebGL enquanto montado; 30 FPS, pausa em aba oculta |
 
 **Detalhes:**
 - **`resolveSubject(subject) === null`** — key sem builder no front, ou `none`: thumb some, dialog mostra "Sem preview 3D para esta opção"
 - **Miniatura em `requestAnimationFrame`** — render sai do commit do React; lista com 10 itens não trava o paint
 - **Sem WebGL** (contexto perdido, driver ruim) → cache guarda `""` e o componente devolve um bloco vazio, sem quebrar a página
 - **Resize não reposiciona a câmera** — só a primeira medida válida chama `place()`; depois disso o giro é do usuário
-- **Dispose no unmount** — `view.dispose()` (cena) + `controls`, `renderer` e o `canvas`
+- **Limite vertical** — `maxPolarAngle = Math.PI / 2`, como no `BuildingPreview`: câmera para no horizonte, sem mostrar a parte inferior do edifício. Giro horizontal e zoom preservados. Teste com `OrbitControls` real, sem DOM/GPU.
+- **Teclado** — canvas focável; Shift + setas gira, +/− aproxima/afasta dentro dos limites de zoom. Foco do DS. Movimento reduzido desliga giro automático.
+- **Falha de WebGL** — preview interativo mostra mensagem; escolha e restante do modal continuam disponíveis.
+- **Dispose no unmount** — `view.dispose()` (cena) + `controls`, listeners, `renderer.forceContextLoss()` e o `canvas`; contexto liberado ao voltar/fechar, sem afetar renderer compartilhado das miniaturas.
+- **Verificação** — `node scripts/check-signup-reward-dialog.mjs`: teclado, limites, aba oculta, descarte e falha de contexto, sem GPU/navegador.
 
 > [!important] three.js entra por import dinâmico
 > ~600 kB. `Customizations.tsx` importa este arquivo via `lazy()` + `Suspense` e **só `import type`** de qualquer coisa de `scene/` — um único import estático de builder (nem que seja pra pegar um guard) arrasta three pro chunk compartilhado do admin, e **toda** página admin paga o download (medido: 11 kB → 221 kB).

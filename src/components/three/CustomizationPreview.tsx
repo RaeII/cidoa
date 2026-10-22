@@ -97,6 +97,7 @@ export function CustomizationPreview({
   className?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [error, setError] = useState(false);
   const { kind, key } = subject;
   const resolved = resolveSubject(subject);
 
@@ -105,20 +106,41 @@ export function CustomizationPreview({
     const resolved = resolveSubject({ kind, key });
     if (!container || !resolved) return;
 
+    let renderer: THREE.WebGLRenderer;
+    try { renderer = createRenderer(false); }
+    catch {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- falha do WebGL externo vira feedback.
+      setError(true);
+      return;
+    }
     const view = createPreviewScene(resolved);
-    const renderer = createRenderer(false);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(renderer.domElement);
     renderer.domElement.style.display = "block";
     renderer.domElement.style.width = "100%";
     renderer.domElement.style.height = "100%";
+    renderer.domElement.tabIndex = 0;
+    renderer.domElement.classList.add("focus-inset");
+    renderer.domElement.setAttribute("role", "img");
+    renderer.domElement.setAttribute("aria-label", "Prévia 3D. Arraste ou use Shift e as setas para girar; role ou use + e − para aproximar e afastar.");
 
     const controls = new OrbitControls(view.camera, renderer.domElement);
     controls.target.copy(view.center);
     controls.enablePan = false;
+    controls.maxPolarAngle = Math.PI / 2;
     controls.enableDamping = true;
-    controls.autoRotate = true;
+    controls.autoRotate = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     controls.autoRotateSpeed = 1.4;
+    controls.listenToKeyEvents(renderer.domElement);
+    const zoomKey = (event: KeyboardEvent) => {
+      if (!["+", "=", "-"].includes(event.key)) return;
+      event.preventDefault();
+      const offset = view.camera.position.clone().sub(controls.target);
+      offset.setLength(THREE.MathUtils.clamp(offset.length() * (event.key === "-" ? 1.15 : 1 / 1.15), controls.minDistance, controls.maxDistance));
+      view.camera.position.copy(controls.target).add(offset);
+      controls.update();
+    };
+    renderer.domElement.addEventListener("keydown", zoomKey);
 
     let placed = false;
     const resize = () => {
@@ -141,19 +163,25 @@ export function CustomizationPreview({
     observer.observe(container);
 
     let raf = 0;
-    const tick = () => {
+    let lastFrame = 0;
+    const tick = (now: number) => {
       raf = requestAnimationFrame(tick);
-      controls.update();
+      if (document.hidden || now - lastFrame < 1000 / 30) return;
+      const delta = Math.min(now - lastFrame, 100) / 1000;
+      lastFrame = now;
+      controls.update(delta);
       renderer.render(view.scene, view.camera);
     };
-    tick();
+    raf = requestAnimationFrame(tick);
 
     return () => {
       cancelAnimationFrame(raf);
       observer.disconnect();
+      renderer.domElement.removeEventListener("keydown", zoomKey);
       controls.dispose();
       view.dispose();
       renderer.dispose();
+      renderer.forceContextLoss();
       renderer.domElement.remove();
     };
   }, [kind, key]);
@@ -167,5 +195,5 @@ export function CustomizationPreview({
       </div>
     );
   }
-  return <div ref={containerRef} className={className} />;
+  return <div ref={containerRef} className={className}>{error && <p role="status" className="grid size-full place-items-center p-6 text-center text-sm text-muted-foreground">Prévia 3D indisponível neste dispositivo.</p>}</div>;
 }

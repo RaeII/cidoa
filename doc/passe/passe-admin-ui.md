@@ -20,6 +20,7 @@ Página própria: `/dale/passe`. Entrada **Passe** na sidebar e navegação mobi
 | `src/components/pass/PassTrack.tsx` | Trilha horizontal ou grade responsiva; uma recompensa por cartão |
 | `src/components/customization/CustomizationImage.tsx` | Miniatura compartilhada entre catálogo e passe |
 | `src/components/admin/UnlockDialog.tsx` | Editar requisito; usado nas duas páginas |
+| `src/components/admin/RewardExamples.tsx` | Exemplos locais dos modais reais de conquista e escolha |
 | `src/lib/pass.ts` | Contrato visual `PassReward`, ordenação e mapa de preview |
 | `src/lib/adminUnlock.ts` | Alvos de edição por opção/categoria |
 
@@ -52,6 +53,16 @@ Trilha só monta personalização **ativa** — opção inativa, categoria inati
 Switch **Prévia do usuário** remove botões de edição; resto do cartão é igual.
 
 `PassTrack` recebe `rewards: readonly PassReward[]`, `layout: "track" | "grid"` e callback opcional `onConfigure`. Sem callback, somente leitura. Sem import de API/admin/auth. Outro consumidor pode fornecer recompensas do catálogo público. Prévia não carrega progresso individual; integração com conquistas continua em [[passe-cena]].
+
+## Exemplos de notificações
+
+Seção no topo de `/dale/passe` e `/dale/primeiros-inscritos`, disponível mesmo com catálogo carregando ou falhando. `RewardExamples` monta `RewardDialog` real sob demanda; Motion, miniaturas, teclado e layout iguais à cena.
+
+- **Ver conquista desbloqueada**: Loftifício após R$ 50 acumulados; cartão ampliado, motivo curto, confete Realistic Look e **Ver em 3D**. Próximas metas em texto simples. **Continuar** encerra exemplo; na cena confirma lote inteiro de avisos.
+- **Ver escolha por indicação**: 2 cadastros indicados, escolha entre Loftifício e Varanda Gourmet. Confirmar abre conquista do item escolhido, motivo por cadastro e próxima meta em 5 indicações.
+- Fechar, continuar ou escolher depois encerra exemplo. Reabrir reinicia; escolhas só alteram estado local. Nenhum request de progresso, escolha, confirmação ou gravação. Miniaturas podem carregar assets visuais.
+
+Dados ilustrativos fixos; não dependem da configuração salva nem concedem itens. Escolha por indicação celebra abertura com confete Canvas (movimento reduzido respeitado), usa cards ampliados e **Ver em 3D** (giro/zoom) para modelos, topos e LEDs; **Desbloquear recompensa** confirma item selecionado ou exibido na prévia. Mesma seção em [[primeiros-inscritos]].
 
 ## Dialog de liberação
 
@@ -86,6 +97,8 @@ Catálogo mantém `Grátis`, `R$ 50`, `3 indicações`, `R$ 50 + 3 indicações`
 ## Verificação
 
 `node scripts/check-pass.mjs`: grátis, doações, indicações, centavos, empates, cartões individuais e entrada imutável; AND/OR, limites, legado, permanência e formatação. Sem servidor/navegador. `npm run build` + `npm run lint` verificam integração.
+
+`node scripts/check-reward-examples.mjs`: abertura, duas opções, confirmação para cada item, próxima conquista distinta, fechar/reabrir, integração nas páginas e isolamento da API.
 
 ## Relacionado
 

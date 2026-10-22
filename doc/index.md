@@ -96,6 +96,8 @@ scripts/
   encode-ktx2.mjs              ← converte texturas PBR pra KTX2 (`npm run textures:ktx2`); superado pelo WebP
   check-pass.mjs               ← ordenação do passe sem servidor/navegador
   check-reward-notifications.mjs ← requests, sessão, respostas atrasadas e confirmação dos avisos; sem servidor/navegador
+  check-reward-examples.mjs    ← exemplos admin: conquista, escolha de dois itens e confirmação local; sem API/navegador
+  check-signup-reward-dialog.mjs ← escolha/conquista, confete, prévia 3D, teclado e descarte; sem navegador/GPU
   check-admin-ongs.mjs         ← cadastro/edição de ONG, foto, status e erros, sem servidor/navegador
   check-consent.mjs            ← aceite no cadastro + aviso de cookies, sem servidor/navegador
   check-analytics.mjs          ← Consent Mode, aceite/recusa, revogação e tag única; sem servidor/navegador
@@ -153,12 +155,15 @@ src/
   components/
     pass/
       PassTrack.tsx             ← trilha/grade reutilizável, um cartão por recompensa
-      RewardDialog.tsx          ← conquista com Motion sob demanda + escolha por indicação (cards-radio) → [[passe-front]]
+      RewardDialog.tsx          ← conquista em cartões, confete e prévia 3D; delega escolha por indicação → [[passe-front]]
+      SignupRewardDialog.tsx    ← escolha por indicação: revelação dos itens + prévia 3D interativa sob demanda
+      RewardConfetti.tsx        ← celebração Canvas por abertura, carregamento lazy, paleta do DS e limpeza
     customization/
       CustomizationImage.tsx    ← miniatura compartilhada com catálogo
       BuildingCustomizer.tsx   ← menu reutilizável por categorias, grade e prévia 3D; lazy na administração do edifício
     admin/
       UnlockDialog.tsx          ← editor de requisitos compartilhado
+      RewardExamples.tsx        ← exemplos locais dos dois modais reais, no Passe e nas recompensas por indicação
     ui/
       pixel-icon.tsx                ← ícones em pixel do DS, logo, gato/cachorro, `BlockLoader`, `PixelPhoto`
       photo.tsx                     ← `<Photo ratio>`: foto na moldura do DS, espera em blocos, "Foto indisponível"
@@ -504,6 +509,7 @@ flowchart LR
 | Entender a gamificação inteira                   | [[passe-front]]                                   |
 | Definir quanto doar/indicar pra liberar (admin)  | [[passe-admin-ui#Dialog de liberação]]            |
 | Ver a curva inteira de conquistas (admin)        | [[passe-admin-ui#Visão Passe]]                    |
+| Abrir exemplos dos modais de conquista e escolha (admin) | [[passe-admin-ui#Exemplos de notificações]] · [[primeiros-inscritos]] |
 | Reutilizar a trilha visual para usuários         | [[html-components#PassTrack.tsx]]                |
 | Mudar o texto do requisito ("R$ 50 + 3 indicações") | [[passe-formatacao]]                           |
 | Colocar cadeado na cena / painel do usuário      | [[passe-cena]]                                    |

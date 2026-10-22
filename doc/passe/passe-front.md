@@ -68,8 +68,8 @@ Backend envia `mode`; ausente no catálogo antigo = `all`. Regras grátis contin
 | `lib/unlock.ts` | ✅ [[passe-formatacao]] |
 | UI admin (página Passe, trilha visual, dialog) | ✅ [[passe-admin-ui]] |
 | Cadeado no `BuildingManageDialog` | ✅ [[passe-cena]] |
-| Aviso de conquista | ✅ `RewardDialog`, Motion sob demanda, confirmação persistida |
-| Escolha por indicação | ✅ `RewardDialog` (cards-radio), validada no backend — [[primeiros-inscritos]] |
+| Aviso de conquista | ✅ `RewardDialog`, cartões ampliados, confete, prévia 3D sob demanda e confirmação persistida |
+| Escolha por indicação | ✅ `RewardDialog` → `SignupRewardDialog` (cards ampliados, revelação Motion, confete Canvas e prévia 3D sob demanda), validada no backend — [[primeiros-inscritos]] |
 
 ## Notificação de recompensa
 
@@ -81,7 +81,7 @@ Passe conta indicação só com contribuição real do indicado (`progress.refer
 
 `AuthMenu` monta `RewardDialog` via lazy import só com pendências ou escolha disponível (`rewards.choice`). Pendência tem prioridade; escolha aparece depois. Espera onboarding, indicação, menu, compartilhamento, pagamento, ajuda e edição/info do edifício liberarem tela. Sem interromper formulário aberto. Onboarding pulado offline, ainda não confirmado no servidor: avisos aguardam conclusão persistida.
 
-Modal agrupa lote: item principal com miniatura + motivo; demais itens com miniatura/motivo próprios. Próxima conquista segue `sortPassRewards`, ignora grátis e conquistadas, usa `formatUnlockRemaining` para metas AND/OR. Sem próxima meta: incentivo neutro. Animação Motion: entrada curta + oito partículas quadradas âmbar, sem loop; movimento reduzido = fade sem partículas. Cores, borda pixel, botão e Dialog do DS.
+Modal agrupa lote em cartões: um item = cartão ampliado central; vários = grade de duas colunas, com motivo próprio por item. Título curto, motivo compacto com ícones (contribuição, indicações ou primeiros inscritos); sem troféu, kicker ou tipo da recompensa. Formatação compartilha `formatUnlockRequirement`/`formatReferrals`, preservando snapshot histórico e AND/OR. Formatos/topos/LEDs têm **Ver em 3D**, canvas único sob demanda; voltar preserva lote e não confirma aviso. Próxima conquista segue `sortPassRewards`, ignora grátis e conquistadas, usa `formatUnlockRemaining`; metas seguintes em texto simples, sem fundo/borda, destaque só nos valores. Sem meta: seção omitida. Motion revela cartões; `RewardConfetti` celebra ambos os modais com 300 partículas do Realistic Look. Movimento reduzido: fade, sem confete/giro automático. Cores, borda pixel, botão e Dialog do DS.
 
 X, Esc, clique fora ou Continuar dispensam lote apresentado; um POST idempotente, sem nova leitura. Backend conserva pendências se rede falhar. Histórico anterior à migration 0026 marcado visto; sem enxurrada retroativa. Preservação administrativa de item já usado também não notifica. Grants novos por doação, indicação ou escolha por indicação ficam pendentes.
 
