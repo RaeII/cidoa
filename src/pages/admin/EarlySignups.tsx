@@ -6,6 +6,7 @@ import type { CustomizationCategory, EarlySignupInput, EarlySignupSettings } fro
 import { ApiError } from "@/api/http";
 import { AppSidebar } from "@/components/AppSidebar";
 import { MobileNav } from "@/components/MobileNav";
+import { RewardExamples } from "@/components/admin/RewardExamples";
 import { CustomizationImage } from "@/components/customization/CustomizationImage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -108,6 +109,7 @@ export default function EarlySignups() {
               <h1 className="text-3xl font-semibold tracking-tight">Recompensas por indicação</h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">A cada meta de cadastros indicados, o usuário escolhe um item. Os indicados não precisam contribuir.</p>
             </div>
+            <RewardExamples />
             {error && <div role="alert" className="flex flex-wrap items-center gap-2 pixel pixel-thin pixel-ink-ambar-700 bg-card p-4 text-sm text-destructive">
               <ErrorMark />{error}{!form && <Button variant="outline" className="ml-3" onClick={() => setReload((value) => value + 1)}>Tentar novamente</Button>}
             </div>}
@@ -174,7 +176,7 @@ export default function EarlySignups() {
                   ))}
                   {!groups.some((group) => group.items.length) && <p className="text-sm text-muted-foreground">Nenhum item disponível. Configure o catálogo de personalizações primeiro.</p>}
                 </fieldset>
-                <div className="sticky bottom-1 space-y-3 pixel bevel-edge bg-card p-4 pb-5">
+                <div className="sticky bottom-1 z-20 space-y-3 pixel bevel-edge bg-card p-4 pb-5">
                   <p className="text-sm"><strong>Opções da etapa:</strong> {selected.map((item) => item.label).join(" · ") || "Nenhum item selecionado"}</p>
                   <p className="text-xs leading-5 text-muted-foreground">Metas identificam as etapas: remover e recriar a mesma meta não renova escolhas. Conquistas anteriores permanecem. Itens não escolhidos seguem as regras do passe.</p>
                   {invalidActive && <p className="flex gap-2 text-sm text-destructive"><ErrorMark />Para ativar, configure etapas com itens ativos e bloqueados no passe.</p>}

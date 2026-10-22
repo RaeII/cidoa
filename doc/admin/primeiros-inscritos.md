@@ -20,6 +20,10 @@ Exemplo: etapa 2 → Loftifício ou Varanda Gourmet; etapa 5 → Yatchcasa ou Re
 
 Cards: estado salvo, usuários com escolha, posições restantes (ou "Sem limite"). Botões de etapa alternam grade de itens. Item grátis ou inativo desabilitado (só desmarca). Aviso de alteração pendente; erro mantém formulário.
 
+## Visualizar modais
+
+Seção **Exemplos de notificações**, acima da configuração. **Ver conquista desbloqueada** mostra animação com item, motivo e próxima meta. **Ver escolha por indicação** oferece Loftifício ou Varanda Gourmet após 2 cadastros; confirmar mostra conquista escolhida. Exemplos fixos, locais, sem salvar formulário ou criar indicações/recompensas. Mesmos componentes da cena; também disponíveis no [[passe-admin-ui#Exemplos de notificações|Passe]].
+
 ## Regras
 
 - Ativação exige etapa, itens ativos e com regra no passe. Padrões `default`/`none` não entram. Rascunho pausado aceita itens inativos.
@@ -43,3 +47,5 @@ Cena: `/customization/me` traz `signupRewards`; `RewardDialog` abre escolha. Bac
 ## Verificação
 
 `npm run build`, `npm run lint`, `node scripts/check-reward-notifications.mjs`. Backend: `bun test tests/reward-notifications.test.ts tests/early-signups.test.ts`.
+
+Exemplos admin: `node scripts/check-reward-examples.mjs` (sem servidor/navegador/API). Escolha com cards ampliados, sem textos de regras/tipo/troféu; **Ver em 3D** abre modelo, topo ou LED com giro/zoom no mesmo modal. Botão **Desbloquear recompensa**. `node scripts/check-signup-reward-dialog.mjs` verifica seleção, prévia, envio, erros e descarte do contexto.

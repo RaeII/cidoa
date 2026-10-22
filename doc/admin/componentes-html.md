@@ -51,6 +51,7 @@ src/
     AppSidebar.tsx             ← sidebar desktop (nav + conta/tema no rodapé)
     MobileNav.tsx              ← nav mobile (bottom bar + drawer, < md)
     ThemeToggle.tsx            ← switch claro/escuro
+    admin/RewardExamples.tsx   ← exemplos locais dos modais reais; Passe e Recompensas por indicação
   hooks/
     useAuth.ts                 ← AuthContext + hook useAuth (cena)
     useAdminAuth.ts            ← AdminAuthContext + hook useAdminAuth (painel)

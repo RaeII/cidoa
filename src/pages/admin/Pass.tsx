@@ -8,6 +8,7 @@ import type { PassReward } from "@/lib/pass";
 import { AppSidebar } from "@/components/AppSidebar";
 import { MobileNav } from "@/components/MobileNav";
 import { UnlockDialog } from "@/components/admin/UnlockDialog";
+import { RewardExamples } from "@/components/admin/RewardExamples";
 import { PassTrack } from "@/components/pass/PassTrack";
 import { Button } from "@/components/ui/button";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -72,6 +73,7 @@ export default function Pass() {
         </header>
         <div className="min-w-0 flex-1 overflow-y-auto">
           <main className="mx-auto w-full max-w-7xl space-y-8 px-4 pt-6 pb-24 sm:px-8 sm:pt-8 md:pb-10">
+            <RewardExamples />
             {feedback && <p role="status" className="pixel pixel-thin bg-card px-4 py-3 text-sm">{feedback}</p>}
 
             {loadError ? (
