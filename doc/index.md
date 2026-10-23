@@ -253,6 +253,7 @@ src/
     hooks/
       useCityScene.ts
     runtime/
+      createScenePreparer.ts      ← cache de variantes e uploads incrementais
       createCitySceneRuntime.ts
     utils/
       math.ts
@@ -607,3 +608,7 @@ Quatro modalidades: doação, indicação, doação + indicação (`all`) e doa�
 ## Balanceamento inicial do Passe
 
 [[passe-balanceamento]] — regras aplicadas, faixas editoriais e ordenação por esforço: doação, indicação, AND e OR.
+
+## Verificação de desempenho mobile
+
+`node scripts/check-mobile-performance.mjs` verifica buffers, GIFs, preparo de shaders e cache incremental sem GPU/servidor. `check-building-textures.mjs` cobre frustum/picking lógico, reflexos e LEDs; `check-horizon.mjs` cobre horizonte, FPS real e suspensão por visibilidade. Implementação: [[scene-runtime#Visibilidade e preparo incremental (mobile)]], [[scene-managers#Culling espacial e atualizações incrementais]], [[scene-textures]]. O ganho de FPS e a equivalência visual ainda requerem validação no aparelho real.

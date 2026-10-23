@@ -169,7 +169,7 @@ Carrega e configura o ambiente HDRI/skybox. Callbacks: `onLoaded(envMap, bg)` no
 Holograma cyberpunk acima do prédio: 1 plano + `ShaderMaterial` (uTime, aberração cromática, glitch). Suporta imagem estática e GIF animado (`ImageDecoder` → frames em canvas).
 
 > [!note] Cap de resolução de GIF
-> Canvas do GIF limitado a **512px** no maior lado — GIF grande viraria upload de textura gigante a cada frame. `tickHologram` só roda para hologramas visíveis (culling por distância do manager).
+> Canvas e bitmaps dos quadros limitados a **512px** no maior lado. Cada VideoFrame é reduzido com o mesmo canvas 2D usado na exibição e fechado imediatamente; não se retêm os originais grandes. `tickHologram` avança pelo tempo real, salta ciclos completos e desenha só o quadro final quando muda. Distância/frustum controlam os ticks; o retorno à visão recupera a fase. `LinearFilter` usa `generateMipmaps = false` nas texturas de hologramas, estáticas ou GIF. Descarte, erro e carga obsoleta fecham os recursos.
 
 ### `createParapetMesh.ts`
 
@@ -419,7 +419,7 @@ Cena isolada com **uma** personalização para o admin ([[personalizacoes#Previe
 - `frame(aspect)` / `place(distance)` — enquadramento por bounding sphere, separados pra resize não desfazer o giro do usuário
 - `frameBox(root)` — bounding box que **ignora volumétrico** (transparente com `depthWrite: false`): o feixe do holofote tem 10 unidades e deixaria o prédio um ponto
 - `BuildingPreviewAppearance` opcional em `createPreviewScene(resolved, appearance)`: aparência, mapas de fachada/topo e callback após carregar holograma. Combina formato, cor, textura, topo, LED, letreiro e holograma com os builders existentes. Yatchcasa (`yachthouse`) usa altura própria e recebe acessórios nas duas torres; residenciais usam a pedra do topo (Yatchcasa não: dourado é textureless).
-- `tick(elapsed, deltaMs)` anima o holograma; `updateStyle(customization)` atualiza cor, tint e opacidade sem reconstruir o modelo/decodificar GIF.
+- `hasAnimation()` informa se há holograma; `tick(elapsed, deltaMs)` anima o holograma; `updateStyle(customization)` atualiza cor, tint e opacidade sem reconstruir o modelo/decodificar GIF.
 - Enquadramento ignora feixes de luz e inclui a área do holograma; `frame()` recalcula os limites após carregar a imagem.
 - `dispose()` — materiais, caixa e clones de textura locais + acessórios/letreiro/holograma. Geometrias e mapas compartilhados com a cidade permanecem vivos.
 - `disposeHologramMesh` incrementa `loadToken`: imagem que chega depois do fechamento não recria textura descartada.
@@ -806,3 +806,7 @@ Builders não decidem:
 - Quando a câmera disparou refresh → [[scene-runtime]]
 
 Essas decisões ficam no runtime e nos managers.
+
+### Mapas incrementais de pedra
+
+`setResidentialStoneMaps` compara a presença de cor, normal e roughness antes/depois. Um normal/roughness que chega após o color map também invalida a variante do shader. Alterações somente de cor não exigem recompilação. Testes de culling, GIF, cache e descarte: `scripts/check-mobile-performance.mjs`.

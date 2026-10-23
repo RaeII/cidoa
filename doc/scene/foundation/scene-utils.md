@@ -101,12 +101,12 @@ O [[scene-managers|ChunkManager]] usa essas funções para definir, de forma **d
 
 ### `instanceCulling.ts`
 
-Cull de distância para `InstancedMesh` do chão da cidade (lotes, calçadas, postes, asfalto). Mesmo esquema dos prédios: matriz lógica fica em snapshot, buffer renderizado leva só as visíveis.
+Cull de distância e frustum para `InstancedMesh` do chão da cidade (lotes, calçadas, postes, asfalto). Mesmo esquema dos prédios: matriz lógica fica em snapshot, buffer renderizado leva só as visíveis.
 
 | Função | Descrição |
 |---|---|
 | `snapshotInstances(meshes, count)` | Congela matrizes já escritas nos meshes. Deriva posição XZ da translação do primeiro mesh. Retorna `InstanceCullGroup` (ou `null` se `count === 0`) |
-| `cullInstances(group, visible)` | Compacta o buffer com as instâncias aprovadas por `visible(x, z)` e ajusta `count`. Retorna quantas sumiram |
+| `cullInstances(group, visible, frustum?)` | Compacta as instâncias aprovadas por distância e, quando fornecido, frustum; ajusta `count`. Retorna quantas sumiram |
 | `restoreInstances(group)` | Devolve todas as instâncias — probe de reflexo captura cidade inteira |
 
 Meshes do mesmo grupo compartilham índice lógico: poste + luminária + mancha de luz são a **mesma** instância vista de três meshes, somem juntos.
@@ -139,3 +139,9 @@ Verificações de desenvolvimento com `console.assert`:
 
 Ajuda a detectar regressões em utilitários básicos durante o desenvolvimento.
 Chamado pelo [[scene-runtime|createCitySceneRuntime]] na inicialização.
+
+### Buffers e limites do culling
+
+`snapshotInstances` guarda índices visíveis e esferas que contêm todas as peças de cada instância (incluindo o halo do poste). Meshes do piso mantêm transformações locais fixas; o movimento está nos buffers. A esfera global continua conservadora após compactação.
+
+`cullInstances` compara a sequência visível anterior: conjunto idêntico não copia nem sinaliza upload. Prefixo preservado não é reenviado; `addUpdateRange` marca somente a cauda alterada, sem apagar intervalos ainda pendentes na GPU. Zero instâncias ajusta apenas `count`. `restoreInstances` usa o mesmo caminho, inclusive ao restaurar o cubemap. Teste: `scripts/check-mobile-performance.mjs`.

@@ -13,6 +13,7 @@ type Runtime = {
   appearance: BuildingCustomization | null;
   textureSettings: TextureSettings | null;
   texturesReady: boolean;
+  renderNeeded: boolean;
   resize: (reset?: boolean) => void;
 };
 
@@ -50,8 +51,9 @@ export function BuildingPreview({ customization, textureSettings }: {
     controls.autoRotate = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     controls.autoRotateSpeed = 1;
     const runtime: Runtime = {
-      renderer, controls, view: null, appearance: null, textureSettings: null, texturesReady: false,
+      renderer, controls, view: null, appearance: null, textureSettings: null, texturesReady: false, renderNeeded: true,
       resize(reset = false) {
+        runtime.renderNeeded = true;
         const { clientWidth: width, clientHeight: height } = container;
         if (!width || !height || !runtime.view) return;
         renderer.setSize(width, height, false);
@@ -64,10 +66,12 @@ export function BuildingPreview({ customization, textureSettings }: {
       },
     };
     runtimeRef.current = runtime;
+    const requestRender = () => { runtime.renderNeeded = true; };
+    controls.addEventListener("change", requestRender);
     const observer = new ResizeObserver(() => runtime.resize());
     observer.observe(container);
     let visible = true;
-    const intersection = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; });
+    const intersection = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; requestRender(); });
     intersection.observe(container);
     let raf = 0;
     let lastFrame = 0;
@@ -77,6 +81,8 @@ export function BuildingPreview({ customization, textureSettings }: {
       const delta = Math.min(now - lastFrame, 100);
       lastFrame = now;
       controls.update(delta / 1000);
+      if (!runtime.renderNeeded && !runtime.view.hasAnimation()) return;
+      runtime.renderNeeded = false;
       runtime.view.tick(now / 1000, delta);
       renderer.render(runtime.view.scene, runtime.view.camera);
     };
@@ -85,6 +91,7 @@ export function BuildingPreview({ customization, textureSettings }: {
       cancelAnimationFrame(raf);
       observer.disconnect();
       intersection.disconnect();
+      controls.removeEventListener("change", requestRender);
       controls.dispose();
       runtime.view?.dispose();
       renderer.dispose();
@@ -103,6 +110,7 @@ export function BuildingPreview({ customization, textureSettings }: {
       (["buildingShape", "rooftopType", "edgeLightType", "signText", "signSides", "textureKey", "tilingScale", "textureTransform", "hologramImage"] as const)
         .every((key) => previous[key] === customization[key])) {
       runtime.view.updateStyle(customization);
+      runtime.renderNeeded = true;
       runtime.appearance = customization;
       return;
     }
@@ -128,11 +136,12 @@ export function BuildingPreview({ customization, textureSettings }: {
     const facadeKey = customization.textureKey ?? textureSettings.textureKey;
     const facade = textured ? peekFacadeTextureSet(facadeKey) : null;
     const top = textured ? peekFacadeTextureSet("Concrete024_1K-JPG") : null;
-    show(facade, top, !textured || !!(facade && top));
-    if (textured && (!facade || !top)) {
+    show(facade, top, !textured);
+    // O cache pode estar parcial (a cena principal não usa todos os mapas da prévia).
+    if (textured) {
       void Promise.all([
-        loadFacadeTextureSet(facadeKey, 2),
-        loadFacadeTextureSet("Concrete024_1K-JPG", 2),
+        loadFacadeTextureSet(facadeKey, 2, { displacement: false }),
+        loadFacadeTextureSet("Concrete024_1K-JPG", 2, { displacement: false }),
       ]).then(([facade, top]) => show(facade, top));
     }
     return () => { canceled = true; };

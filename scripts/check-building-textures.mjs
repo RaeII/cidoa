@@ -122,9 +122,88 @@ manager.setFocusedDonation(null);
 assert.equal(first.geometry, batched);
 assert.equal(second.geometry, batched);
 assert.ok(first.material.every((material) => !material.transparent && material.opacity === 1));
+const stableVersions = first.material.map((mat) => mat.version);
+manager.setFocusedDonation(null);
+assert.deepEqual(first.material.map((mat) => mat.version), stableVersions, "foco idêntico invalidou materiais");
+
+// Frustum por quadra preserva todos os prédios que cruzam a imagem; probe restaura tudo.
+manager.setDonations(Array.from({ length: 200 }, (_, i) => ({ id: 100 + i, value: 200 - i })));
+manager.setRenderDistance(Infinity, Infinity, Infinity);
+const buildings = () => scene.children.filter((mesh) => mesh.isInstancedMesh && Array.isArray(mesh.material) && mesh.material[0].isMeshPhysicalMaterial);
+const full = buildings().map((mesh) => ({ mesh, count: mesh.count, matrices: mesh.instanceMatrix.array.slice(0, mesh.count * 16) }));
+const originalMeshes = full.map(({ mesh, count, matrices }) => {
+  const original = new THREE.InstancedMesh(mesh.geometry, mesh.material, count);
+  original.instanceMatrix.array.set(matrices);
+  return original;
+});
+const idsByPosition = new Map(Array.from({ length: 200 }, (_, i) => {
+  const id = i + 100;
+  const position = manager.getDonationWorldPosition(id);
+  return [`${Math.fround(position.x)},${Math.fround(position.z)}`, id];
+}));
+const raycaster = new THREE.Raycaster();
+const camera = new THREE.PerspectiveCamera(45, 9 / 16, 0.1, 500);
+const projection = new THREE.Matrix4();
+const bounds = new THREE.Box3();
+const matrix = new THREE.Matrix4();
+for (const [x, z] of [[0, 80], [80, 0], [0, -80], [-80, 0]]) {
+  camera.position.set(x, 25, z);
+  camera.lookAt(0, 8, 0);
+  camera.updateMatrixWorld();
+  const frustum = new THREE.Frustum().setFromProjectionMatrix(projection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+  let expected = 0;
+  for (const { mesh, count, matrices } of full) {
+    mesh.geometry.computeBoundingBox();
+    for (let i = 0; i < count; i++) {
+      bounds.copy(mesh.geometry.boundingBox).applyMatrix4(matrix.fromArray(matrices, i * 16));
+      if (frustum.intersectsBox(bounds)) expected++;
+    }
+  }
+  manager.updateDistanceCulling(camera.position, camera.getWorldDirection(new THREE.Vector3()), frustum);
+  assert.equal(buildings().reduce((sum, mesh) => sum + mesh.count, 0), expected, "frustum perdeu prédio visível");
+  for (const x of [-0.5, 0, 0.5]) {
+    raycaster.setFromCamera(new THREE.Vector2(x, 0), camera);
+    const hit = raycaster.intersectObjects(originalMeshes, false)[0];
+    let expectedId = null;
+    if (hit) {
+      hit.object.getMatrixAt(hit.instanceId, matrix);
+      expectedId = idsByPosition.get(`${matrix.elements[12]},${matrix.elements[14]}`);
+    }
+    const selected = manager.getClickedDonationId({ clientX: (x + 1) * 180, clientY: 320 }, camera,
+      { getBoundingClientRect: () => ({ left: 0, top: 0, width: 360, height: 640 }) });
+    assert.equal(selected, expectedId, "compactação mudou o id do prédio selecionado");
+  }
+  const compacted = buildings().map((mesh) => mesh.instanceMatrix.array.slice(0, mesh.count * 16));
+  const versions = buildings().map((mesh) => mesh.instanceMatrix.version);
+  manager.updateDistanceCulling(camera.position, camera.getWorldDirection(new THREE.Vector3()), frustum);
+  assert.deepEqual(buildings().map((mesh) => mesh.instanceMatrix.version), versions);
+  manager.beginEnvCapture(true);
+  for (const { mesh, count, matrices } of full) {
+    assert.equal(mesh.count, count);
+    assert.deepEqual(mesh.instanceMatrix.array.slice(0, count * 16), matrices);
+  }
+  manager.endEnvCapture();
+  assert.deepEqual(buildings().map((mesh) => mesh.instanceMatrix.array.slice(0, mesh.count * 16)), compacted);
+}
+for (const mesh of originalMeshes) mesh.dispose();
+
+// Pool existe enquanto houver LEDs; trocar/remover um de vários não recompõe as luzes.
+manager.updateDonationCustomization(100, { ...customization, edgeLightType: "led" });
+const lights = scene.children.filter((object) => object.isPointLight);
+assert.equal(lights.length, 8);
+manager.updateDonationCustomization(101, { ...customization, edgeLightType: "led" });
+manager.updateDonationCustomization(100, customization);
+assert.deepEqual(scene.children.filter((object) => object.isPointLight), lights);
+manager.updateDonationCustomization(101, customization);
+assert.equal(scene.children.filter((object) => object.isPointLight).length, 0);
+manager.updateDonationCustomization(100, { ...customization, edgeLightType: "led" });
+assert.equal(scene.children.filter((object) => object.isPointLight).length, 8);
+manager.setDonations([]);
+assert.equal(scene.children.filter((object) => object.isPointLight).length, 0, "filtro deixou pool sem LED");
 let batchDisposed = false;
 batched.addEventListener("dispose", () => { batchDisposed = true; });
 manager.dispose();
 assert.ok(batchDisposed, "Dispose do manager não liberou geometria agrupada");
 console.log("ok texturas — destaque, grupo, global, automática, isolamento e reutilização de meshes/cache");
 console.log("ok batching — foco, troca de foco, transparência, restauração e dispose no manager real");
+console.log("ok mobile — frustum por quadra, buffers estáveis, probe completo e ciclo das luzes LED");

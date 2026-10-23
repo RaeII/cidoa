@@ -282,11 +282,12 @@ export function setResidentialStoneMaps(
   stone: THREE.MeshStandardMaterial,
   maps: ResidentialStoneMaps | null,
 ): void {
-  const had = Boolean(stone.map);
+  const mask = () => Number(Boolean(stone.map)) | (Number(Boolean(stone.normalMap)) << 1) | (Number(Boolean(stone.roughnessMap)) << 2);
+  const previous = mask();
   stone.map = maps?.color ?? null;
   stone.normalMap = maps?.normal ?? null;
   stone.roughnessMap = maps?.roughness ?? null;
-  if (had !== Boolean(stone.map)) stone.needsUpdate = true;
+  if (previous !== mask()) stone.needsUpdate = true;
 }
 
 // facadeMaterial vira a pedra (slot 0, recebe a cor do edifício);
