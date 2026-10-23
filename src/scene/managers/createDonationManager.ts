@@ -69,6 +69,7 @@ import {
   createUnitBuildingGeometry,
   disposeBuildingShapeSharedResources,
   groupBoxGeometryByTop,
+  setBuildingShapeMeshBatching,
 } from "../builders/createBuildingShapeMesh";
 import { pickIndex, seeded } from "../utils/random";
 import {
@@ -2189,9 +2190,11 @@ export function createDonationManager({
   };
 
   const setCustomShapeOpacity = (entry: CustomShapeEntry, opacity: number) => {
-    for (const material of getCustomShapeMaterials(entry)) {
+    const materials = getCustomShapeMaterials(entry);
+    for (const material of materials) {
       setMatOpacity(material, opacity);
     }
+    setBuildingShapeMeshBatching(entry.mesh, materials.every((material) => !material.transparent));
   };
 
   const applyFocus = (donationId: number | null) => {

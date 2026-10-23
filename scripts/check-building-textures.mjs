@@ -99,5 +99,32 @@ assert.equal(focusedMesh.material[0].map, randomTexture, "automática não resta
 manager.setFocusedDonation(null);
 manager.setFocusedDonation(1);
 assert.equal(highlight().material[0].map, randomTexture, "reabrir foco mudou textura");
+
+// Batching dos formatos preserva a ordem de blending dos prédios esmaecidos no foco.
+manager.setFocusedDonation(null);
+for (const id of [1, 2]) {
+  manager.updateDonationCustomization(id, { ...customization, buildingShape: "empire" });
+}
+const first = scene.children.find((mesh) => mesh.userData.donationId === 1);
+const second = scene.children.find((mesh) => mesh.userData.donationId === 2);
+const batched = first.geometry;
+assert.equal(batched.groups.length, 8);
+assert.equal(second.geometry, batched, "Empire não reutilizou geometria agrupada");
+manager.setFocusedDonation(1);
+assert.equal(first.geometry, batched, "Destaque opaco perdeu batching");
+const original = second.geometry;
+assert.equal(original.groups.length, 2293, "Transparência perdeu ordem original de desenho");
+assert.ok(second.material.every((material) => material.transparent && material.opacity === 0.15));
+manager.setFocusedDonation(2);
+assert.equal(first.geometry, original, "Troca de foco não restaurou ordem de blending");
+assert.equal(second.geometry, batched);
+manager.setFocusedDonation(null);
+assert.equal(first.geometry, batched);
+assert.equal(second.geometry, batched);
+assert.ok(first.material.every((material) => !material.transparent && material.opacity === 1));
+let batchDisposed = false;
+batched.addEventListener("dispose", () => { batchDisposed = true; });
 manager.dispose();
+assert.ok(batchDisposed, "Dispose do manager não liberou geometria agrupada");
 console.log("ok texturas — destaque, grupo, global, automática, isolamento e reutilização de meshes/cache");
+console.log("ok batching — foco, troca de foco, transparência, restauração e dispose no manager real");

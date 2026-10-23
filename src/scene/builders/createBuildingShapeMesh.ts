@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { mergeGroups } from "three/addons/utils/BufferGeometryUtils.js";
 import type { BuildingShape } from "../types";
 import {
   createTwistedBuildingMesh,
@@ -85,6 +86,17 @@ const SHAPE_BUILDERS: Record<Exclude<BuildingShape, "default">, ShapeMeshBuilder
   loft: createLoftBuildingMesh,
 };
 
+const geometryBatches = new WeakMap<THREE.BufferGeometry, {
+  original: THREE.BufferGeometry;
+  batched: THREE.BufferGeometry;
+}>();
+
+/** Transparência do foco mantém a ordem original dos grupos para preservar o blending. */
+export function setBuildingShapeMeshBatching(mesh: THREE.Mesh, enabled: boolean): void {
+  const pair = geometryBatches.get(mesh.geometry);
+  if (pair) mesh.geometry = enabled ? pair.batched : pair.original;
+}
+
 /** Toda key de formato conhecida pelo front (inclui `default`). */
 export const BUILDING_SHAPES = ["default", ...Object.keys(SHAPE_BUILDERS)] as BuildingShape[];
 
@@ -154,7 +166,32 @@ export function createBuildingShapeMesh(
   if (shape === "default") {
     return new THREE.Mesh(defaultGeometry, [facadeMaterial, topMaterial]);
   }
-  return SHAPE_BUILDERS[shape](facadeMaterial, topMaterial);
+  const mesh = SHAPE_BUILDERS[shape](facadeMaterial, topMaterial);
+  const geometry = mesh.geometry;
+  if (
+    !geometryBatches.has(geometry) &&
+    geometry.groups.length > new Set(geometry.groups.map((group) => group.materialIndex)).size
+  ) {
+    // Só índice/grupos novos: posições, normais e UVs compartilham os buffers originais.
+    const batched = new THREE.BufferGeometry();
+    batched.attributes = { ...geometry.attributes };
+    batched.setIndex(geometry.index);
+    batched.groups = geometry.groups.map((group) => ({ ...group }));
+    batched.boundingBox = geometry.boundingBox;
+    batched.boundingSphere = geometry.boundingSphere;
+    mergeGroups(batched);
+    const pair = { original: geometry, batched };
+    geometryBatches.set(geometry, pair);
+    geometryBatches.set(batched, pair);
+    geometry.addEventListener("dispose", () => {
+      batched.dispose();
+      geometryBatches.delete(geometry);
+      geometryBatches.delete(batched);
+    });
+  }
+  const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  setBuildingShapeMeshBatching(mesh, materials.every((material) => !material.transparent));
+  return mesh;
 }
 
 /** Descarta as geometrias compartilhadas (cache module-level) de todos os formatos. */

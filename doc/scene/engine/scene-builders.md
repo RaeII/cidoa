@@ -354,6 +354,8 @@ Registro único formato → builder. Ponto de entrada de **todo** consumidor de 
 **Responsabilidades:**
 - `SHAPE_BUILDERS`: `Record<Exclude<BuildingShape, "default">, builder>` — `Record` exaustivo, formato novo em [[scene-types#BuildingShape]] sem builder **não compila**
 - `createBuildingShapeMesh(shape, facadeMaterial, topMaterial, defaultGeometry)` — devolve o Mesh do formato; `default` usa a geometria caixa que o caller já tem em mãos
+- Formatos com grupos repetidos: `mergeGroups` do Three.js gera índice agrupado por material; cache compartilhado por geometria. Atributos (posição, normal, UV/projeção) reutilizados, sem duplicar buffers de vértices. Dispose original libera versão agrupada.
+- `setBuildingShapeMeshBatching(mesh, enabled)` — alterna geometria agrupada/original sem reconstruir buffers. [[scene-managers|Manager]] usa original nos prédios semitransparentes do foco: blending depende da ordem de desenho.
 - `groupBoxGeometryByTop()` — reordena o índice do `BoxGeometry` e consolida as seis faces em dois grupos reais (laterais/base + topo), reduzindo seis draw calls para dois quando há dois materiais
 - `createUnitBuildingGeometry()` — caixa 1×1×1 já consolidada por `groupBoxGeometryByTop` (topo = material 1, resto = 0) + atributos `aProjPosition`/`aProjNormal` do shader triplanar. Instância nova por chamada, quem cria descarta
 - `BUILDING_SHAPES` / `isBuildingShape(key)` — lista e guard pra key vinda do catálogo do banco ([[customization-api]]), que pode ter opção sem builder no front
@@ -370,6 +372,34 @@ Registro único formato → builder. Ponto de entrada de **todo** consumidor de 
 > As geometrias são cache module-level compartilhado. `disposeBuildingShapeSharedResources()` é do teardown do manager; o preview do admin só descarta os **materiais** que criou.
 
 **Checagem:** `node scripts/check-building-shapes.mjs` — monta os 14 formatos com bundle em memória (sem servidor, watcher, navegador ou WebGL) e afirma geometria não-degenerada, altura unitária e slots de material na ordem fachada/topo. Cobre também o preview do admin: `resolveSubject` pra toda key semeada e o `frameBox` ignorando volumétrico.
+
+#### Agrupamento por material (mobile)
+
+Análise de 22/10/2026: modelos detalhados geravam centenas/milhares de chamadas por prédio. Cada `geometry.groups` = um draw call, mesmo com material repetido. Agrupamento reduz chamadas sem remover triângulos, mudar materiais, shaders, texturas ou resolução.
+
+| Formato | Grupos antes | Grupos depois (opaco) |
+|---|---:|---:|
+| Empire | 2293 | 8 |
+| Taipei | 517 | 2 |
+| One Trade | 299 | 2 |
+| Twisted / Tapered | 6 | 2 |
+| Hearst | 4 | 2 |
+| Octagonal / Setback / Chrysler | 3 | 2 |
+
+Caixa padrão e modelos residenciais já agrupados: intactos. Benefício na cena e nas prévias, mobile/desktop. Contagem por prédio e passe; não representa FPS medido nem redução percentual do quadro inteiro.
+
+> [!important] Foco preserva transparência
+> Prédio opaco usa índice agrupado. Prédios esmaecidos usam geometria original para manter ordem de blending; custo anterior permanece nesses prédios enquanto foco estiver ativo. Sair do foco reutiliza cache agrupado. Posições/normais/projeções compartilhadas entre as duas versões; só índice/grupos adicionais.
+
+**Verificação:** `node scripts/check-building-draw-calls.mjs` compara builders originais com entrada compartilhada: mesmos índices por material (inclusive winding), atributos, limites e seleção por raio. Verifica cache, alternância independente por mesh e dispose. `node scripts/check-building-textures.mjs` cobre foco/troca/restauração/descarte no manager real. Sem servidor/navegador/GPU; FPS e composição visual ainda precisam de medição no aparelho.
+
+**Outros caminhos analisados:** [[scene-runtime#Desempenho (TBT e celular)|runtime]] já usa render sob demanda, compilação assíncrona e uploads em etapas; prédios padrão já usam instancing. Perfil mobile existente (DPR 1,5, 30 fps, texturas menores, sem captura dinâmica do cube) preservado. Cena atual não tem shadow maps. PBR/clearcoat/bump e transparência continuam custando GPU; alterações visuais nesses caminhos ficaram fora deste ajuste.
+
+**Fontes consultadas:**
+- [Three.js — BufferGeometry.groups](https://threejs.org/docs/pages/BufferGeometry.html#groups): um draw call por grupo.
+- [Three.js — mergeGroups](https://threejs.org/docs/pages/module-BufferGeometryUtils.html#mergeGroups): utilitário oficial usado, conferido também no código da versão instalada (0.183.2).
+- [MDN — Batch draw calls](https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_best_practices#batch_draw_calls): agrupar chamadas reduz overhead de WebGL.
+- [Three.js — Rendering on Demand](https://threejs.org/manual/pages/rendering-on-demand.html): prática já presente no runtime.
 
 > [!note] Guards irmãos nos acessórios
 > `isRooftopType` ([[scene-builders#createRooftopMesh.ts|createRooftopMesh]]) e `isEdgeLightType` ([[scene-builders#createEdgeLightMesh.ts|createEdgeLightMesh]]) seguem o mesmo padrão: `key in FACTORIES`, pra validar key vinda do catálogo antes de chamar o builder.
