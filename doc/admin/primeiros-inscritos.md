@@ -20,6 +20,8 @@ Exemplo: etapa 2 → Loftifício ou Varanda Gourmet; etapa 5 → Yatchcasa ou Re
 
 Cards: estado salvo, usuários com escolha, posições restantes (ou "Sem limite"). Botões de etapa alternam grade de itens. Item grátis ou inativo desabilitado (só desmarca). Aviso de alteração pendente; erro mantém formulário.
 
+Card de confirmação permanece acima dos indicadores dos checkboxes durante a rolagem (`z-20` no card, `z-10` nos indicadores).
+
 ## Visualizar modais
 
 Seção **Exemplos de notificações**, acima da configuração. **Ver conquista desbloqueada** mostra animação com item, motivo e próxima meta. **Ver escolha por indicação** oferece Loftifício ou Varanda Gourmet após 2 cadastros; confirmar mostra conquista escolhida. Exemplos fixos, locais, sem salvar formulário ou criar indicações/recompensas. Mesmos componentes da cena; também disponíveis no [[passe-admin-ui#Exemplos de notificações|Passe]].

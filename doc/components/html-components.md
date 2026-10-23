@@ -705,7 +705,7 @@ Consumidor atual: `/dale/passe` ([[passe-admin-ui]]), com configuração e prév
 
 ## Benefícios de cadastro e cadeados
 
-`EarlySignups.tsx` administra etapas de recompensa por indicação e limite opcional; detalhes em [[primeiros-inscritos]]. `BuildingManageDialog` passa catálogo ao `BuildingCustomizer`: opções bloqueadas continuam visíveis, botões desabilitados, cadeado e requisito (`formatUnlockCta`). Letreiro/holograma usam `fieldset disabled`. Grátis disponível sem login; conquistas permanentes dispensam requisitos. Ver [[passe-cena]].
+`EarlySignups.tsx` administra etapas de recompensa por indicação e limite opcional; detalhes em [[primeiros-inscritos]]. Card de confirmação sticky usa `z-20`, acima dos indicadores dos checkboxes (`z-10`). `BuildingManageDialog` passa catálogo ao `BuildingCustomizer`: opções bloqueadas continuam visíveis, botões desabilitados, cadeado e requisito (`formatUnlockCta`). Letreiro/holograma usam `fieldset disabled`. Grátis disponível sem login; conquistas permanentes dispensam requisitos. Ver [[passe-cena]].
 
 Passe: `UnlockDialog` permite doação, indicação, doação + indicação e doação ou indicação. Com ambos os eixos ligados, radios selecionam `all`/`any`; cartão mostra `+`/`ou`. Ver [[passe-admin-ui]].
 

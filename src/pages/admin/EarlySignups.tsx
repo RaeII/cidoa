@@ -176,7 +176,7 @@ export default function EarlySignups() {
                   ))}
                   {!groups.some((group) => group.items.length) && <p className="text-sm text-muted-foreground">Nenhum item disponível. Configure o catálogo de personalizações primeiro.</p>}
                 </fieldset>
-                <div className="sticky bottom-1 space-y-3 pixel bevel-edge bg-card p-4 pb-5">
+                <div className="sticky bottom-1 z-20 space-y-3 pixel bevel-edge bg-card p-4 pb-5">
                   <p className="text-sm"><strong>Opções da etapa:</strong> {selected.map((item) => item.label).join(" · ") || "Nenhum item selecionado"}</p>
                   <p className="text-xs leading-5 text-muted-foreground">Metas identificam as etapas: remover e recriar a mesma meta não renova escolhas. Conquistas anteriores permanecem. Itens não escolhidos seguem as regras do passe.</p>
                   {invalidActive && <p className="flex gap-2 text-sm text-destructive"><ErrorMark />Para ativar, configure etapas com itens ativos e bloqueados no passe.</p>}
