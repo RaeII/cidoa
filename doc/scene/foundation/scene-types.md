@@ -464,7 +464,7 @@ type CameraVisibilityState = {
 
 Descreve a estrutura esperada para a config global da cena. Garante consistência de `citySceneConfig.ts`.
 
-`far: number` = alcance visual da câmera principal. `reflectionFar: number` = alcance independente da CubeCamera; ampliar horizonte não amplia captura dos reflexos. `liteDprCap`/`liteFps` = teto de DPR e FPS no modo leve.
+`far: number` = alcance visual da câmera principal. `reflectionFar: number` = alcance independente da CubeCamera; ampliar horizonte não amplia captura dos reflexos. `liteDprCap` = teto de DPR no modo leve; `liteFps` = alvo da resolução dinâmica, sem limitar o rAF.
 
 Ver campos completos em [[scene-config#citySceneConfig.ts ⭐]].
 

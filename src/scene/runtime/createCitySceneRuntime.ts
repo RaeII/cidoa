@@ -136,7 +136,7 @@ export async function createCitySceneRuntime({
   );
 
   // Modo leve (celular/máquina modesta): sem MSAA (atributo do contexto, decidido antes
-  // de criar), DPR 1,5, 30 fps e sem cube camera — reflexo vem do scene.environment (HDRI).
+  // de criar), DPR 1,5 e sem cube camera — reflexo vem do scene.environment (HDRI).
   const lite = IS_LOW_TIER;
   const renderer = new THREE.WebGLRenderer({
     antialias: !lite,
@@ -169,11 +169,7 @@ export async function createCitySceneRuntime({
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
-  // Damping é por update(): a 30 fps (modo leve) o mesmo fator levaria o dobro do tempo
-  // para assentar. Fator equivalente a dois passos de 60 fps.
-  controls.dampingFactor = lite
-    ? 1 - (1 - CITY_SCENE_CONFIG.controls.dampingFactor) ** 2
-    : CITY_SCENE_CONFIG.controls.dampingFactor;
+  controls.dampingFactor = CITY_SCENE_CONFIG.controls.dampingFactor;
   controls.rotateSpeed = CITY_SCENE_CONFIG.controls.rotateSpeed;
   controls.zoomSpeed = CITY_SCENE_CONFIG.controls.zoomSpeed;
   controls.panSpeed = CITY_SCENE_CONFIG.controls.panSpeed;
@@ -481,9 +477,6 @@ export async function createCitySceneRuntime({
   const cullForward = new THREE.Vector3();
   const viewFrustum = new THREE.Frustum();
   const viewProjection = new THREE.Matrix4();
-  // Limite de FPS do modo leve. 0 = sem limite (segue o rAF).
-  const frameIntervalMs = lite ? 1000 / CITY_SCENE_CONFIG.liteFps : 0;
-  let lastFrameAt = -Infinity;
   // Posição da última captura do cube: probe na câmera só recaptura se a câmera andou.
   const lastCapturePos = new THREE.Vector3(Infinity, Infinity, Infinity);
 
@@ -571,13 +564,12 @@ export async function createCitySceneRuntime({
     animationId = 0;
     if (!canRender()) return;
     animationId = requestAnimationFrame(animate);
-    if (time - lastFrameAt < frameIntervalMs - 2) return;
-    lastFrameAt = time;
     const elapsed = Math.max(0, (time - lastTime) / 1000);
     const delta = Math.min(elapsed, 0.05);
     lastTime = time;
 
-    // Damping assentando: a mudança chega pelo "change" (handleControlsChange).
+    // O fator base é de 60 Hz; tempo real mantém a mesma inércia em outras frequências.
+    controls.dampingFactor = 1 - (1 - CITY_SCENE_CONFIG.controls.dampingFactor) ** (elapsed * 60);
     controls.update();
 
     // Interpolar câmera durante animação de foco
@@ -784,7 +776,6 @@ export async function createCitySceneRuntime({
       return;
     }
     lastTime = performance.now();
-    lastFrameAt = -Infinity;
     renderedLastTick = false;
     fpsAccumulator = 0;
     frames = 0;

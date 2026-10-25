@@ -393,7 +393,7 @@ Caixa padrão e modelos residenciais já agrupados: intactos. Benefício na cena
 
 **Verificação:** `node scripts/check-building-draw-calls.mjs` compara builders originais com entrada compartilhada: mesmos índices por material (inclusive winding), atributos, limites e seleção por raio. Verifica cache, alternância independente por mesh e dispose. `node scripts/check-building-textures.mjs` cobre foco/troca/restauração/descarte no manager real. Sem servidor/navegador/GPU; FPS e composição visual ainda precisam de medição no aparelho.
 
-**Outros caminhos analisados:** [[scene-runtime#Desempenho (TBT e celular)|runtime]] já usa render sob demanda, compilação assíncrona e uploads em etapas; prédios padrão já usam instancing. Perfil mobile existente (DPR 1,5, 30 fps, texturas menores, sem captura dinâmica do cube) preservado. Cena atual não tem shadow maps. PBR/clearcoat/bump e transparência continuam custando GPU; alterações visuais nesses caminhos ficaram fora deste ajuste.
+**Outros caminhos analisados:** [[scene-runtime#Desempenho (TBT e celular)|runtime]] já usa render sob demanda, compilação assíncrona e uploads em etapas; prédios padrão já usam instancing. Perfil visual mobile existente (DPR 1,5, texturas menores, sem captura dinâmica do cube) preservado. FPS acompanha o rAF, com inércia normalizada pelo tempo real. Cena atual não tem shadow maps. PBR/clearcoat/bump e transparência continuam custando GPU; alterações visuais nesses caminhos ficaram fora deste ajuste.
 
 **Fontes consultadas:**
 - [Three.js — BufferGeometry.groups](https://threejs.org/docs/pages/BufferGeometry.html#groups): um draw call por grupo.

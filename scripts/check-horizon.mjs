@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
 import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { build } from "esbuild";
 
 // Só as bordas de I/O são substituídas: cena, câmera, terreno e culling são reais.
@@ -10,6 +11,7 @@ const mocks = {
   three: `
     export * from ${JSON.stringify(threeUrl)};
     export class WebGLRenderer {
+      constructor(options) { globalThis.horizonCheck.rendererOptions = options; }
       capabilities = { getMaxAnisotropy: () => 4 };
       domElement = {};
       debug = {};
@@ -19,7 +21,7 @@ const mocks = {
       setRenderTarget() {}
       compileAsync() { return Promise.resolve(); }
       initTexture() {}
-      setPixelRatio() {}
+      setPixelRatio(value) { globalThis.horizonCheck.pixelRatio = value; }
       setSize() {}
       render(scene, camera) { this.info.render.calls++; globalThis.horizonCheck.renders++; globalThis.horizonCheck.frame = { scene, camera }; }
       dispose() {}
@@ -80,9 +82,9 @@ const bundle = await build({
     },
   }],
 });
+globalThis.window = { devicePixelRatio: 2.75, matchMedia: () => ({ matches: true }), addEventListener() {}, removeEventListener() {} };
 const api = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].contents).toString("base64")}`);
 globalThis.horizonCheck = { renders: 0 };
-globalThis.window = { devicePixelRatio: 1, addEventListener() {}, removeEventListener() {} };
 const documentListeners = new Map();
 globalThis.document = { hidden: false,
   addEventListener: (name, callback) => documentListeners.set(name, callback),
@@ -112,6 +114,8 @@ const runtime = await api.createCitySceneRuntime({
   mount: { clientWidth: 1920, clientHeight: 1080, appendChild() {}, contains: () => false },
   onStatsChange: (value) => { stats = value; },
 });
+assert.equal(globalThis.horizonCheck.rendererOptions.antialias, false, "Teste deve executar o modo mobile");
+assert.equal(globalThis.horizonCheck.pixelRatio, 1.5, "DPR mobile foi alterado");
 let time = performance.now();
 // Assíncrono: compilação e fila de customização do runtime cedem a main thread (setTimeout).
 const advance = async () => {
@@ -313,6 +317,31 @@ for (let yaw = 0; yaw < Math.PI * 2; yaw += 0.03) {
   worstError = Math.max(worstError, Math.abs(roundedPlane.distanceToPoint(center)));
 }
 assert(worstError < 0.001, `Plano invade a folga até o terreno: erro ${worstError}`);
+// Ocioso não desenha; movimento acompanha cada rAF mobile, inclusive telas de 90/120 Hz.
+await advance();
+const beforeIdle = globalThis.horizonCheck.renders;
+for (let i = 0; i < 120; i++) globalThis.horizonCheck.nextFrame(time += 1000 / 120);
+assert.equal(globalThis.horizonCheck.renders, beforeIdle, "Cena parada repetiu renders");
+const angles = [];
+for (const fps of [30, 60, 90, 120]) {
+  const inertialCamera = new THREE.PerspectiveCamera();
+  inertialCamera.position.set(0, 0, 10);
+  const orbit = new OrbitControls(inertialCamera);
+  orbit.enableDamping = true;
+  orbit._rotateLeft(0.8); // Impulso de rotação sem DOM; fator vem do runtime real.
+  const before = globalThis.horizonCheck.renders;
+  for (let i = 0; i < fps; i++) {
+    camera.position.x += 0.001;
+    globalThis.horizonCheck.nextFrame(time += 1000 / fps);
+    orbit.dampingFactor = globalThis.horizonCheck.controls.dampingFactor;
+    orbit.update();
+  }
+  assert.equal(globalThis.horizonCheck.renders - before, fps, `Limitador descartou frames mobile a ${fps} Hz`);
+  assert(Math.abs(inertialCamera.position.length() - 10) < 1e-10, "Damping alterou a distância da câmera");
+  angles.push(orbit.getAzimuthalAngle());
+}
+assert(Math.abs(angles[0] - (-0.8 * (1 - 0.94 ** 60))) < 1e-10, "Inércia mudou em relação à referência de 60 Hz");
+assert(angles.every(angle => Math.abs(angle - angles[0]) < 1e-10), "Inércia depende do FPS");
 // Intervalos reais de 100 ms devem resultar em 10 FPS, sem o clamp de animação (50 ms).
 for (let i = 0; i < 14; i++) {
   camera.position.x += 0.1;
@@ -347,4 +376,4 @@ assert.equal(documentListeners.size, 0);
 assert(globalThis.horizonCheck.disconnected);
 console.log(`Raios verificados: ${checkedRays}`);
 console.log("Horizonte OK: modos reto/circular/quadrado, sem fundo cinza adicional, precisão Float32, montanhas, culling, reflexos e dispose.");
-console.log("Mobile OK: FPS real, suspensão/retomada da aba e do canvas, limpeza dos observers.");
+console.log("Mobile OK: rAF a 30/60/90/120 Hz, inércia por tempo real, DPR, repouso, FPS real e suspensão/retomada.");
