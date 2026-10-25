@@ -14,6 +14,7 @@ import type { ReferrerPreview, ReferralSummary } from "@/api/referral/referral.t
 import type { CustomizationCatalog } from "@/api/customizationApi";
 import type { RewardNotifications } from "@/components/hooks/useCustomizationCatalog";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { loadGoogleIdentity } from "@/lib/googleIdentity";
 import { AuthDialog, AuthPanel } from "@/components/AuthDialog";
 import { GameMenu, type MyDonation } from "@/components/GameMenu";
@@ -110,7 +111,9 @@ export function AuthMenu({
   const [applyError, setApplyError] = useState<string | null>(null);
   const [appliedReferrer, setAppliedReferrer] = useState<ReferrerPreview | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
-  const [introOpen, setIntroOpen] = useState(() => !introSeen());
+  // Link de indicação sempre mostra o vídeo, mesmo já visto.
+  const [introOpen, setIntroOpen] = useState(() => initialCode !== "" || !introSeen());
+  const isMobile = useIsMobile();
   // `?ref=` abre o login uma vez; fechar mantém o código para a próxima abertura.
   const [linkAuthOpen, setLinkAuthOpen] = useState(initialCode !== "");
 
@@ -121,10 +124,12 @@ export function AuthMenu({
 
   const summary = summaryState?.userId === user?.id ? summaryState?.data ?? null : null;
   const summaryError = summaryState?.userId === user?.id ? summaryState?.error ?? null : null;
-  const effectiveAuthOpen = authOpen || (!isAuthenticated && linkAuthOpen);
+  const effectiveAuthOpen = authOpen || (!isLoading && !isAuthenticated && linkAuthOpen);
   // Só visitante: sessão (cookie httpOnly) sobrevive a limpar o localStorage, então
-  // conta logada nunca vê. Link de indicação já abre o login, sem vídeo antes.
-  const showIntro = introOpen && !isLoading && !isAuthenticated && initialCode === "" && !authOpen;
+  // conta logada nunca vê.
+  const showIntro = introOpen && !isLoading && !isAuthenticated && !authOpen;
+  // Desktop: login sempre ao lado do vídeo. Mobile: vídeo primeiro, login depois.
+  const videoOpen = showIntro || (!isMobile && effectiveAuthOpen);
 
   // Viu uma vez ou entrou na conta → não mostra mais neste navegador.
   useEffect(() => {
@@ -183,6 +188,12 @@ export function AuthMenu({
   function changeAuthOpen(open: boolean) {
     if (!open) setLinkAuthOpen(false);
     onAuthOpenChange(open);
+  }
+
+  // Mobile não tem login no vídeo: fechar segue para o login do link de indicação.
+  function closeVideo() {
+    setIntroOpen(false);
+    if (!isMobile) changeAuthOpen(false);
   }
 
   function changeReferralCode(rawCode: string) {
@@ -373,8 +384,7 @@ export function AuthMenu({
         </Button>
       </div>
       <AuthDialog
-        // Código digitado no login do vídeo (desktop) não abre um segundo modal por cima.
-        open={effectiveAuthOpen && !showIntro}
+        open={isMobile && effectiveAuthOpen && !showIntro}
         onOpenChange={changeAuthOpen}
         referralCode={referralCode}
         referralPreview={referralPreview}
@@ -385,8 +395,10 @@ export function AuthMenu({
         onReferralApplied={clearPendingReferral}
       />
       <IntroVideoDialog
-        open={showIntro}
-        onOpenChange={setIntroOpen}
+        open={videoOpen}
+        onOpenChange={(next) => {
+          if (!next) closeVideo();
+        }}
         panel={
           <AuthPanel
             referralCode={referralCode}
@@ -396,7 +408,7 @@ export function AuthMenu({
             onReferralCodeChange={changeReferralCode}
             onReferralRemove={clearPendingReferral}
             onReferralApplied={clearPendingReferral}
-            onDone={() => setIntroOpen(false)}
+            onDone={closeVideo}
           />
         }
       />

@@ -38,7 +38,7 @@ Fluxo público de captura, validação, confirmação e compartilhamento de indi
 - Preview usa debounce de 350 ms e request cancelável. Código inválido bloqueia e-mail, Google e conclusão do cadastro até correção ou remoção.
 - Erro do código (`"Código inválido."`) só aparece na tentativa de entrar, nunca ao digitar: botões seguem clicáveis,
   o envio é abortado e o erro revelado. Digitar de novo esconde o erro.
-- `?ref=` abre login uma vez (`linkAuthOpen`). Fechar modal (`AuthDialog` ou vídeo) mantém código: reabrir com **Entrar** mostra mesma indicação.
+- `?ref=` sempre mostra vídeo de pré-lançamento ([[html-components#IntroVideoDialog.tsx]]) e abre login uma vez (`linkAuthOpen`): desktop = vídeo + login lado a lado; mobile = vídeo, depois `AuthDialog`. Fechar modal (`AuthDialog` ou vídeo) mantém código: reabrir com **Entrar** mostra mesma indicação.
 - **Remover indicação** — link discreto (`text-xs muted`) no fim do bloco, só com código preenchido. Descarta código e remove somente `ref` da URL, preservando outros parâmetros e hash. Mesmo efeito do cancelar no `ReferralDialog` (logado).
 
 ## Cenários
