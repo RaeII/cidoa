@@ -4,6 +4,7 @@ import type { DashboardStats } from "@/api/admin/admin.types";
 import { ApiError } from "@/api/http";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { AppSidebar } from "@/components/AppSidebar";
+import { LocalEmailSettings } from "@/components/admin/LocalEmailSettings";
 import { MobileNav } from "@/components/MobileNav";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -149,6 +150,8 @@ function Dashboard() {
                 </div>
               </CardContent>
             </Card>
+
+            {import.meta.env.DEV && <LocalEmailSettings />}
 
             {/* Métricas agregadas (GET /api/admin/dashboard/stats) */}
             <h2 className="mt-10 mb-4 mono-label text-muted-foreground">Métricas</h2>

@@ -23,6 +23,8 @@ Cidoe é uma cena 3D de cidade procedural feita com `React 19`, `Three.js`, `Typ
 
 Produção: [Docker e GHCR](../prod/README.md) — build local com Bun, imagens por branch, Compose sem build e proxy `/api`.
 
+E-mail transacional: backend usa **Zoho CPaaS / ZeptoMail** (`AUTH_EMAIL_PROVIDER=zoho`); Resend preservado, inativo. Token puro em `ZOHO_API_KEY`; prefixo `Zoho-enczapikey` adicionado no backend. Política identifica Zoho como operador; versão `2026-10-25` pede novo aceite. Configuração e webhook: [módulo E-mail do backend](../../cidoa-back/doc/modulos/email/email.md).
+
 Domínio: `https://cidoe.com.br`, marca **Cidoe**. `cidoa.com.br` sem uso. Nomes internos seguem `cidoa`: repo, banco, imagem Docker, chaves `cidoa:*` do navegador e cache `cidoa-env-v2` — renomear chave apaga cidade e consentimento salvos.
 
 As páginas ficam em pastas que **espelham as pastas do código** — assim você acha o doc pelo mesmo caminho do arquivo.
@@ -612,3 +614,11 @@ Quatro modalidades: doação, indicação, doação + indicação (`all`) e doa�
 ## Verificação de desempenho mobile
 
 `node scripts/check-mobile-performance.mjs` verifica buffers, GIFs, preparo de shaders e cache incremental sem GPU/servidor. `check-building-textures.mjs` cobre frustum/picking lógico, reflexos e LEDs; `check-horizon.mjs` cobre horizonte, FPS real e suspensão por visibilidade. Implementação: [[scene-runtime#Visibilidade e preparo incremental (mobile)]], [[scene-managers#Culling espacial e atualizações incrementais]], [[scene-textures]]. O ganho de FPS e a equivalência visual ainda requerem validação no aparelho real.
+
+## Teste local de envio de e-mail
+
+Admin → Dashboard → **Testes locais → Enviar e-mails pela Zoho**. Novo `src/components/admin/LocalEmailSettings.tsx`: switch do design system, leitura inicial, gravação sem otimismo, erro/retry e bloqueio enquanto salva. `Dashboard.tsx` monta só com `import.meta.env.DEV`: produção não mostra nem consulta configuração.
+
+API: `getLocalEmailSettings()` / `saveLocalEmailSettings(enabled)` em `src/api/admin/admin.routes.ts`; `GET`/`PUT /admin/dashboard/local-email`, sessão admin, flag persistida no backend (migration 0029). Desligada por padrão; produção recusa alterações e ignora flag. Local envia pela Zoho quando ligada, mantendo código no card (`AUTH_DEBUG_CODE=1`).
+
+Verificação sem servidor/navegador: `node scripts/check-local-email.mjs` — carregamento, ativar/desativar, erro, retry e gravação pendente.

@@ -13,6 +13,8 @@ aliases:
 
 # Termos de Uso e Política de Privacidade
 
+Envio de códigos: **Zoho CPaaS / ZeptoMail** substitui Resend como operador ativo. Política informa processamento fora do Brasil sem presumir região da conta Zoho. Versão main `2026-10-25`; troca de terceiro exige novo aceite pelo fluxo existente. Backend preserva Resend desativado; reativação exige atualizar política e versão antes do deploy.
+
 Duas páginas públicas + aceite no login. Base: lei brasileira (LGPD, Marco Civil, CDC) e requisito do Google para login (link da política na home, mesmo domínio). Texto revisado por agentes (ver [[#Agentes]]), **não** por advogado — validar antes de escalar.
 
 > [!important] Fonte única
@@ -27,7 +29,7 @@ Mesmo código nas duas branches; só `LEGAL_EDITION` (`src/lib/legal.ts`) muda:
 | Branch | `LEGAL_EDITION` | `LEGAL_VERSION` | Texto |
 |---|---|---|---|
 | `beta` (produção hoje, pré-lançamento) | `"prelaunch"` | `2026-10-15-beta` | Tudo simulado: sem pagamento, simulação só no navegador, seção "Pré-lançamento: tudo é teste", ONGs não recebem dado |
-| `main` (lançamento) | `"launch"` | `2026-10-15` | Pix via **Woovi** direto para a conta da ONG (Cidoe não recebe nem repassa dinheiro), edifício público, devolução encaminhada à ONG |
+| `main` (lançamento) | `"launch"` | `2026-10-25` | Pix via **Woovi** direto para a conta da ONG (Cidoe não recebe nem repassa dinheiro), edifício público, devolução encaminhada à ONG |
 
 - Texto comum escrito uma vez; `IS_PRELAUNCH ? … : …` só onde difere. Seção exclusiva entra com `...(IS_PRELAUNCH ? [secao] : [])`.
 - Edição faz parte da versão → quem aceitou na beta aceita de novo quando a main for ao ar. Sem passo manual.

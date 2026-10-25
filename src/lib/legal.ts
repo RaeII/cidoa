@@ -13,8 +13,8 @@
 export const LEGAL_EDITION = "launch" as "prelaunch" | "launch";
 export const IS_PRELAUNCH = LEGAL_EDITION === "prelaunch";
 
-export const LEGAL_DATE = "2026-10-15";
-export const LEGAL_UPDATED_AT = "15 de outubro de 2026";
+export const LEGAL_DATE = "2026-10-25";
+export const LEGAL_UPDATED_AT = "25 de outubro de 2026";
 /** Versão aceita (vai ao back). Edição faz parte dela: trocar beta → main pede reaceite. */
 export const LEGAL_VERSION = IS_PRELAUNCH ? `${LEGAL_DATE}-beta` : LEGAL_DATE;
 

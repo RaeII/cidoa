@@ -174,7 +174,7 @@ const sections: LegalSection[] = [
             envia os dados da conta descritos acima.
           </li>
           <li>
-            <strong>Resend</strong> (operador): envia o código de acesso; recebe seu e-mail e a mensagem com o código.
+            <strong>Zoho CPaaS (ZeptoMail)</strong> (operador): envia o código de acesso; recebe seu e-mail e a mensagem com o código.
           </li>
           {!IS_PRELAUNCH && (
             <li>
@@ -213,7 +213,7 @@ const sections: LegalSection[] = [
     title: "Transferência para fora do Brasil",
     body: (
       <p>
-        Nossa hospedagem{IS_PRELAUNCH ? " fica" : " e a Woovi ficam"} no Brasil. A Resend fica nos Estados Unidos: enviamos a
+        Nossa hospedagem{IS_PRELAUNCH ? " fica" : " e a Woovi ficam"} no Brasil. A Zoho utiliza data centers fora do Brasil: enviamos a
         ela seu e-mail só para entregar o código de acesso que você pediu (LGPD, art. 33, inciso IX). Os dados que o
         Google recebe são coletados por ele diretamente do seu navegador e seguem a{" "}
         {external("https://policies.google.com/privacy?hl=pt-BR", "política de privacidade do Google")}, que também
