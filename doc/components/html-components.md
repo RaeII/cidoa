@@ -275,14 +275,14 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre por **Meus edifíci
 
 ### `IntroVideoDialog.tsx`
 
-Vídeo de apresentação (`public/video-cidoe.mp4`, retrato 9:16) no 1º acesso de visitante. `autoPlay muted loop playsInline`, sem `controls`, `aria-hidden`. Montado no `AuthMenu` (ramo deslogado) → só aparece depois de `booted`, sobre a cidade pronta.
+Vídeo de apresentação (`public/video-cidoe.mp4`, retrato 9:16) no 1º acesso de visitante, em todo link de indicação e, no desktop, em todo login. `autoPlay muted loop playsInline`, sem `controls`, `aria-hidden`. Montado no `AuthMenu` (ramo deslogado) → só aparece depois de `booted`, sobre a cidade pronta.
 
-- **Mobile (< 768, `useIsMobile`)** — quase tela cheia (`100dvh − 1rem`), vídeo `object-cover`, botão **Acessar Cidoe** largura total embaixo. Clique só fecha vídeo (`DialogClose`) → cidade, sem login. Título `sr-only` "Cidoe".
-- **Desktop** — vídeo à esquerda (altura `min(40rem, 100dvh − 4rem)`, 9:16), login à direita (`w-96`): `AuthPanel` do [[area-admin#Login público na cena (passwordless)|AuthDialog]], mesmo fluxo e mesma indicação. Login concluído fecha.
+- **Mobile (< 768, `useIsMobile`)** — quase tela cheia (`100dvh − 1rem`), vídeo `object-cover`, botão **Acessar Cidoe** largura total embaixo. Clique fecha vídeo (`DialogClose`) → cidade; com `?ref=` segue para `AuthDialog` com indicação. Login (Entrar/contribuição) no mobile = `AuthDialog` sem vídeo. Título `sr-only` "Cidoe".
+- **Desktop** — vídeo à esquerda (altura `min(40rem, 100dvh − 4rem)`, 9:16), login à direita (`w-96`): `AuthPanel` do [[area-admin#Login público na cena (passwordless)|AuthDialog]], mesmo fluxo e mesma indicação. Desktop nunca abre `AuthDialog` solto: **Entrar**, contribuição e `?ref=` abrem este layout (`videoOpen = showIntro || (!isMobile && effectiveAuthOpen)`). Login concluído ou fechar → fecha vídeo e login.
 - **X** próprio (`DialogClose` com `bg-background`: legível sobre o vídeo). Esc e clique fora também fecham. Fechar mantém código de indicação ([[referral#Captura e validação]]).
-- **Quando abre** (`AuthMenu`) — `!localStorage["cidoa:intro-video-seen"]` && sessão resolvida && deslogado && sem `?ref=` na entrada && `AuthDialog` fechado. Link de indicação vai direto pro login, sem vídeo.
+- **Quando abre** (`AuthMenu`) — (`?ref=` na entrada || `!localStorage["cidoa:intro-video-seen"]`) && sessão resolvida && deslogado && login do editor fechado. Link de indicação sempre mostra vídeo, mesmo já visto.
 - **Uma vez** — grava `cidoa:intro-video-seen` ao abrir e sempre que houver usuário logado. Conta logada nunca vê: sessão = cookie httpOnly, sobrevive a limpar o `localStorage`. Limpar tudo (cookie junto) = visitante anônimo, vê de novo; sem como identificar antes do login. Storage bloqueado = tratado como visto (não repete a cada visita).
-- Código digitado no painel do vídeo não abre `AuthDialog` por cima: `open={effectiveAuthOpen && !showIntro}`.
+- `AuthDialog` só no mobile, nunca junto do vídeo: `open={isMobile && effectiveAuthOpen && !showIntro}`. `?ref=` só abre login com sessão resolvida (`!isLoading`).
 - Chave listada na [[termos-e-privacidade|Política de Privacidade]] (tabela de cookies e armazenamento).
 
 ---
