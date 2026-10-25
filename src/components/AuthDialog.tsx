@@ -61,6 +61,8 @@ type AuthPanelProps = {
   referralLoading: boolean;
   referralError: string | null;
   onReferralCodeChange: (code: string) => void;
+  /** Desiste da indicação: limpa o código e o `?ref=` da URL. */
+  onReferralRemove: () => void;
   onReferralApplied: () => void;
   /** Login ou cadastro concluído. */
   onDone: () => void;
@@ -79,21 +81,14 @@ function secondsUntil(iso: string): number {
 export function AuthDialog({
   open,
   onOpenChange,
-  onCancelReferral,
   ...panel
 }: Omit<AuthPanelProps, "onDone"> & {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCancelReferral: () => void;
 }) {
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) onCancelReferral();
-        onOpenChange(next);
-      }}
-    >
+    // Fechar mantém a indicação; só "Remover indicação" descarta.
+    <Dialog open={open} onOpenChange={onOpenChange}>
       {/* text-foreground: o body da cena pinta texto branco, que sumiria no tema claro. */}
       <DialogContent className="text-foreground sm:max-w-sm">
         <AuthPanel {...panel} onDone={() => onOpenChange(false)} />
@@ -113,6 +108,7 @@ export function AuthPanel({
   referralLoading,
   referralError,
   onReferralCodeChange,
+  onReferralRemove,
   onReferralApplied,
   onDone,
 }: AuthPanelProps) {
@@ -486,6 +482,19 @@ export function AuthPanel({
             {showReferralError && referralError && <FormError>{referralError}</FormError>}
             {referralPreview && (
               <ReferralPerson label="Você foi indicado por" person={referralPreview} />
+            )}
+            {referralCode !== "" && (
+              <button
+                type="button"
+                className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                onClick={() => {
+                  setShowReferral(false);
+                  setShowReferralError(false);
+                  onReferralRemove();
+                }}
+              >
+                Remover indicação
+              </button>
             )}
           </div>
         </div>
