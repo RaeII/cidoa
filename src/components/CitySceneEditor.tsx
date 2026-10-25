@@ -121,8 +121,8 @@ export function CitySceneEditor() {
   const [customizationRevision, setCustomizationRevision] = useState(0);
   const { catalog: customizationCatalog, rewards } = useCustomizationCatalog(customizationRevision);
   const { user, isAdmin } = useAuth();
-  // Contador da aba Indicações do GameMenu (admin não tem indicações).
-  const referralGoal = user && !isAdmin ? (rewards.choice?.referralMin ?? rewards.nextChoice?.referralMin) : undefined;
+  // Contador da aba Indicações do GameMenu.
+  const referralGoal = user ? (rewards.choice?.referralMin ?? rewards.nextChoice?.referralMin) : undefined;
   const referralsLeft = referralGoal == null ? 0 : Math.max(0, referralGoal - rewards.signupReferrals);
   const { ids: ownedDonationIds } = useOwnedDonationIds();
 

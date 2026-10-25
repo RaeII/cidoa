@@ -55,8 +55,8 @@ Decisão do dono: loading = só página de loading. **Nenhuma imagem** baixa nem
 ### Placa da marca (`CitySceneEditor.tsx`)
 
 Placa compacta `pixel pixel-thin bg-background`, sem bisel. Logo oficial `public/logo.webp` 32px à esquerda (`alt=""`) + conteúdo:
-- **Logado (não admin) com meta de indicação pendente** — contador da aba Indicações do [[#GameMenu.tsx|GameMenu]] em versão HUD: ícone `Gift` verde + **Falta(m) apenas N indicação(ões)** (12px 600, trunca) + `BlockBar size="sm"` (`signupReferrals / referralMin`, até 10 blocos). Largura fixa 160px.
-- **Demais casos** (deslogado, admin, meta batida, recompensas ainda carregando) — só **Cidoe** 14px 600.
+- **Logado (inclusive admin) com meta de indicação pendente** — contador da aba Indicações do [[#GameMenu.tsx|GameMenu]] em versão HUD: ícone `Gift` verde + **Falta(m) apenas N indicação(ões)** (12px 600, trunca) + `BlockBar size="sm"` (`signupReferrals / referralMin`, até 10 blocos). Largura fixa 160px.
+- **Demais casos** (deslogado, meta batida, recompensas ainda carregando) — só **Cidoe** 14px 600.
 
 Sem links (decisão do dono). Termos/Privacidade ficam no rodapé da [[#DonationInfoSection.tsx]] (seta inferior direita da cena) e no aviso de cookies. Logo + nome visíveis na 1ª tela, sem rolar nem entrar = requisito da página inicial do login com Google ([[termos-e-privacidade#Página inicial — requisitos do Google]]). Texto 12px, entrelinha 16px, padding 8px horizontal / 6px vertical; `aside aria-label="Cidoe"`.
 
