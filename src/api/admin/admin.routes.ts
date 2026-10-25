@@ -105,6 +105,16 @@ export async function getDashboardStats() {
   return data.data;
 }
 
+export async function getLocalEmailSettings() {
+  const { data } = await http.get<{ data: { enabled: boolean } }>("/admin/dashboard/local-email");
+  return data.data;
+}
+
+export async function saveLocalEmailSettings(enabled: boolean) {
+  const { data } = await http.put<{ data: { enabled: boolean } }>("/admin/dashboard/local-email", { enabled });
+  return data.data;
+}
+
 /** Cria N edifícios (doações) de teste. Acumulativo — soma ao banco. */
 export async function createTestBuildings(count: number) {
   const { data } = await http.post<{ data: CreateTestBuildingsResult }>(

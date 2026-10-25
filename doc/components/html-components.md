@@ -54,16 +54,20 @@ Decisão do dono: loading = só página de loading. **Nenhuma imagem** baixa nem
 
 ### Placa da marca (`CitySceneEditor.tsx`)
 
-Placa compacta `pixel pixel-thin bg-background`, sem bisel. Logo oficial `public/logo.webp` 32px à esquerda (`alt=""`: nome já no texto) + duas linhas:
-1. **Cidoe** 14px 600 + kicker mono verde **Pré-lançamento**.
-2. **Pagamentos simulados. Cidade salva só neste navegador.**
+Placa compacta `pixel pixel-thin bg-background`, sem bisel. Logo oficial `public/logo.webp` 32px à esquerda (`alt=""`) + conteúdo:
+- **Logado (não admin) com meta de indicação pendente** — contador da aba Indicações do [[#GameMenu.tsx|GameMenu]] em versão HUD: ícone `Gift` verde + **Falta(m) apenas N indicação(ões)** (12px 600, trunca) + `BlockBar size="sm"` (`signupReferrals / referralMin`, até 10 blocos). Largura fixa 160px.
+- **Demais casos** (deslogado, admin, meta batida, recompensas ainda carregando) — só **Cidoe** 14px 600.
 
-Sem links (decisão do dono). Termos/Privacidade ficam no rodapé da [[#DonationInfoSection.tsx]] (seta inferior direita da cena) e no aviso de cookies. Marca visível na 1ª tela, sem rolar nem entrar = requisito da página inicial do login com Google ([[termos-e-privacidade#Página inicial — requisitos do Google]]). Texto 12px, entrelinha 16px, padding 8px horizontal / 6px vertical; `aside aria-label="Cidoe"`.
+Sem links (decisão do dono). Termos/Privacidade ficam no rodapé da [[#DonationInfoSection.tsx]] (seta inferior direita da cena) e no aviso de cookies. Logo + nome visíveis na 1ª tela, sem rolar nem entrar = requisito da página inicial do login com Google ([[termos-e-privacidade#Página inicial — requisitos do Google]]). Texto 12px, entrelinha 16px, padding 8px horizontal / 6px vertical; `aside aria-label="Cidoe"`.
 
 Ocupa apenas a largura do conteúdo, margem externa de 16px. Placa e menu sempre na mesma linha, espaço 8px; nunca quebra. Espaços vazios do cabeçalho deixam passar os gestos para a cena.
 
 > [!note] Mobile (< `sm`)
-> Placa vira só o kicker **Pré-lançamento** (altura 40px = botões). Logo, aviso e nome somem; **Cidoe** fica `sr-only`. Menu logado: avatar sem nome (`sr-only`), gap 8px. Cabe em 320px.
+> Altura 40px = botões. Logo some; contador ou **Cidoe** ficam. Menu logado: avatar sem nome (`sr-only`), gap 8px. Cabe em 320px.
+
+### Selo Pré-lançamento (`CitySceneEditor.tsx`)
+
+Canto inferior esquerdo (`bottom-1.5 left-3`): **Pré-lançamento** mono 10px `text-muted-foreground`, `opacity-60`, `pointer-events-none`. Só depois do boot.
 
 ### `DonationInfoSection.tsx`
 
@@ -192,6 +196,10 @@ Gatilho: `lg` centrado a 24px do rodapé. Mobile: `left-4 right-20 bottom-4`, te
 Checks: `node scripts/check-contribution.mjs` e `node scripts/check-prelaunch.mjs`. Sem servidor/navegador.
 
 ---
+
+### `SimulationNotice.tsx`
+
+Faixa fixa no rodapé (último filho `shrink-0` do `DialogContent`, fora da rolagem) de [[#ContributeDialog.tsx]], [[#BuildingManageDialog.tsx]] e `BuildingProfileDialog`. `bg-ambar text-tinta` (alerta do DS, igual ao toast `warning`), 12px 600, marca mono **!**, `role="note"`. Texto: **Contribuições de teste: nada é cobrado e os edifícios ficam salvos só neste navegador.** Avisos repetidos no corpo do modal foram removidos (descrição do pagamento = **Confira o valor e confirme.**).
 
 ### `BuildingProfileForm.tsx`
 
@@ -726,3 +734,7 @@ Dispensar fecha imediatamente e confirma lote no backend. Falha conserva aviso p
 **Ver em 3D** em formatos, topos e LEDs abre visualizador ampliado no mesmo modal; import lazy, um canvas por vez. Arrastar/zoom, Shift + setas e +/−; voltar desmonta contexto e preserva seleção anterior. Na escolha, **Desbloquear recompensa** confirma item exibido; na conquista já recebida, **Continuar** confirma apenas avisos do lote inteiro. Outras categorias mantêm miniatura, sem prometer geometria inexistente.
 
 Botão `reward` **Desbloquear recompensa** (`BlockLoader` enquanto salva), **Escolher depois** `ghost`; próxima meta em texto centralizado, sem fundo ou borda; apenas número e indicações em negrito verde: Faltam apenas **N indicações** para a próxima recompensa (singular: Falta apenas **1 indicação**). Erro do backend em linha `ErrorMark`. Salvar bloqueia seleção, voltar, fechar, Escape e clique fora. Fechar/adiar esconde até próximo refresh (abrir menu). Sucesso devolve `/me` com grant pendente → modal de conquista existente celebra item. Várias etapas alcançadas: uma por vez, menor meta primeiro. `node scripts/check-signup-reward-dialog.mjs` verifica fluxo e ciclo do 3D sem navegador/GPU.
+
+### `LocalEmailSettings.tsx`
+
+Controle de envio real só no Dashboard local; mantém código visível no login, flag persistida pela API admin e ignorada em produção. Ver [[area-admin#Teste local de envio de e-mail]].

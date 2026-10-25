@@ -25,6 +25,7 @@ import { formatCity, normalizeSearch } from "@/lib/citySearch";
 import { formatMoneyInput, normalizeMoneyInput } from "@/lib/moneyInput";
 import { formatBRL, parseMoney } from "@/lib/unlock";
 import { cn } from "@/lib/utils";
+import { SimulationNotice } from "./SimulationNotice";
 
 const PRESETS = [10, 25, 50, 100];
 // Padrão baixo aumenta a taxa de conclusão (Goswami & Urminsky, 2016).
@@ -345,7 +346,7 @@ export function ContributeDialog({
             {step === "form"
               ? "Pré-lançamento: teste a criação de um edifício sem pagar."
               : step === "pay"
-                ? "Nenhuma cobrança real. Seu edifício fica salvo apenas neste navegador."
+                ? "Confira o valor e confirme."
                 : `Seu edifício ${
                     doneGrew ? "cresceu nesta simulação." : "foi salvo neste navegador."
                   }`}
@@ -521,11 +522,11 @@ export function ContributeDialog({
               </fieldset>
             </div>
             <div className={cn(footerClass, "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between")}>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-muted-foreground empty:hidden">
                 {error ? <p role="alert" className="flex gap-1.5 text-destructive"><ErrorMark />{error}</p>
                   : !contribution ? <p>{growing && !selectedBuilding ? "Escolha o edifício para continuar." : !selectedOng ? "Escolha uma ONG para continuar." : !growing && !pickedCity ? "Escolha uma cidade para continuar." : "Informe um valor a partir de R$ 5."}</p>
                   : !user ? <p>Entre para vincular o edifício à sua conta.</p>
-                  : <p>Seu edifício fica apenas neste navegador.</p>}
+                  : null}
               </div>
               <Button type="submit" size="lg" className="w-full px-6 sm:w-auto sm:min-w-52" disabled={!contribution || creating || isLoading}>
                 {creating ? (
@@ -545,6 +546,7 @@ export function ContributeDialog({
             </div>
           </form>
         )}
+        <SimulationNotice />
       </DialogContent>
     </Dialog>
   );

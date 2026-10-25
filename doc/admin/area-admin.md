@@ -290,3 +290,11 @@ Menu **Primeiros inscritos** → `/dale/primeiros-inscritos`. Etapas de recompen
 ## Validade da sessão admin
 
 JWT e cookie `token_admin`: 30 dias fixos no código do backend, sem variável de ambiente. Novo prazo exige reiniciar backend e fazer novo login; tokens já emitidos mantêm vencimento anterior.
+
+## Teste local de envio de e-mail
+
+Admin → Dashboard → **Testes locais → Enviar e-mails pela Zoho**. Novo `src/components/admin/LocalEmailSettings.tsx`: switch do design system, leitura inicial, gravação sem otimismo, erro/retry e bloqueio enquanto salva. `Dashboard.tsx` monta só com `import.meta.env.DEV`: produção não mostra nem consulta configuração.
+
+API: `getLocalEmailSettings()` / `saveLocalEmailSettings(enabled)` em `src/api/admin/admin.routes.ts`; `GET`/`PUT /admin/dashboard/local-email`, sessão admin, flag persistida no backend (migration 0029). Desligada por padrão; produção recusa alterações e ignora flag. Local envia pela Zoho quando ligada, mantendo código no card (`AUTH_DEBUG_CODE=1`).
+
+Verificação sem servidor/navegador: `node scripts/check-local-email.mjs` — carregamento, ativar/desativar, erro, retry e gravação pendente.

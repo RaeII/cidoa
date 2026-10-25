@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { Gift } from "lucide-react";
 import { CitySceneCanvas, type CitySceneCanvasHandle } from "./three/CitySceneCanvas";
 import { AuthMenu } from "./AuthMenu";
 import { BuildingManageDialog } from "./html/BuildingManageDialog";
@@ -25,6 +26,7 @@ import {
   type BuildingProfile,
 } from "../api/contributionApi";
 import { toast } from "./ui/toast";
+import { BlockBar } from "./ui/block-bar";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
 import { PixelChevronDown } from "./ui/pixel-icon";
@@ -119,6 +121,9 @@ export function CitySceneEditor() {
   const [customizationRevision, setCustomizationRevision] = useState(0);
   const { catalog: customizationCatalog, rewards } = useCustomizationCatalog(customizationRevision);
   const { user, isAdmin } = useAuth();
+  // Contador da aba Indicações do GameMenu (admin não tem indicações).
+  const referralGoal = user && !isAdmin ? (rewards.choice?.referralMin ?? rewards.nextChoice?.referralMin) : undefined;
+  const referralsLeft = referralGoal == null ? 0 : Math.max(0, referralGoal - rewards.signupReferrals);
   const { ids: ownedDonationIds } = useOwnedDonationIds();
 
   // Admin edita a cópia local do cenário público; contas comuns, suas simulações.
@@ -547,13 +552,20 @@ export function CitySceneEditor() {
         {/* Marca visível sem rolar nem entrar (página inicial do login com Google). Mobile: só o selo, na mesma linha dos botões. */}
         <aside aria-label="Cidoe" className="pointer-events-auto pixel pixel-thin flex min-w-0 items-center gap-2 bg-background px-2 py-1.5 text-xs leading-4 text-muted-foreground max-sm:h-10 max-sm:px-3 max-sm:py-0">
           <img src="/logo.webp" alt="" width={32} height={32} className="size-8 shrink-0 max-sm:hidden" />
-          <div className="min-w-0">
-            <p className="flex flex-wrap items-baseline gap-x-2">
-              <strong className="text-sm font-semibold text-foreground max-sm:sr-only">Cidoe</strong>
-              <span className="font-mono text-[11px] font-semibold truncate text-primary">Pré-lançamento</span>
-            </p>
-            <p className="mt-1 max-sm:hidden">Pagamentos simulados. Cidade salva só neste navegador.</p>
-          </div>
+          {referralGoal != null && referralsLeft > 0 ? (
+            // Mesmo contador da aba Indicações do menu, em versão HUD.
+            <div className="min-w-0 w-40">
+              <p className="flex items-center gap-1.5 font-semibold text-foreground">
+                <Gift className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
+                <span className="truncate">
+                  {referralsLeft === 1 ? "Falta" : "Faltam"} apenas {referralsLeft} {referralsLeft === 1 ? "indicação" : "indicações"}
+                </span>
+              </p>
+              <BlockBar size="sm" className="mt-1" value={rewards.signupReferrals} max={referralGoal} blocks={Math.min(10, referralGoal)} label="Indicações" />
+            </div>
+          ) : (
+            <strong className="text-sm font-semibold text-foreground">Cidoe</strong>
+          )}
         </aside>
         <div className="pointer-events-auto shrink-0">
           <AuthMenu
@@ -584,6 +596,9 @@ export function CitySceneEditor() {
       )}
       {booted && (loadState.status !== "ready" || !donationsApplied) && (
         <DonationLoadOverlay state={loadState} onRetry={retry} />
+      )}
+      {booted && (
+        <p className="pointer-events-none absolute bottom-1.5 left-3 z-20 font-mono text-[10px] text-muted-foreground opacity-60">Pré-lançamento</p>
       )}
       {isAdmin && uiVisibility.cameraLog && cameraDebugInfo && (
         <div className="pixel bevel-edge absolute bottom-4 left-4 z-30 w-[min(21rem,calc(100vw-2rem))] select-text bg-background px-3 pt-2 pb-3 font-mono text-[11px] leading-5 text-muted-foreground">

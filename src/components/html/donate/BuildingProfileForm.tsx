@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { BlockLoader, ErrorMark } from "@/components/ui/pixel-icon";
 import { cn } from "@/lib/utils";
+import { SimulationNotice } from "./SimulationNotice";
 
 const NAME_MAX = 40;
 const DESCRIPTION_MAX = 160;
@@ -277,6 +278,7 @@ export function BuildingProfileDialog({
             }}
           />
         )}
+        <SimulationNotice />
       </DialogContent>
     </Dialog>
   );

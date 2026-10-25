@@ -203,6 +203,7 @@ src/
       donate/
         ContributeDialog.tsx         ← simulação → pagamento simulado → confirmação local; sem edição
         BuildingProfileForm.tsx      ← imagem/nome/descrição do edifício + dialog de edição
+        SimulationNotice.tsx         ← faixa âmbar fixa "contribuições de teste" no rodapé dos modais
       BuildingManageDialog.tsx   ← administração independente: informações + aparência/prévia 3D
       BuildingControls.tsx
       TextureControls.tsx
@@ -653,3 +654,11 @@ Quatro modalidades: doação, indicação, doação + indicação (`all`) e doa�
 ## Verificação de desempenho mobile
 
 `node scripts/check-mobile-performance.mjs` verifica buffers, GIFs, preparo de shaders e cache incremental sem GPU/servidor. `check-building-textures.mjs` cobre frustum/picking lógico, reflexos e LEDs; `check-horizon.mjs` cobre horizonte, FPS real e suspensão por visibilidade. Implementação: [[scene-runtime#Visibilidade e preparo incremental (mobile)]], [[scene-managers#Culling espacial e atualizações incrementais]], [[scene-textures]]. O ganho de FPS e a equivalência visual ainda requerem validação no aparelho real.
+
+## Teste local de envio de e-mail
+
+Admin → Dashboard → **Testes locais → Enviar e-mails pela Zoho**. Novo `src/components/admin/LocalEmailSettings.tsx`: switch do design system, leitura inicial, gravação sem otimismo, erro/retry e bloqueio enquanto salva. `Dashboard.tsx` monta só com `import.meta.env.DEV`: produção não mostra nem consulta configuração.
+
+API: `getLocalEmailSettings()` / `saveLocalEmailSettings(enabled)` em `src/api/admin/admin.routes.ts`; `GET`/`PUT /admin/dashboard/local-email`, sessão admin, flag persistida no backend (migration 0029). Desligada por padrão; produção recusa alterações e ignora flag. Local envia pela Zoho quando ligada, mantendo código no card (`AUTH_DEBUG_CODE=1`).
+
+Verificação sem servidor/navegador: `node scripts/check-local-email.mjs` — carregamento, ativar/desativar, erro, retry e gravação pendente.

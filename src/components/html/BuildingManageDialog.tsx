@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { BlockLoader, ErrorMark } from "@/components/ui/pixel-icon";
 import { BuildingProfileForm } from "./donate/BuildingProfileForm";
 import { cn } from "@/lib/utils";
+import { SimulationNotice } from "./donate/SimulationNotice";
 
 const BuildingCustomizer = lazy(() => import("@/components/customization/BuildingCustomizer").then((module) => ({ default: module.BuildingCustomizer })));
 const scrollClass = "min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-3 outline-none sm:px-8 lg:px-10";
@@ -99,6 +100,7 @@ export function BuildingManageDialog({
             </div>
           </div>
         </Tabs.Root>
+        <SimulationNotice />
         <AlertDialog.Root open={confirmExit} onOpenChange={setConfirmExit}>
           <AlertDialog.Portal>
             <AlertDialog.Overlay className="fixed inset-0 z-[60] bg-tinta/72" />
