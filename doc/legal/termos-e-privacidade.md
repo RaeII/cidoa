@@ -13,6 +13,8 @@ aliases:
 
 # Termos de Uso e Política de Privacidade
 
+Envio de códigos: **Zoho CPaaS / ZeptoMail** substitui Resend como operador ativo. Política informa processamento fora do Brasil sem presumir região da conta Zoho. Versão `2026-10-25` (beta `2026-10-25-beta`). Backend preserva Resend desativado; reativação exige atualizar política e versão antes do deploy.
+
 Duas páginas públicas + aceite somente no cadastro + aviso separado de cookies. Base: lei brasileira (LGPD, Marco Civil, CDC) e requisito do Google para login (link da política na home, mesmo domínio). Texto revisado por agentes (ver [[#Agentes]]), **não** por advogado — validar antes de escalar.
 
 > [!important] Fonte única
@@ -26,8 +28,8 @@ Mesmo código nas duas branches; só `LEGAL_EDITION` (`src/lib/legal.ts`) muda:
 
 | Branch | `LEGAL_EDITION` | `LEGAL_VERSION` | Texto |
 |---|---|---|---|
-| `beta` (produção hoje, pré-lançamento) | `"prelaunch"` | `2026-10-18-beta` | Texto definitivo **+** avisos de pré-lançamento: pagamento inativo, simulação só no navegador, seção "Pré-lançamento: tudo é teste" |
-| `main` (lançamento) | `"launch"` | `2026-10-18` | Texto definitivo: Pix via **Woovi** direto para a conta da ONG (Cidoe não recebe nem repassa dinheiro), edifício público, devolução encaminhada à ONG |
+| `beta` (produção hoje, pré-lançamento) | `"prelaunch"` | `2026-10-25-beta` | Texto definitivo **+** avisos de pré-lançamento: pagamento inativo, simulação só no navegador, seção "Pré-lançamento: tudo é teste" |
+| `main` (lançamento) | `"launch"` | `2026-10-25` | Texto definitivo: Pix via **Woovi** direto para a conta da ONG (Cidoe não recebe nem repassa dinheiro), edifício público, devolução encaminhada à ONG |
 
 - **Texto definitivo nas duas**: beta já descreve lançamento real (Woovi, edifício público, ONG recebe Pix). Quem aceita na beta não aceita outra versão no lançamento.
 - `IS_PRELAUNCH` só **acrescenta** aviso (`IS_PRELAUNCH && …`, `...(IS_PRELAUNCH ? [secao] : [])`). Nunca `IS_PRELAUNCH ? … : …` escondendo cláusula de lançamento. Nada de "no lançamento estes termos mudam".

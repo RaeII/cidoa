@@ -176,7 +176,7 @@ const sections: LegalSection[] = [
             desativamos os sinais do Google e a personalização de anúncios nessa integração.
           </li>
           <li>
-            <strong>Resend</strong> (operador): envia o código de acesso; recebe seu e-mail e a mensagem com o código.
+            <strong>Zoho CPaaS (ZeptoMail)</strong> (operador): envia o código de acesso; recebe seu e-mail e a mensagem com o código.
           </li>
           <li>
             <strong>Provedor de e-mail</strong> (operador): recebe e guarda as mensagens que você envia a {email}.
@@ -216,7 +216,7 @@ const sections: LegalSection[] = [
     title: "Transferência para fora do Brasil",
     body: (
       <p>
-        Nossa hospedagem e a Woovi ficam no Brasil. A Resend fica nos Estados Unidos: enviamos a
+        Nossa hospedagem e a Woovi ficam no Brasil. A Zoho utiliza data centers fora do Brasil: enviamos a
         ela seu e-mail só para entregar o código de acesso que você pediu (LGPD, art. 33, inciso IX). O Discord, nos Estados Unidos, recebe só alertas técnicos de
         erro, sem dados de cadastro. Os dados que o
         Google recebe são coletados por ele diretamente do seu navegador e seguem a{" "}

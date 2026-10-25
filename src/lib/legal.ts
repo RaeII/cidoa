@@ -12,9 +12,9 @@
 export const LEGAL_EDITION = "prelaunch" as "prelaunch" | "launch";
 export const IS_PRELAUNCH = LEGAL_EDITION === "prelaunch";
 
-export const LEGAL_DATE = "2026-10-18";
-export const LEGAL_UPDATED_AT = "18 de outubro de 2026";
-/** Versão aceita no cadastro (vai ao back), incluindo a edição mostrada. */
+export const LEGAL_DATE = "2026-10-25";
+export const LEGAL_UPDATED_AT = "25 de outubro de 2026";
+/** Versão aceita (vai ao back). Edição faz parte dela: trocar beta → main pede reaceite. */
 export const LEGAL_VERSION = IS_PRELAUNCH ? `${LEGAL_DATE}-beta` : LEGAL_DATE;
 
 /** Controlador dos dados (LGPD art. 5 VI e art. 9 III). Pessoa física: sem documento na página. */

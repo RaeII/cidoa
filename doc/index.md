@@ -58,6 +58,8 @@ Limpar dados do site remove a cidade simulada; outro navegador/dispositivo não 
 
 Produção: [Docker e GHCR](../prod/README.md) — build local com Bun, imagens por branch, Compose sem build e proxy `/api`.
 
+E-mail transacional: backend usa **Zoho CPaaS / ZeptoMail** (`AUTH_EMAIL_PROVIDER=zoho`); Resend preservado, inativo. Token puro em `ZOHO_API_KEY`; prefixo `Zoho-enczapikey` adicionado no backend. Política identifica Zoho como operador; versão `2026-10-25`. Configuração e webhook: [módulo E-mail do backend](../../cidoa-back/doc/modulos/email/email.md).
+
 Domínio: `https://cidoe.com.br`, marca **Cidoe** (requisitos do Google em [[termos-e-privacidade#Página inicial — requisitos do Google]]). `cidoa.com.br` sem uso. Nomes internos seguem `cidoa`: repo, banco, imagem Docker, chaves `cidoa:*` do navegador e cache `cidoa-env-v2` — renomear chave apaga cidade e consentimento salvos.
 
 As páginas ficam em pastas que **espelham as pastas do código** — assim você acha o doc pelo mesmo caminho do arquivo.
