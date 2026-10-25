@@ -13,6 +13,7 @@ const mocks = {
       capabilities = { getMaxAnisotropy: () => 4 };
       domElement = {};
       debug = {};
+      info = { autoReset: true, render: { calls: 0, triangles: 0 }, memory: { geometries: 0, textures: 0 }, programs: [], reset() { this.render.calls = 0; } };
       getContext() { return { RENDERER: 0, getExtension: () => null, getParameter: () => "headless" }; }
       getRenderTarget() { return null; }
       setRenderTarget() {}
@@ -20,17 +21,23 @@ const mocks = {
       initTexture() {}
       setPixelRatio() {}
       setSize() {}
-      render(scene, camera) { globalThis.horizonCheck.frame = { scene, camera }; }
+      render(scene, camera) { this.info.render.calls++; globalThis.horizonCheck.renders++; globalThis.horizonCheck.frame = { scene, camera }; }
       dispose() {}
     }
   `,
   OrbitControls: `
-    import { Vector3 } from ${JSON.stringify(threeUrl)};
-    export class OrbitControls {
+    import { Vector3, EventDispatcher } from ${JSON.stringify(threeUrl)};
+    export class OrbitControls extends EventDispatcher {
       target = new Vector3();
-      constructor(camera) { this.camera = camera; }
+      last = '';
+      constructor(camera) { super(); this.camera = camera; globalThis.horizonCheck.controls = this; }
       // Real devolve true quando a câmera mexeu; o teste move a câmera por fora a cada passo.
-      update() { this.camera.lookAt(this.target); return true; }
+      update() {
+        this.camera.lookAt(this.target);
+        const next = [...this.camera.position.toArray(), ...this.target.toArray()].join(',');
+        if (next === this.last) return false;
+        this.last = next; this.dispatchEvent({ type: 'change' }); return true;
+      }
       dispose() {}
     }
   `,
@@ -74,8 +81,18 @@ const bundle = await build({
   }],
 });
 const api = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].contents).toString("base64")}`);
-globalThis.horizonCheck = {};
+globalThis.horizonCheck = { renders: 0 };
 globalThis.window = { devicePixelRatio: 1, addEventListener() {}, removeEventListener() {} };
+const documentListeners = new Map();
+globalThis.document = { hidden: false,
+  addEventListener: (name, callback) => documentListeners.set(name, callback),
+  removeEventListener: (name) => documentListeners.delete(name),
+};
+globalThis.IntersectionObserver = class {
+  constructor(callback) { globalThis.horizonCheck.intersection = callback; }
+  observe() {}
+  disconnect() { globalThis.horizonCheck.disconnected = true; }
+};
 // Runtime nasce em etapas (await de frame): rAF roda sozinho até a criação terminar.
 let autoFrames = true;
 globalThis.requestAnimationFrame = (callback) => {
@@ -296,10 +313,38 @@ for (let yaw = 0; yaw < Math.PI * 2; yaw += 0.03) {
   worstError = Math.max(worstError, Math.abs(roundedPlane.distanceToPoint(center)));
 }
 assert(worstError < 0.001, `Plano invade a folga até o terreno: erro ${worstError}`);
+// Intervalos reais de 100 ms devem resultar em 10 FPS, sem o clamp de animação (50 ms).
+for (let i = 0; i < 14; i++) {
+  camera.position.x += 0.1;
+  globalThis.horizonCheck.nextFrame(time += 100);
+  await delay(0);
+}
+assert(Math.abs(stats.performance.fps - 10) < 0.01, `FPS mascarou a lentidão: ${stats.performance.fps}`);
+assert.equal(stats.performance.frameTimeMs, 100);
+assert.equal(stats.performance.drawCalls, 1);
+const beforeHidden = globalThis.horizonCheck.renders;
+document.hidden = true;
+documentListeners.get("visibilitychange")();
+globalThis.horizonCheck.nextFrame(time += 5000);
+assert.equal(globalThis.horizonCheck.renders, beforeHidden, "aba oculta desenhou");
+document.hidden = false;
+documentListeners.get("visibilitychange")();
+await advance();
+assert(globalThis.horizonCheck.renders > beforeHidden, "retorno à aba não redesenhou");
+globalThis.horizonCheck.intersection([{ isIntersecting: false }]);
+const beforeOffscreen = globalThis.horizonCheck.renders;
+globalThis.horizonCheck.nextFrame(time += 5000);
+assert.equal(globalThis.horizonCheck.renders, beforeOffscreen, "canvas fora da tela desenhou");
+globalThis.horizonCheck.intersection([{ isIntersecting: true }]);
+await advance();
+assert(globalThis.horizonCheck.renders > beforeOffscreen, "canvas não retomou");
 const resources = [planeGeometry, circleGeometry, ground.material];
 let disposed = 0;
 resources.forEach((resource) => resource.addEventListener("dispose", () => { disposed++; }));
 runtime.dispose();
 assert.equal(disposed, resources.length);
+assert.equal(documentListeners.size, 0);
+assert(globalThis.horizonCheck.disconnected);
 console.log(`Raios verificados: ${checkedRays}`);
 console.log("Horizonte OK: modos reto/circular/quadrado, sem fundo cinza adicional, precisão Float32, montanhas, culling, reflexos e dispose.");
+console.log("Mobile OK: FPS real, suspensão/retomada da aba e do canvas, limpeza dos observers.");

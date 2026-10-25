@@ -261,6 +261,16 @@ export type BlockLayoutSettings = {
 };
 
 export type SceneStats = {
+  /** Amostra de frames consecutivos; contagens do último frame, incluindo capturas. */
+  performance?: {
+    fps: number;
+    frameTimeMs: number;
+    drawCalls: number;
+    triangles: number;
+    geometries: number;
+    textures: number;
+    programs: number;
+  };
   buildings: number;
   /** Prédios ocultos pelo cull de distância (frontal + traseiro). */
   culled: number;

@@ -69,6 +69,7 @@ import {
   createUnitBuildingGeometry,
   disposeBuildingShapeSharedResources,
   groupBoxGeometryByTop,
+  setBuildingShapeMeshBatching,
 } from "../builders/createBuildingShapeMesh";
 import { pickIndex, seeded } from "../utils/random";
 import {
@@ -82,7 +83,6 @@ import { NIGHT_PRESET } from "../config/environmentConfig";
 
 import {
   initFacadeTextureLoader,
-  loadFacadeNormals,
   loadFacadeTextureSet,
   peekFacadeTextureSet,
   type FacadeTextureSet,
@@ -250,7 +250,7 @@ export type DonationManager = {
   /** `groundDistance`: raio do chão da cidade (horizonte), independente dos prédios. */
   setRenderDistance: (distance: number, backDistance: number, groundDistance: number) => void;
   /** Retorna quantos prédios ficaram ocultos pelo cull de distância (frontal + traseiro). */
-  updateDistanceCulling: (cameraPos: THREE.Vector3, cameraForward: THREE.Vector3) => number;
+  updateDistanceCulling: (cameraPos: THREE.Vector3, cameraForward: THREE.Vector3, frustum?: THREE.Frustum) => number;
   dispose: () => void;
 };
 
@@ -267,6 +267,7 @@ export function createDonationManager({
   textureSettings,
   blockLayoutSettings,
 }: DonationManagerOptions): DonationManager {
+  let disposed = false;
   // 4 é suficiente visualmente; anisotropia máxima (16) castiga o fill rate.
   const maxAniso = Math.min(4, renderer.capabilities.getMaxAnisotropy());
   initFacadeTextureLoader(renderer);
@@ -590,6 +591,8 @@ export function createDonationManager({
     colors: Float32Array; // instanceColor compactado deste grupo
     renderCount: number;
     logicalCount: number;
+    matricesChanged: boolean;
+    colorsChanged: boolean;
   };
 
   const ensureGroupCapacity = (group: FacadeGroup, needed: number) => {
@@ -602,6 +605,7 @@ export function createDonationManager({
     group.colors = new Float32Array(cap * 3);
     group.mesh = new THREE.InstancedMesh(buildingGeometry, [group.material, topMaterial], cap);
     group.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    group.mesh.matrixAutoUpdate = false; // Transformações vivem no instanceMatrix.
     group.mesh.count = 0;
     scene.add(group.mesh);
   };
@@ -618,6 +622,8 @@ export function createDonationManager({
       colors: new Float32Array(0),
       renderCount: 0,
       logicalCount: 0,
+      matricesChanged: false,
+      colorsChanged: false,
     };
     // Capacidade real vem do rebuild (ensureGroupCapacity com a contagem do
     // grupo). Aqui só o mínimo: nascer com a capacidade global daria N × total
@@ -652,6 +658,7 @@ export function createDonationManager({
   // reaparece inteiro até o próximo passe (throttle de 0.25 s no runtime).
   const lastCullPos = new THREE.Vector3();
   let hasCullView = false;
+  let viewFrustum: THREE.Frustum | null = null;
 
   const cullGroundInstances = () => {
     if (!hasCullView) return;
@@ -660,10 +667,10 @@ export function createDonationManager({
       const dz = z - lastCullPos.z;
       return dx * dx + dz * dz <= groundCullSq;
     };
-    cullInstances(lotCull, visible);
-    cullInstances(sidewalkCull, visible);
-    cullInstances(lampCull, visible);
-    cullInstances(roadCull, visible);
+    cullInstances(lotCull, visible, viewFrustum);
+    cullInstances(sidewalkCull, visible, viewFrustum);
+    cullInstances(lampCull, visible, viewFrustum);
+    cullInstances(roadCull, visible, viewFrustum);
   };
 
   // --- Rede de estradas (asfalto entre blocos) ---
@@ -1210,6 +1217,7 @@ export function createDonationManager({
   };
 
   const donations: DonationEntry[] = [];
+  const donationById = new Map<number, DonationEntry>();
   let nextId = 0;
   // Meio-extensão (mundo) da cidade construída. Consumido pelo relevo para abrir a zona plana.
   let cityHalfExtent = 0;
@@ -1248,6 +1256,7 @@ export function createDonationManager({
   type PickBlock = {
     minX: number; maxX: number; minZ: number; maxZ: number; maxY: number;
     start: number; end: number;
+    viewCulled: boolean;
   };
   const pickBlocks: PickBlock[] = [];
   // Prédios com formato customizado (ex: twisted) renderizam como Mesh próprio
@@ -1276,7 +1285,11 @@ export function createDonationManager({
   const tmpTransformScale = new THREE.Vector3();
 
   const compactVisibleInstances = (includeCulled = false) => {
-    for (const group of facadeGroups) group.renderCount = 0;
+    for (const group of facadeGroups) {
+      group.renderCount = 0;
+      group.matricesChanged = false;
+      group.colorsChanged = false;
+    }
     for (let logicalIndex = 0; logicalIndex < logicalInstanceCount; logicalIndex++) {
       if (!includeCulled && instanceHidden[logicalIndex]) continue;
       const group = facadeGroups[instanceGroup[logicalIndex]] ?? facadeGroups[0];
@@ -1301,22 +1314,35 @@ export function createDonationManager({
         tmpTransformQuaternion,
         tmpTransformScale,
       );
-      group.mesh.setMatrixAt(renderIndex, tmpTransformMatrix);
+      const matrices = group.mesh.instanceMatrix.array;
+      for (let f = 0; f < 16; f++) {
+        const index = renderIndex * 16 + f;
+        const value = Math.fround(tmpTransformMatrix.elements[f]);
+        if (matrices[index] === value) continue;
+        matrices[index] = value;
+        group.matricesChanged = true;
+      }
 
       if (useInstanceColors) {
         const source = logicalIndex * 3;
         const target = renderIndex * 3;
-        group.colors[target] = logicalInstanceColorArray[source];
-        group.colors[target + 1] = logicalInstanceColorArray[source + 1];
-        group.colors[target + 2] = logicalInstanceColorArray[source + 2];
+        for (let f = 0; f < 3; f++) {
+          const value = logicalInstanceColorArray[source + f];
+          if (group.colors[target + f] === value) continue;
+          group.colors[target + f] = value;
+          group.colorsChanged = true;
+        }
       }
       group.renderCount++;
     }
 
     for (const group of facadeGroups) {
+      if (group.matricesChanged || group.renderCount > group.mesh.count) group.mesh.boundingSphere = null;
       group.mesh.count = group.renderCount;
-      group.mesh.instanceMatrix.needsUpdate = true;
-      group.mesh.boundingSphere = null;
+      if (group.matricesChanged && group.renderCount > 0) {
+        group.mesh.instanceMatrix.addUpdateRange(0, group.renderCount * 16);
+        group.mesh.instanceMatrix.needsUpdate = true;
+      }
       if (useInstanceColors) {
         if (
           !group.mesh.instanceColor ||
@@ -1325,7 +1351,10 @@ export function createDonationManager({
           group.mesh.instanceColor = new THREE.InstancedBufferAttribute(group.colors, 3);
           group.mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
         }
-        group.mesh.instanceColor.needsUpdate = true;
+        if (group.colorsChanged && group.renderCount > 0) {
+          group.mesh.instanceColor.addUpdateRange(0, group.renderCount * 3);
+          group.mesh.instanceColor.needsUpdate = true;
+        }
       }
     }
   };
@@ -1463,9 +1492,8 @@ export function createDonationManager({
       mat.metalnessMap = settings.metalnessIntensity !== 0 ? set.metalness : null;
       mat.roughness = settings.roughnessIntensity;
       mat.metalness = settings.metalnessIntensity;
-      // bumpMap usa o displacement como relevo de shading (bumpScale 1), sem custo de
-      // vértice — é o microrrelevo da fachada que o normalMap sozinho não dá.
-      mat.bumpMap = set.displacement;
+      // Sem normalMap, o displacement fornece o bump; os dois não se somam no shader.
+      mat.bumpMap = mat.normalMap ? null : set.displacement;
       // Com scale 0 o displacement é um fetch de vértice inútil — só liga quando ativo.
       mat.displacementMap = settings.displacementScale > 0 ? set.displacement : null;
       mat.displacementScale = settings.displacementScale;
@@ -1502,7 +1530,7 @@ export function createDonationManager({
         mat.roughnessMap = top.roughnessIntensity > 0 ? topSet.roughness : null;
         mat.roughness = top.roughnessIntensity;
         mat.metalness = top.metalnessIntensity;
-        mat.bumpMap = topSet.displacement;
+        mat.bumpMap = mat.normalMap ? null : topSet.displacement;
         mat.displacementMap = top.displacementScale > 0 ? topSet.displacement : null;
         mat.displacementScale = top.displacementScale;
       } else {
@@ -1525,9 +1553,35 @@ export function createDonationManager({
     parapets.updateTexture(topMaterial);
   };
 
-  // Fachada com normalScale 0 não amostra o NormalGL: nem baixa (ver loadFacadeNormals
-  // em updateTextureSettings quando o painel sobe a escala).
-  const facadeLoadOptions = () => ({ normal: currentTextureSettings.normalScale !== 0 });
+  const facadeLoadOptions = () => ({
+    normal: currentTextureSettings.normalScale !== 0,
+    roughness: currentTextureSettings.roughnessIntensity > 0,
+    metalness: currentTextureSettings.metalnessIntensity !== 0,
+    displacement: currentTextureSettings.displacementScale > 0,
+    bump: true,
+  });
+  let topRequestKey = "";
+  let stoneTexturesNeeded = false;
+  const requestTopSet = () => {
+    if (!currentTextureSettings.enabled) return;
+    // Pedra autoral usa normal/roughness independentemente dos controles do topo.
+    const top = currentTextureSettings.top;
+    const options = {
+      normal: stoneTexturesNeeded || top.normalScale !== 0,
+      roughness: stoneTexturesNeeded || top.roughnessIntensity > 0,
+      metalness: false,
+      displacement: top.displacementScale > 0 || top.normalScale === 0,
+      bump: true,
+    };
+    const key = JSON.stringify(options);
+    if (topRequestKey === key) return;
+    topRequestKey = key;
+    void loadFacadeTextureSet(TOP_TEXTURE_FOLDER, maxAniso, options).then((set) => {
+      if (!set || disposed) return;
+      topSet = set;
+      applyTextureToTop(currentTextureSettings);
+    });
+  };
 
   // Troca da textura GLOBAL de fachada. O token descarta resolução de uma seleção
   // que já foi superada por outra (usuário clicando rápido no seletor).
@@ -1538,8 +1592,8 @@ export function createDonationManager({
     if (cached) {
       facadeSet = cached;
       applyTextureToFacade(currentTextureSettings);
-      return;
     }
+    if (!currentTextureSettings.enabled) return;
     void loadFacadeTextureSet(value, maxAniso, facadeLoadOptions())
       .then((set) => {
         // Pasta inexistente: cai no padrão em vez de deixar a cidade sem textura.
@@ -1547,7 +1601,7 @@ export function createDonationManager({
         return loadFacadeTextureSet(DEFAULT_FACADE_FOLDER, maxAniso, facadeLoadOptions());
       })
       .then((set) => {
-        if (!set || token !== facadeRequestToken) return;
+        if (!set || disposed || token !== facadeRequestToken) return;
         facadeSet = set;
         applyTextureToFacade(currentTextureSettings);
       });
@@ -1555,14 +1609,8 @@ export function createDonationManager({
 
   applyTextureToFacade(textureSettings);
   applyTextureToTop(textureSettings);
-  if (!facadeSet) requestGlobalFacadeSet(textureSettings.textureKey);
-  if (!topSet) {
-    void loadFacadeTextureSet(TOP_TEXTURE_FOLDER, maxAniso).then((set) => {
-      if (!set) return;
-      topSet = set;
-      applyTextureToTop(currentTextureSettings);
-    });
-  }
+  requestGlobalFacadeSet(textureSettings.textureKey);
+  requestTopSet();
 
   // Expande os arrays lógicos e as posições de espiral quando o total excede a
   // capacidade atual. Os InstancedMesh são dimensionados por grupo no rebuild
@@ -1669,8 +1717,8 @@ export function createDonationManager({
     );
   };
 
-  const applyFacadeFolder = (facadeMat: THREE.MeshPhysicalMaterial, desired: string) => {
-    if (materialFacadeKeys.get(facadeMat) === desired) return;
+  const applyFacadeFolder = (facadeMat: THREE.MeshPhysicalMaterial, desired: string, refresh = false) => {
+    if (!refresh && materialFacadeKeys.get(facadeMat) === desired) return;
     materialFacadeKeys.set(facadeMat, desired);
 
     if (!desired) {
@@ -1682,11 +1730,11 @@ export function createDonationManager({
     if (cached) {
       materialFacadeSets.set(facadeMat, cached);
       applyFacadeMaterial(facadeMat, currentTextureSettings);
-      return;
     }
+    if (!currentTextureSettings.enabled) return;
     void loadFacadeTextureSet(desired, maxAniso, facadeLoadOptions()).then((set) => {
       // Seleção mudou enquanto baixava — descarta o resultado velho.
-      if (!set || materialFacadeKeys.get(facadeMat) !== desired) return;
+      if (!set || disposed || materialFacadeKeys.get(facadeMat) !== desired) return;
       materialFacadeSets.set(facadeMat, set);
       applyFacadeMaterial(facadeMat, currentTextureSettings);
     });
@@ -2112,7 +2160,7 @@ export function createDonationManager({
           maxZ = Math.max(maxZ, instPosZ[i] + instHalfZ[i]);
           maxY = Math.max(maxY, instPosY[i] + instHalfY[i]);
         }
-        pickBlocks.push({ minX, maxX, minZ, maxZ, maxY, start: blockStartInstance, end: instanceIdx });
+        pickBlocks.push({ minX, maxX, minZ, maxZ, maxY, start: blockStartInstance, end: instanceIdx, viewCulled: false });
       }
     }
 
@@ -2163,8 +2211,11 @@ export function createDonationManager({
   // `baseOpacity` = opacidade autoral (ex: vidro de guarda-corpo); foco multiplica.
   const setMatOpacity = (mat: THREE.Material, opacity: number) => {
     mat.opacity = (mat.userData.baseOpacity ?? 1) * opacity;
-    mat.transparent = mat.opacity < 1;
-    mat.needsUpdate = true;
+    const transparent = mat.opacity < 1;
+    if (mat.transparent !== transparent) {
+      mat.transparent = transparent;
+      mat.needsUpdate = true;
+    }
   };
 
   const getCustomShapeMaterials = (entry: CustomShapeEntry): THREE.Material[] => {
@@ -2189,9 +2240,11 @@ export function createDonationManager({
   };
 
   const setCustomShapeOpacity = (entry: CustomShapeEntry, opacity: number) => {
-    for (const material of getCustomShapeMaterials(entry)) {
+    const materials = getCustomShapeMaterials(entry);
+    for (const material of materials) {
       setMatOpacity(material, opacity);
     }
+    setBuildingShapeMeshBatching(entry.mesh, materials.every((material) => !material.transparent));
   };
 
   const applyFocus = (donationId: number | null) => {
@@ -2224,7 +2277,7 @@ export function createDonationManager({
 
     if (!readDonationTransform(donationId)) return;
 
-    const donation = donations.find((d) => d.id === donationId);
+    const donation = donationById.get(donationId);
     // Destaque replica a textura do grupo do prédio (sorteada ou escolhida).
     applyFacadeFolder(
       focusFacadeMaterial,
@@ -2264,9 +2317,6 @@ export function createDonationManager({
     // Cor real vai toda no instanceColor → base branca (ver INSTANCE_COLOR_BASE).
     setInstancedBaseColor(INSTANCE_COLOR_BASE);
     useInstanceColors = true;
-    const donationById = new Map<number, DonationEntry>();
-    for (const d of donations) donationById.set(d.id, d);
-
     for (let i = 0; i < logicalInstanceCount; i++) {
       const donId = instanceToDonationId[i];
       const donation = donationById.get(donId);
@@ -2393,7 +2443,7 @@ export function createDonationManager({
     const scale = getBuildingScale(donationId);
     if (!scale) return;
 
-    const donation = donations.find((d) => d.id === donationId);
+    const donation = donationById.get(donationId);
     const shape = donation?.customization?.buildingShape ?? "default";
 
     const group = createSignMesh(trimmed, scale.x, scale.z, scale.y, sides, shape);
@@ -2430,6 +2480,15 @@ export function createDonationManager({
   const spillLights: THREE.PointLight[] = [];
   const spillCandidates: Array<{ distSq: number; position: THREE.Vector3 }> = [];
   const spillIntensitiesBeforeCapture: number[] = [];
+  const releaseUnusedSpillPool = () => {
+    if (edgeLightMeshes.size > 0) return;
+    for (const light of spillLights) {
+      scene.remove(light);
+      light.dispose();
+    }
+    spillLights.length = 0;
+    spillIntensitiesBeforeCapture.length = 0;
+  };
 
   // Criado só na primeira ativação de LED: sem LED na cena, nenhum material paga
   // o custo das 8 luzes. Uma recompilação única quando o primeiro LED acende.
@@ -2472,12 +2531,18 @@ export function createDonationManager({
       edgeLightMeshes.delete(donationId);
     }
 
-    if (type === "none") return;
+    if (type === "none") {
+      releaseUnusedSpillPool();
+      return;
+    }
 
     const scale = getBuildingScale(donationId);
-    if (!scale) return;
+    if (!scale) {
+      releaseUnusedSpillPool();
+      return;
+    }
 
-    const donation = donations.find((d) => d.id === donationId);
+    const donation = donationById.get(donationId);
     const shape = donation?.customization?.buildingShape ?? "default";
 
     const group = createEdgeLightMesh(
@@ -2485,7 +2550,10 @@ export function createDonationManager({
       { width: scale.x, depth: scale.z, height: scale.y },
       shape,
     );
-    if (!group) return;
+    if (!group) {
+      releaseUnusedSpillPool();
+      return;
+    }
 
     edgeLightMeshes.set(donationId, { group, type });
     scene.add(group);
@@ -2585,7 +2653,6 @@ export function createDonationManager({
       return;
     }
     entry.facadeMat.color.set(color);
-    entry.facadeMat.needsUpdate = true;
   };
 
   const disposeCustomShapeEntry = (entry: CustomShapeEntry) => {
@@ -2661,7 +2728,13 @@ export function createDonationManager({
         } else if (shape === "residential" || shape === "apartment" || shape === "gourmet" || shape === "loft" || shape === "yachthouse") {
           // Builder pinta pedra/reboco/dourado; cor da customização só se ≠ global (igual Empire).
           // Dourado do Yatchcasa é metal liso: sem o concreto.
-          if (shape !== "yachthouse") setResidentialStoneMaps(facadeMat, currentTextureSettings.enabled ? topSet : null);
+          if (shape !== "yachthouse") {
+            if (!stoneTexturesNeeded) {
+              stoneTexturesNeeded = true;
+              requestTopSet();
+            }
+            setResidentialStoneMaps(facadeMat, currentTextureSettings.enabled ? topSet : null);
+          }
           tmpColor.set(customization.color);
           if (!tmpColor.equals(currentBuildingColor)) facadeMat.color.set(customization.color);
         }
@@ -2710,14 +2783,18 @@ export function createDonationManager({
 
   return {
     addDonation(value) {
-      donations.push({ id: nextId++, value });
+      const donation = { id: nextId++, value };
+      donations.push(donation);
+      donationById.set(donation.id, donation);
       donations.sort((a, b) => b.value - a.value);
       growIfNeeded(donations.length);
       rebuildInstances();
     },
     addDonations(values) {
       for (const value of values) {
-        donations.push({ id: nextId++, value });
+        const donation = { id: nextId++, value };
+        donations.push(donation);
+        donationById.set(donation.id, donation);
       }
       // Ordena uma vez e reconstrói uma vez para todo o lote
       donations.sort((a, b) => b.value - a.value);
@@ -2762,6 +2839,7 @@ export function createDonationManager({
         disposeHologramMesh(entry);
         hologramMeshes.delete(donId);
       }
+      releaseUnusedSpillPool();
 
       // Customização (cor/formato/tiling) vive em donation.customization —
       // preservar p/ ids que continuam no dataset (ex.: prédio customizado que
@@ -2775,12 +2853,14 @@ export function createDonationManager({
       }
 
       donations.length = 0;
+      donationById.clear();
       let maxId = 0;
       for (const entry of entries) {
         const donation: DonationEntry = { id: entry.id, value: entry.value };
         const customization = prevCustomizations.get(entry.id);
         if (customization) donation.customization = customization;
         donations.push(donation);
+        donationById.set(donation.id, donation);
         if (entry.id > maxId) maxId = entry.id;
       }
       donations.sort((a, b) => b.value - a.value);
@@ -2823,14 +2903,22 @@ export function createDonationManager({
       const folderChanged =
         resolveFacadeFolder(settings.textureKey) !==
         resolveFacadeFolder(currentTextureSettings.textureKey);
-      const normalTurnedOn = settings.normalScale !== 0 && currentTextureSettings.normalScale === 0;
+      const mapsChanged = settings.enabled !== currentTextureSettings.enabled ||
+        settings.normalScale !== currentTextureSettings.normalScale ||
+        settings.roughnessIntensity !== currentTextureSettings.roughnessIntensity ||
+        settings.metalnessIntensity !== currentTextureSettings.metalnessIntensity ||
+        settings.displacementScale !== currentTextureSettings.displacementScale;
       currentTextureSettings = { ...settings };
-      if (normalTurnedOn) {
-        void loadFacadeNormals(maxAniso).then(() => applyTextureToFacade(currentTextureSettings));
+      if (folderChanged || mapsChanged) {
+        requestGlobalFacadeSet(settings.textureKey);
+        for (const mat of getAllFacadeMaterials()) {
+          const folder = materialFacadeKeys.get(mat);
+          if (folder) applyFacadeFolder(mat, folder, true);
+        }
       }
+      requestTopSet();
       tilingUniform.value = settings.tilingScale;
       topTilingUniform.value = settings.top.tilingScale;
-      if (folderChanged) requestGlobalFacadeSet(settings.textureKey);
       applyTextureToFacade(settings); // relê facadeSet (inclui clones custom)
       applyTextureToTop(settings);
       // A pasta global vira o grupo 0: trocar a textura da cena remapeia
@@ -3021,7 +3109,7 @@ export function createDonationManager({
       applyFocus(donationId);
     },
     updateDonationCustomization(donationId: number, customization: BuildingCustomization) {
-      const donation = donations.find((d) => d.id === donationId);
+      const donation = donationById.get(donationId);
       if (!donation) return;
 
       const prevCustomization = donation.customization;
@@ -3151,8 +3239,6 @@ export function createDonationManager({
       } else if (focusedDonationId === donationId && focusHighlightMesh) {
         focusFacadeMaterial.color.set(customization.color);
         focusTopMaterial.color.set(customization.color);
-        focusFacadeMaterial.needsUpdate = true;
-        focusTopMaterial.needsUpdate = true;
       } else if (focusedDonationId === null) {
         applyInstanceColors();
       }
@@ -3163,7 +3249,10 @@ export function createDonationManager({
       let animated = false;
       for (const entry of hologramMeshes.values()) {
         // Holograma culled por distância não precisa de tick (shader nem roda).
-        if (entry.group.visible) {
+        if (!entry.group.visible) continue;
+        entry.group.updateWorldMatrix(true, true);
+        const plane = entry.group.children[0] as THREE.Mesh;
+        if (!viewFrustum || viewFrustum.intersectsObject(plane)) {
           tickHologram(entry, elapsedSeconds, deltaMs);
           animated = true;
         }
@@ -3171,7 +3260,7 @@ export function createDonationManager({
       return animated;
     },
     setRenderDistance(distance, backDistance, groundDistance) {
-      // Aplicado no próximo passe de updateDistanceCulling (throttle de 0.25s no runtime).
+      // Aplicado antes do próximo frame pelo runtime.
       renderDistanceSq = distance * distance;
       backDistanceSq = backDistance * backDistance;
       groundCullSq = groundDistance * groundDistance;
@@ -3180,9 +3269,10 @@ export function createDonationManager({
     // da distância onde o fog já os apaga — o prédio (silhueta) continua visível.
     // Prédios (instanciados e customizados) somem além da distância de renderização,
     // junto com o chão da cidade (lotes, calçadas, postes, asfalto).
-    updateDistanceCulling(cameraPos, cameraForward) {
+    updateDistanceCulling(cameraPos, cameraForward, frustum) {
       lastCullPos.copy(cameraPos);
       hasCullView = true;
+      viewFrustum = frustum ?? null;
       cullGroundInstances();
       // Forward projetado no plano XZ; olhando reto pra baixo não há "atrás" definido
       // → cull vira puramente radial (limite frontal pra todo mundo).
@@ -3258,23 +3348,52 @@ export function createDonationManager({
       // somente os visíveis. Assim o cull reduz fragmentos E vertex shaders.
       // Arrays lógicos continuam estáveis para picking/metadados.
       let changed = false;
-      for (let i = 0; i < logicalInstanceCount; i++) {
-        const dx = instPosX[i] - cameraPos.x;
-        const dz = instPosZ[i] - cameraPos.z;
-        const d = dx * dx + dz * dz;
-        const limit = hasDirection
-          ? (dx * fx + dz * fz < 0 ? backDistanceSq : renderDistanceSq)
-          : fallbackSq;
-        const hidden = d > limit ? 1 : 0;
-        if (hidden) culled++;
-        if (instanceHidden[i] === hidden) continue;
-        instanceHidden[i] = hidden;
-        changed = true;
+      // Displacement move vértices no shader além do AABB lógico; nesse modo mantém só distância.
+      const instanceFrustum = currentTextureSettings.displacementScale > 0 || currentTextureSettings.top.displacementScale > 0
+        ? undefined : frustum;
+      // As mesmas quadras do picking descartam regiões inteiras, sem criar draw calls.
+      for (const block of pickBlocks) {
+        pickBox.min.set(block.minX, 0, block.minZ);
+        pickBox.max.set(block.maxX, block.maxY, block.maxZ);
+        const blockVisible = !instanceFrustum || instanceFrustum.intersectsBox(pickBox);
+        if (!blockVisible) {
+          culled += block.end - block.start;
+          if (!block.viewCulled) {
+            for (let i = block.start; i < block.end; i++) {
+              if (!instanceHidden[i]) changed = true;
+              instanceHidden[i] = 1;
+            }
+          }
+          block.viewCulled = true;
+          continue;
+        }
+        block.viewCulled = false;
+        for (let i = block.start; i < block.end; i++) {
+          const dx = instPosX[i] - cameraPos.x;
+          const dz = instPosZ[i] - cameraPos.z;
+          const d = dx * dx + dz * dz;
+          const limit = hasDirection
+            ? (dx * fx + dz * fz < 0 ? backDistanceSq : renderDistanceSq)
+            : fallbackSq;
+          let visible = blockVisible && d <= limit;
+          if (visible && instanceFrustum) {
+            pickBox.min.set(instPosX[i] - instHalfX[i], instPosY[i] - instHalfY[i], instPosZ[i] - instHalfZ[i]);
+            pickBox.max.set(instPosX[i] + instHalfX[i], instPosY[i] + instHalfY[i], instPosZ[i] + instHalfZ[i]);
+            visible = instanceFrustum.intersectsBox(pickBox);
+          }
+          const hidden = visible ? 0 : 1;
+          if (hidden) culled++;
+          if (instanceHidden[i] === hidden) continue;
+          instanceHidden[i] = hidden;
+          changed = true;
+        }
       }
       if (changed) compactVisibleInstances();
       return culled;
     },
     dispose() {
+      disposed = true;
+      donationById.clear();
       removeFocusHighlight();
       parapets.dispose();
       // Limpar acessórios de topo
@@ -3297,11 +3416,7 @@ export function createDonationManager({
       }
       edgeLightMeshes.clear();
       edgeLightsHiddenForCapture.length = 0;
-      for (const light of spillLights) {
-        scene.remove(light);
-        light.dispose();
-      }
-      spillLights.length = 0;
+      releaseUnusedSpillPool();
       disposeEdgeLightSharedResources();
       // Limpar hologramas
       for (const [, entry] of hologramMeshes) {

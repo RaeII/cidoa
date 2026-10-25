@@ -253,7 +253,7 @@ Lotes, calçadas, postes e asfalto somem pelo **alcance do horizonte** (`setRend
 
 - **Grupos:** `lotCull`, `sidewalkCull`, `lampCull`, `roadCull` — cada um é um `InstanceCullGroup` de [[scene-utils#`instanceCulling.ts`]]. Cada `rebuild*` tira o snapshot das matrizes no fim (`snapshotInstances`), ou zera o grupo (`null`) quando não há o que desenhar.
 - **Índice compartilhado:** poste + luminária + mancha de luz num grupo só (somem juntos); asfalto + tracejado idem.
-- **Passe:** `cullGroundInstances()` roda dentro de `updateDistanceCulling` (0.25s, guarda a câmera em `lastCullPos`) e **também no fim de cada rebuild** — senão o chão reaparece inteiro até o próximo passe.
+- **Passe:** `cullGroundInstances()` roda dentro de `updateDistanceCulling` (antes do frame com alteração, guarda câmera/frustum) e **também no fim de cada rebuild** — senão o chão reaparece inteiro até o próximo passe.
 - **Radial, sem frente/trás:** só `dx² + dz² <= groundCullSq`. Direção da câmera não entra.
 - **Probe de reflexo:** `beginEnvCapture` chama `restoreInstances` nos quatro grupos (probe é fixo, captura a cidade inteira); `endEnvCapture` refaz o cull.
 
@@ -439,6 +439,7 @@ Pontos de integração:
 - **Material autoral** (`userData.textureless`, Empire/Residencial): `applyFacadeMaterial`/`applyTextureToTop` pulam o material inteiro → mapas e intensidades do builder ficam intactos. `applyTextureToTop` também reaplica a textura da pedra dos residenciais (set do topo chega async; liga/desliga junto). `updateBuildingSettings` não sobrescreve roughness/metalness autorais.
 - Materiais com `userData.authoredEnvMapIntensity` (`getAuthoredEnvMaterials()`): `setEnvMap` troca o envMap deles também (probe recriado ou reflexo desligado não deixa vidro com cube descartado); `beginEnvCapture` zera; `endEnvCapture` restaura valor autoral **depois** do loop global.
 - `setMatOpacity` multiplica por `userData.baseOpacity` (default 1) → guarda-corpo continua translúcido após foco.
+- `setCustomShapeOpacity` alterna também `setBuildingShapeMeshBatching`: opaco usa grupos unidos por material; semitransparente mantém geometria/ordem original para preservar blending. Cache e atributos compartilhados, sem recriação no foco; ver [[scene-builders#Agrupamento por material (mobile)]].
 - `updateDonationCustomization`: acessórios (topo, letreiro, LED, holograma) vivem em `applyAccessories()` e rodam **também** na troca de formato. Antes o `return` da transição descartava acessórios na 1ª aplicação vinda do banco (formato + acessórios juntos) — todo formato custom perdia topo/letreiro/LED ao recarregar. Cor/textura seguem puladas na transição (nascem certas no rebuild).
 - `setFocusedDonation` dim os clones para `0.15` quando outro prédio está focado, mantém em `1.0` se o custom é o focado, e dispensa o `focusHighlightMesh` (o próprio Mesh já é separado).
 - `getHoveredValue` / `getClickedDonationId` (via `pickAt`) testam custom shapes com raycaster normal e leem `donationId`/`donationValue` de `userData`; instanciados vão pelo caminho AABB (ver [[scene-managers#Picking (hover/clique) por AABB de quadra|Picking]]).
@@ -476,7 +477,7 @@ Cada edifício pode ter um acessório 3D no topo, como holofotes ou heliponto, g
 - **Posicionamento:** após cada `rebuildInstances`, `syncRooftops()` reposiciona todos os grupos no topo dos edifícios correspondentes.
 - **Criação/remoção:** `setRooftop(donationId, type)` remove o grupo anterior e cria um novo se `type !== "none"`.
 - **Performance:** o lookup do edifício usa `donationIdToInstanceIndex` em vez de `indexOf`, e os transforms temporários são reutilizados nos syncs.
-- **LOD:** `updateDistanceCulling(cameraPos)` (chamado pelo runtime a cada 0.25s) esconde o grupo além de `ACCESSORY_DETAIL_DISTANCE` (80u) — vale pra rooftop, sign, LED e holograma. Mesmo passe faz cull dos prédios além da distância de renderização (`setRenderDistance`): custom shapes via `visible`, instâncias via compactação do buffer/`mesh.count`. Ver [[#Cull do chão da cidade]] pro resto do loteamento.
+- **LOD:** `updateDistanceCulling(cameraPos, cameraForward, frustum?)` (chamado antes do frame quando câmera/cena mudam) esconde o grupo além de `ACCESSORY_DETAIL_DISTANCE` (80u) — vale pra rooftop, sign, LED e holograma. Mesmo passe faz cull dos prédios além da distância de renderização (`setRenderDistance`): custom shapes via `visible`, instâncias via compactação do buffer/`mesh.count`. Ver [[#Cull do chão da cidade]] pro resto do loteamento.
 - **Cleanup:** no `dispose()`, todos os grupos são removidos e `disposeRooftopSharedResources()` limpa geometrias e materiais compartilhados.
 
 #### Letreiros (Signs)
@@ -505,11 +506,11 @@ LED some **por completo** da captura do envMap — nem a fita espelhada, nem o c
 - **Saída do reflexo (fita):** `beginEnvCapture()` esconde todo group de LED visível (guarda em `edgeLightsHiddenForCapture`), `endEnvCapture()` restaura. Mesmo padrão do piso da cidade — ver [[scene-runtime#Probe de reflexo (envMap dos prédios)]].
 - **Saída do reflexo (luz):** as `PointLight` vão a `intensity = 0` na captura (valores guardados em `spillIntensitiesBeforeCapture`) e voltam no fim. Zerar intensidade em vez de `visible = false` — apagar a luz mudaria a contagem de luzes e recompilaria todos os materiais **a cada captura**.
 - **Luz nos vizinhos:** pool fixo de `EDGE_LIGHT_SPILL_POOL_SIZE` (8) `PointLight`, criado na **primeira** ativação de LED (`ensureSpillPool`). Sem LED na cena, nenhum material paga o custo das luzes.
-- **Por que pool fixo:** contagem de luzes visíveis entra na chave de cache do programa. Criar/remover — ou alternar `visible` — recompilaria **todos** os materiais a cada passe de cull. Luzes ficam sempre na cena; só posição e `intensity` mudam.
-- **Atribuição:** no mesmo passe de `updateDistanceCulling` (0.25s), os LEDs visíveis mais próximos da câmera assumem as luzes por ordem de distância; sobra fica com `intensity = 0`. LED nº 9+ não acende vizinho — subir `EDGE_LIGHT_SPILL_POOL_SIZE` se a cidade ficar densa de LED.
+- **Por que pool fixo:** contagem de luzes visíveis entra na chave de cache do programa. Criar/remover — ou alternar `visible` — recompilaria **todos** os materiais a cada passe de cull. Enquanto houver LEDs, as luzes ficam na cena; só posição e `intensity` mudam. Ao remover o último LED ou filtrá-lo do dataset, o pool é descartado; o próximo LED recria as oito luzes.
+- **Atribuição:** no mesmo passe de `updateDistanceCulling`, os LEDs visíveis mais próximos da câmera assumem as luzes por ordem de distância; sobra fica com `intensity = 0`. LED nº 9+ não acende vizinho — subir `EDGE_LIGHT_SPILL_POOL_SIZE` se a cidade ficar densa de LED.
 - **Posição:** centro do edifício. Sem sistema de sombras a luz vaza pros vizinhos, e a própria fachada não acende porque a normal aponta pro lado oposto ao vetor da luz.
 - **Clareia, não reflete:** `applyTriplanarShader` remove a linha do `reflectedLight.directSpecular` (lobo GGX da luz direta) do chunk `lights_physical_pars_fragment`. Sem isso a `PointLight` desenha o próprio "bulbo" espelhado na fachada do vizinho — ponto brilhante, não iluminação. Sobra `directDiffuse` = o clareado. **Reflexo do ambiente intacto:** ele vem de `indirectSpecular` (`getIBLRadiance`/envMap), outro caminho do shader. Só é seguro porque as únicas luzes **diretas** da cena são estas — o resto é `AmbientLight` + IBL (ver [[scene-builders#createLightingRig.ts]]).
-- **Cleanup:** `dispose()` remove e descarta as luzes do pool.
+- **Cleanup:** retirada do último LED e `dispose()` removem e descartam as luzes do pool.
 
 ---
 
@@ -547,3 +548,12 @@ Mexa aqui quando o problema for **comportamental**:
 | Alterar tamanho mínimo do loteamento | `createDonationManager.ts` → `MIN_LOTEAMENTO_RADIUS` |
 | Problema de valores padrão (altura máx, tamanho) | [[scene-config]] |
 | Fórmula matemática pequena | [[scene-utils]] |
+
+### Culling espacial e atualizações incrementais
+
+- As quadras já usadas pelo picking são testadas contra o frustum. Quadra inteiramente fora da imagem pula testes de distância dos seus prédios; dentro dela, AABBs individuais mantêm edifícios que cruzam a borda. Os grupos por textura continuam os mesmos: não aumenta draw calls. Displacement ativo conserva o descarte só por distância, pois move vértices além dos limites lógicos.
+- `instanceHidden` preserva índices lógicos para seleção; só buffers renderizados são compactados. Matrizes/cores são comparadas antes de escrever; só grupos alterados recebem `needsUpdate` e intervalos limitados à parte utilizada. Bounds são invalidados quando necessário.
+- `beginEnvCapture` restaura toda a cidade e o chão; `endEnvCapture` devolve o conjunto compacto da câmera principal. Não aplica o frustum da câmera às luzes dos LEDs, para preservar iluminação dos vizinhos.
+- `donationById` mantém consultas de customização/foco/acessórios sem buscas lineares repetidas. Inserção, replace-all e dispose mantêm o índice sincronizado.
+- Opacidade só invalida material quando muda `transparent`; cor atualiza o valor. Mantém a ordem original dos grupos de geometria durante a transparência de foco.
+- Teste: `scripts/check-building-textures.mjs` compara culling com AABBs reais em quatro direções, restauração do probe, buffers estáveis e ciclo de criação/remoção do pool de LEDs.

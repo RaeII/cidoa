@@ -106,6 +106,7 @@ scripts/
   check-building-management.mjs ← administração, posse, descarte e foco após filtro/pagamento; sem servidor/navegador
   check-donation-info.mjs      ← foto, totais, 5 ONGs em linhas, filtros e transição cena/seção; sem servidor/navegador
   check-building-shapes.mjs    ← checa os 15 formatos + o preview do admin sem navegador (`node scripts/check-building-shapes.mjs`)
+  check-building-draw-calls.mjs ← grupos por material, triângulos, picking, cache, transparência e dispose; sem navegador/GPU → [[scene-builders#Agrupamento por material (mobile)]]
   render-building.mjs          ← PNG headless de um formato com a luz da cidade: 4 vistas + referência (`node scripts/render-building.mjs <formato>`) → [[novo-edificio]]
   check-building-textures.mjs  ← troca de textura no destaque padrão; reuso de meshes/cache, sem navegador
   check-horizon.mjs            ← horizonte, montanhas e culling no runtime sem servidor/navegador/GPU
@@ -264,7 +265,7 @@ src/
       createParapetMesh.ts         ← platibandas automáticas, 3 modelos instanciados
       createSignMesh.ts
       createEdgeLightMesh.ts
-      createBuildingShapeMesh.ts   ← registro formato → builder (cena + admin)
+      createBuildingShapeMesh.ts   ← registro formato → builder + agrupamento por material (cena + admin; ordem original no foco transparente)
       createPreviewScene.ts        ← cena isolada de personalização/admin ou edifício completo/modal
       createTwistedBuildingMesh.ts
       createOctagonalBuildingMesh.ts
@@ -291,6 +292,7 @@ src/
     hooks/
       useCityScene.ts
     runtime/
+      createScenePreparer.ts      ← cache de variantes e uploads incrementais
       createCitySceneRuntime.ts
     utils/
       math.ts
@@ -647,3 +649,7 @@ Quatro modalidades: doação, indicação, doação + indicação (`all`) e doa�
 ## Balanceamento inicial do Passe
 
 [[passe-balanceamento]] — regras aplicadas, faixas editoriais e ordenação por esforço: doação, indicação, AND e OR.
+
+## Verificação de desempenho mobile
+
+`node scripts/check-mobile-performance.mjs` verifica buffers, GIFs, preparo de shaders e cache incremental sem GPU/servidor. `check-building-textures.mjs` cobre frustum/picking lógico, reflexos e LEDs; `check-horizon.mjs` cobre horizonte, FPS real e suspensão por visibilidade. Implementação: [[scene-runtime#Visibilidade e preparo incremental (mobile)]], [[scene-managers#Culling espacial e atualizações incrementais]], [[scene-textures]]. O ganho de FPS e a equivalência visual ainda requerem validação no aparelho real.

@@ -307,7 +307,12 @@ Métricas enviadas de volta para o React para exibição no painel:
 ```typescript
 type SceneStats = {
   buildings: number;         // prédios ativos na cena
-  culled: number;            // prédios ocultos pelo cull de distância (frontal + traseiro)
+  culled: number;            // prédios ocultos por distância e/ou frustum
+  performance?: {
+    fps: number; frameTimeMs: number;
+    drawCalls: number; triangles: number;
+    geometries: number; textures: number; programs: number;
+  };                        // FPS real; contagens do último frame, incluindo capturas
   fpsMode: string;           // modo FPS atual
   chunks: number;            // chunks carregados
   sceneReady: boolean;       // frame com HDRI resolvido, shaders prontos, doações aplicadas e nenhuma textura baixando
@@ -472,3 +477,5 @@ Quando criar um novo tipo:
 - Nova seção do painel que sincroniza com o runtime → `types.ts`
 - Novo manager que precisa receber nova configuração → `types.ts`
 - Novo campo na config global → `types.ts` + `citySceneConfig.ts`
+
+`SceneStats.performance` é emitido a cada amostra de aproximadamente 0,5 s de frames consecutivos. Pausas não alimentam a média; o diagnóstico inclui o tempo de capturas (apenas o scaler de resolução filtra esse custo); contagens de texturas/geometrias não representam bytes de VRAM. Não muda o limite de FPS nem a resolução.

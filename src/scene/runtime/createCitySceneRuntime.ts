@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { createScenePreparer } from "./createScenePreparer";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { createGroundPlane } from "../builders/createGroundPlane";
 import { createLightingRig } from "../builders/createLightingRig";
@@ -108,7 +109,8 @@ export async function createCitySceneRuntime({
       nextStats.culled === currentStats.culled &&
       nextStats.fpsMode === currentStats.fpsMode &&
       nextStats.chunks === currentStats.chunks &&
-      nextStats.sceneReady === currentStats.sceneReady
+      nextStats.sceneReady === currentStats.sceneReady &&
+      nextStats.performance === currentStats.performance
     ) return;
     currentStats = nextStats;
     onStatsChange(currentStats);
@@ -152,6 +154,7 @@ export async function createCitySceneRuntime({
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.45;
+  renderer.info.autoReset = false;
 
   let renderScale = 1;
   // Piso da escala dinâmica. 1 = downscale desligado (sem granulado), o padrão.
@@ -251,6 +254,7 @@ export async function createCitySceneRuntime({
   THREE.DefaultLoadingManager.onProgress = handleLoadProgress;
   // Objeto novo na cena (prédio custom, letreiro, luz do LED, grupo instanciado realocado).
   scene.addEventListener("childadded", requestCompile);
+  scene.addEventListener("childremoved", requestCompile);
 
   const environmentUpdater = loadEnvironment(
     scene,
@@ -387,9 +391,10 @@ export async function createCitySceneRuntime({
       ? camera.position.distanceTo(bounds.center) + bounds.radius + 1
       : 0;
     const far = Math.max(currentHorizon.renderDistance, terrainFar);
-    if (camera.far === far) return;
+    if (camera.far === far) return false;
     camera.far = far;
     camera.updateProjectionMatrix();
+    return true;
   };
 
   // Hover: raycast com throttle por RAF para não impactar o loop de animação
@@ -466,13 +471,16 @@ export async function createCitySceneRuntime({
   let lastTime = performance.now();
   let fpsAccumulator = 0;
   let frames = 0;
+  let metricsAccumulator = 0;
+  let metricsFrames = 0;
   let smoothedFps = 60;
   let cubeFrameCounter = 0;
   let cameraDebugAccumulator = 0;
-  let accessoryCullAccumulator = 0;
   let skipNextFpsSample = false;
   let lastResolutionChangeAt = -Infinity;
   const cullForward = new THREE.Vector3();
+  const viewFrustum = new THREE.Frustum();
+  const viewProjection = new THREE.Matrix4();
   // Limite de FPS do modo leve. 0 = sem limite (segue o rAF).
   const frameIntervalMs = lite ? 1000 / CITY_SCENE_CONFIG.liteFps : 0;
   let lastFrameAt = -Infinity;
@@ -483,98 +491,20 @@ export async function createCitySceneRuntime({
   // 4 ms aqui ≈ 16 ms lá, longe dos 50 ms de tarefa longa.
   const SLICE_MS = 4;
 
-  // --- Compilação assíncrona dos shaders ---
-  // Sem isso o 1º render de cada material espera o link na main thread (onFirstUse no
-  // profile: ~375 ms no M4, segundos em celular). compileAsync dispara compile/link e espera
-  // KHR_parallel_shader_compile dizer "pronto" sem bloquear; o frame só sai depois.
-  // Lote "de mentira" para o compile(): traverse() devolve os materiais do lote e
-  // traverseVisible() fica vazio — luzes vêm só da cena (targetScene); uma luz dentro do
-  // lote contaria 2x e compilaria a variante errada.
+  const scenePreparer = createScenePreparer(renderer, scene);
   let compiling = false;
-  const compileBatch = (
-    objects: THREE.Object3D[],
-    target: THREE.WebGLRenderTarget | null,
-    batchCamera: THREE.Camera,
-  ) => {
-    const batch = {
-      traverse: (callback: (object: THREE.Object3D) => void) => {
-        for (const object of objects) object.traverse(callback);
-      },
-      traverseVisible: () => {},
-    } as unknown as THREE.Object3D;
-    const previousTarget = renderer.getRenderTarget();
-    // Alvo define tone mapping/espaço de cor do programa: cube (linear) ≠ tela (ACES/sRGB).
-    renderer.setRenderTarget(target);
-    const ready = renderer.compileAsync(batch, batchCamera, scene);
-    renderer.setRenderTarget(previousTarget);
-    return ready;
-  };
-  // Texturas sobem aqui, uma por vez com yield, e não todas no 1º render que as usa
-  // (texSubImage2D + mipmaps de dezenas de mapas num frame só = ~30 ms no M4).
-  const uploadedVersion = new WeakMap<THREE.Texture, number>();
-  const uploadTexturesOf = (object: THREE.Object3D, deadline: number) => {
-    let done = true;
-    object.traverse((child) => {
-      const material = (child as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
-      if (!material) return;
-      for (const mat of Array.isArray(material) ? material : [material]) {
-        for (const value of Object.values(mat)) {
-          const texture = value as THREE.Texture | null;
-          if (!texture?.isTexture || !texture.image || (texture as THREE.Texture & { isRenderTargetTexture?: boolean }).isRenderTargetTexture) continue;
-          if (uploadedVersion.get(texture) === texture.version) continue;
-          if (performance.now() > deadline) {
-            done = false;
-            return;
-          }
-          renderer.initTexture(texture);
-          uploadedVersion.set(texture, texture.version);
-        }
-      }
-    });
-    return done;
-  };
-
   const runCompilePass = async () => {
     compileRequested = false;
     compiling = true;
     try {
-      const pending: Promise<unknown>[] = [];
-      const children = [...scene.children];
-      let sliceStart = performance.now();
-      // Lotes de 4 filhos: o JS de criar um programa novo (~1–3 ms) cabe na fatia.
-      for (let i = 0; i < children.length; i += 4) {
-        // Filho removido durante um yield (rebuild/dispose) não compila.
-        const objects = children.slice(i, i + 4).filter((child) => child.parent === scene);
-        if (cubeActive()) {
-          pending.push(
-            compileBatch(objects, buildingCubeTarget, buildingCubeCamera.children[0] as THREE.Camera),
-          );
-        }
-        // Tela por último: compileAsync acompanha o currentProgram, que fica sendo o da tela.
-        pending.push(compileBatch(objects, null, camera));
-        for (const object of objects) {
-          while (object.parent === scene && !uploadTexturesOf(object, sliceStart + SLICE_MS)) {
-            await yieldToMain();
-            if (isDisposed) return;
-            sliceStart = performance.now();
-          }
-        }
-        if (performance.now() - sliceStart > SLICE_MS) {
-          await yieldToMain();
-          if (isDisposed) return;
-          sliceStart = performance.now();
-        }
-      }
-      // ponytail: teto de 5 s — material descartado no meio da espera derruba o polling do
-      // three (currentProgram some) e a promise nunca resolve; o render segue síncrono.
-      await Promise.race([Promise.all(pending), new Promise((resolve) => setTimeout(resolve, 5000))]);
+      await scenePreparer.prepare(camera, cubeActive() ? buildingCubeTarget : null,
+        buildingCubeCamera.children[0] as THREE.Camera, () => isDisposed);
     } finally {
       compiling = false;
       renderNeeded = true;
     }
   };
 
-  // --- Fila de customizações ---
   // CitySceneEditor reaplica todas as customizações logo depois de setDonations (~200
   // chamadas: rebuild de instâncias, malha de formato, letreiro). Síncrono = ~420 ms numa
   // tarefa só no profile. Fila por id (a última vence) drenada em fatias de SLICE_MS:
@@ -634,11 +564,17 @@ export async function createCitySceneRuntime({
   };
   controls.addEventListener("change", handleControlsChange);
 
+  let canvasVisible = true;
+  const canRender = () => canvasVisible && !document.hidden;
+
   const animate = (time: number) => {
+    animationId = 0;
+    if (!canRender()) return;
     animationId = requestAnimationFrame(animate);
     if (time - lastFrameAt < frameIntervalMs - 2) return;
     lastFrameAt = time;
-    const delta = Math.min((time - lastTime) / 1000, 0.05);
+    const elapsed = Math.max(0, (time - lastTime) / 1000);
+    const delta = Math.min(elapsed, 0.05);
     lastTime = time;
 
     // Damping assentando: a mudança chega pelo "change" (handleControlsChange).
@@ -659,17 +595,18 @@ export async function createCitySceneRuntime({
       }
     }
 
-    // Acessórios somem além da distância de detalhe; prédios além da distância de renderização
-    // (frontal ou traseira, conforme direção da câmera). Throttle de 0,25 s; roda também em
-    // tick ocioso para a posição final da câmera ser avaliada depois que ela para.
-    accessoryCullAccumulator += delta;
-    if (cullPending && accessoryCullAccumulator >= 0.25) {
-      accessoryCullAccumulator = 0;
+    // O frustum precisa acompanhar cada movimento: throttle deixaria buracos ao girar.
+    if (updateCameraFar()) cullPending = true;
+    if (cullPending) {
       cullPending = false;
       renderNeeded = true;
+      camera.updateMatrixWorld();
+      viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+      viewFrustum.setFromProjectionMatrix(viewProjection);
       const culled = donationManager.updateDistanceCulling(
         camera.position,
         camera.getWorldDirection(cullForward),
+        viewFrustum,
       );
       // O probe fixo recompõe a cidade completa; cull só atualiza UI/render principal.
       if (culled !== currentStats.culled) {
@@ -687,6 +624,7 @@ export async function createCitySceneRuntime({
       return;
     }
     renderNeeded = false;
+    const consecutiveFrame = renderedLastTick;
     if (!renderedLastTick) skipNextFpsSample = true;
     renderedLastTick = true;
 
@@ -699,7 +637,6 @@ export async function createCitySceneRuntime({
           ) * currentReflection.heightBlur
         : 0,
     );
-    updateCameraFar();
     groundPlane.updateCamera(camera);
     environmentUpdater.updatePosition(camera.position.x, camera.position.y, camera.position.z);
 
@@ -725,7 +662,7 @@ export async function createCitySceneRuntime({
     if (skipNextFpsSample) {
       skipNextFpsSample = false;
     } else {
-      fpsAccumulator += delta;
+      fpsAccumulator += elapsed;
       frames += 1;
     }
     if (fpsAccumulator >= 0.5 && frames > 0) {
@@ -735,6 +672,21 @@ export async function createCitySceneRuntime({
       fpsAccumulator = 0;
       frames = 0;
     }
+    // Diagnóstico inclui o custo de capturas; somente o scaler filtra esse evento esporádico.
+    let sampledFps: number | null = null;
+    if (consecutiveFrame) {
+      metricsAccumulator += elapsed;
+      metricsFrames++;
+      if (metricsAccumulator >= 0.5) {
+        sampledFps = metricsFrames / metricsAccumulator;
+        metricsAccumulator = 0;
+        metricsFrames = 0;
+      }
+    } else {
+      metricsAccumulator = 0;
+      metricsFrames = 0;
+    }
+    renderer.info.reset();
 
     // Captura no máximo a cada updateInterval frames, e só quando muda algo que ela vê: cena
     // (cubeDirty, com debounce) ou, com probe na câmera, a posição da câmera. Câmera parada
@@ -803,9 +755,20 @@ export async function createCitySceneRuntime({
     if (cubeActive() && (cubeDirty || cameraMovedSinceCapture())) renderNeeded = true;
 
     // Holograma visível anima: loop continua.
-    if (donationManager.tickAnimations(time / 1000, delta * 1000)) renderNeeded = true;
+    if (donationManager.tickAnimations(time / 1000, elapsed * 1000)) renderNeeded = true;
 
     renderer.render(scene, camera);
+    if (sampledFps !== null) {
+      emitStatsPatch({ performance: {
+        fps: sampledFps,
+        frameTimeMs: 1000 / sampledFps,
+        drawCalls: renderer.info.render.calls,
+        triangles: renderer.info.render.triangles,
+        geometries: renderer.info.memory.geometries,
+        textures: renderer.info.memory.textures,
+        programs: renderer.info.programs?.length ?? 0,
+      } });
+    }
     // Sinal pro loading da página sair: frame com céu, shaders prontos, cidade recebida, fila
     // de customização vazia (gate acima) e nenhuma textura baixando. Volta a false no onStart.
     if (envLoaded && donationsReceived && !assetsLoading) emitStatsPatch({ sceneReady: true });
@@ -814,12 +777,37 @@ export async function createCitySceneRuntime({
   // 1º frame no próximo rAF, não dentro do effect de mount.
   animationId = requestAnimationFrame(animate);
 
+  const handleVisibility = () => {
+    if (!canRender()) {
+      cancelAnimationFrame(animationId);
+      animationId = 0;
+      return;
+    }
+    lastTime = performance.now();
+    lastFrameAt = -Infinity;
+    renderedLastTick = false;
+    fpsAccumulator = 0;
+    frames = 0;
+    metricsAccumulator = 0;
+    metricsFrames = 0;
+    cullPending = true;
+    requestRender();
+    if (!animationId) animationId = requestAnimationFrame(animate);
+  };
+  const intersection = new IntersectionObserver(([entry]) => {
+    canvasVisible = entry.isIntersecting;
+    handleVisibility();
+  });
+  intersection.observe(mount);
+  document.addEventListener("visibilitychange", handleVisibility);
+
   const handleResize = () => {
     camera.aspect = mount.clientWidth / mount.clientHeight;
     camera.updateProjectionMatrix();
     renderer.setPixelRatio(getPixelRatio());
     renderer.setSize(mount.clientWidth, mount.clientHeight);
     requestRender();
+    cullPending = true;
   };
 
   window.addEventListener("resize", handleResize);
@@ -1024,7 +1012,10 @@ export async function createCitySceneRuntime({
       cancelAnimationFrame(animationId);
       clearTimeout(customizationTimer);
       window.removeEventListener("resize", handleResize);
+      intersection.disconnect();
+      document.removeEventListener("visibilitychange", handleVisibility);
       scene.removeEventListener("childadded", requestCompile);
+      scene.removeEventListener("childremoved", requestCompile);
       const manager = THREE.DefaultLoadingManager;
       if (manager.onStart === handleLoadStart) manager.onStart = () => {};
       if (manager.onLoad === handleLoadEnd) manager.onLoad = () => {};

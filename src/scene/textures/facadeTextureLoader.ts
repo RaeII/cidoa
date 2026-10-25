@@ -76,75 +76,54 @@ export function peekFacadeTextureSet(
   return ready.get(resolveFacadeFolder(value)) ?? null;
 }
 
-// NormalGL baixado depois, sob demanda (ver `normal` em loadFacadeTextureSet). Uma Promise por pasta.
-const normalInFlight = new Map<string, Promise<FacadeTextureSet>>();
+type OptionalMap = "normal" | "roughness" | "metalness" | "displacement";
+export type FacadeLoadOptions = Partial<Record<OptionalMap, boolean>> & { bump?: boolean };
+const optionalMaps: OptionalMap[] = ["normal", "roughness", "metalness", "displacement"];
+const mapInFlight = new Map<string, Promise<THREE.Texture | null>>();
 
-/** Completa o set com o NormalGL se a pasta tem um e ele ainda não veio. Muta o set do cache. */
-function ensureNormal(key: string, set: FacadeTextureSet, anisotropy: number): Promise<FacadeTextureSet> {
-  const url = getFacadeMapUrls(key)?.normal;
-  if (set.normal || !url) return Promise.resolve(set);
-  let pending = normalInFlight.get(key);
-  if (!pending) {
-    pending = loadOptional(url, false, anisotropy).then((normal) => {
-      set.normal = normal;
-      if (!normal) normalInFlight.delete(key); // permite retry
-      return set;
-    });
-    normalInFlight.set(key, pending);
-  }
-  return pending;
+async function ensureMaps(key: string, set: FacadeTextureSet, anisotropy: number, options: FacadeLoadOptions) {
+  const urls = getFacadeMapUrls(key);
+  if (!urls) return set;
+  const ensure = async (kind: OptionalMap) => {
+    if (set[kind] || !urls[kind]) return;
+    const mapKey = `${key}:${kind}`;
+    let pending = mapInFlight.get(mapKey);
+    if (!pending) {
+      pending = loadOptional(urls[kind], false, anisotropy);
+      mapInFlight.set(mapKey, pending);
+    }
+    set[kind] = await pending;
+    if (!set[kind]) mapInFlight.delete(mapKey); // Falha opcional permite nova tentativa.
+  };
+  await Promise.all(optionalMaps.filter((kind) => options[kind] !== false).map(ensure));
+  // normalMap substitui bumpMap no shader; se o normal falhar, conserva o relevo anterior.
+  if (options.bump && (options.normal === false || !set.normal)) await ensure("displacement");
+  return set;
 }
 
-/** Baixa o NormalGL de todos os sets já carregados sem ele (normalScale saiu de 0 no painel). */
-export function loadFacadeNormals(anisotropy: number): Promise<void> {
-  return Promise.all(
-    [...ready].map(([key, set]) => ensureNormal(key, set, anisotropy)),
-  ).then(() => undefined);
-}
-
-/**
- * Set de texturas PBR de uma pasta. Lazy: só baixa quando pedido, e uma vez só —
- * chamadas concorrentes compartilham a mesma Promise. Resolve `null` se a pasta
- * não existe (catálogo apontando pra asset removido) ou se o color map falhou;
- * o chamador cai no fallback. Mapas secundários ausentes viram `null` no set.
- *
- * `normal: false` pula o NormalGL (fachada com normalScale 0 não o amostra: era download,
- * upload e VRAM à toa). Pedido depois com `normal: true` (ou loadFacadeNormals), ele vem
- * e entra no mesmo set.
- */
-export function loadFacadeTextureSet(
+/** Cache compartilhado e incremental: pede apenas mapas usados, sem bloquear pedidos concorrentes. */
+export async function loadFacadeTextureSet(
   value: string | null | undefined,
   anisotropy: number,
-  { normal = true }: { normal?: boolean } = {},
+  options: FacadeLoadOptions = {},
 ): Promise<FacadeTextureSet | null> {
   const key = resolveFacadeFolder(value);
-  const base = inFlight.get(key) ?? startSet(key, anisotropy, normal);
-  return normal ? base.then((set) => set && ensureNormal(key, set, anisotropy)) : base;
+  const set = await (inFlight.get(key) ?? startSet(key, anisotropy));
+  return set ? ensureMaps(key, set, anisotropy, options) : null;
 }
 
-function startSet(key: string, anisotropy: number, withNormal: boolean): Promise<FacadeTextureSet | null> {
+function startSet(key: string, anisotropy: number): Promise<FacadeTextureSet | null> {
   const urls = getFacadeMapUrls(key);
   if (!urls) return Promise.resolve(null);
-
-  const pending = (async () => {
-    try {
-      const [color, normal, roughness, metalness, displacement] = await Promise.all([
-        loadOne(urls.color, true, anisotropy),
-        loadOptional(withNormal ? urls.normal : null, false, anisotropy),
-        loadOptional(urls.roughness, false, anisotropy),
-        loadOptional(urls.metalness, false, anisotropy),
-        loadOptional(urls.displacement, false, anisotropy),
-      ]);
-      const set: FacadeTextureSet = { color, normal, roughness, metalness, displacement };
-      ready.set(key, set);
-      return set;
-    } catch (err) {
-      console.warn(`[textures] falha ao carregar a pasta "${key}"`, err);
-      inFlight.delete(key); // permite retry numa próxima seleção
-      return null;
-    }
-  })();
-
+  const pending = loadOne(urls.color, true, anisotropy).then((color) => {
+    const set: FacadeTextureSet = { color, normal: null, roughness: null, metalness: null, displacement: null };
+    ready.set(key, set);
+    return set;
+  }).catch((err) => {
+    console.warn(`[textures] falha ao carregar a pasta "${key}"`, err);
+    inFlight.delete(key);
+    return null;
+  });
   inFlight.set(key, pending);
   return pending;
 }

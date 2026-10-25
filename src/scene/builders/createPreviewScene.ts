@@ -225,7 +225,7 @@ function buildSubject(resolved: ResolvedSubject, appearance?: BuildingPreviewApp
       setHologramOpacity(hologram, next.hologramOpacity);
     }
   };
-  return { root, bounds, tick, updateStyle, dispose };
+  return { root, bounds, tick, hasAnimation: () => hologram !== null, updateStyle, dispose };
 }
 
 /**
@@ -288,5 +288,5 @@ export function createPreviewScene(resolved: ResolvedSubject, appearance?: Build
     camera.lookAt(sphere.center);
   };
 
-  return { scene, camera, center: sphere.center, frame, place, tick: built.tick, updateStyle: built.updateStyle, dispose: built.dispose };
+  return { scene, camera, center: sphere.center, frame, place, tick: built.tick, hasAnimation: built.hasAnimation, updateStyle: built.updateStyle, dispose: built.dispose };
 }

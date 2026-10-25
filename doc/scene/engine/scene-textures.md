@@ -32,7 +32,7 @@ Home (`/`), Playwright + Chrome, cidade de pré-lançamento. Texturas de fachada
 WebP corta download, **não** VRAM: PNG, JPG e WebP descomprimem igual pra RGBA8. Só o `.low.webp` (metade da resolução) corta VRAM e tempo de upload.
 
 > [!note] NormalGL da fachada sob demanda
-> Com `normalScale = 0` (padrão da fachada) o manager pede o set com `{ normal: false }`: o NormalGL não baixa (~630 KB desktop, ~175 KB celular, mais upload e VRAM). Painel sobe a escala → `loadFacadeNormals` completa os sets já carregados e o manager reaplica. Topo (Concrete024, escala 20) segue com normal.
+> Com `normalScale = 0` (padrão da fachada) o manager pede o set com `{ normal: false }`: o NormalGL não baixa (~630 KB desktop, ~175 KB celular, mais upload e VRAM). Painel sobe a escala → `loadFacadeTextureSet` completa os mapas necessários dos materiais em uso e o manager reaplica. Topo (Concrete024, escala 20) segue com normal.
 
 ## `facadeTextureManifest.ts` (sem THREE)
 
@@ -57,16 +57,16 @@ Exporta:
 ```ts
 initFacadeTextureLoader(renderer): void
 peekFacadeTextureSet(value): FacadeTextureSet | null
-loadFacadeTextureSet(value, anisotropy, { normal = true }?): Promise<FacadeTextureSet | null>
-loadFacadeNormals(anisotropy): Promise<void>  // NormalGL de todos os sets prontos que vieram sem ele
+loadFacadeTextureSet(value, anisotropy, options?: FacadeLoadOptions): Promise<FacadeTextureSet | null>
+type FacadeLoadOptions = { normal?: boolean; roughness?: boolean; metalness?: boolean; displacement?: boolean; bump?: boolean }
 ```
 
-- **`normal: false`** pula o NormalGL no 1º load da pasta. Pedido depois com `normal: true` (ex.: [[three-components|BuildingPreview]]) ou via `loadFacadeNormals`, `ensureNormal` baixa só ele (uma Promise por pasta) e **muta o set do cache** (`set.normal`).
+- **Mapas sob demanda:** opções `false` pulam mapas opcionais; pedidos posteriores completam o mesmo set. Cor tem uma Promise por pasta; opcionais têm uma por pasta/mapa. `bump: true` pede displacement somente quando o normal não é usado ou falhou. Topo pula metalness; roughness/normal da pedra residencial continuam obrigatórios independentemente dos sliders do topo.
 
 - **PNG/JPG/WebP via `loadImageTexture`** (`src/scene/textures/loadImageTexture.ts`, também usado pelo HDRI): `ImageBitmapLoader` com `imageOrientation: "flipY"` + `texture.flipY = false` (ImageBitmap ignora `flipY` no upload, o flip vem do `createImageBitmap`). Decode sai da main thread — com `TextureLoader` o decode do `HTMLImageElement` caía dentro do `texSubImage2D` (~230 ms no profile). Mesma regra do `GLTFLoader` do three: Safari < 17 / Firefox < 98 / sem `createImageBitmap` → `TextureLoader`. `bitmap.close()` no `dispose` da textura. Screenshot antes/depois: pixel idêntico (nada espelhado).
 - **`initFacadeTextureLoader(renderer)`** — chamado 1× pelo manager. Monta o `KTX2Loader` com `setTranscoderPath(BASE_URL + "basis/")` e `detectSupport(renderer)` (a GPU decide BC7 / ASTC / ETC2). Idempotente.
 - **Assíncrono**: `KTX2Loader.load()` não devolve textura na hora (transcode roda em worker). Então o set inteiro é `Promise`. Material sobe sem mapas e recebe os mapas quando chegam — a cena aparece antes das texturas em vez de travar.
-- **`peekFacadeTextureSet`** — set já no cache, sem tocar a rede. Evita 1 frame cinza quando o manager é recriado ou quando o usuário volta pra uma textura já vista.
+- **`peekFacadeTextureSet`** — set já no cache, potencialmente parcial, sem tocar a rede. Chamadores também pedem os mapas necessários ao loader. Evita 1 frame cinza quando o manager é recriado ou quando o usuário volta pra uma textura já vista.
 - **Cache por pasta, vida do app**: cada textura carrega 1×, compartilhada entre todos os prédios/materiais. Chamadas concorrentes compartilham a mesma Promise. Trocar textura e voltar reusa — **zero re-download, zero re-upload GPU**.
 - Resolve `null` se a pasta sumiu (catálogo aponta pra asset removido) ou se o color map falhou → chamador cai no fallback. Mapas secundários que falham viram `null` no set (não derrubam a textura inteira).
 
@@ -182,3 +182,7 @@ Textura por edifício **não** custa mesh dedicado: cada textura em uso tem o pr
 - **Não-cadastradas** = pasta no repo sem opção → botão **Cadastrar** cria a opção (`value` = pasta, key = slug). Depois de cadastrada, admin controla (toggle/editar/excluir).
 
 Textura nova no repo = dropar a pasta em `src/assets/texture/`, rodar `npm run textures:webp` → aparece como não-cadastrada, sem editar código. Sem rodar o script a pasta funciona igual (cai na fonte PNG/JPG), só mais pesada.
+
+### Preservação de qualidade
+
+`normalMap` tem precedência sobre `bumpMap` no shader instalado: ao usar normal, o material não associa o bump redundante. Displacement de vértices continua quando sua escala é positiva; fachada com normal desligado mantém seu bump. Trocas de configuração carregam os mapas que passam a contribuir. Formato WebP, resolução, anisotropia e mipmaps das fachadas não mudam. O cache continua compartilhado entre cidade e prévia; não há descarte de texturas em uso por outro contexto.

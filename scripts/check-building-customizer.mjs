@@ -78,7 +78,7 @@ const mocks = {
     dispose() { counts.renderer += 1; }
     forceContextLoss() { counts.context += 1; }
   } },
-  OrbitControls: class { target = new THREE.Vector3(); update() {} dispose() { counts.controls += 1; } },
+  OrbitControls: class extends THREE.EventDispatcher { target = new THREE.Vector3(); update() {} dispose() { counts.controls += 1; } },
   ResizeObserver: class { observe() {} disconnect() { counts.observers += 1; } },
   IntersectionObserver: class { constructor(callback) { visibility = callback; } observe() {} disconnect() { counts.observers += 1; } },
   window: { devicePixelRatio: 2, matchMedia: () => ({ matches: true }) },
@@ -102,7 +102,7 @@ orbit.update();
 assert.equal(orbit.getPolarAngle(), Math.PI / 2, "Câmera deve parar no horizonte");
 assert.ok(camera.position.y >= orbit.target.y, "Não permite olhar o edifício por baixo");
 assert.ok(Math.abs(camera.position.distanceTo(orbit.target) - distance) < 1e-10, "Limite vertical preserva o zoom");
-runtimeRef.current.view = { scene: {}, camera: {}, tick() {}, dispose() { counts.view += 1; } };
+runtimeRef.current.view = { scene: {}, camera: {}, tick() {}, hasAnimation: () => false, dispose() { counts.view += 1; } };
 frame(40);
 assert.equal(counts.render, 1);
 mocks.document.hidden = true;
@@ -115,7 +115,16 @@ assert.equal(counts.render, 1, "Prévia fora da tela não renderiza");
 visibility([{ isIntersecting: true }]);
 frame(160);
 assert.equal(counts.render, 2);
+frame(200);
+assert.equal(counts.render, 2, "Prévia estática repetiu render");
+runtimeRef.current.controls.dispatchEvent({ type: "change" });
+frame(240);
+assert.equal(counts.render, 3, "Controle não pediu render");
+runtimeRef.current.view.hasAnimation = () => true;
+frame(280);
+frame(320);
+assert.equal(counts.render, 5, "Holograma deixou de animar");
 cleanup();
 assert.equal(runtimeRef.current, null);
-assert.deepEqual(counts, { render: 2, renderer: 1, context: 1, controls: 1, observers: 2, view: 1, canceled: 1 });
+assert.deepEqual(counts, { render: 5, renderer: 1, context: 1, controls: 1, observers: 2, view: 1, canceled: 1 });
 console.log("Prévia: câmera limitada ao horizonte, zoom preservado, pausa e liberação de recursos OK.");

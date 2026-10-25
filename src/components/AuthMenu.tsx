@@ -109,6 +109,8 @@ export function AuthMenu({
   const [appliedReferrer, setAppliedReferrer] = useState<ReferrerPreview | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [introOpen, setIntroOpen] = useState(() => !introSeen());
+  // `?ref=` abre o login uma vez; fechar mantém o código para a próxima abertura.
+  const [linkAuthOpen, setLinkAuthOpen] = useState(initialCode !== "");
 
   function changeMenuOpen(open: boolean) {
     setMenuOpen(open);
@@ -117,7 +119,7 @@ export function AuthMenu({
 
   const summary = summaryState?.userId === user?.id ? summaryState?.data ?? null : null;
   const summaryError = summaryState?.userId === user?.id ? summaryState?.error ?? null : null;
-  const effectiveAuthOpen = authOpen || (!isAuthenticated && referralCode !== "");
+  const effectiveAuthOpen = authOpen || (!isAuthenticated && linkAuthOpen);
   // Só visitante: sessão (cookie httpOnly) sobrevive a limpar o localStorage, então
   // conta logada nunca vê. Link de indicação já abre o login, sem vídeo antes.
   const showIntro = introOpen && !isLoading && !isAuthenticated && initialCode === "" && !authOpen;
@@ -175,6 +177,11 @@ export function AuthMenu({
       cancelled = true;
     };
   }, [user]);
+
+  function changeAuthOpen(open: boolean) {
+    if (!open) setLinkAuthOpen(false);
+    onAuthOpenChange(open);
+  }
 
   function changeReferralCode(rawCode: string) {
     const code = normalizeReferralCode(rawCode);
@@ -363,22 +370,18 @@ export function AuthMenu({
       <AuthDialog
         // Código digitado no login do vídeo (desktop) não abre um segundo modal por cima.
         open={effectiveAuthOpen && !showIntro}
-        onOpenChange={onAuthOpenChange}
+        onOpenChange={changeAuthOpen}
         referralCode={referralCode}
         referralPreview={referralPreview}
         referralLoading={referralLoading}
         referralError={referralError}
         onReferralCodeChange={changeReferralCode}
-        onCancelReferral={clearPendingReferral}
+        onReferralRemove={clearPendingReferral}
         onReferralApplied={clearPendingReferral}
       />
       <IntroVideoDialog
         open={showIntro}
-        onOpenChange={(next) => {
-          // Fechar no X descarta o código digitado, igual ao AuthDialog.
-          if (!next) clearPendingReferral();
-          setIntroOpen(next);
-        }}
+        onOpenChange={setIntroOpen}
         panel={
           <AuthPanel
             referralCode={referralCode}
@@ -386,6 +389,7 @@ export function AuthMenu({
             referralLoading={referralLoading}
             referralError={referralError}
             onReferralCodeChange={changeReferralCode}
+            onReferralRemove={clearPendingReferral}
             onReferralApplied={clearPendingReferral}
             onDone={() => setIntroOpen(false)}
           />

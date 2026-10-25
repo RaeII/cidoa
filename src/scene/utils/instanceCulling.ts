@@ -17,6 +17,9 @@ export type InstanceCullGroup = {
   posX: Float32Array;
   posZ: Float32Array;
   count: number;
+  visibleIndices: Int32Array;
+  visibleCount: number;
+  bounds: THREE.Sphere[];
 };
 
 // Índices visíveis do passe atual. Módulo-level pra não alocar a cada cull.
@@ -35,52 +38,74 @@ export function snapshotInstances(
   const posX = new Float32Array(count);
   const posZ = new Float32Array(count);
   const src = logical[0];
+  const bounds: THREE.Sphere[] = [];
+  const box = new THREE.Box3();
+  const part = new THREE.Box3();
+  const matrix = new THREE.Matrix4();
+  for (const mesh of meshes) {
+    if (!mesh) continue;
+    mesh.updateMatrix();
+    mesh.matrixAutoUpdate = false;
+    mesh.geometry.computeBoundingBox();
+    mesh.computeBoundingSphere(); // Inclui as instâncias temporariamente ocultas.
+  }
   for (let i = 0; i < count; i++) {
     posX[i] = src[i * 16 + 12];
     posZ[i] = src[i * 16 + 14];
+    box.makeEmpty();
+    for (let mi = 0; mi < meshes.length; mi++) {
+      const mesh = meshes[mi];
+      if (!mesh) continue;
+      matrix.fromArray(logical[mi], i * 16);
+      box.union(part.copy(mesh.geometry.boundingBox!).applyMatrix4(matrix));
+    }
+    bounds.push(box.getBoundingSphere(new THREE.Sphere()));
   }
-  return { meshes, logical, posX, posZ, count };
+  return { meshes, logical, posX, posZ, count, bounds,
+    visibleIndices: Int32Array.from({ length: count }, (_, i) => i), visibleCount: count };
 }
 
-function writeCompact(group: InstanceCullGroup, kept: number): void {
+function writeCompact(group: InstanceCullGroup, kept: number, firstChanged: number): void {
   for (let mi = 0; mi < group.meshes.length; mi++) {
     const mesh = group.meshes[mi];
     if (!mesh) continue;
     const src = group.logical[mi];
     const dst = mesh.instanceMatrix.array as Float32Array;
-    for (let k = 0; k < kept; k++) {
+    for (let k = firstChanged; k < kept; k++) {
       const s = keepScratch[k] * 16;
       const d = k * 16;
       for (let f = 0; f < 16; f++) dst[d + f] = src[s + f];
     }
     mesh.count = kept;
-    mesh.instanceMatrix.needsUpdate = true;
+    if (firstChanged < kept) {
+      mesh.instanceMatrix.addUpdateRange(firstChanged * 16, (kept - firstChanged) * 16);
+      mesh.instanceMatrix.needsUpdate = true;
+    }
   }
+  group.visibleIndices.set(keepScratch.subarray(0, kept));
+  group.visibleCount = kept;
 }
 
 /** Compacta o grupo com as instâncias aprovadas por `visible`. Retorna quantas sumiram. */
 export function cullInstances(
   group: InstanceCullGroup | null,
   visible: (x: number, z: number) => boolean,
+  frustum?: THREE.Frustum | null,
 ): number {
   if (!group) return 0;
   if (keepScratch.length < group.count) keepScratch = new Int32Array(group.count);
   let kept = 0;
+  let firstChanged = group.count;
   for (let i = 0; i < group.count; i++) {
-    if (visible(group.posX[i], group.posZ[i])) keepScratch[kept++] = i;
+    if (!visible(group.posX[i], group.posZ[i]) || (frustum && !frustum.intersectsSphere(group.bounds[i]))) continue;
+    if (kept >= group.visibleCount || group.visibleIndices[kept] !== i) firstChanged = Math.min(firstChanged, kept);
+    keepScratch[kept++] = i;
   }
-  writeCompact(group, kept);
+  if (firstChanged < kept || kept !== group.visibleCount) writeCompact(group, kept, firstChanged);
   return group.count - kept;
 }
 
 /** Devolve todas as instâncias — o probe de reflexo captura a cidade inteira. */
 export function restoreInstances(group: InstanceCullGroup | null): void {
-  if (!group) return;
-  for (let mi = 0; mi < group.meshes.length; mi++) {
-    const mesh = group.meshes[mi];
-    if (!mesh) continue;
-    (mesh.instanceMatrix.array as Float32Array).set(group.logical[mi]);
-    mesh.count = group.count;
-    mesh.instanceMatrix.needsUpdate = true;
-  }
+  cullInstances(group, () => true);
 }
