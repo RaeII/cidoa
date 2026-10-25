@@ -10,11 +10,10 @@ export const CITY_SCENE_CONFIG: CitySceneConfig = {
   maxBuildingsPerChunk: 180,
   // Teto do devicePixelRatio. 2 = qualidade nativa em telas retina; só corta 3x+.
   dprCap: 2,
-  // Modo leve (celular/máquina modesta, ver utils/deviceTier): 1,5 de DPR e 30 fps.
-  // iOS em Low Power já trava o rAF em 30; mirar 55 faria o scaler confundir com GPU lenta.
+  // Modo leve mantém o DPR menor; FPS acompanha o rAF do navegador.
   liteDprCap: 1.5,
   targetFps: 55,
-  liteFps: 30,
+  liteFps: 60,
   // 1 = escala dinâmica desligada (video-2): o render nunca sai da resolução nativa.
   // Baixar reativa o downscale por FPS no loop do runtime.
   minRenderScale: 1,

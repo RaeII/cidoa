@@ -122,7 +122,7 @@ Usado por [[scene-managers|createDonationManager]]. Relacionado: [[scene-runtime
 
 | Export | Descrição |
 |---|---|
-| `IS_LOW_TIER` | Toque (`pointer: coarse`) OU ≤4 núcleos OU ≤4 GB. Lido uma vez. Runtime liga o modo leve (sem MSAA, DPR 1,5, 30 fps, sem cube camera); manifesto de texturas usa `.low.webp` |
+| `IS_LOW_TIER` | Toque (`pointer: coarse`) OU ≤4 núcleos OU ≤4 GB. Lido uma vez. Runtime liga o modo leve (sem MSAA, DPR 1,5, sem cube camera), com FPS seguindo o rAF e alvo do scaler em 60; manifesto de texturas usa `.low.webp` |
 | `isSoftwareGL(gl)` | Renderer WebGL na CPU (SwiftShader, llvmpipe, softpipe, WARP/"Basic Render"), via `WEBGL_debug_renderer_info` (ou `RENDERER`). Runtime desiste: sem `KHR_parallel_shader_compile` cada shader PBR trava segundos |
 
 Usado por [[scene-runtime#Desempenho (TBT e celular)]] e [[scene-textures]].

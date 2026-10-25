@@ -322,7 +322,7 @@ export type CitySceneConfig = {
   /** Teto do DPR no modo leve (IS_LOW_TIER). */
   liteDprCap: number;
   targetFps: number;
-  /** Teto de FPS no modo leve (IS_LOW_TIER). */
+  /** Alvo da resolução dinâmica no modo leve; não limita o rAF. */
   liteFps: number;
   minRenderScale: number;
   maxRenderScale: number;

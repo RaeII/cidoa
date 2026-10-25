@@ -267,7 +267,7 @@ Configuração mais global da cena. Define a estrutura completa de `CitySceneCon
 | `dprCap` | Limite máximo de device pixel ratio. `2` = resolução nativa em retina; só corta telas 3x+ |
 | `liteDprCap` | DPR máximo no modo leve (`IS_LOW_TIER`, celular/máquina modesta): `1.5` |
 | `targetFps` | FPS alvo para resolução dinâmica (inerte enquanto o granulado for `0`) |
-| `liteFps` | Teto de FPS no modo leve: `30` (limitador no rAF; também vira o alvo do scaler — iOS em Low Power já trava em 30) |
+| `liteFps` | Alvo da resolução dinâmica no modo leve: `60`. Não limita frames; o loop acompanha o rAF do navegador |
 | `minRenderScale` | Piso **inicial** da escala de render. `1` = escala dinâmica desligada no boot. Em runtime quem manda é o `setGrain` do granulado — ver [[scene-runtime]] |
 | `maxRenderScale` | Escala máxima de render |
 | `far` | `600`: **padrão** do `HorizonSettings.renderDistance` (`camera.far` + raio do céu). Em runtime quem manda é o slider da aba horizonte |
@@ -281,7 +281,7 @@ Configuração mais global da cena. Define a estrutura completa de `CitySceneCon
 | `cameraNear` | Near plane |
 | `initialCameraPosition` | Posição inicial `{x, y, z}` |
 | `controlTarget` | Target inicial do OrbitControls |
-| `controls.*` | Damping, velocidades, limites de zoom/pan/rotate |
+| `controls.*` | Damping de referência a 60 Hz (normalizado pelo tempo real), velocidades, limites de zoom/pan/rotate |
 
 > [!note] Alcances independentes
 > `far` cobre geometria próxima, sem coordenadas gigantes. [[scene-builders#createGroundPlane.ts]] mantém apenas chão local que acompanha câmera. `HorizonSettings.distance`/`backDistance` limitam só edifícios pelo manager; `renderDistance` mexe em `camera.far` e no raio do céu; `groundDistance` controla alcance do chão conforme `groundEdgeMode`. `reflectionFar` mantém alcance anterior do probe. Intervalo/resolução da captura continuam em [[#reflectionConfig.ts]]; terreno conserva defaults e geometria.

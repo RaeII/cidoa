@@ -61,10 +61,10 @@ createCitySceneRuntime({mount, settings...})   // async
 
 ### 2. Loop de Animação (`animate`)
 
-A cada tick do rAF (modo leve: no máximo 30/s). **Render sob demanda**: tick sem mudança sai cedo e o canvas segura o último frame.
+A cada tick do rAF, também no modo leve, sem limitador artificial de FPS. A frequência segue o navegador, inclusive quando ele reduz a taxa por economia de energia. **Render sob demanda**: tick sem mudança sai cedo e o canvas segura o último frame.
 
 0. Gate: evento `change` do OrbitControls (`handleControlsChange`) com câmera em movimento → frame. Não usar retorno do `controls.update()` do loop: zoom (roda/pinça) aplica inteiro no `update()` do handler do evento → loop vê `false`, câmera anda sem redesenhar e "teleporta". Também pedem frame: `cameraAnim`, `markCubeDirty` (toda mudança de cena), `requestRender` (resize, granulado, reflexo, foco), cull pendente, captura de cube pendente, holograma visível (`tickAnimations` → `true`). Frame **não sai** com passe de compilação em curso ou fila de customização drenando.
-1. `controls.update()` — aplica damping do OrbitControls (modo leve: fator `1-(1-f)²`, mesmo tempo de assentar a 30 fps)
+1. `controls.update()` — aplica damping do OrbitControls com fator `1-(1-f)^(elapsed*60)`. `f` é a referência a 60 Hz; `elapsed` usa tempo real, preservando a inércia em 30/60/90/120 Hz e em frames lentos.
 2. `groundPlane.setPosition(camera.x, camera.z)` — chão segue a câmera
 3. `environmentUpdater.updatePosition(...)` — skybox segue a câmera
 4. **Métricas de FPS** — acumula tempo real entre frames consecutivos e suaviza a cada 0.5s. O delta limitado a 50 ms serve somente à interpolação da câmera. `SceneStats.performance` expõe FPS/tempo médio e contagens do último frame; `renderer.info.autoReset = false` inclui os passes de captura antes do reset por frame.
@@ -98,7 +98,7 @@ Baixar o granulado sobe `renderScale` até o novo piso **na hora** (`setPixelRat
 
 Medido com CPU profile + trace (Lighthouse mobile simula CPU 4x: tarefa > 12,5 ms no M4 já é tarefa longa lá). Antes: link de shader síncrono (`onFirstUse`) ~375 ms, rajada de customizações ~420 ms numa tarefa, captura do cube a cada 4 frames, upload de textura no 1º render. Com SwiftShader (sem GPU) o link travava 7–17 s por tarefa.
 
-- **Modo leve** (`IS_LOW_TIER`, [[scene-utils#deviceTier.ts]]): `antialias` off, DPR `liteDprCap` (1,5), `liteFps` (30) com limitador no rAF, **sem cube camera** (fachada usa `scene.environment`, reflexo do céu em vez da cidade), alvo do scaler dinâmico = 30.
+- **Modo leve** (`IS_LOW_TIER`, [[scene-utils#deviceTier.ts]]): `antialias` off, DPR `liteDprCap` (1,5), **sem cube camera** (fachada usa `scene.environment`, reflexo do céu em vez da cidade). O loop acompanha o rAF; `liteFps` (60) é apenas o alvo do scaler dinâmico. Resolução, materiais e texturas não mudam com a remoção do limitador de 30 FPS.
 - **WebGL por software** (`isSoftwareGL`: SwiftShader/llvmpipe/WARP): runtime desiste (`throw`) — sem `KHR_parallel_shader_compile` cada shader PBR trava segundos. Hook cai no catch e libera o loading.
 - **Criação em etapas** (`async` + `yieldToMain`): contexto | céu/luz/chão/relevo | doações | resto. `afterNextFrame` evita reflow forçado no `mount.clientWidth`.
 - **Compilação assíncrona** (`runCompilePass`): delega a `createScenePreparer`, que prepara variantes alteradas e texturas ainda não enviadas. Ver [[#Visibilidade e preparo incremental (mobile)]]. O canvas mantém o último frame durante a preparação; o limite de espera continua em 5 s.
@@ -339,4 +339,4 @@ Mexa aqui quando a mudança envolver **coordenação entre várias partes da cen
 - `createScenePreparer.ts` substitui a preparação indiscriminada: inventário de objetos/luzes uma vez por passe, cache fraco por objeto/versão de material/geometria/instancing/ambiente, deduplicação de variantes e uploads por versão. A coleta de luzes para `compileAsync` usa uma visão da cena que percorre só as luzes, evitando atravessar a cidade para cada programa. Preserva variantes de tela e cubemap e cede a thread entre tarefas de aproximadamente 4 ms; uma operação isolada ainda pode exceder esse orçamento.
 - `childadded` e `childremoved` pedem preparo, incluindo a retirada do último pool de LEDs. Intensidade/cor são uniforms; mudanças de presença de mapas/transparência ainda invalidam materiais.
 - DPR, antialiasing, materiais, geometria, formatos de textura e limites de qualidade permanecem nos valores anteriores. KTX2/BatchedMesh/renderer em worker continuam alternativas dependentes de medição e validação visual.
-- Verificação sem servidor/GPU: `scripts/check-mobile-performance.mjs`, `check-building-textures.mjs` e `check-horizon.mjs`. O teste do runtime cobre 10 FPS reais, suspensão/retomada e limpeza; as contagens não são benchmark no aparelho.
+- Verificação sem servidor/GPU: `scripts/check-mobile-performance.mjs`, `check-building-textures.mjs` e `check-horizon.mjs`. O teste do runtime executa modo mobile, cobre render em cada rAF de 30/60/90/120 Hz, inércia equivalente com OrbitControls real, repouso, DPR preservado, 10 FPS reais, suspensão/retomada e limpeza; as contagens não são benchmark no aparelho.
