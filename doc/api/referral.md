@@ -72,7 +72,8 @@ flowchart TD
 - Usuário comum logado recebe botão somente com ícone de compartilhar ao lado do `AuthMenu`.
 - Botão abre `ShareDialog` (estilo YouTube), modal centralizado: WhatsApp, Facebook, LinkedIn e X em círculos com cor da marca + campo só leitura com link e botão "Copiar" (vira "Copiado" por 2 s).
 - Redes abrem em nova aba via URL de share (`wa.me/?text=`, `facebook.com/sharer`, `linkedin.com/sharing/share-offsite`, `x.com/intent/post`). Só link, sem texto extra.
-- Sem `navigator.share`: evita menu nativo do SO. Cópia usa `navigator.clipboard`; falha → toast de erro.
+- Link compartilhado = `window.location.origin` + `?ref=` do back (`getMyReferralSummary`): back usa `APP_PUBLIC_URL` (`localhost` em dev); acesso por `http://192.168…:5173` copia o IP. Produção: mesma origem `https://cidoe.com.br`.
+- Sem `navigator.share`: evita menu nativo do SO. Cópia usa `navigator.clipboard`; sem ele (HTTP fora de localhost, ex. `http://192.168…:5173`) → `textarea` + `execCommand("copy")` dentro do modal; ambos falham → toast de erro.
 - Ícones de marca são SVG inline (lucide 1.x não tem marcas).
 - Aba Indicações do menu mostra código + `SharePanel` direto abaixo, sem modal extra.
 - Topo da aba: falta p/ etapa de escolha disponível/próxima (`rewards.choice`/`nextChoice`, ver [[primeiros-inscritos]]) + barra. Contagem = cadastros indicados (`signupReferrals`), sem contribuição. Etapa alcançada → botão **Escolher minha recompensa**. Sem campanha → contagem "N pessoas indicadas".

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
-import { Gift } from "lucide-react";
 import { CitySceneCanvas, type CitySceneCanvasHandle } from "./three/CitySceneCanvas";
 import { AuthMenu } from "./AuthMenu";
+import { ReferralHud } from "./referral/ReferralHud";
 import { BuildingManageDialog } from "./html/BuildingManageDialog";
 import { BuildingInfoModal } from "./html/BuildingInfoModal";
 import { BuildingLayoutCard } from "./html/BuildingLayoutCard";
@@ -26,7 +26,6 @@ import {
   type BuildingProfile,
 } from "../api/contributionApi";
 import { toast } from "./ui/toast";
-import { BlockBar } from "./ui/block-bar";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
 import { PixelChevronDown } from "./ui/pixel-icon";
@@ -121,9 +120,6 @@ export function CitySceneEditor() {
   const [customizationRevision, setCustomizationRevision] = useState(0);
   const { catalog: customizationCatalog, rewards } = useCustomizationCatalog(customizationRevision);
   const { user, isAdmin } = useAuth();
-  // Contador da aba Indicações do GameMenu.
-  const referralGoal = user ? (rewards.choice?.referralMin ?? rewards.nextChoice?.referralMin) : undefined;
-  const referralsLeft = referralGoal == null ? 0 : Math.max(0, referralGoal - rewards.signupReferrals);
   const { ids: ownedDonationIds } = useOwnedDonationIds();
 
   // Admin edita a cópia local do cenário público; contas comuns, suas simulações.
@@ -548,26 +544,13 @@ export function CitySceneEditor() {
       <DonationLoadOverlay cover hidden={booted} state={loadState} onRetry={retry} />
       {/* UI só depois do loading: nenhuma imagem (logo, fotos, avatares) baixa antes. */}
       {booted && (
-      <div className="pointer-events-none absolute inset-x-4 top-4 z-30 flex items-start justify-between gap-2">
-        {/* Marca visível sem rolar nem entrar (página inicial do login com Google). Mobile: só o selo, na mesma linha dos botões. */}
+      <div className="pointer-events-none absolute inset-x-4 top-4 z-30 flex items-start justify-between gap-2 max-sm:flex-wrap-reverse">
+        {/* Marca visível sem rolar nem entrar (página inicial do login com Google). Mobile: sem logo; sem espaço ao lado dos botões, desce para a linha de baixo (wrap-reverse). */}
         <aside aria-label="Cidoe" className="pointer-events-auto pixel pixel-thin flex min-w-0 items-center gap-2 bg-background px-2 py-1.5 text-xs leading-4 text-muted-foreground max-sm:h-10 max-sm:px-3 max-sm:py-0">
           <img src="/logo.webp" alt="" width={32} height={32} className="size-8 shrink-0 max-sm:hidden" />
-          {referralGoal != null && referralsLeft > 0 ? (
-            // Mesmo contador da aba Indicações do menu, em versão HUD.
-            <div className="min-w-0 w-40">
-              <p className="flex items-center gap-1.5 font-semibold text-foreground">
-                <Gift className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
-                <span className="truncate">
-                  {referralsLeft === 1 ? "Falta" : "Faltam"} apenas {referralsLeft} {referralsLeft === 1 ? "indicação" : "indicações"}
-                </span>
-              </p>
-              <BlockBar size="sm" className="mt-1" value={rewards.signupReferrals} max={referralGoal} blocks={Math.min(10, referralGoal)} label="Indicações" />
-            </div>
-          ) : (
-            <strong className="text-sm font-semibold text-foreground">Cidoe</strong>
-          )}
+          <ReferralHud rewards={rewards} fallback={<strong className="text-sm font-semibold text-foreground">Cidoe</strong>} />
         </aside>
-        <div className="pointer-events-auto shrink-0">
+        <div className="pointer-events-auto ml-auto shrink-0">
           <AuthMenu
             night={environmentSettings.night}
             onNightChange={(night) => setEnvironmentSettings((prev) => ({ ...prev, night }))}

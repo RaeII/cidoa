@@ -55,15 +55,17 @@ Decisão do dono: loading = só página de loading. **Nenhuma imagem** baixa nem
 ### Placa da marca (`CitySceneEditor.tsx`)
 
 Placa compacta `pixel pixel-thin bg-background`, sem bisel. Logo oficial `public/logo.webp` 32px à esquerda (`alt=""`) + conteúdo:
-- **Logado (inclusive admin) com meta de indicação pendente** — contador da aba Indicações do [[#GameMenu.tsx|GameMenu]] em versão HUD: ícone `Gift` verde + **Falta(m) apenas N indicação(ões)** (12px 600, trunca) + `BlockBar size="sm"` (`signupReferrals / referralMin`, até 10 blocos). Largura fixa 160px.
-- **Demais casos** (deslogado, meta batida, recompensas ainda carregando) — só **Cidoe** 14px 600.
+- **Logado com próxima faixa** — `referral/ReferralHud.tsx`. Linha 1: ícone `Gift` verde + **Falta(m) apenas N indicação(ões)** (12px 600, `truncate` só como último recurso). Linha 2: `BlockBar size="sm"` + `PixelGift` âmbar no fim (= presente a chegar). Largura segue o texto.
+  - Barra conta só até a próxima faixa (`nextChoice.referralMin`): `faixa + 1` blocos, `indicações + 1` acesos — 1º bloco é progresso dado (aparece aceso mesmo sem indicação). Blocos que faltam sem cor (`bg-muted`, `highlightNext={false}`). Sem teto de blocos.
+  - Admin: backend o exclui da campanha → prévia da 1ª faixa de `/admin/early-signups` (só se ativa) com 0 indicações.
+- **Deslogado, fora da campanha, faixas esgotadas** — só **Cidoe** 14px 600 (`fallback`).
 
 Sem links (decisão do dono). Termos/Privacidade ficam no rodapé da [[#DonationInfoSection.tsx]] (seta inferior direita da cena) e no aviso de cookies. Logo + nome visíveis na 1ª tela, sem rolar nem entrar = requisito da página inicial do login com Google ([[termos-e-privacidade#Página inicial — requisitos do Google]]). Texto 12px, entrelinha 16px, padding 8px horizontal / 6px vertical; `aside aria-label="Cidoe"`.
 
 Ocupa apenas a largura do conteúdo, margem externa de 16px. Placa e menu sempre na mesma linha, espaço 8px; nunca quebra. Espaços vazios do cabeçalho deixam passar os gestos para a cena.
 
 > [!note] Mobile (< `sm`)
-> Altura 40px = botões. Logo some; contador ou **Cidoe** ficam. Menu logado: avatar sem nome (`sr-only`), gap 8px. Cabe em 320px.
+> Altura 40px = botões. Logo some; contador ou **Cidoe** ficam. Cabeçalho `flex-wrap-reverse` + menu `ml-auto`: placa que não cabe ao lado dos botões desce para a linha de baixo, à esquerda (320/375px); 430px+ fica numa linha. Menu logado: avatar sem nome (`sr-only`), gap 8px. Cabe em 320px.
 
 ### Selo Pré-lançamento (`CitySceneEditor.tsx`)
 
@@ -264,7 +266,7 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre por **Meus edifíci
 |---|---|
 | Meus edifícios | Total doado + edifícios próprios numerados, maior valor 1º. **Ver na cidade** sempre disponível: fecha menu e chama `handleOpenDonation` (foco + [[#BuildingInfoModal.tsx\|card]]). Oculto por filtro/teto → limpa ambos e aguarda rebuild. Não cria cobrança. |
 | Personalizações | Catálogo agrupado (formato, topo, LED, cor, textura, letreiro/holograma) com `isUnlocked`. Travado mostra requisito via `formatUnlockRequirement` ([[passe-formatacao]]). |
-| Indicações | Topo: "Faltam apenas N indicações para escolher sua recompensa" + barra até 10 blocos. Meta = etapa disponível ou próxima de `rewards` ([[primeiros-inscritos]]); N = meta − `signupReferrals` (cadastros). Etapa alcançada → botão `reward` **Escolher minha recompensa** (fecha menu; `RewardDialog` abre). Sem campanha ou meta batida → total indicado. Depois: código (quebra linha se não cabe) + `SharePanel` inline (redes + copiar link, sem modal), quem indicou ([[referral]]). Some p/ admin. |
+| Indicações | Topo: "Faltam apenas N indicações para escolher sua recompensa" + barra até 10 blocos, blocos que faltam sem cor (`highlightNext={false}`). Meta = etapa disponível ou próxima de `rewards` ([[primeiros-inscritos]]); N = meta − `signupReferrals` (cadastros). Etapa alcançada → botão `reward` **Escolher minha recompensa** (fecha menu; `RewardDialog` abre). Sem campanha ou meta batida → total indicado. Depois: código (quebra linha se não cabe) + `SharePanel` inline (redes + copiar link, sem modal), quem indicou ([[referral]]). Some p/ admin. |
 | Perfil | `ProfilePanel.tsx`: avatar 72 px (`size="lg"`) + nome + e-mail no topo; nome e username lado a lado (sm+); abaixo [[#ProfileDetailsFields.tsx\|Cidade + Como conheceu]], mesmo formulário e mesmo Salvar (`PUT /user/me`). `hasChanges` conta cidade, origem e texto de "Outro" (só com "Outro" escolhido). Salvar → toast. Canto inferior direito: **Sair** discreto (texto cinza, hover vermelho; fecha + `logout()`). |
 
 | Prop | Tipo | Descrição |

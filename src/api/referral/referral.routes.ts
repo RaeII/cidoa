@@ -13,9 +13,11 @@ export async function getReferralPreview(code: string, signal?: AbortSignal) {
   return data.data;
 }
 
+/** Link com o endereço aberto (o do back vem de `APP_PUBLIC_URL`, `localhost` em dev): na rede local sai o IP. */
 export async function getMyReferralSummary() {
   const { data } = await http.get<{ data: ReferralSummary }>("/referral/me");
-  return data.data;
+  const link = new URL(data.data.link);
+  return { ...data.data, link: `${window.location.origin}/${link.search}` };
 }
 
 export async function applyMyReferral(code: string) {
