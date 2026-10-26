@@ -54,12 +54,17 @@ Loading = só página de loading. **Nenhuma imagem** baixa nem aparece até ela 
 
 ### Placa da marca (`CitySceneEditor.tsx`)
 
-Placa compacta `pixel pixel-thin bg-background`, sem bisel, canto superior esquerdo: logo oficial `public/logo.webp` 32px (`alt=""`) + **Cidoe** 14px 600. `aside aria-label="Cidoe"`. Marca visível na 1ª tela, sem rolar nem entrar = requisito da página inicial do login com Google ([[termos-e-privacidade]]).
+Placa compacta `pixel pixel-thin bg-background`, sem bisel, canto superior esquerdo: logo oficial `public/logo.webp` 32px (`alt=""`) + conteúdo. `aside aria-label="Cidoe"`. Logo + nome visíveis na 1ª tela, sem rolar nem entrar = requisito da página inicial do login com Google ([[termos-e-privacidade]]).
+
+- **Logado com próxima faixa** — `referral/ReferralHud.tsx`. Linha 1: ícone `Gift` verde + **Falta(m) apenas N indicação(ões)** (12px 600, `truncate` só como último recurso). Linha 2: `BlockBar size="sm"` + `PixelGift` âmbar no fim (= presente a chegar). Largura segue o texto.
+  - Barra conta só até a próxima faixa da campanha de cadastro (`nextChoice.referralMin`): `faixa + 1` blocos, `indicações + 1` acesos — 1º bloco é progresso dado (aparece aceso mesmo sem indicação). Blocos que faltam sem cor (`bg-muted`, `highlightNext={false}`). Sem teto de blocos.
+  - Admin: backend o exclui da campanha → prévia da 1ª faixa de `/admin/early-signups` (só se ativa) com 0 indicações.
+- **Deslogado, fora da campanha, faixas esgotadas** — só **Cidoe** 14px 600 (`fallback`).
 
 Placa e `AuthMenu` na mesma linha (`inset-x-4 top-4 z-30`, `justify-between`, gap 8px). Linha `pointer-events-none`: espaços vazios deixam passar gestos pra cena e pros filtros no centro.
 
 > [!note] Mobile (< `sm`)
-> Placa vira só o logo (altura 40px = botões); **Cidoe** fica `sr-only`. Menu logado: avatar sem nome (`sr-only`), gap 8px.
+> Altura 40px = botões. Logo some; contador ou **Cidoe** ficam. Cabeçalho `flex-wrap-reverse` + menu `ml-auto`: placa que não cabe ao lado dos botões desce para a linha de baixo, à esquerda. Menu logado: avatar sem nome (`sr-only`), gap 8px.
 
 ### `DonationInfoSection.tsx`
 
@@ -291,7 +296,7 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre por **Meus edifíci
 |---|---|
 | Meus edifícios | Total doado + edifícios próprios numerados, maior valor 1º. **Ver na cidade** sempre disponível: fecha menu e chama `handleOpenDonation` (foco + [[#BuildingInfoModal.tsx\|card]]). Oculto por filtro/teto → limpa ambos e aguarda rebuild. Não cria cobrança. |
 | Personalizações | Catálogo agrupado (formato, topo, LED, cor, textura, letreiro/holograma) com `isUnlocked`. Travado mostra requisito via `formatUnlockRequirement` ([[passe-formatacao]]). |
-| Indicações | Topo: "Faltam apenas N indicações para escolher sua recompensa" + barra até 10 blocos. Meta = etapa disponível ou próxima de `rewards` ([[primeiros-inscritos]]); N = meta − `signupReferrals` (cadastros). Etapa alcançada → botão `reward` **Escolher minha recompensa** (fecha menu; `RewardDialog` abre). Sem campanha ou meta batida → total indicado. Depois: código (quebra linha se não cabe) + `SharePanel` inline (redes + copiar link, sem modal), quem indicou ([[referral]]). Some p/ admin. |
+| Indicações | Topo: "Faltam apenas N indicações para escolher sua recompensa" + barra até 10 blocos, blocos que faltam sem cor (`highlightNext={false}`). Meta = etapa disponível ou próxima de `rewards` ([[primeiros-inscritos]]); N = meta − `signupReferrals` (cadastros). Etapa alcançada → botão `reward` **Escolher minha recompensa** (fecha menu; `RewardDialog` abre). Sem campanha ou meta batida → total indicado. Depois: código (quebra linha se não cabe) + `SharePanel` inline (redes + copiar link, sem modal), quem indicou ([[referral]]). Some p/ admin. |
 | Perfil | `ProfilePanel.tsx`: avatar 72 px (`size="lg"`) + nome + e-mail no topo; nome e username lado a lado (sm+); abaixo [[#ProfileDetailsFields.tsx\|Cidade + Como conheceu]], mesmo formulário e mesmo Salvar (`PUT /user/me`). `hasChanges` conta cidade, origem e texto de "Outro" (só com "Outro" escolhido). Salvar → toast. Canto inferior direito: **Sair** discreto (texto cinza, hover vermelho; fecha + `logout()`). |
 
 | Prop | Tipo | Descrição |

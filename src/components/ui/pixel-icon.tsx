@@ -51,6 +51,16 @@ export function PixelCoin({ className, ...props }: IconProps) {
   )
 }
 
+/** Presente âmbar: recompensa a conquistar. Cor fixa, como a moeda; fita e laço no tom 700. */
+export function PixelGift({ className, ...props }: IconProps) {
+  return (
+    <svg viewBox="0 0 8 8" width={16} height={16} shapeRendering="crispEdges" aria-hidden="true" className={cn("shrink-0", className)} {...props}>
+      <path fill="var(--color-ambar)" d="M0 2h8v2h-8zM1 4h6v4h-6z" />
+      <path fill="var(--color-ambar-700)" d="M1 0h2v1h-2zM5 0h2v1h-2zM2 1h4v1h-4zM3 2h2v6h-2zM0 3h8v1h-8z" />
+    </svg>
+  )
+}
+
 /** Logo oficial (public/): verde-oliva no claro, branca no escuro. */
 export function CidoeLogo({ className }: { className?: string }) {
   return (

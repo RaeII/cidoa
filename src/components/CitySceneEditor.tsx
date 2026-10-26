@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { CitySceneCanvas, type CitySceneCanvasHandle } from "./three/CitySceneCanvas";
 import { AuthMenu } from "./AuthMenu";
+import { ReferralHud } from "./referral/ReferralHud";
 import { BuildingHeightInput } from "./html/BuildingHeightInput";
 import { BuildingManageDialog } from "./html/BuildingManageDialog";
 import { BuildingInfoModal } from "./html/BuildingInfoModal";
@@ -585,13 +586,13 @@ export function CitySceneEditor() {
       <DonationLoadOverlay cover hidden={booted} state={loadState} onRetry={retry} />
       {/* UI só depois do loading: nenhuma imagem (logo, fotos, avatares) baixa antes. */}
       {booted && (
-      <div className="pointer-events-none absolute inset-x-4 top-4 z-30 flex items-start justify-between gap-2">
-        {/* Marca visível sem rolar nem entrar (página inicial do login com Google). Mobile: só o logo. */}
-        <aside aria-label="Cidoe" className="pointer-events-auto pixel pixel-thin flex items-center gap-2 bg-background px-2 py-1.5 max-sm:h-10 max-sm:py-0">
-          <img src="/logo.webp" alt="" width={32} height={32} className="size-8 shrink-0" />
-          <strong className="text-sm font-semibold text-foreground max-sm:sr-only">Cidoe</strong>
+      <div className="pointer-events-none absolute inset-x-4 top-4 z-30 flex items-start justify-between gap-2 max-sm:flex-wrap-reverse">
+        {/* Marca visível sem rolar nem entrar (página inicial do login com Google). Mobile: sem logo; sem espaço ao lado dos botões, desce para a linha de baixo (wrap-reverse). */}
+        <aside aria-label="Cidoe" className="pointer-events-auto pixel pixel-thin flex min-w-0 items-center gap-2 bg-background px-2 py-1.5 text-xs leading-4 text-muted-foreground max-sm:h-10 max-sm:px-3 max-sm:py-0">
+          <img src="/logo.webp" alt="" width={32} height={32} className="size-8 shrink-0 max-sm:hidden" />
+          <ReferralHud rewards={rewards} fallback={<strong className="text-sm font-semibold text-foreground">Cidoe</strong>} />
         </aside>
-        <div className="pointer-events-auto shrink-0">
+        <div className="pointer-events-auto ml-auto shrink-0">
           <AuthMenu
             night={environmentSettings.night}
             onNightChange={(night) => setEnvironmentSettings((prev) => ({ ...prev, night }))}

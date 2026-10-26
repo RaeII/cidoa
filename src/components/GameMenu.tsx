@@ -259,6 +259,7 @@ export function GameMenu({
                               max={referralGoal}
                               blocks={Math.min(10, referralGoal)}
                               label="Indicações"
+                              highlightNext={false}
                             />
                           </div>
                         </div>

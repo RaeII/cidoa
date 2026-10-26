@@ -9,11 +9,13 @@ type BlockBarProps = {
   label: string
   /** md = moldura em pixel + blocos de 18px; sm = sem moldura, blocos de 8px (HUD). */
   size?: "sm" | "md"
+  /** Acende o próximo bloco em âmbar (padrão true). */
+  highlightNext?: boolean
   className?: string
 }
 
 /** Barra em blocos (DS): todo progresso é contado em blocos; o próximo a conquistar acende em âmbar. */
-export function BlockBar({ value, max, blocks = 10, label, size = "md", className }: BlockBarProps) {
+export function BlockBar({ value, max, blocks = 10, label, size = "md", highlightNext = true, className }: BlockBarProps) {
   const filled = max > 0 ? Math.min(blocks, Math.floor((Math.max(0, value) / max) * blocks)) : 0
 
   return (
@@ -35,7 +37,7 @@ export function BlockBar({ value, max, blocks = 10, label, size = "md", classNam
           className={cn(
             "flex-1",
             size === "md" ? "h-[18px]" : "h-2",
-            i < filled ? "bg-primary" : i === filled ? "bg-ambar" : "bg-muted",
+            i < filled ? "bg-primary" : highlightNext && i === filled ? "bg-ambar" : "bg-muted",
           )}
         />
       ))}

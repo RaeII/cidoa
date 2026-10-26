@@ -155,6 +155,7 @@ src/
       ReferralDialog.tsx          ← confirmação e avisos da indicação
       ReferralPerson.tsx          ← nome e imagem do indicador
       ShareDialog.tsx             ← `SharePanel` (redes + copiar link, inline no menu) + `ShareDialog` (modal da home)
+      ReferralHud.tsx             ← contador da placa da cena: "Faltam apenas N indicações" + barra até o próximo presente
     CitySceneEditor.tsx
     html/
       CityControlPanel.tsx
