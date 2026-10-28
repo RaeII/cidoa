@@ -168,7 +168,7 @@ src/
       DonationFilterBar.tsx
       DonationInfoSection.tsx     ← home: hero, 01 Impacto, 02 até 6 cartões de ONG, rodapé; fundo `pattern-paws` (DS)
       BuildingInfoModal.tsx          ← card só-leitura do prédio clicado; lápis só p/ dono/admin
-      MyBuildingsNavigation.tsx     ← acesso direto aos próprios, anterior/próximo e detalhes opcionais na cidade
+      MyBuildingsNavigation.tsx     ← modo dedicado: dados no topo, setas laterais, personalizar/detalhes no rodapé e X
       donate/
         ContributeDialog.tsx         ← contribuição → Pix → confirmação; sem edição
         BuildingProfileForm.tsx      ← imagem/nome/descrição do edifício + dialog de edição
@@ -347,7 +347,7 @@ E entrega para:
 Também gerencia:
 
 - Doações do backend via `useDonations` (snapshot cacheado + personalizações `no-store`) → `canvasRef.setDonations(donations)` quando `loadState.status === "ready"`. Ver [[donation-api]]
-- Meus edifícios: acesso direto ao primeiro/próprio selecionado, sem modal; barra com anterior/próximo em ciclo, contador e Detalhes. Revela fora de filtro/teto e aguarda rebuild sem abrir card. Lista completa continua no menu do avatar. Administrar edita sem cobrança. Trocar conta/sair da navegação cancela foco; fechar detalhes próprios mantém navegação. Rebuild mantém administração se edifício continua visível.
+- Meus edifícios: modo dedicado (`myBuildingsOpen`) oculta interface geral e bloqueia rolagem. Card compacto no topo esquerdo (menor e junto à borda no mobile), setas só com ícones nas laterais, Personalizar/Detalhes com fundo no rodapé e X para restaurar interface/câmera. Personalizar abre direto na Aparência. Revela fora de filtro/teto e aguarda rebuild com saída disponível. Conta/Pix permanecem montados. Lista completa continua no menu do avatar. Trocar conta/sair cancela foco; fechar detalhes/personalização mantém modo dedicado. Rebuild mantém administração se edifício continua visível.
 - Contribuição: botão sempre dedicado ao pagamento; fechar confirmação permite nova contribuição. ONG escolhida a cada pagamento; mesmo edifício apoia várias ONGs. Máximo 3 edifícios por conta, validado no backend/banco. Aumentar com vários exige escolher destino. Pago = edifício gravado no banco; Pix simulado no back (`PIX_SIMULATED`) até PSP real; ver [[contribution-api]].
 - Teto de edifícios na cena (`visibleLimit`, padrão `null` = todos): ordena por valor desc e corta antes do `setDonations`, então o corte fica com as maiores doações. Controlado pelo [[html-components#BuildingLayoutCard.tsx|BuildingLayoutCard]]
 - Doações manuais via `canvasRef.addDonation(value)` e `canvasRef.addDonations(values)`
@@ -420,6 +420,7 @@ flowchart LR
     Menu[Meus edifícios] --> Nav[Anterior/próximo na cidade, sem modal]
     Nav --> Focus[focusOnDonation, revela fora do filtro/teto]
     Nav --> |Detalhes| Info[BuildingInfoModal]
+    Nav --> |Personalizar, aba Aparência| Panel[BuildingManageDialog]
     Click[Clique no edifício] --> Focus
     Click --> Info
     Info --> |Administrar, só dono/admin| Panel[BuildingManageDialog]

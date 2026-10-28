@@ -12,7 +12,9 @@ const dialog = dialogAst.statements.find((node) => ts.isFunctionDeclaration(node
 const tabState = dialog.body.statements.filter(ts.isVariableStatement)
   .flatMap((node) => [...node.declarationList.declarations])
   .find((node) => ts.isArrayBindingPattern(node.name) && node.name.elements[0].name.getText(dialogAst) === "buildingTab");
-assert.equal(tabState.initializer.arguments[0].text, "information", "Informações precisa ser a aba inicial");
+assert.equal(tabState.initializer.arguments[0].getText(dialogAst), "initialTab");
+const initialTabProp = dialog.parameters[0].name.elements.find((element) => element.name.getText(dialogAst) === "initialTab");
+assert.equal(initialTabProp.initializer.text, "information", "Administração continua abrindo em Informações por padrão");
 const leave = dialog.body.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "leaveProfile");
 const state = {
   profileEdit: { dirty: false, busy: false }, appearanceBusy: false, confirmExit: false, closed: false,
@@ -106,7 +108,7 @@ new Function("require", "module", "exports", bundle.outputFiles[0].text)(createR
 const { render, renderList, MyBuildingsNavigation, renderNavigation } = renderModule.exports;
 const navigationProps = {
   value: 50, place: 'Campinas · SP', index: 0, count: 2,
-  onPrevious() {}, onNext() {}, onDetails() {}, onClose() {},
+  onPrevious() {}, onNext() {}, onCustomize() {}, onDetails() {}, onClose() {},
 };
 const navigationHtml = renderNavigation(navigationProps);
 assert.match(navigationHtml, /<nav[^>]*aria-label="Meus edifícios na cidade"/);
@@ -114,7 +116,11 @@ assert.match(navigationHtml, /Seu edifício · 1 de 2/);
 assert.match(navigationHtml, /aria-live="polite"/);
 assert.match(navigationHtml, /Campinas · SP/);
 assert.doesNotMatch(navigationHtml, /role="dialog"/);
+assert.match(navigationHtml, /pixel bevel-edge[^\"]*bg-background/, "Informações em card com fundo");
 assert.equal((renderNavigation({ ...navigationProps, count: 1 }).match(/disabled=""/g) ?? []).length, 2, "Um único edifício desabilita anterior/próximo");
+const locatingHtml = renderNavigation({ ...navigationProps, value: undefined });
+assert.match(locatingHtml, /Localizando edifício/);
+assert.equal((locatingHtml.match(/disabled=""/g) ?? []).length, 4, "Enquanto localiza, só Sair fica disponível");
 function buttons(node) {
   if (Array.isArray(node)) return node.flatMap(buttons);
   if (!node?.props) return [];
@@ -126,10 +132,20 @@ for (const [label, callback] of [["Edifício anterior", "onPrevious"], ["Próxim
   buttons(tree).find((button) => button['aria-label'] === label).onClick();
   assert.equal(called, true, label);
 }
-let detailsOpened = false;
-buttons(MyBuildingsNavigation({ ...navigationProps, onDetails: () => { detailsOpened = true; } }))
-  .find((button) => button.children === 'Detalhes').onClick();
-assert.equal(detailsOpened, true);
+const navigationButtons = buttons(MyBuildingsNavigation(navigationProps));
+for (const label of ['Edifício anterior', 'Próximo edifício']) {
+  const button = navigationButtons.find((item) => item['aria-label'] === label);
+  assert.equal(typeof button.children, 'object', 'Setas mostram só ícone');
+  assert.match(button.className, /absolute top-1\/2/);
+}
+for (const [label, callback] of [['Detalhes', 'onDetails'], ['Personalizar', 'onCustomize']]) {
+  let called = false;
+  const action = buttons(MyBuildingsNavigation({ ...navigationProps, [callback]: () => { called = true; } }))
+    .find((button) => button.children?.includes?.(label));
+  assert.equal(action.variant ?? 'default', label === 'Personalizar' ? 'default' : 'outline', 'Ações com fundo do DS');
+  action.onClick();
+  assert.equal(called, true, label);
+}
 const listHtml = renderList([{ id: 42, value: 50 }, { id: 99, value: 25 }]);
 assert.equal((listHtml.match(/<button/g) ?? []).length, 2, "Todos os edifícios têm Ver na cidade, sem depender do filtro");
 assert.match(listHtml, /Edifício 1/);
@@ -153,7 +169,7 @@ const editorSource = await readFile(new URL("../src/components/CitySceneEditor.t
 const editorAst = ts.createSourceFile("CitySceneEditor.tsx", editorSource, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TSX);
 const editor = editorAst.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "CitySceneEditor");
 const openDonation = editor.body.statements.find((node) => ts.isVariableStatement(node) && node.declarationList.declarations.some((declaration) => declaration.name.getText(editorAst) === "handleOpenDonation"));
-const callbacks = editor.body.statements.filter(ts.isVariableStatement).filter((node) => node.declarationList.declarations.some((declaration) => ["handleBuildingClick", "handleCloseInfo", "canEdit"].includes(declaration.name.getText(editorAst))));
+const callbacks = editor.body.statements.filter(ts.isVariableStatement).filter((node) => node.declarationList.declarations.some((declaration) => ["handleBuildingClick", "handleCloseInfo", "handleManageFromInfo", "handleCloseManagement", "canEdit"].includes(declaration.name.getText(editorAst))));
 const rebuild = editor.body.statements.find((node) => ts.isExpressionStatement(node) && ts.isCallExpression(node.expression) && node.expression.expression.getText(editorAst) === "useEffect" && node.getText(editorAst).includes("setDonations(visibleDonations)"));
 const frames = [];
 const city = {
@@ -161,11 +177,15 @@ const city = {
   loadState: { status: "ready" }, ownedDonationIds: new Set([42]), isAdmin: false,
   pendingFocusRef: { current: null }, customizationsRef: { current: new Map() },
   selectedId: null, infoId: null, focusedId: null, showBuildingInfo: true, filter: { cityId: 99 }, limit: 1,
+  myBuildingsOpen: false, scrollRef: { current: null },
+  get infoBuildingId() { return city.infoId; },
+  get selectedBuildingId() { return city.selectedId; },
   useCallback: (handler) => handler,
   useEffect: (handler) => handler(),
   getBuildingSelection: () => ({ managedId: city.selectedId, infoId: city.infoId }),
   setInfoBuildingId: (id) => { city.infoId = id; },
   setShowBuildingInfo: (show) => { city.showBuildingInfo = show; },
+  setMyBuildingsOpen: (open) => { city.myBuildingsOpen = open; },
   setSelectedBuildingId: (id) => { city.selectedId = id; },
   setDonationsApplied: (value) => { city.donationsApplied = value; },
   setFilter: (value) => { city.filter = value; },
@@ -179,7 +199,7 @@ city.canvasRef = { current: {
   setDonations(entries) { city.renderedIds = entries.map((entry) => entry.id); },
   updateDonationCustomization() {},
 } };
-const code = `${callbacks.map((node) => node.getText(editorAst)).join("\n")}\n${openDonation.getText(editorAst)}\nObject.assign(globalThis, { handleOpenDonation, handleCloseInfo, canEdit });`;
+const code = `${callbacks.map((node) => node.getText(editorAst)).join("\n")}\n${openDonation.getText(editorAst)}\nObject.assign(globalThis, { handleOpenDonation, handleBuildingClick, handleCloseInfo, handleManageFromInfo, handleCloseManagement, canEdit });`;
 vm.runInNewContext(ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, city);
 assert.equal(city.canEdit(42), true);
 assert.equal(city.canEdit(99), false, "Conta comum não administra edifício alheio");
@@ -234,6 +254,11 @@ city.donationsApplied = true;
 city.handleOpenDonation(42, false);
 assert.equal(city.infoId, 42);
 assert.equal(city.showBuildingInfo, false);
+assert.equal(city.myBuildingsOpen, true, "Acesso direto entra na visualização dedicada");
+city.handleBuildingClick(null);
+assert.equal(city.infoId, 42, "Toque no chão não encerra a visualização");
+city.handleBuildingClick(99);
+assert.equal(city.infoId, 42, "Visualização navega pelos controles, sem selecionar prédio alheio");
 assert.equal(city.pendingFocusRef.current, null, "Foco imediato não fica pendente para um rebuild futuro");
 city.visibleDonations = [];
 city.handleOpenDonation(99, false);
@@ -243,6 +268,15 @@ city.visibleDonations = [{ id: 42 }, { id: 99 }];
 applyCity();
 assert.equal(city.focusedId, 99);
 assert.equal(city.showBuildingInfo, false, "Rebuild não abre card durante navegação direta");
+city.handleManageFromInfo();
+assert.equal(city.selectedId, 99);
+assert.equal(city.infoId, null);
+assert.equal(city.myBuildingsOpen, true, 'Personalizar mantém UI geral oculta');
+city.handleCloseManagement();
+assert.equal(city.infoId, 99);
+assert.equal(city.selectedId, null);
+assert.equal(city.showBuildingInfo, false, 'Voltar da aparência restaura navegação sem card');
+assert.equal(city.myBuildingsOpen, true);
 const navigationHandlers = editor.body.statements.filter(ts.isVariableStatement)
   .filter((node) => node.declarationList.declarations.some((declaration) => ["handleBrowseMyBuildings", "handleStepMyBuilding"].includes(declaration.name.getText(editorAst))));
 const browsing = {
@@ -277,7 +311,7 @@ browsing.handleStepMyBuilding(1);
 // Sair da confirmação vai direto à cidade; contribuição esconde os painéis de seleção.
 const scenePanels = new Map();
 function findScenePanels(node) {
-  if (ts.isJsxSelfClosingElement(node) && ["ContributeDialog", "MyBuildingsNavigation", "BuildingInfoModal"].includes(node.tagName.getText(editorAst))) {
+  if (ts.isJsxSelfClosingElement(node)) {
     scenePanels.set(node.tagName.getText(editorAst), node);
   }
   ts.forEachChild(node, findScenePanels);
@@ -287,7 +321,7 @@ const paidView = scenePanels.get("ContributeDialog").attributes.properties
   .find((attribute) => attribute.name?.getText(editorAst) === "onViewBuilding").initializer.expression;
 vm.runInNewContext(ts.transpileModule(`(${paidView.getText(editorAst)})(99);`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, browsing);
 assert.deepEqual(browsing.opened, { id: 99, showInfo: false }, "Ver edifício após pagar não abre informações junto com a navegação");
-const screen = { booted: true, contributeOpen: true, currentMyBuilding: { id: 42 }, selectedBuildingId: null, showBuildingInfo: true, infoBuildingId: 42, infoBuilding: { value: 50 } };
+const screen = { booted: true, myBuildingsOpen: true, contributeOpen: true, currentMyBuilding: { id: 42 }, selectedBuildingId: null, showBuildingInfo: true, infoBuildingId: 42, infoBuilding: { value: 50 } };
 for (const name of ["MyBuildingsNavigation", "BuildingInfoModal"]) {
   let conditionNode = scenePanels.get(name).parent;
   while (ts.isParenthesizedExpression(conditionNode)) conditionNode = conditionNode.parent;
@@ -296,7 +330,37 @@ for (const name of ["MyBuildingsNavigation", "BuildingInfoModal"]) {
   const showingDetails = name === "BuildingInfoModal";
   assert.equal(!!vm.runInNewContext(condition, { ...screen, contributeOpen: false, showBuildingInfo: showingDetails }), true);
   assert.equal(!!vm.runInNewContext(condition, { ...screen, contributeOpen: false, showBuildingInfo: !showingDetails }), false, "Informações e navegação nunca aparecem juntas");
+  if (name === 'MyBuildingsNavigation') {
+    assert.equal(!!vm.runInNewContext(condition, { ...screen, contributeOpen: false, showBuildingInfo: false, currentMyBuilding: undefined, infoBuildingId: null }), true, 'X continua disponível enquanto aguarda edifício');
+  }
 }
+
+// Conta/Pix continuam montados, mas escondidos: preserva sessão e acompanhamento.
+for (const name of ['AuthMenu', 'ContributeDialog', 'DonationInfoSection']) {
+  let wrapper = scenePanels.get(name).parent;
+  while (!ts.isJsxElement(wrapper) || !wrapper.openingElement.attributes.properties.some((attribute) => attribute.name?.getText(editorAst) === 'hidden')) wrapper = wrapper.parent;
+  const hidden = wrapper.openingElement.attributes.properties.find((attribute) => attribute.name?.getText(editorAst) === 'hidden').initializer.expression;
+  for (const myBuildingsOpen of [true, false]) {
+    assert.equal(vm.runInNewContext(hidden.getText(editorAst), { myBuildingsOpen }), myBuildingsOpen, `${name}: oculta ao entrar e restaura ao sair`);
+  }
+}
+for (const name of ['BuildingLayoutCard', 'BuildingHeightInput', 'CityControlPanel', 'KeyboardShortcutsHelp']) {
+  let conditionNode = scenePanels.get(name).parent;
+  while (ts.isParenthesizedExpression(conditionNode)) conditionNode = conditionNode.parent;
+  assert.equal(vm.runInNewContext(conditionNode.left.getText(editorAst), { myBuildingsOpen: true }), false, `${name} não aparece na visualização dedicada`);
+}
+const customize = scenePanels.get('MyBuildingsNavigation').attributes.properties.find((attribute) => attribute.name?.getText(editorAst) === 'onCustomize').initializer.expression;
+const manage = { showBuildingInfo: true, managed: false, setShowBuildingInfo: (show) => { manage.showBuildingInfo = show; }, handleManageFromInfo: () => { manage.managed = true; } };
+vm.runInNewContext(ts.transpileModule(`(${customize.getText(editorAst)})();`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, manage);
+assert.equal(manage.managed, true);
+const initialTab = scenePanels.get('BuildingManageDialog').attributes.properties.find((attribute) => attribute.name?.getText(editorAst) === 'initialTab').initializer.expression;
+assert.equal(vm.runInNewContext(initialTab.getText(editorAst), { ...manage, myBuildingsOpen: true }), 'appearance', 'Personalizar abre direto em Aparência');
+assert.equal(vm.runInNewContext(initialTab.getText(editorAst), { showBuildingInfo: true, myBuildingsOpen: true }), 'information', 'Administrar pelo card abre Informações');
+city.handleCloseInfo();
+assert.equal(city.myBuildingsOpen, false, 'X restaura interface geral');
+assert.equal(city.focusedId, null);
+assert.equal(city.pendingFocusRef.current, null);
+city.myBuildingsOpen = true;
 
 const sessionReset = editor.body.statements.find((node) => ts.isExpressionStatement(node) && ts.isCallExpression(node.expression) && node.expression.expression.getText(editorAst) === "useEffect" && node.getText(editorAst).includes("[user?.id]"));
 city.user = { id: 2 };
@@ -304,10 +368,11 @@ vm.runInNewContext(ts.transpileModule(sessionReset.getText(editorAst), { compile
 assert.equal(city.infoId, null, "Trocar conta encerra navegação anterior");
 assert.equal(city.focusedId, null);
 assert.equal(city.pendingFocusRef.current, null);
+assert.equal(city.myBuildingsOpen, false, 'Trocar conta encerra visualização dedicada');
 
 const shortcuts = editor.body.statements.find((node) => ts.isVariableStatement(node) && node.declarationList.declarations.some((declaration) => declaration.name.getText(editorAst) === "shortcuts"));
 const keyboard = {
-  isAdmin: false, selectedBuildingId: 42, infoBuildingId: null, showShortcutsHelp: false, closed: false,
+  isAdmin: false, myBuildingsOpen: true, selectedBuildingId: 42, infoBuildingId: null, showShortcutsHelp: false, closed: false,
   setShowControlPanel() { keyboard.closed = true; },
 };
 vm.runInNewContext(ts.transpileModule(`${shortcuts.getText(editorAst)}\nshortcuts.find((shortcut) => shortcut.key === "Escape").handler();`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, keyboard);
@@ -339,4 +404,4 @@ const auth = { browsed: false, onBrowseMyBuildings() { auth.browsed = true; } };
 vm.runInNewContext(`(${ownHandler.getText(authAst)})()`, auth);
 assert.equal(auth.browsed, true);
 assert.equal(ownButton.openingElement.attributes.properties.some((attribute) => attribute.name?.getText(authAst) === "aria-haspopup"), false);
-console.log("Edifícios: acesso direto, navegação circular, detalhes opcionais, troca de conta, administração e foco após filtro/pagamento OK.");
+console.log("Edifícios: modo dedicado, UI oculta/restaurada, setas, personalização direta, detalhes, sessão e foco após filtro/pagamento OK.");

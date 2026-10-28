@@ -17,6 +17,7 @@ const tabClass = "tab menu-cursor text-[13px] min-h-11 pr-4 pl-6 hover:bg-accent
 
 export function BuildingManageDialog({
   donationId,
+  initialTab = "information",
   catalog,
   customization,
   textureSettings,
@@ -25,6 +26,7 @@ export function BuildingManageDialog({
   onClose,
 }: {
   donationId: number;
+  initialTab?: "information" | "appearance";
   catalog: CustomizationCatalog | null;
   customization: BuildingCustomization;
   textureSettings: TextureSettings;
@@ -33,7 +35,7 @@ export function BuildingManageDialog({
   onClose: () => void;
 }) {
   const profileFormId = useId();
-  const [buildingTab, setBuildingTab] = useState("information");
+  const [buildingTab, setBuildingTab] = useState<string>(initialTab);
   const [profileEdit, setProfileEdit] = useState({ dirty: false, busy: false, ready: false, error: null as string | null });
   const [appearanceBusy, setAppearanceBusy] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);

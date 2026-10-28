@@ -242,7 +242,7 @@ flowchart LR
 | `buildings` | `readonly MyDonation[]` | Edifícios próprios: destinos para aumentar |
 | `onRequestLogin` | `() => void` | Abre `AuthDialog` |
 | `onPaid` | `(c, donationId) => void` | Relê `/donation/me`, mescla edifício novo/maior e atualiza catálogo ([[donation-api#Edifícios do usuário no login]]) |
-| `onViewBuilding` | `(donationId) => void` | Mesmo `handleOpenDonation` usado por Meus edifícios; revela, foca e abre informações |
+| `onViewBuilding` | `(donationId) => void` | `handleOpenDonation(id, false)`: revela/foca e abre visualização dedicada, com detalhes opcionais |
 
 Copy sem "Doar"/"Construir"/"prédio". Decisões (login, R$ 25, validade, Pix pendente) vêm da pesquisa + supervisão — ver [[contribution-api]].
 
@@ -278,7 +278,7 @@ Copy sem "Doar"/"Construir"/"prédio". Decisões (login, R$ 25, validade, Pix pe
 
 Card só-leitura do edifício clicado. Canto superior direito, sem dim: cena segue interativa. Visual herdado da branch `video-2`.
 
-Em edifício próprio, fechar o card (ou Esc) só esconde os detalhes e mantém a navegação/foco. No acesso direto por **Meus edifícios**, o card começa fechado; **Detalhes** na barra o abre. Clique em edifício na cena continua abrindo informações.
+Na visualização dedicada de **Meus edifícios**, fechar o card (ou Esc) só esconde os detalhes e mantém a navegação/foco, com a interface geral oculta. O card começa fechado; **Detalhes** no rodapé o abre. Fora desse modo, clique em edifício abre informações e fechar limpa o foco.
 
 Mostra valor (BRL), `Cidade · UF`, chip da ONG — do snapshot público. Imagem (`<Photo ratio="3/2">`), nome e descrição vêm do perfil ([[contribution-api]], `fetchBuildingProfile` no clique; aparece quando chega). Rótulo **Seu edifício** quando dono; senão **Edifício**. Quem pode editar vê link **Adicionar/Editar nome e imagem** → [[#BuildingProfileForm.tsx|BuildingProfileDialog]]. Dono do prédio (e admin) vê **Administrar** → [[#BuildingManageDialog.tsx|BuildingManageDialog]]. Edifício alheio ou sem login: sem administração. Regra em [[donation-api#Quem pode editar]].
 
@@ -297,13 +297,15 @@ Mostra valor (BRL), `Cidade · UF`, chip da ONG — do snapshot público. Imagem
 
 ### `MyBuildingsNavigation.tsx`
 
-Barra compacta sobre a cidade, acima de **Contribuir**: **Seu edifício · N de total**, valor e cidade. **Meus edifícios** no `AuthMenu` foca diretamente o primeiro edifício (maior valor), ou refoca o próprio já selecionado, sem abrir menu/card. Conta sem edifícios recebe aviso para contribuir.
+Visualização dedicada sobre a cidade, sem painel/modal de navegação. **Meus edifícios** no `AuthMenu` foca diretamente o primeiro edifício (maior valor), ou refoca o próprio já selecionado. Conta sem edifícios recebe aviso para contribuir.
 
-- **Anterior/Próximo** percorrem os próprios em ciclo; com um só, as setas ficam desabilitadas. Ordenação e lista independem do filtro/teto.
-- **Detalhes** substitui a barra por [[#BuildingInfoModal.tsx]]; fechar o card restaura a barra. Apenas um dos dois aparece por vez. **Administrar** continua disponível no card para dono/admin.
-- **Sair** ou Esc com os detalhes fechados limpa foco e restaura a câmera. Trocar conta/logout também encerra seleção e foco pendente.
-- `CitySceneEditor` mantém `infoBuildingId` como alvo e `showBuildingInfo` separadamente. `handleOpenDonation(id, false)` revela/foca sem abrir card, inclusive após rebuild. Perfil só é buscado com detalhes abertos.
-- `nav` com nome acessível, contador `aria-live="polite"`, botões do DS e callbacks; sem Three.js. `node scripts/check-building-management.mjs` verifica acesso direto, ciclo, estados vazio/único, rebuild, sessão e detalhes sem servidor/navegador.
+- **Topo esquerdo** — número/total, valor e cidade em card `pixel bevel-edge bg-background`, com a borda esquerda alinhada à seta de navegação no desktop (`md:left-1/4`). No mobile, margem de 8 px, largura máxima de 160 px e fontes menores. Altura limitada acima das setas, com rolagem interna se necessário; **X** no canto superior direito.
+- **Laterais** — botões de anterior/próximo flutuam na meia altura da cena, só com ícones e nomes acessíveis. Ciclo entre os próprios, independente de filtro/teto; com um só, setas desabilitadas.
+- **Rodapé** — **Personalizar** (primário) e **Detalhes** (`outline`), botões com fundo do DS, sem painel ao redor. Personalizar abre [[#BuildingManageDialog.tsx]] direto na aba Aparência. Detalhes abre [[#BuildingInfoModal.tsx]]; fechar qualquer um retorna à navegação. Apenas um desses contextos aparece por vez.
+- **Interface geral** — `myBuildingsOpen` no `CitySceneEditor` oculta marca, menu da conta, indicação, contribuição, filtros, hover, controles/admin e seção abaixo da cidade; rolagem fica bloqueada. `AuthMenu` e `ContributeDialog` permanecem montados em wrappers `hidden` para preservar sessão e acompanhamento de Pix. Atalhos de ferramentas/ajuda não abrem painéis nesse modo.
+- **X** ou Esc com os detalhes fechados limpa foco e restaura câmera e componentes da cidade. Trocar conta/logout também encerra seleção e foco pendente. Toques no chão/outros prédios não abandonam a visualização; arrastar continua controlando a câmera.
+- `infoBuildingId` mantém o alvo e `showBuildingInfo` controla detalhes. `handleOpenDonation(id, false)` ativa o modo dedicado e revela/foca após rebuild. Durante a espera, **Localizando edifício…**, controles desabilitados e X disponível. Perfil só é buscado com detalhes abertos.
+- `nav` sem Three.js, contador `aria-live="polite"`, áreas livres com `pointer-events-none` e botões de 48 px. `node scripts/check-building-management.mjs` verifica acesso direto, ciclo, estados vazio/único/pendente, ocultar/restaurar UI, personalização, rebuild, sessão e detalhes sem servidor/navegador.
 
 ---
 
@@ -407,12 +409,12 @@ Campos compartilhados entre [[#OnboardingDialog.tsx|OnboardingDialog]] e aba Per
 
 ### `BuildingManageDialog.tsx`
 
-Administração do edifício selecionado, independente de contribuição/Pix. Abre por **Meus edifícios → Detalhes → Administrar**, ou pelo card de edifício clicado. `canEdit` limita dono/admin; gate no render remove diálogo quando sessão perde permissão. Substitui painel lateral antigo.
+Administração do edifício selecionado, independente de contribuição/Pix. Abre por **Meus edifícios → Personalizar** na aba Aparência, ou pelo card → **Administrar** na aba Informações. `canEdit` limita dono/admin; gate no render remove diálogo quando sessão perde permissão. Substitui painel lateral antigo.
 
-- **Informações** abre primeiro: [[#BuildingProfileForm.tsx]] com imagem, nome e descrição. `forceMount` preserva campos ao trocar aba.
+- **Informações** abre por padrão (`initialTab="information"`): [[#BuildingProfileForm.tsx]] com imagem, nome e descrição. Acesso direto de Personalizar usa `initialTab="appearance"`. `forceMount` preserva campos ao trocar aba.
 - **Aparência**: [[#BuildingCustomizer.tsx]] com inventário por categoria, requisitos e prévia 3D. Fachada inclui **Padrão** para herdar textura global. Mudanças atualizam cidade e salvam automaticamente (debounce 500 ms).
 - **Layout**: até **1152 px**, altura estável até **800 px**, limitada por `100dvh`. Cabeçalho/abas/rodapé fixos; centro rolável. Prévia usa `container-type: size`. Botões 44 px no celular/40 px no desktop.
-- **Rodapé**: **Ver na cidade** retorna ao card focado; **Salvar** envia perfil por `form={profileFormId}`, inclusive na aba Aparência. Falha visível no rodapé. Nome/imagem/descrição pendentes → **Sair sem salvar?**; clique fora bloqueado. Salvar/processar imagem ou ler holograma bloqueia abas, X/Esc e saída.
+- **Rodapé**: **Ver na cidade** retorna ao contexto de origem (navegação dedicada ou card focado); **Salvar** envia perfil por `form={profileFormId}`, inclusive na aba Aparência. Falha visível no rodapé. Nome/imagem/descrição pendentes → **Sair sem salvar?**; clique fora bloqueado. Salvar/processar imagem ou ler holograma bloqueia abas, X/Esc e saída.
 - **Carregamento**: aparência `lazy`/`Suspense`, só monta na aba ativa. Fechar/trocar para Informações desmonta prévia. `selectedCustomization` memoizado evita reconstrução nas atualizações das estatísticas.
 - **Rebuild**: atualização do dataset mantém card/foco e administração aberta enquanto edifício continua visível; evita descartar campos durante confirmação de Pix em segundo plano.
 - **Verificação**: `node scripts/check-building-management.mjs` — render React, abas, campos preservados, envio externo, falha/bloqueios/descarte, posse e foco após filtro/teto ou pagamento atrasado. Sem servidor/navegador.
@@ -420,15 +422,16 @@ Administração do edifício selecionado, independente de contribuição/Pix. Ab
 | Prop | Tipo | Descrição |
 |---|---|---|
 | `donationId` | `number` | Edifício selecionado; `key` reseta estado ao trocar |
+| `initialTab` | `"information" \| "appearance"` opcional | Aba inicial; padrão Informações |
 | `catalog` | `CustomizationCatalog \| null` | Inventário e `isUnlocked` da sessão |
 | `customization` | `BuildingCustomization` | Aparência completa atual, memoizada no editor |
 | `textureSettings` | `TextureSettings` | Textura global herdada na prévia |
 | `onCustomizationChange` | `(id, patch) => void` | `updateCustomization`: cena, estado e persistência |
 | `onSaved` | `(id, profile) => void` | Atualiza informações exibidas no card |
-| `onClose` | `() => void` | Fecha administração e retorna às informações do edifício focado |
+| `onClose` | `() => void` | Fecha administração e retorna à navegação/card do edifício focado |
 
 > [!note] Fluxo de administração
-> Menu ou clique → `focusOnDonation` → `BuildingInfoModal` → **Administrar** (só dono/admin) → `BuildingManageDialog`. Perfil salvo via [[contribution-api]]; aparência via `updateCustomization` e `canvasRef.updateDonationCustomization`. Nenhuma cobrança criada.
+> Visualização dedicada → **Personalizar** → `BuildingManageDialog` na Aparência; card → **Administrar** → Informações (só dono/admin). Perfil salvo via [[contribution-api]]; aparência via `updateCustomization` e `canvasRef.updateDonationCustomization`. Nenhuma cobrança criada.
 
 > [!important] Personalização é permanente
 > O painel não mexe só no state: `updateCustomization` grava em `donation.customization` via `PUT /donation/:id/customization`. Recarregou a página, o prédio volta personalizado — o snapshot traz as personalizações salvas e o editor as reaplica na cena. Debounce, flush no unmount, toast de erro e limites de autorização em [[donation-api#Personalização persistida]].
