@@ -60,7 +60,7 @@ const radioMark = (
     <RadioGroup.Indicator className="size-2 bg-primary" />
   </span>
 );
-const scrollClass = "min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-8 sm:py-6 lg:px-10";
+const scrollClass = "px-5 py-5 sm:px-8 sm:py-6 lg:px-10";
 const footerClass = "shrink-0 border-t bg-background px-5 py-4 sm:px-8 lg:px-10";
 
 /** Estado do fluxo. Vive fora do `DialogContent`: fechar o modal não perde o Pix. */
@@ -121,8 +121,15 @@ function OngCombobox({ id, ongs, value, onChange }: {
   }, [open]);
 
   useEffect(() => {
-    if (expanded) listRef.current?.children[activeIndex]?.scrollIntoView({ block: "nearest" });
-  }, [expanded, activeIndex]);
+    const list = listRef.current;
+    const option = list?.children[activeIndex] as HTMLElement | undefined;
+    if (!expanded || !list || !option) return;
+    // Rola só as sugestões; mover os ancestrais pode esconder o input acima da lista.
+    if (option.offsetTop < list.scrollTop) list.scrollTop = option.offsetTop;
+    else if (option.offsetTop + option.offsetHeight > list.scrollTop + list.clientHeight) {
+      list.scrollTop = option.offsetTop + option.offsetHeight - list.clientHeight;
+    }
+  }, [expanded, activeIndex, normalizedQuery]);
 
   function pick(ong: Ong) {
     onChange(String(ong.id));
@@ -187,7 +194,7 @@ function OngCombobox({ id, ongs, value, onChange }: {
         role="listbox"
         aria-label="ONGs"
         hidden={!expanded}
-        className="absolute inset-x-0 top-full z-20 mt-2 max-h-60 overflow-y-auto pixel bg-popover p-1 text-popover-foreground"
+        className="absolute inset-x-0 top-full z-20 mt-2 max-h-[min(15rem,calc(var(--viewport-height,100dvh)-6rem))] overflow-y-auto pixel bg-popover p-1 text-popover-foreground"
       >
         {results.map((ong, index) => (
           <li
@@ -579,7 +586,7 @@ export function ContributeDialog({
       </DialogTrigger>
       {/* text-foreground: o body da cena pinta texto branco, que sumiria no tema claro. */}
       <DialogContent
-        className="flex max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 pb-1.5 text-foreground sm:max-h-[calc(100dvh-3rem)] sm:w-[calc(100%-3rem)] sm:max-w-3xl lg:max-w-4xl"
+        className="block max-h-[calc(var(--viewport-height,100dvh)-1rem)] w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] gap-0 overflow-y-auto overscroll-contain p-0 pb-1.5 text-foreground sm:max-h-[calc(var(--viewport-height,100dvh)-3rem)] sm:w-[calc(100%-3rem)] sm:max-w-3xl lg:max-w-4xl"
         showCloseButton={false}
         onOpenAutoFocus={(event) => {
           event.preventDefault();

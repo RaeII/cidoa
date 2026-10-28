@@ -276,7 +276,7 @@ Logo de ONG (e imagem de holograma no [[html-components#BuildingCustomizer.tsx|p
 | Card | `pixel bevel-edge bg-card`, padding com +4px embaixo | `ui/card.tsx` |
 | Foto | `<Photo ratio>`: moldura 3px, `object-cover`, espera e falha do DS. Ver [[#Imagem]] | `ui/photo.tsx` |
 | Avatar | Quadrado, `pixel-thin`, `sm` 32 · `default` 48 · `lg` 72; iniciais mono sobre verde-100. Ver [[#Avatares e logos (5.6)]] | `ui/avatar.tsx` |
-| Modal | `pixel bevel-edge bevel-w-6 bg-background`, overlay `bg-tinta/72`, título 26px. Base com `max-h-[calc(100dvh-2rem)] overflow-y-auto`: tela baixa rola, não corta. Fluxo com etapas: `DialogKicker` (barra verde + rótulo mono + fechar). Detalhe em [[#Modal de contribuição (6.7)]] | `ui/dialog.tsx` |
+| Modal | `pixel bevel-edge bevel-w-6 bg-background`, overlay `bg-tinta/72`, título 26px. Base com `max-h-[calc(var(--viewport-height,100dvh)-2rem)] overflow-y-auto`: altura/centro seguem área visível acima do teclado. Ver [[html-components#Teclado no mobile]]. Fluxo com etapas: `DialogKicker` (barra verde + rótulo mono + fechar). Detalhe em [[#Modal de contribuição (6.7)]] | `ui/dialog.tsx` |
 | Menu/Select | Popover `pixel bg-popover`, item com `menu-cursor` | `ui/select.tsx`, `ui/dropdown-menu.tsx` |
 
 ### Botão

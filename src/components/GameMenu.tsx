@@ -117,7 +117,7 @@ export function GameMenu({
         <DialogOverlay className="duration-500" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
-          className="fixed top-1/2 left-1/2 z-50 flex h-[min(42rem,calc(100svh-2rem))] w-[calc(100%-2rem)] max-w-4xl -translate-x-1/2 -translate-y-1/2 flex-col gap-4 text-foreground outline-none duration-300 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+          className="fixed top-[calc(var(--viewport-top,0px)+var(--viewport-height,100svh)/2)] left-1/2 z-50 flex h-[min(42rem,calc(var(--viewport-height,100svh)-2rem))] w-[calc(100%-2rem)] max-w-4xl -translate-x-1/2 -translate-y-1/2 flex-col gap-4 text-foreground outline-none transition-none duration-300 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
         >
           <header className="flex items-center justify-end gap-4">
             <DialogTitle className="sr-only">Menu</DialogTitle>

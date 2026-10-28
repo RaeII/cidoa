@@ -84,10 +84,17 @@ export function CityCombobox({
     return () => window.removeEventListener("keydown", closeList, true);
   }, [expanded]);
 
-  // Na aba Perfil o painel rola e cortaria a lista: rola só o necessário para ela caber.
+  // A lista limitada cabe junto do input; a opção ativa rola dentro dela.
   useEffect(() => {
-    if (expanded) listRef.current?.scrollIntoView({ block: "nearest" });
-  }, [expanded, results.length]);
+    const list = listRef.current;
+    const option = list?.children[active] as HTMLElement | undefined;
+    if (!expanded || !list || !option) return;
+    list.scrollIntoView({ block: "nearest" });
+    if (option.offsetTop < list.scrollTop) list.scrollTop = option.offsetTop;
+    else if (option.offsetTop + option.offsetHeight > list.scrollTop + list.clientHeight) {
+      list.scrollTop = option.offsetTop + option.offsetHeight - list.clientHeight;
+    }
+  }, [expanded, results.length, active]);
 
   function pick(city: City | null) {
     onChange(city);
@@ -160,7 +167,7 @@ export function CityCombobox({
             <PixelClose className="size-3" />
           </button>
         )}
-        <ul ref={listRef} id={listId} role="listbox" aria-label="Cidades" hidden={!expanded} className={cn(popupClass, "py-1")}>
+        <ul ref={listRef} id={listId} role="listbox" aria-label="Cidades" hidden={!expanded} className={cn(popupClass, "max-h-[min(15rem,calc(var(--viewport-height,100dvh)-6rem))] overflow-y-auto py-1")}>
           {results.map((city, i) => (
             <li
               key={city.id}

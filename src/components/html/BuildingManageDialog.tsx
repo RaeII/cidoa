@@ -48,7 +48,7 @@ export function BuildingManageDialog({
   return (
     <Dialog open onOpenChange={(open) => !open && leaveProfile()}>
       <DialogContent
-        className="flex h-[min(50rem,calc(100dvh-1rem))] max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 pb-1.5 text-foreground sm:h-[min(50rem,calc(100dvh-3rem))] sm:max-h-[calc(100dvh-3rem)] sm:w-[calc(100%-3rem)] sm:max-w-3xl lg:max-w-6xl"
+        className="flex h-[min(50rem,calc(var(--viewport-height,100dvh)-1rem))] max-h-[calc(var(--viewport-height,100dvh)-1rem)] w-[calc(100%-1rem)] max-w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 pb-1.5 text-foreground sm:h-[min(50rem,calc(var(--viewport-height,100dvh)-3rem))] sm:max-h-[calc(var(--viewport-height,100dvh)-3rem)] sm:w-[calc(100%-3rem)] sm:max-w-3xl lg:max-w-6xl"
         aria-describedby={undefined}
         showCloseButton={!editBusy}
         onEscapeKeyDown={(event) => { if (editBusy) event.preventDefault(); }}

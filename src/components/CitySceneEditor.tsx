@@ -5,6 +5,7 @@ import { ReferralHud } from "./referral/ReferralHud";
 import { BuildingHeightInput } from "./html/BuildingHeightInput";
 import { BuildingManageDialog } from "./html/BuildingManageDialog";
 import { BuildingInfoModal } from "./html/BuildingInfoModal";
+import { MyBuildingsNavigation } from "./html/MyBuildingsNavigation";
 import { BuildingLayoutCard } from "./html/BuildingLayoutCard";
 import { CityControlPanel } from "./html/CityControlPanel";
 import { KeyboardShortcutsHelp } from "./html/KeyboardShortcutsHelp";
@@ -59,6 +60,9 @@ import { getLightMetrics } from "../scene/utils/lighting";
 
 const formatCameraValue = (value: number) => value.toFixed(2);
 
+// Barra temporariamente oculta; mantém filtros e preferências para reativação.
+const SHOW_DONATION_FILTERS = false;
+
 // Cor e opacidade disparam a cada frame de arrasto — sem isso um slider vira
 // dezenas de PUTs. Só o estado final de cada edifício chega no banco.
 const SAVE_DEBOUNCE_MS = 500;
@@ -94,6 +98,7 @@ export function CitySceneEditor() {
   const [grain, setGrain] = useState(0);
   // Clique abre informações; administração só para dono ou admin.
   const [infoBuildingId, setInfoBuildingId] = useState<number | null>(null);
+  const [showBuildingInfo, setShowBuildingInfo] = useState(true);
   const [selectedBuildingId, setSelectedBuildingId] = useState<number | null>(null);
   const [buildingCustomizations, setBuildingCustomizations] = useState<Map<number, BuildingCustomization>>(
     () => new Map(),
@@ -145,6 +150,10 @@ export function CitySceneEditor() {
 
   useEffect(() => {
     pendingFocusRef.current = null;
+    canvasRef.current?.clearFocus();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setInfoBuildingId(null);
+    setSelectedBuildingId(null);
   }, [user?.id]);
 
   // Personalização salva no banco vira o estado inicial do painel. Só muda
@@ -268,6 +277,7 @@ export function CitySceneEditor() {
       }
       setSelectedBuildingId(null);
       setInfoBuildingId(donationId);
+      setShowBuildingInfo(true);
     },
     [],
   );
@@ -297,11 +307,18 @@ export function CitySceneEditor() {
   };
 
   // Acesso pelo menu ou confirmação: revela o edifício mesmo fora do filtro/teto.
-  const handleOpenDonation = (donationId: number) => {
+  const handleOpenDonation = (donationId: number, showInfo = true) => {
+    setShowBuildingInfo(showInfo);
+    setSelectedBuildingId(null);
     const visible = visibleDonations.some((d) => d.id === donationId);
     if (visible && donationsApplied) {
-      handleBuildingClick(donationId);
-    } else if (!visible) {
+      pendingFocusRef.current = null;
+      canvasRef.current?.focusOnDonation(donationId);
+      setInfoBuildingId(donationId);
+      return;
+    }
+    setInfoBuildingId(null);
+    if (!visible) {
       setFilter({});
       setVisibleLimit(null);
     }
@@ -311,7 +328,7 @@ export function CitySceneEditor() {
 
   // Imagem/nome/descrição ficam fora do snapshot: busca no clique.
   useEffect(() => {
-    if (infoBuildingId === null) return;
+    if (infoBuildingId === null || !showBuildingInfo) return;
     const controller = new AbortController();
     fetchBuildingProfile(infoBuildingId, controller.signal).then(
       (profile) => {
@@ -320,7 +337,7 @@ export function CitySceneEditor() {
       () => {},
     );
     return () => controller.abort();
-  }, [infoBuildingId]);
+  }, [infoBuildingId, showBuildingInfo]);
 
   // Tudo que o modal mostra já veio no snapshot público — sem request no clique.
   const infoBuilding = useMemo(() => {
@@ -351,6 +368,24 @@ export function CitySceneEditor() {
         };
       });
   }, [ownedDonationIds, allDonations, cities, ongs]);
+
+  const myBuildingIndex = myDonations.findIndex((donation) => donation.id === infoBuildingId);
+  const currentMyBuilding = myDonations[myBuildingIndex];
+
+  const handleBrowseMyBuildings = () => {
+    const donation = currentMyBuilding ?? myDonations[0];
+    if (donation) {
+      handleOpenDonation(donation.id, false);
+    } else {
+      toast.info("Você ainda não tem edifícios. Contribua para criar o primeiro.");
+    }
+  };
+
+  const handleStepMyBuilding = (direction: number) => {
+    if (myBuildingIndex < 0) return;
+    const index = (myBuildingIndex + direction + myDonations.length) % myDonations.length;
+    handleOpenDonation(myDonations[index].id, false);
+  };
 
   const getExistingCustomization = useCallback(
     (donationId: number): BuildingCustomization => {
@@ -502,7 +537,8 @@ export function CitySceneEditor() {
         if (showShortcutsHelp) {
           setShowShortcutsHelp(false);
         } else if (infoBuildingId !== null) {
-          handleCloseInfo();
+          if (currentMyBuilding && showBuildingInfo) setShowBuildingInfo(false);
+          else handleCloseInfo();
         } else if (selectedBuildingId === null) {
           setShowControlPanel(false);
         }
@@ -601,6 +637,7 @@ export function CitySceneEditor() {
             rewards={rewards}
             onRefreshRewards={() => setCustomizationRevision((revision) => revision + 1)}
             onOpenDonation={handleOpenDonation}
+            onBrowseMyBuildings={handleBrowseMyBuildings}
             authOpen={authOpen}
             onAuthOpenChange={setAuthOpen}
             onboardingBlocked={contributeOpen || showShortcutsHelp || infoBuildingId !== null || selectedBuildingId !== null || profileEditId !== null}
@@ -608,7 +645,7 @@ export function CitySceneEditor() {
         </div>
       </div>
       )}
-      {booted && uiVisibility.donationFilter && (
+      {SHOW_DONATION_FILTERS && booted && uiVisibility.donationFilter && (
         <DonationFilterBar
           cities={cities}
           ongs={ongs}
@@ -624,7 +661,7 @@ export function CitySceneEditor() {
           buildings={myDonations}
           onRequestLogin={() => setAuthOpen(true)}
           onPaid={handlePaid}
-          onViewBuilding={handleOpenDonation}
+          onViewBuilding={(donationId) => handleOpenDonation(donationId, false)}
         />
       )}
       {booted && (loadState.status !== "ready" || !donationsApplied) && (
@@ -677,7 +714,19 @@ export function CitySceneEditor() {
           visibility={uiVisibility}
         />
       )}
-      {infoBuildingId !== null && infoBuilding && (
+      {booted && !contributeOpen && !showBuildingInfo && currentMyBuilding && selectedBuildingId === null && (
+        <MyBuildingsNavigation
+          value={currentMyBuilding.value}
+          place={currentMyBuilding.place}
+          index={myBuildingIndex}
+          count={myDonations.length}
+          onPrevious={() => handleStepMyBuilding(-1)}
+          onNext={() => handleStepMyBuilding(1)}
+          onDetails={() => setShowBuildingInfo(true)}
+          onClose={handleCloseInfo}
+        />
+      )}
+      {!contributeOpen && showBuildingInfo && infoBuildingId !== null && infoBuilding && (
         <BuildingInfoModal
           value={infoBuilding.value}
           ongName={infoBuilding.ongName}
@@ -686,7 +735,7 @@ export function CitySceneEditor() {
           onManage={canEdit(infoBuildingId) ? handleManageFromInfo : undefined}
           profile={infoProfile?.id === infoBuildingId ? infoProfile.profile : null}
           onEditProfile={canEdit(infoBuildingId) ? () => setProfileEditId(infoBuildingId) : undefined}
-          onClose={handleCloseInfo}
+          onClose={currentMyBuilding ? () => setShowBuildingInfo(false) : handleCloseInfo}
         />
       )}
       <BuildingProfileDialog

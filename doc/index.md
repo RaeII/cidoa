@@ -67,6 +67,7 @@ scripts/
   check-signup-reward-dialog.mjs ← escolha/conquista, confete, prévia 3D, teclado e descarte; sem navegador/GPU
   check-admin-ongs.mjs         ← cadastro/edição de ONG, foto, status e erros, sem servidor/navegador
   check-city-search.mjs        ← busca de cidade (acento, prefixo antes de substring, UF, limite) sem navegador
+  check-mobile-keyboard.mjs    ← viewport, teclado, foco, rolagem integral do modal/sugestões, zoom e cleanup sem servidor/navegador
   check-contribution.mjs       ← máscara monetária + confirmação libera novo pagamento; sem servidor/navegador
   check-building-management.mjs ← administração, posse, descarte e foco após filtro/pagamento; sem servidor/navegador
   check-donation-info.mjs      ← foto, totais, 5 ONGs em linhas, filtros e transição cena/seção; sem servidor/navegador
@@ -86,9 +87,11 @@ public/
   robots.txt                   ← libera tudo; sem ele nginx devolvia `index.html`
   video-cidoe.mp4              ← vídeo de apresentação 1080×1920, 15 s → [[html-components#IntroVideoDialog.tsx]]
 src/
-  App.tsx
+  App.tsx                       ← rotas + `useVisualViewport`: formulários acima do teclado → [[html-components#Teclado no mobile]]
   main.tsx                      ← entry; reload em `vite:preloadError` (chunk de deploy antigo)
   index.css                     ← tokens do DS + utilitários (`pixel`, `bevel-*`, `field`, `menu-cursor`…) + controles nativos → [[desingn-system-index]]
+  hooks/
+    useVisualViewport.ts        ← altura/deslocamento visíveis + foco acima do teclado; montado pelo App
   api/
     http.ts
     admin/
@@ -165,6 +168,7 @@ src/
       DonationFilterBar.tsx
       DonationInfoSection.tsx     ← home: hero, 01 Impacto, 02 até 6 cartões de ONG, rodapé; fundo `pattern-paws` (DS)
       BuildingInfoModal.tsx          ← card só-leitura do prédio clicado; lápis só p/ dono/admin
+      MyBuildingsNavigation.tsx     ← acesso direto aos próprios, anterior/próximo e detalhes opcionais na cidade
       donate/
         ContributeDialog.tsx         ← contribuição → Pix → confirmação; sem edição
         BuildingProfileForm.tsx      ← imagem/nome/descrição do edifício + dialog de edição
@@ -343,7 +347,7 @@ E entrega para:
 Também gerencia:
 
 - Doações do backend via `useDonations` (snapshot cacheado + personalizações `no-store`) → `canvasRef.setDonations(donations)` quando `loadState.status === "ready"`. Ver [[donation-api]]
-- Meus edifícios: lista própria sem filtro, Ver na cidade revela/foca e abre informações; Administrar edita sem criar cobrança. Foco pendente aguarda edifício no rebuild; trocar conta/fechar card cancela. Rebuild mantém administração se edifício continua visível.
+- Meus edifícios: acesso direto ao primeiro/próprio selecionado, sem modal; barra com anterior/próximo em ciclo, contador e Detalhes. Revela fora de filtro/teto e aguarda rebuild sem abrir card. Lista completa continua no menu do avatar. Administrar edita sem cobrança. Trocar conta/sair da navegação cancela foco; fechar detalhes próprios mantém navegação. Rebuild mantém administração se edifício continua visível.
 - Contribuição: botão sempre dedicado ao pagamento; fechar confirmação permite nova contribuição. ONG escolhida a cada pagamento; mesmo edifício apoia várias ONGs. Máximo 3 edifícios por conta, validado no backend/banco. Aumentar com vários exige escolher destino. Pago = edifício gravado no banco; Pix simulado no back (`PIX_SIMULATED`) até PSP real; ver [[contribution-api]].
 - Teto de edifícios na cena (`visibleLimit`, padrão `null` = todos): ordena por valor desc e corta antes do `setDonations`, então o corte fica com as maiores doações. Controlado pelo [[html-components#BuildingLayoutCard.tsx|BuildingLayoutCard]]
 - Doações manuais via `canvasRef.addDonation(value)` e `canvasRef.addDonations(values)`
@@ -413,10 +417,11 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    Menu[Meus edifícios] --> View[Ver na cidade, revela fora do filtro/teto]
-    View --> Focus[focusOnDonation]
+    Menu[Meus edifícios] --> Nav[Anterior/próximo na cidade, sem modal]
+    Nav --> Focus[focusOnDonation, revela fora do filtro/teto]
+    Nav --> |Detalhes| Info[BuildingInfoModal]
     Click[Clique no edifício] --> Focus
-    Focus --> Info[BuildingInfoModal]
+    Click --> Info
     Info --> |Administrar, só dono/admin| Panel[BuildingManageDialog]
     Panel --> |cor| UC[updateCustomization]
     Panel --> |formato| UC
@@ -449,6 +454,7 @@ flowchart LR
 | Foto, avatar, logo (proporção, moldura, carregando/erro, direção de foto) | [[desingn-system-index#Imagem]] · `src/components/ui/photo.tsx` · `src/components/ui/avatar.tsx` |
 | App diverge do arquivo do DS (tamanho, mascote, dado faltando) | [[desingn-system-index#Desvios conscientes]] |
 | Alterar a UI do painel de configuração           | [[html-components#CityControlPanel.tsx]]          |
+| Campo encoberto pelo teclado no mobile           | [[html-components#Teclado no mobile]] · `src/hooks/useVisualViewport.ts` |
 | Granulado de render sob carga (padrão `0`)       | aba **tela** em [[html-components#CityControlPanel.tsx]] · `setGrain` em [[scene-runtime#Granulado (setGrain)]] |
 | Menu do usuário (abas, perfil, edifícios, sair)    | [[html-components#GameMenu.tsx]]                  |
 | Modo noite: toggle no menu do usuário            | [[area-admin#Modo noite (menu do usuário)]]       |

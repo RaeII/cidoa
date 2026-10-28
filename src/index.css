@@ -380,6 +380,15 @@
   }
 }
 
+/* A área visível encolhe com o teclado mesmo quando as unidades vh não mudam. */
+.h-svh {
+  height: min(100svh, var(--viewport-height, 100svh));
+}
+
+.min-h-svh {
+  min-height: min(100svh, var(--viewport-height, 100svh));
+}
+
 @layer base {
   * {
     box-sizing: border-box;
@@ -411,6 +420,12 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  input,
+  textarea,
+  [contenteditable="true"] {
+    scroll-margin-block: 12px;
   }
 
   ::selection {

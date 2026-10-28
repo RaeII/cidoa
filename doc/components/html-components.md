@@ -52,6 +52,16 @@ Loading = só página de loading. **Nenhuma imagem** baixa nem aparece até ela 
 
 ## Componentes Principais
 
+### Teclado no mobile
+
+`App.tsx` monta `useVisualViewport` uma vez. `visualViewport.resize`/`scroll` atualizam `--viewport-height`, `--viewport-top` e `--viewport-bottom` no `<html>`; cleanup remove listeners, frame pendente e variáveis. Sem API: fallback CSS. Zoom manual preserva layout.
+
+`DialogContent`, `GameMenu` e `SheetContent` usam área visível para posição/altura; modais de contribuição, perfil e administração mantêm seus limites específicos e rolagem interna. `h-svh`/`min-h-svh` limitadas à altura visível; painel da cena usa altura do pai. Login admin ocupa essa altura com rolagem e alinhamento seguro quando conteúdo não cabe. `index.html`: `interactive-widget=resizes-content` nos navegadores compatíveis.
+
+Contribuição: modal inteiro rola, incluindo cabeçalho, etapas e rodapé. Corpo sem `overflow-y-auto`/`overscroll-contain`: contêiner interno sem espaço de rolagem bloquearia gestos antes do modal. Sem corpo comprimido entre áreas fixas quando teclado abre. Sugestões de ONG/cidade limitadas à altura visível menos `6rem`, reservando espaço para input e margens. Navegação automática da ONG altera apenas `scrollTop` da lista, nunca dos ancestrais; filtro novo revela opção ativa mesmo quando índice continua em zero.
+
+Foco ou clique no input agenda `scrollIntoView` suave nativo (`behavior: smooth`) com alinhamento vertical `start`; preferência por movimento reduzido usa `instant`, sem animação. Alinhamento aplicado, mesmo quando campo já está visível ou focado. `scroll-margin-block: 12px` deixa pequena margem no topo do contêiner e espaço para sugestões abaixo. Resize reaplica alinhamento após abertura/fechamento do teclado, inclusive quando rolagem anterior ficou limitada pela altura do contêiner; rolagem manual e clique fora do campo não reposicionam o input. Check: `node scripts/check-mobile-keyboard.mjs`, sem servidor/navegador. Layout validado anteriormente via depuração USB no Android M2101K6G/Chrome 156: gestos nos dois sentidos com teclado aberto, rolagem independente da lista, digitação em ONG/cidade, teclado numérico do valor, acesso ao rodapé e restauração da altura ao fechar teclado. Suavização coberta pelo check automatizado, sem nova depuração. iOS não validado.
+
 ### Placa da marca (`CitySceneEditor.tsx`)
 
 Placa compacta `pixel pixel-thin bg-background`, sem bisel, canto superior esquerdo: logo oficial `public/logo.webp` 32px (`alt=""`) + conteúdo. `aside aria-label="Cidoe"`. Logo + nome visíveis na 1ª tela, sem rolar nem entrar = requisito da página inicial do login com Google ([[termos-e-privacidade]]).
@@ -163,12 +173,14 @@ Overlay de carregamento do snapshot de doações do backend ([[donation-api]]). 
 
 Barra de filtros das doações. Presentacional — recebe listas e filtro, emite mudança. Filtragem real acontece no `useDonations` ([[donation-api#Filtro client-side]]).
 
+Barra temporariamente oculta na tela principal: `SHOW_DONATION_FILTERS = false` em `CitySceneEditor.tsx`, inclusive com preferência antiga ligada. Componente, lógica e preferências preservados; reativar com `true`.
+
 **Responsabilidades:**
 - Selects em **cascata**: Região → UF → Cidade (região deriva da UF via `UF_REGION`, não vem do backend)
 - Select de **ONG**
 - Botão **Limpar** — reseta o filtro
 - Sem estado próprio nem Three.js — só dispara `onChange`
-- Montada só com dataset pronto **e** `uiVisibility.donationFilter` ligado (aba **Tela**)
+- Quando reativada, montada após loading inicial **e** `uiVisibility.donationFilter` ligado (aba **Tela**)
 
 **Props:**
 | Prop | Tipo | Descrição |
@@ -184,7 +196,7 @@ Barra de filtros das doações. Presentacional — recebe listas e filtro, emite
 
 `html/donate/`. Botão **Contribuir** (`Button size="lg"` verde, ícone `PixelBuilding`, rodapé central a 24px; mobile `left-4 right-20 bottom-4`, texto 14px — livra seta/engrenagem à direita) + contribuição → Pix → confirmação. Administração independente em [[#BuildingManageDialog.tsx]]; botão nunca vira retorno à edição.
 
-**Layout** — largura até **896 px**; cabeçalho/etapas/rodapé fixos, centro rolável, margens responsivas e tokens claro/escuro.
+**Layout** — largura até **896 px**; rolagem única do modal inteiro (cabeçalho, etapas, campos e rodapé), altura limitada à área acima do teclado, margens responsivas e tokens claro/escuro.
 
 ```mermaid
 flowchart LR
@@ -195,8 +207,9 @@ flowchart LR
   S -- expired --> X[Gerar novo código]
   S -- paid --> D[3 Confirmação]
   D -- Nova contribuição --> F
-  D -- Ver meu edifício --> Card[Informações na cidade]
-  M[Meus edifícios] -- Ver na cidade --> Card
+  D -- Ver meu edifício --> Nav[Navegação na cidade]
+  M[Meus edifícios] --> Nav
+  Nav -- Detalhes --> Card[Informações na cidade]
   Card -- Administrar, dono/admin --> Editor[BuildingManageDialog]
 ```
 
@@ -216,7 +229,7 @@ flowchart LR
 - Grafia **Pix**, nunca "PIX" (manual da marca BCB)
 - Expirado: cartão próprio, **Gerar novo código** mantém contribuição. **Alterar contribuição** retorna ao formulário sem descartar cobrança nem parar poll (`editingCharge`); banner **Voltar ao Pix**, novo código substitui anterior conforme contrato. **Continuar depois** fecha modal e mantém acompanhamento
 
-**Etapa 3 — Confirmação** — título **Pagamento confirmado**; edifício já está na cidade ou cresceu. **Nova contribuição** retorna ao formulário; **Ver meu edifício** fecha confirmação e abre card na cidade pelo mesmo caminho do menu.
+**Etapa 3 — Confirmação** — título **Pagamento confirmado**; edifício já está na cidade ou cresceu. **Nova contribuição** retorna ao formulário; **Ver meu edifício** fecha confirmação e foca o prédio com a barra de navegação, sem abrir o card de informações. O toast de pagamento confirmado usa o mesmo acesso direto. Enquanto contribuição/confirmação está aberta, card e barra da seleção anterior ficam ocultos; **Detalhes** abre o card na cidade.
 
 **Estado** — `Flow` (`form` | `pay` | `done`) fora do `DialogContent`. Fechar Pix mantém poll/retomada. Fechar confirmação reseta para `form`; próximo clique em **Contribuir** inicia pagamento novo. Pago com modal fechado → `form` + toast com **Ver edifício**; não abre editor dentro do pagamento. Ícone relógio indica Pix pendente, rótulo permanece **Contribuir**. `userId` impede reaproveitar cobrança de outra conta; `getPendingCharge` retoma pendente no login/remount. Troca de etapa foca título.
 
@@ -265,6 +278,8 @@ Copy sem "Doar"/"Construir"/"prédio". Decisões (login, R$ 25, validade, Pix pe
 
 Card só-leitura do edifício clicado. Canto superior direito, sem dim: cena segue interativa. Visual herdado da branch `video-2`.
 
+Em edifício próprio, fechar o card (ou Esc) só esconde os detalhes e mantém a navegação/foco. No acesso direto por **Meus edifícios**, o card começa fechado; **Detalhes** na barra o abre. Clique em edifício na cena continua abrindo informações.
+
 Mostra valor (BRL), `Cidade · UF`, chip da ONG — do snapshot público. Imagem (`<Photo ratio="3/2">`), nome e descrição vêm do perfil ([[contribution-api]], `fetchBuildingProfile` no clique; aparece quando chega). Rótulo **Seu edifício** quando dono; senão **Edifício**. Quem pode editar vê link **Adicionar/Editar nome e imagem** → [[#BuildingProfileForm.tsx|BuildingProfileDialog]]. Dono do prédio (e admin) vê **Administrar** → [[#BuildingManageDialog.tsx|BuildingManageDialog]]. Edifício alheio ou sem login: sem administração. Regra em [[donation-api#Quem pode editar]].
 
 | Prop | Tipo | Descrição |
@@ -280,14 +295,26 @@ Mostra valor (BRL), `Cidade · UF`, chip da ONG — do snapshot público. Imagem
 
 ---
 
+### `MyBuildingsNavigation.tsx`
+
+Barra compacta sobre a cidade, acima de **Contribuir**: **Seu edifício · N de total**, valor e cidade. **Meus edifícios** no `AuthMenu` foca diretamente o primeiro edifício (maior valor), ou refoca o próprio já selecionado, sem abrir menu/card. Conta sem edifícios recebe aviso para contribuir.
+
+- **Anterior/Próximo** percorrem os próprios em ciclo; com um só, as setas ficam desabilitadas. Ordenação e lista independem do filtro/teto.
+- **Detalhes** substitui a barra por [[#BuildingInfoModal.tsx]]; fechar o card restaura a barra. Apenas um dos dois aparece por vez. **Administrar** continua disponível no card para dono/admin.
+- **Sair** ou Esc com os detalhes fechados limpa foco e restaura a câmera. Trocar conta/logout também encerra seleção e foco pendente.
+- `CitySceneEditor` mantém `infoBuildingId` como alvo e `showBuildingInfo` separadamente. `handleOpenDonation(id, false)` revela/foca sem abrir card, inclusive após rebuild. Perfil só é buscado com detalhes abertos.
+- `nav` com nome acessível, contador `aria-live="polite"`, botões do DS e callbacks; sem Three.js. `node scripts/check-building-management.mjs` verifica acesso direto, ciclo, estados vazio/único, rebuild, sessão e detalhes sem servidor/navegador.
+
+---
+
 ### `GameMenu.tsx`
 
-Menu do usuário logado, estilo menu de pausa do GTA V. Abre por **Meus edifícios** ou pelo botão avatar + nome do `AuthMenu` (canto superior direito). Deslogado não existe — `AuthMenu` mostra "Entrar". Substituiu dropdown antigo + `ProfileDialog`.
+Menu do usuário logado, estilo menu de pausa do GTA V. Abre pelo botão avatar + nome do `AuthMenu` (canto superior direito). **Meus edifícios** na cena leva direto à [[#MyBuildingsNavigation.tsx|navegação na cidade]]. Deslogado não existe — `AuthMenu` mostra "Entrar". Substituiu dropdown antigo + `ProfileDialog`.
 
 - **Fundo** — `DialogOverlay` padrão (`bg-tinta/72`, sem blur), fade 500 ms: cena escurece ao abrir.
 - **Visual** — placas de papel do HUD ([[desingn-system-index#Interface sobre a cidade]]): `pixel bevel-edge bg-background`, edifício em quadrado verde com `PixelBuilding`, progresso em `BlockBar`, âmbar só na recompensa de indicação.
 - **Topo** — sem título visível (`DialogTitle` só `sr-only`); à direita switch sol/lua dia/noite (`NightToggle`, `onNightChange`) e, ao lado dele, placa com nome, `@username` mono (some no celular) e avatar 48 px ([[desingn-system-index#Avatares e logos (5.6)|DS]]).
-- **Abas** — Radix `Tabs` (setas ←/→ navegam), abas do DS (utilitário `tab` + `menu-cursor`) com ícone. Primeiro acesso em Meus edifícios; botão próprio sempre retorna à lista, avatar preserva aba escolhida. Perfil por último. Ativa = régua verde 4px + ▸. Celular: inativa mostra só ícone.
+- **Abas** — Radix `Tabs` (setas ←/→ navegam), abas do DS (utilitário `tab` + `menu-cursor`) com ícone. Primeiro acesso na aba Meus edifícios; avatar preserva aba escolhida. Perfil por último. Ativa = régua verde 4px + ▸. Celular: inativa mostra só ícone.
 - **Conteúdo** — coluna centralizada com largura máxima (perfil `max-w-xl`, doações `max-w-2xl`, indicações `max-w-md`). Perfil e indicações centralizam também na vertical.
 - **Rodapé** — só **Esc Voltar** à direita.
 - **Tema** — Content leva classe `dark`: tokens shadcn escuros só dentro do menu.
@@ -302,14 +329,14 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre por **Meus edifíci
 | Prop | Tipo | Descrição |
 |---|---|---|
 | `open` / `onOpenChange` | `boolean` / `(open) => void` | Controlado pelo `AuthMenu` |
-| `tab` / `onTabChange` | `string` / `(tab) => void` | Aba controlada pelo `AuthMenu`; Meus edifícios seleciona `donations` |
+| `tab` / `onTabChange` | `string` / `(tab) => void` | Aba controlada pelo `AuthMenu`; inicial `donations` |
 | `night` / `onNightChange` | `boolean` / `(night) => void` | Toggle dia/noite do topo |
 | `donations` | `MyDonation[]` | `{ id, value, ongName?, place? }` |
 | `catalog` | `CustomizationCatalog \| null` | Mesmo do `useCustomizationCatalog`; `null` = carregando |
 | `onOpenDonation` | `(id) => void` | Foca edifício + abre card |
 | `referralSummary` / `referralError` | | Vêm do `AuthMenu` |
 
-`myDonations` montado no `CitySceneEditor`: `allDonations` (dataset sem filtro, do `useDonations`) ∩ `ownedDonationIds`. Lista não depende do filtro/teto da cena. `handleOpenDonation` mantém `pendingFocusRef` até edifício existir no rebuild; chegada atrasada após pagamento não perde seleção. Fechar card/trocar conta cancela foco pendente.
+`myDonations` montado no `CitySceneEditor`: `allDonations` (dataset sem filtro, do `useDonations`) ∩ `ownedDonationIds`. Lista não depende do filtro/teto da cena. `handleOpenDonation` mantém `pendingFocusRef` até edifício existir no rebuild; chegada atrasada após pagamento não perde seleção. Sair da navegação/fechar card alheio/trocar conta cancela foco pendente. `AuthMenu.onBrowseMyBuildings` e a confirmação/toast de pagamento usam acesso direto; `onOpenDonation` mantém o card para seleção pela lista do menu.
 
 ---
 
@@ -368,7 +395,7 @@ Campos compartilhados entre [[#OnboardingDialog.tsx|OnboardingDialog]] e aba Per
   - Teclado: ↑ ↓ navegam (abrem a lista fechada), Enter escolhe, Esc fecha só a lista. Esc via captura na `window`: roda antes do Esc do Dialog Radix (captura no `document`, respeita `defaultPrevented`) — senão Esc fecharia o modal junto (no onboarding = pular).
   - ARIA: `role="combobox"`, `aria-expanded`, `aria-controls`, `aria-autocomplete="list"`, `aria-activedescendant`; lista `role="listbox"` / `role="option"` + `aria-selected`. Foco nunca sai do input (`mousedown` com `preventDefault` em opção e no X).
   - Blur sem clicar: texto que aponta pra 1 cidade só (resultado único ou nome exato único, `pickTypedCity`) escolhe; ambíguo ("Bom Jesus") volta pra cidade atual; texto apagado = sem cidade. Botão X (44 px) limpa.
-  - Lista inline (`absolute`, sem portal): herda tema do contexto. Na aba Perfil o painel rola: `scrollIntoView({ block: "nearest" })` mostra a lista inteira. Hover ativa por `mousemove` (rolar sob mouse parado não troca opção).
+  - Lista inline (`absolute`, sem portal): herda tema do contexto; altura até `min(15rem, viewport visível - 6rem)` com rolagem própria. Na aba Perfil, `scrollIntoView({ block: "nearest" })` mostra lista limitada junto do input; setas mantêm opção ativa visível dentro da lista. Hover ativa por `mousemove` (rolar sob mouse parado não troca opção).
 - **Como conheceu o Cidoe?** — chips Radix `RadioGroup` (`role="radiogroup"`/`radio`, setas navegam e marcam). Rótulos em `DISCOVERY_LABELS` (lugar único): Instagram, TikTok, YouTube, Facebook, WhatsApp, Google, Amigo ou familiar, Uma ONG, Outro. "Outro" revela input (máx 100). Marcado = `bg-primary` verde (chip de seleção do DS). Chip `h-10`.
 - **Tema** — só tokens (`foreground`, `popover`, `muted`, `primary`); mesmo visual no diálogo e no GameMenu. Campos `field`, chips de seleção do DS, opção destacada com `menu-cursor`.
 
@@ -380,7 +407,7 @@ Campos compartilhados entre [[#OnboardingDialog.tsx|OnboardingDialog]] e aba Per
 
 ### `BuildingManageDialog.tsx`
 
-Administração do edifício selecionado, independente de contribuição/Pix. Abre por **Meus edifícios → Ver na cidade → Administrar**, ou pelo card de edifício clicado. `canEdit` limita dono/admin; gate no render remove diálogo quando sessão perde permissão. Substitui painel lateral antigo.
+Administração do edifício selecionado, independente de contribuição/Pix. Abre por **Meus edifícios → Detalhes → Administrar**, ou pelo card de edifício clicado. `canEdit` limita dono/admin; gate no render remove diálogo quando sessão perde permissão. Substitui painel lateral antigo.
 
 - **Informações** abre primeiro: [[#BuildingProfileForm.tsx]] com imagem, nome e descrição. `forceMount` preserva campos ao trocar aba.
 - **Aparência**: [[#BuildingCustomizer.tsx]] com inventário por categoria, requisitos e prévia 3D. Fachada inclui **Padrão** para herdar textura global. Mudanças atualizam cidade e salvam automaticamente (debounce 500 ms).

@@ -27,7 +27,7 @@ export function IntroVideoDialog({
       <DialogContent
         showCloseButton={false}
         {...(isMobile ? { "aria-describedby": undefined } : {})}
-        className="flex h-[calc(100dvh-1rem)] max-h-none max-w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 pb-0 text-foreground sm:max-w-[calc(100%-1rem)] md:h-auto md:max-w-fit md:flex-row"
+        className="flex h-[calc(var(--viewport-height,100dvh)-1rem)] max-h-none max-w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 pb-0 text-foreground sm:max-w-[calc(100%-1rem)] md:h-auto md:max-w-fit md:flex-row"
       >
         <video
           src="/video-cidoe.mp4"
@@ -36,7 +36,7 @@ export function IntroVideoDialog({
           loop
           playsInline
           aria-hidden
-          className="min-h-0 w-full flex-1 bg-tinta object-cover md:aspect-[9/16] md:h-[min(40rem,calc(100dvh-4rem))] md:w-auto md:flex-none"
+          className="min-h-0 w-full flex-1 bg-tinta object-cover md:aspect-[9/16] md:h-[min(40rem,calc(var(--viewport-height,100dvh)-4rem))] md:w-auto md:flex-none"
         />
         {isMobile ? (
           <div className="p-4">

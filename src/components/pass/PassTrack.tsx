@@ -96,7 +96,7 @@ export function PassTrack<T extends PassReward>({ rewards, onConfigure, layout =
       </div>
 
       <Dialog open={selectedReward !== null} onOpenChange={(open) => { if (!open) setSelectedReward(null); }}>
-        {selectedReward && <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-2xl">
+        {selectedReward && <DialogContent className="max-h-[calc(var(--viewport-height,100svh)-2rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{selectedReward.label}</DialogTitle>
             <DialogDescription>{selectedReward.categoryLabel}</DialogDescription>

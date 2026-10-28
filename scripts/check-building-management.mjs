@@ -69,11 +69,16 @@ const bundle = await build({
     import { cn } from './src/lib/utils';
     import { formatBRL } from './src/lib/unlock';
     import { Building2, MapPin } from 'lucide-react';
+    import { BlockLoader, ErrorMark, PixelBuilding } from './src/components/ui/pixel-icon';
+    import { MyBuildingsNavigation } from './src/components/html/MyBuildingsNavigation';
+    export { MyBuildingsNavigation };
+    export const renderNavigation = (props) => renderToStaticMarkup(createElement(MyBuildingsNavigation, props));
     const BuildingCustomizer = () => createElement('div', { 'data-preview': true }, 'Prévia de aparência');
     const Loader2 = () => null;
     const noop = () => {};
     const scrollClass = ${JSON.stringify(constant("scrollClass"))};
     const footerClass = ${JSON.stringify(constant("footerClass"))};
+    const tabClass = ${JSON.stringify(constant("tabClass"))};
     function Section({ buildingTab = 'information', ready = true, editBusy = false, error = null }) {
       const profileFormId = 'building-profile';
       const profileEdit = { ready, busy: editBusy, error };
@@ -98,7 +103,33 @@ const bundle = await build({
 });
 const renderModule = { exports: {} };
 new Function("require", "module", "exports", bundle.outputFiles[0].text)(createRequire(import.meta.url), renderModule, renderModule.exports);
-const { render, renderList } = renderModule.exports;
+const { render, renderList, MyBuildingsNavigation, renderNavigation } = renderModule.exports;
+const navigationProps = {
+  value: 50, place: 'Campinas · SP', index: 0, count: 2,
+  onPrevious() {}, onNext() {}, onDetails() {}, onClose() {},
+};
+const navigationHtml = renderNavigation(navigationProps);
+assert.match(navigationHtml, /<nav[^>]*aria-label="Meus edifícios na cidade"/);
+assert.match(navigationHtml, /Seu edifício · 1 de 2/);
+assert.match(navigationHtml, /aria-live="polite"/);
+assert.match(navigationHtml, /Campinas · SP/);
+assert.doesNotMatch(navigationHtml, /role="dialog"/);
+assert.equal((renderNavigation({ ...navigationProps, count: 1 }).match(/disabled=""/g) ?? []).length, 2, "Um único edifício desabilita anterior/próximo");
+function buttons(node) {
+  if (Array.isArray(node)) return node.flatMap(buttons);
+  if (!node?.props) return [];
+  return [...(node.props.onClick ? [node.props] : []), ...buttons(node.props.children)];
+}
+for (const [label, callback] of [["Edifício anterior", "onPrevious"], ["Próximo edifício", "onNext"], ["Sair dos meus edifícios", "onClose"]]) {
+  let called = false;
+  const tree = MyBuildingsNavigation({ ...navigationProps, [callback]: () => { called = true; } });
+  buttons(tree).find((button) => button['aria-label'] === label).onClick();
+  assert.equal(called, true, label);
+}
+let detailsOpened = false;
+buttons(MyBuildingsNavigation({ ...navigationProps, onDetails: () => { detailsOpened = true; } }))
+  .find((button) => button.children === 'Detalhes').onClick();
+assert.equal(detailsOpened, true);
 const listHtml = renderList([{ id: 42, value: 50 }, { id: 99, value: 25 }]);
 assert.equal((listHtml.match(/<button/g) ?? []).length, 2, "Todos os edifícios têm Ver na cidade, sem depender do filtro");
 assert.match(listHtml, /Edifício 1/);
@@ -115,7 +146,7 @@ assert.match(render({ buildingTab: "appearance" }), /data-preview="true"/);
 for (const props of [{ ready: false }, { editBusy: true }]) {
   assert.match(render(props), /type="submit" form="building-profile"[^>]*disabled=""/, "Rodapé deve respeitar carregamento e salvamento");
 }
-assert.match(render({ buildingTab: "appearance", error: "Não foi possível salvar." }), /role="alert"[^>]*>Não foi possível salvar\./, "Falha ao salvar deve aparecer também na aba Aparência");
+assert.match(render({ buildingTab: "appearance", error: "Não foi possível salvar." }), /role="alert"[^]*?<span>Não foi possível salvar\./, "Falha ao salvar deve aparecer também na aba Aparência");
 
 // Foco real: filtro/teto, chegada atrasada do edifício pago e sessão sem permissão.
 const editorSource = await readFile(new URL("../src/components/CitySceneEditor.tsx", import.meta.url), "utf8");
@@ -129,11 +160,12 @@ const city = {
   visibleDonations: [{ id: 42, value: 25 }], donationsApplied: true,
   loadState: { status: "ready" }, ownedDonationIds: new Set([42]), isAdmin: false,
   pendingFocusRef: { current: null }, customizationsRef: { current: new Map() },
-  selectedId: null, infoId: null, focusedId: null, filter: { cityId: 99 }, limit: 1,
+  selectedId: null, infoId: null, focusedId: null, showBuildingInfo: true, filter: { cityId: 99 }, limit: 1,
   useCallback: (handler) => handler,
   useEffect: (handler) => handler(),
   getBuildingSelection: () => ({ managedId: city.selectedId, infoId: city.infoId }),
   setInfoBuildingId: (id) => { city.infoId = id; },
+  setShowBuildingInfo: (show) => { city.showBuildingInfo = show; },
   setSelectedBuildingId: (id) => { city.selectedId = id; },
   setDonationsApplied: (value) => { city.donationsApplied = value; },
   setFilter: (value) => { city.filter = value; },
@@ -196,27 +228,115 @@ while (frames.length) frames.shift()();
 assert.equal(city.infoId, null, "Fechar durante rebuild não reabre informações");
 assert.equal(city.focusedId, null);
 
+// O acesso direto e as setas usam a mesma revelação/foco, sem abrir informações.
+city.visibleDonations = [{ id: 42 }, { id: 99 }];
+city.donationsApplied = true;
+city.handleOpenDonation(42, false);
+assert.equal(city.infoId, 42);
+assert.equal(city.showBuildingInfo, false);
+assert.equal(city.pendingFocusRef.current, null, "Foco imediato não fica pendente para um rebuild futuro");
+city.visibleDonations = [];
+city.handleOpenDonation(99, false);
+applyCity();
+assert.equal(city.pendingFocusRef.current, 99);
+city.visibleDonations = [{ id: 42 }, { id: 99 }];
+applyCity();
+assert.equal(city.focusedId, 99);
+assert.equal(city.showBuildingInfo, false, "Rebuild não abre card durante navegação direta");
+const navigationHandlers = editor.body.statements.filter(ts.isVariableStatement)
+  .filter((node) => node.declarationList.declarations.some((declaration) => ["handleBrowseMyBuildings", "handleStepMyBuilding"].includes(declaration.name.getText(editorAst))));
+const browsing = {
+  myDonations: [{ id: 42 }, { id: 99 }], myBuildingIndex: 0, currentMyBuilding: undefined,
+  handleOpenDonation: (id, showInfo) => { browsing.opened = { id, showInfo }; },
+  toast: { info: () => { browsing.empty = true; } },
+};
+vm.runInNewContext(ts.transpileModule(`${navigationHandlers.map((node) => node.getText(editorAst)).join("\n")}\nObject.assign(globalThis, { handleBrowseMyBuildings, handleStepMyBuilding });`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, browsing);
+browsing.handleBrowseMyBuildings();
+assert.deepEqual(browsing.opened, { id: 42, showInfo: false });
+browsing.handleStepMyBuilding(1);
+assert.deepEqual(browsing.opened, { id: 99, showInfo: false });
+browsing.handleStepMyBuilding(-1);
+assert.equal(browsing.opened.id, 99, "Anterior ao primeiro vai ao último");
+browsing.myBuildingIndex = 1;
+browsing.handleStepMyBuilding(1);
+assert.equal(browsing.opened.id, 42, "Próximo ao último volta ao primeiro");
+browsing.currentMyBuilding = { id: 99 };
+browsing.handleBrowseMyBuildings();
+assert.equal(browsing.opened.id, 99, "Atalho refoca o edifício atual");
+browsing.myDonations = [{ id: 42 }];
+browsing.myBuildingIndex = 0;
+browsing.handleStepMyBuilding(1);
+assert.equal(browsing.opened.id, 42);
+browsing.myDonations = [];
+browsing.currentMyBuilding = undefined;
+browsing.myBuildingIndex = -1;
+browsing.handleBrowseMyBuildings();
+assert.equal(browsing.empty, true, "Conta sem edifícios recebe orientação");
+browsing.handleStepMyBuilding(1);
+
+// Sair da confirmação vai direto à cidade; contribuição esconde os painéis de seleção.
+const scenePanels = new Map();
+function findScenePanels(node) {
+  if (ts.isJsxSelfClosingElement(node) && ["ContributeDialog", "MyBuildingsNavigation", "BuildingInfoModal"].includes(node.tagName.getText(editorAst))) {
+    scenePanels.set(node.tagName.getText(editorAst), node);
+  }
+  ts.forEachChild(node, findScenePanels);
+}
+findScenePanels(editor);
+const paidView = scenePanels.get("ContributeDialog").attributes.properties
+  .find((attribute) => attribute.name?.getText(editorAst) === "onViewBuilding").initializer.expression;
+vm.runInNewContext(ts.transpileModule(`(${paidView.getText(editorAst)})(99);`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, browsing);
+assert.deepEqual(browsing.opened, { id: 99, showInfo: false }, "Ver edifício após pagar não abre informações junto com a navegação");
+const screen = { booted: true, contributeOpen: true, currentMyBuilding: { id: 42 }, selectedBuildingId: null, showBuildingInfo: true, infoBuildingId: 42, infoBuilding: { value: 50 } };
+for (const name of ["MyBuildingsNavigation", "BuildingInfoModal"]) {
+  let conditionNode = scenePanels.get(name).parent;
+  while (ts.isParenthesizedExpression(conditionNode)) conditionNode = conditionNode.parent;
+  const condition = conditionNode.left.getText(editorAst);
+  assert.equal(!!vm.runInNewContext(condition, screen), false, `${name} não aparece atrás do pagamento/confirmação`);
+  const showingDetails = name === "BuildingInfoModal";
+  assert.equal(!!vm.runInNewContext(condition, { ...screen, contributeOpen: false, showBuildingInfo: showingDetails }), true);
+  assert.equal(!!vm.runInNewContext(condition, { ...screen, contributeOpen: false, showBuildingInfo: !showingDetails }), false, "Informações e navegação nunca aparecem juntas");
+}
+
+const sessionReset = editor.body.statements.find((node) => ts.isExpressionStatement(node) && ts.isCallExpression(node.expression) && node.expression.expression.getText(editorAst) === "useEffect" && node.getText(editorAst).includes("[user?.id]"));
+city.user = { id: 2 };
+vm.runInNewContext(ts.transpileModule(sessionReset.getText(editorAst), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, city);
+assert.equal(city.infoId, null, "Trocar conta encerra navegação anterior");
+assert.equal(city.focusedId, null);
+assert.equal(city.pendingFocusRef.current, null);
+
 const shortcuts = editor.body.statements.find((node) => ts.isVariableStatement(node) && node.declarationList.declarations.some((declaration) => declaration.name.getText(editorAst) === "shortcuts"));
 const keyboard = {
-  selectedBuildingId: 42, infoBuildingId: null, showShortcutsHelp: false, closed: false,
+  isAdmin: false, selectedBuildingId: 42, infoBuildingId: null, showShortcutsHelp: false, closed: false,
   setShowControlPanel() { keyboard.closed = true; },
 };
 vm.runInNewContext(ts.transpileModule(`${shortcuts.getText(editorAst)}\nshortcuts.find((shortcut) => shortcut.key === "Escape").handler();`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, keyboard);
 assert.equal(keyboard.closed, false, "Escape na administração deixa descarte/salvamento sob controle do diálogo");
+keyboard.selectedBuildingId = null;
+keyboard.infoBuildingId = 42;
+keyboard.currentMyBuilding = { id: 42 };
+keyboard.showBuildingInfo = true;
+keyboard.setShowBuildingInfo = (show) => { keyboard.showBuildingInfo = show; };
+keyboard.handleCloseInfo = () => { keyboard.infoBuildingId = null; };
+const escapeCode = ts.transpileModule(`{ ${shortcuts.getText(editorAst)}\nshortcuts.find((shortcut) => shortcut.key === "Escape").handler(); }`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+vm.runInNewContext(escapeCode, keyboard);
+assert.equal(keyboard.showBuildingInfo, false, "Escape fecha detalhes sem encerrar navegação");
+vm.runInNewContext(escapeCode, keyboard);
+assert.equal(keyboard.infoBuildingId, null, "Segundo Escape sai da navegação");
 
-// O acesso próprio sempre abre a lista, mesmo após navegar em outra aba do menu.
+// O atalho próprio chama a navegação direta e não anuncia um modal.
 const authSource = await readFile(new URL("../src/components/AuthMenu.tsx", import.meta.url), "utf8");
 const authAst = ts.createSourceFile("AuthMenu.tsx", authSource, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TSX);
 let ownButton;
 function findOwnButton(node) {
-  if (ts.isJsxElement(node) && node.openingElement.tagName.getText(authAst) === "button" && node.openingElement.attributes.properties.some((attribute) => attribute.name?.getText(authAst) === "aria-label" && attribute.initializer?.text === "Meus edifícios")) ownButton = node;
+  if (ts.isJsxElement(node) && node.openingElement.tagName.getText(authAst) === "Button" && node.openingElement.attributes.properties.some((attribute) => attribute.name?.getText(authAst) === "aria-label" && attribute.initializer?.text === "Meus edifícios")) ownButton = node;
   ts.forEachChild(node, findOwnButton);
 }
 findOwnButton(authAst);
 assert.ok(ownButton);
 const ownHandler = ownButton.openingElement.attributes.properties.find((attribute) => attribute.name?.getText(authAst) === "onClick").initializer.expression;
-const auth = { tab: "profile", open: false, setMenuTab(tab) { auth.tab = tab; }, setMenuOpen(open) { auth.open = open; } };
+const auth = { browsed: false, onBrowseMyBuildings() { auth.browsed = true; } };
 vm.runInNewContext(`(${ownHandler.getText(authAst)})()`, auth);
-assert.equal(auth.tab, "donations");
-assert.equal(auth.open, true);
-console.log("Edifícios: administração independente, abas/perfil, descarte, bloqueio durante upload/save e foco após filtro ou pagamento OK.");
+assert.equal(auth.browsed, true);
+assert.equal(ownButton.openingElement.attributes.properties.some((attribute) => attribute.name?.getText(authAst) === "aria-haspopup"), false);
+console.log("Edifícios: acesso direto, navegação circular, detalhes opcionais, troca de conta, administração e foco após filtro/pagamento OK.");

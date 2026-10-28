@@ -6,6 +6,7 @@ import { DonationLoadOverlay } from "./components/html/DonationLoadOverlay";
 import { RequireAdmin } from "./components/RequireAdmin";
 import { BlockLoader } from "./components/ui/pixel-icon";
 import { PRIVACY_PATH, TERMS_PATH } from "./lib/legal";
+import { useVisualViewport } from "./hooks/useVisualViewport";
 
 /**
  * Resolve depois que a casca chega na tela. Duplo rAF: o 1º roda antes do paint do
@@ -72,6 +73,8 @@ function SceneFallback() {
 }
 
 export default function App() {
+  useVisualViewport();
+
   return (
     <BrowserRouter>
       <Suspense fallback={<PageFallback />}>
