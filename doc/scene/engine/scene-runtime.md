@@ -54,7 +54,8 @@ createCitySceneRuntime({mount, settings...})   // async
   ├── await yieldToMain()
   ├── WebGLCubeRenderTarget   ← envMap dinâmico dos prédios (256px)
   ├── CubeCamera              ← probe fixo no centro da cidade (y = ENV_PROBE_HEIGHT)
-  ├── createDonationManager() ← manager principal (recebe blockLayoutSettings)
+  ├── createFocusRenderer()   ← composição do foco quando há HDR
+  ├── createDonationManager() ← manager principal (recebe blockLayoutSettings/compositeFocus)
   ├── await yieldToMain()
   └── requestAnimationFrame(animate)   ← 1º frame no rAF seguinte
 ```
@@ -71,7 +72,7 @@ A cada tick do rAF, também no modo leve, sem limitador artificial de FPS. A fre
 5. **Resolução dinâmica** — ajusta `renderScale` para atingir `targetFps`. **Desligada no padrão** (piso `renderScaleFloor = 1`, controlado pelo granulado do painel)
 6. **CubeCamera** — só fora do modo leve. Captura quando `cubeDirty` (cena mudou, 180ms de debounce) ou, com `followCamera`, quando a câmera andou desde a última captura (`lastCapturePos`); no máximo a cada `updateInterval` frames. Câmera parada = sem captura (antes recapturava a cada 4 frames: 6 renders + PMREM, 15–20 ms no M4). `continuous` sem `followCamera` recaptura a cada intervalo nos frames desenhados. Captura pendente segura o loop. Ver [[#Probe de reflexo (envMap dos prédios)]].
 7. **Culling** — com `cullPending`, atualiza o far, a matriz da câmera e seu frustum antes do frame. `updateDistanceCulling(position, forward, frustum)` mantém o alcance dos acessórios (80u), descarta quadras/instâncias fora do enquadramento e compacta o chão com limites conservadores. Sem throttle: girar a câmera não deixa buracos por um quarto de segundo.
-8. `renderer.render(scene, camera)` — renderiza o frame
+8. `focusRenderer.render(hasFocusedDonation())` — um render normal sem foco; contexto HDR + fundo + composição + selecionado quando há foco
 
 #### Resolução Dinâmica
 
@@ -144,12 +145,31 @@ type CitySceneRuntime = {
 > Replace-all do snapshot do backend ([[donation-api]]). Chama `donationManager.setDonations(entries)`, depois `syncTerrainToCity()` (relevo reabre a zona plana pro novo raio), `emitStatsPatch({ buildings })` (contador do painel) e `markCubeDirty()` (força recaptura do envMap). Ver [[scene-managers#setDonations]].
 
 > [!note] Evento de clique em edifícios
-> O runtime escuta `pointerdown`/`pointerup` no canvas. Se o cursor não se moveu mais de 5px (não é drag), faz raycast para identificar o edifício clicado e chama `onBuildingClick(donationId)` para o React abrir o painel de personalização.
+> O runtime acompanha o `pointerId` entre `pointerdown`/`pointermove`/`pointerup`. Mover mais de 5px cancela o clique, mesmo voltando ao início. Segundo dedo/pinça e `pointercancel` também cancelam; `pointerup` sempre consome o estado. Clique simples faz picking e chama `onBuildingClick(donationId)`.
 
 > [!note] Sistema de foco
-> `focusOnDonation` delega para `donationManager.setFocusedDonation(id)`, que deixa toda a cidade semitransparente e cria um mesh isolado do edifício selecionado. `clearFocus` restaura a opacidade original.
+> `focusOnDonation` delega para `donationManager.setFocusedDonation(id)`. Com HDR, separa contexto/selecionado por camadas e compõe o contexto a 15%, preservando os materiais; sem suporte, usa transparência por material. Prédio padrão recebe mesh isolado; formato custom usa o existente. `clearFocus` restaura cena e câmera.
 >
 > Zoom preserva o **lado atual da câmera**, com distância horizontal de 8 unidades. A câmera termina 4,3 unidades acima do topo e mira 5 unidades abaixo dele (mínimo `y = 0`), mostrando a cobertura de cima. O limite polar normal permanece ativo. `cameraAnim` interpola pos+target com ease-out cubic em `0.8s`. `clearFocus` restaura pos/target salvos.
+>
+> A interpolação pausa enquanto houver compilação pendente/em andamento ou fila de customização drenando: o primeiro frame pronto inicia o movimento, sem avançar invisivelmente até o destino. Um evento `start` dos controles cancela a interpolação para o usuário assumir a câmera. O listener é removido no dispose. `scripts/check-horizon.mjs` simula compilação demorada, retomada intermediária, interrupção por gesto, retorno da câmera e cliques/pinças/cancelamentos.
+
+### createFocusRenderer.ts
+
+Renderização do foco em conjunto, ativada com `EXT_color_buffer_float` e MSAA de RGBA16F compatível quando o contexto usa antialiasing:
+
+1. Contexto (camada 1) em render target HDR `HalfFloatType`, com profundidade e materiais normais; preserva o descarte de superfícies ocultas.
+2. Céu, relevo e piso (camada 0) no canvas.
+3. Composição do contexto a 15%: alpha limitado a [0,1], ACES e conversão de cor para a saída do renderer. Half-float evita cortar reflexos/emissivos antes do tone mapping; MSAA até 4 amostras quando habilitado no contexto.
+4. Limpa profundidade e desenha o selecionado/acessórios (camada 2), preservando os materiais autorais e a leitura dos detalhes.
+
+Camera normal e faces do cube incluem as três camadas; picking inclui as duas camadas de edifícios. As luzes visíveis pela câmera recebem temporariamente as camadas dos passes. `try/finally` restaura máscara da câmera, luzes, background, clear color/alpha, render target e `autoClear`, inclusive em falhas.
+
+Target alocado no primeiro foco, na resolução efetiva do canvas (sem downscale), redimensionado quando necessário e reutilizado entre seleções. `dispose` libera target, quad e material. Sem foco, faz um único render normal. Sem extensão HDR ou MSAA de RGBA16F compatível com o contexto, o manager usa o fallback de transparência por material. O caminho preserva geometria/texturas/PBR; a transparência do contexto passa a ser do conjunto, sem acumular as camadas internas de cada edifício.
+
+`createScenePreparer` aquece também a variante do target HDR. Materiais Standard/Physical preservam seu hook/chave e evitam `RE_Direct` quando `directLight.visible` já é falso; clones de acessórios não empilham o mesmo hook. O shader de composição converte para a saída uma vez, conforme [gerenciamento de cores do Three.js](https://threejs.org/manual/pages/color-management.html).
+
+`check-mobile-performance.mjs` verifica HDR, tamanho, passes, luzes, retorno sem foco, fallback, preservação do estado após exceção, descarte e cache dos shaders. `check-building-textures.mjs` verifica materiais originais, camadas, picking e restauração no manager real.
 
 > [!note] Sem sombras
 > Cena não tem luz direcional — iluminação é ambiente + IBL do HDRI. Sistema de sombras (settings, UI, flags `castShadow`) foi removido por ser código morto. Pra reintroduzir: criar `DirectionalLight` com shadow camera antes de qualquer flag.
@@ -281,6 +301,7 @@ dispose()
   ├── removeEventListener('resize')
   ├── controls.removeEventListener("change") + controls.dispose()
   ├── donationManager.dispose()            ← inclui acessórios de topo, signs, focus mesh
+  ├── focusRenderer.dispose()              ← target HDR, quad e material
   ├── groundPlane.dispose()
   ├── terrainRig.dispose()                 ← relevo procedural
   ├── horizonSilhouette.dispose()

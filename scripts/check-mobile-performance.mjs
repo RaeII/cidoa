@@ -25,6 +25,7 @@ const api = await bundleModules([
   "src/scene/utils/instanceCulling.ts",
   "src/scene/builders/createHologramMesh.ts",
   "src/scene/runtime/createScenePreparer.ts",
+  "src/scene/runtime/createFocusRenderer.ts",
   "src/scene/builders/createResidentialBuildingMesh.ts",
 ]);
 
@@ -85,8 +86,16 @@ const preparer = api.createScenePreparer(renderer, scene);
 const prepare = () => preparer.prepare(camera, null, camera, () => false);
 await prepare();
 assert.equal(compiled, 1); assert.equal(uploads, 1);
+const lightingHook = material.onBeforeCompile;
+const lightingKey = material.customProgramCacheKey();
+const shader = { fragmentShader: "#include <lights_fragment_begin>" };
+lightingHook.call(material, shader, renderer);
+assert(shader.fragmentShader.includes("if ( directLight.visible ) { RE_Direct("), "BRDF continuou calculando luz de contribuição zero");
+assert.equal((shader.fragmentShader.match(/if \( directLight.visible \) \{ RE_Direct\(/g) ?? []).length, 1);
 await prepare();
 assert.equal(compiled, 1); assert.equal(uploads, 1);
+assert.equal(material.onBeforeCompile, lightingHook, "Preparo empilhou hooks de shader");
+assert.equal(material.customProgramCacheKey(), lightingKey);
 material.color.set("red");
 await prepare(); assert.equal(compiled, 1);
 material.needsUpdate = true;
@@ -107,6 +116,97 @@ assert.equal(compiled, 10, "variantes tela e cube não foram preparadas");
 assert.equal(target, null);
 cube.dispose(); instance.dispose(); geometry.dispose(); material.map.dispose(); material.dispose();
 console.log("ok shaders — deduplicação, cache, mudanças de luz/material/instância e captura");
+
+// Clones de acessórios herdam hook/chave; o preparo não cria outra variante idêntica.
+const lightingScene = new THREE.Scene();
+const source = new THREE.MeshStandardMaterial();
+let customHookCalls = 0;
+source.onBeforeCompile = (shader) => { customHookCalls++; shader.fragmentShader += "\n// custom"; };
+source.customProgramCacheKey = () => "custom-lighting";
+lightingScene.add(new THREE.Mesh(new THREE.BoxGeometry(), source));
+const lightingPreparer = api.createScenePreparer(renderer, lightingScene);
+await lightingPreparer.prepare(camera, null, camera, () => false);
+const inherited = source.clone();
+inherited.onBeforeCompile = source.onBeforeCompile;
+inherited.customProgramCacheKey = source.customProgramCacheKey;
+const inheritedHook = inherited.onBeforeCompile;
+lightingScene.add(new THREE.Mesh(lightingScene.children[0].geometry, inherited));
+await lightingPreparer.prepare(camera, null, camera, () => false);
+assert.equal(inherited.onBeforeCompile, inheritedHook);
+assert.equal(inherited.customProgramCacheKey(), "custom-lighting:skip-inactive-point-lights");
+const customShader = { fragmentShader: "#include <lights_fragment_begin>" };
+inherited.onBeforeCompile.call(inherited, customShader, renderer);
+assert.equal(customHookCalls, 1, "Hook autoral foi perdido");
+assert(customShader.fragmentShader.includes("// custom"));
+lightingScene.children[0].geometry.dispose(); source.dispose(); inherited.dispose();
+console.log("ok iluminação — contribuição zero, hooks autorais, chave de cache e clones compartilhados");
+
+// Foco em conjunto: HDR, passes separados, resize e restauração mesmo com falha.
+const focusScene = new THREE.Scene();
+focusScene.background = new THREE.Color("#345678");
+const focusCamera = new THREE.PerspectiveCamera(); focusCamera.layers.enableAll();
+const focusLight = new THREE.AmbientLight(); focusScene.add(focusLight);
+const passes = [];
+let focusTarget = null, clearAlpha = 0.4, autoClear = true;
+const savedClearColor = new THREE.Color("#123456"), focusClearColor = savedClearColor.clone();
+const focusRenderer = {
+  extensions: { has: () => true },
+  capabilities: { maxSamples: 4 },
+  getContext: () => ({ getContextAttributes: () => ({ antialias: false }) }),
+  get autoClear() { return autoClear; }, set autoClear(value) { autoClear = value; },
+  getRenderTarget: () => focusTarget, setRenderTarget: (value) => { focusTarget = value; },
+  getDrawingBufferSize: (value) => value.set(589, 1102),
+  getClearAlpha: () => clearAlpha, getClearColor: (value) => value.copy(focusClearColor),
+  setClearColor(value, alpha) { focusClearColor.set(value); clearAlpha = alpha; },
+  clearDepth() { passes.push({ clearDepth: true }); },
+  render(scene, camera) { passes.push({ scene, camera, mask: camera.layers.mask, target: focusTarget, lightMask: focusLight.layers.mask }); },
+};
+const focusPass = api.createFocusRenderer(focusRenderer, focusScene, focusCamera);
+const savedMask = focusCamera.layers.mask, savedBackground = focusScene.background;
+focusPass.render(true);
+assert.equal(passes.length, 5);
+assert.equal(passes[0].mask, 2); assert.equal(passes[1].mask, 1); assert.equal(passes[4].mask, 4);
+assert(passes[2].camera.isOrthographicCamera && passes[3].clearDepth);
+assert.equal(passes[0].target.texture.type, THREE.HalfFloatType, "Foco cortou HDR/reflexos em RGBA8");
+assert.equal(passes[0].target.width, 589); assert.equal(passes[0].target.height, 1102);
+assert.equal(passes[0].target.samples, 0, "Mobile passou a usar MSAA");
+assert(passes[0].lightMask & 2); assert(passes[4].lightMask & 4);
+const assertRestored = () => {
+  assert.equal(focusCamera.layers.mask, savedMask);
+  assert.equal(focusLight.layers.mask, 1);
+  assert.equal(focusScene.background, savedBackground);
+  assert.equal(focusTarget, null); assert.equal(autoClear, true); assert.equal(clearAlpha, 0.4);
+  assert(focusClearColor.equals(savedClearColor));
+};
+assertRestored();
+const contextTarget = focusPass.target;
+await lightingPreparer.prepare(camera, null, camera, () => false, contextTarget);
+assert.equal(target, null, "Preparo HDR não restaurou render target");
+let focusDisposed = 0;
+for (const resource of [contextTarget, passes[2].scene.children[0].geometry, passes[2].scene.children[0].material])
+  resource.addEventListener("dispose", () => { focusDisposed++; });
+const renderFocus = focusRenderer.render;
+focusRenderer.render = () => { throw Error("falha simulada no passe"); };
+assert.throws(() => focusPass.render(true), /falha simulada/);
+assertRestored();
+focusRenderer.render = renderFocus;
+passes.length = 0; focusPass.render(false); assert.equal(passes.length, 1);
+focusPass.dispose(); assert.equal(focusDisposed, 3);
+const fallbackPass = api.createFocusRenderer({ ...focusRenderer, extensions: { has: () => false } }, focusScene, focusCamera);
+assert.equal(fallbackPass.prepare(), null);
+passes.length = 0; fallbackPass.render(true); assert.equal(passes.length, 1);
+fallbackPass.dispose();
+const antialiased = api.createFocusRenderer({ ...focusRenderer,
+  getContext: () => ({ getContextAttributes: () => ({ antialias: true }), getInternalformatParameter: () => new Int32Array([4, 2]) }),
+}, focusScene, focusCamera);
+assert.equal(antialiased.prepare().samples, 4, "Contexto com MSAA perdeu antialiasing");
+antialiased.dispose();
+const unsupportedMSAA = api.createFocusRenderer({ ...focusRenderer,
+  getContext: () => ({ getContextAttributes: () => ({ antialias: true }), getInternalformatParameter: () => new Int32Array(0) }),
+}, focusScene, focusCamera);
+assert(!unsupportedMSAA.supported, "HDR sem MSAA compatível reduziu a qualidade do contexto");
+unsupportedMSAA.dispose();
+console.log("ok foco — contexto HDR, composição, selecionado, luzes, fallback, restauração e dispose");
 
 // GIF: bitmaps reduzidos, descarte explícito e avanço sem desenhar quadros intermediários.
 let draws = 0, closedFrames = 0, closedBitmaps = 0, closedDecoders = 0;

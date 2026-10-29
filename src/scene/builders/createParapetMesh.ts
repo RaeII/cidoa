@@ -72,7 +72,7 @@ type ParapetBuilding = {
 };
 
 /** Um draw call por formato/modelo; nada de um Mesh por edifício. */
-export function createBuildingParapets(scene: THREE.Scene) {
+export function createBuildingParapets(scene: THREE.Scene, compositeFocus = false) {
   const material = createParapetMaterial();
   const focusMaterial = material.clone();
   const materials = [material, focusMaterial];
@@ -102,6 +102,7 @@ export function createBuildingParapets(scene: THREE.Scene) {
         if (entry.id === focusedId) {
           if (!highlight) {
             highlight = new THREE.Mesh(mesh.geometry, focusMaterial);
+            if (compositeFocus) highlight.layers.set(2);
             scene.add(highlight);
           }
           highlight.geometry = mesh.geometry;
@@ -154,6 +155,7 @@ export function createBuildingParapets(scene: THREE.Scene) {
       }
       for (const [key, entries] of grouped) {
         const mesh = new THREE.InstancedMesh(geometries.get(key)!, material, entries.length);
+        if (compositeFocus) mesh.layers.set(1);
         mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         scene.add(mesh);
         batches.push({ mesh, entries: entries.map((entry) => ({ ...entry, visible: true })) });
@@ -172,10 +174,13 @@ export function createBuildingParapets(scene: THREE.Scene) {
     },
     setFocus(id: number | null) {
       focusedId = id;
-      material.opacity = id === null ? 1 : 0.15;
-      material.transparent = id !== null;
-      material.depthWrite = id === null;
-      material.needsUpdate = true;
+      const transparent = !compositeFocus && id !== null;
+      material.opacity = transparent ? 0.15 : 1;
+      material.depthWrite = !transparent;
+      if (material.transparent !== transparent) {
+        material.transparent = transparent;
+        material.needsUpdate = true;
+      }
       refresh();
     },
     dispose() {

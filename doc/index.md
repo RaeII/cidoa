@@ -301,6 +301,7 @@ src/
       useCityScene.ts
     runtime/
       createScenePreparer.ts      ← cache de variantes e uploads incrementais
+      createFocusRenderer.ts      ← contexto HDR a 15% + selecionado em passe próprio → [[scene-runtime#createFocusRenderer.ts]]
       createCitySceneRuntime.ts
     utils/
       math.ts

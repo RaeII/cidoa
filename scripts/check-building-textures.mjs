@@ -75,6 +75,9 @@ manager.updateDonationCustomization(1, { ...customization, textureKey: "texture/
 manager.setFocusedDonation(1);
 const focusedMesh = highlight();
 assert.equal(focusedMesh.material[0].map.name, "saved");
+const sharedTop = scene.children.find((mesh) => mesh.isInstancedMesh && Array.isArray(mesh.material)
+  && mesh.material[0].isMeshPhysicalMaterial).material[1];
+assert(focusedMesh.material[1].color.equals(sharedTop.color), "Foco repintou a laje de cimento");
 const childrenBefore = [...scene.children];
 const geometryBefore = focusedMesh.geometry;
 const matricesBefore = scene.children.filter((mesh) => mesh.isInstancedMesh)
@@ -88,7 +91,9 @@ for (const [mesh, matrices] of matricesBefore) assert.equal(mesh.instanceMatrix,
 const selectedGroup = scene.children.find((mesh) => mesh.isInstancedMesh
   && Array.isArray(mesh.material) && mesh.material[0].map?.name === "selected");
 assert.equal(focusedMesh.material[0].map, selectedGroup.material[0].map, "cache não compartilhado");
-assert.ok(selectedGroup.count > 0, "instância não migrou para textura selecionada");
+assert.equal(scene.children.filter((mesh) => mesh.isInstancedMesh && Array.isArray(mesh.material)
+  && mesh.material[0].isMeshPhysicalMaterial).reduce((sum, mesh) => sum + mesh.count, 0), 1,
+"Instância esmaecida foi desenhada por cima do destaque");
 
 manager.updateDonationCustomization(2, { ...customization, textureKey: "texture/global" });
 assert.equal(focusedMesh.material[0].map.name, "selected", "outro prédio alterou destaque");
@@ -100,7 +105,7 @@ manager.setFocusedDonation(null);
 manager.setFocusedDonation(1);
 assert.equal(highlight().material[0].map, randomTexture, "reabrir foco mudou textura");
 
-// Batching dos formatos preserva a ordem de blending dos prédios esmaecidos no foco.
+// Foco não pode devolver milhares de grupos aos prédios esmaecidos.
 manager.setFocusedDonation(null);
 for (const id of [1, 2]) {
   manager.updateDonationCustomization(id, { ...customization, buildingShape: "empire" });
@@ -112,19 +117,115 @@ assert.equal(batched.groups.length, 8);
 assert.equal(second.geometry, batched, "Empire não reutilizou geometria agrupada");
 manager.setFocusedDonation(1);
 assert.equal(first.geometry, batched, "Destaque opaco perdeu batching");
-const original = second.geometry;
-assert.equal(original.groups.length, 2293, "Transparência perdeu ordem original de desenho");
+assert.equal(second.geometry, batched, "Contexto esmaecido perdeu batching");
 assert.ok(second.material.every((material) => material.transparent && material.opacity === 0.15));
+assert.ok(second.material.every((material) => !material.depthWrite), "Contexto transparente oculta o selecionado");
 manager.setFocusedDonation(2);
-assert.equal(first.geometry, original, "Troca de foco não restaurou ordem de blending");
+assert.equal(first.geometry, batched, "Troca de foco multiplicou draws");
 assert.equal(second.geometry, batched);
 manager.setFocusedDonation(null);
 assert.equal(first.geometry, batched);
 assert.equal(second.geometry, batched);
 assert.ok(first.material.every((material) => !material.transparent && material.opacity === 1));
+assert.ok(first.material.every((material) => material.depthWrite));
 const stableVersions = first.material.map((mat) => mat.version);
 manager.setFocusedDonation(null);
 assert.deepEqual(first.material.map((mat) => mat.version), stableVersions, "foco idêntico invalidou materiais");
+
+// Acessórios compartilhados: somente os vizinhos esmaecem, sem perder opacidade autoral.
+const context = new Proxy({
+  measureText: () => ({ width: 40 }),
+  createLinearGradient: () => ({ addColorStop() {} }),
+  createRadialGradient: () => ({ addColorStop() {} }),
+  createImageData: (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }),
+}, { get: (target, key) => target[key] ?? (() => {}) });
+globalThis.document = { createElement: () => ({ width: 0, height: 0, getContext: () => context }) };
+for (const id of [1, 2]) manager.updateDonationCustomization(id, {
+  ...customization, buildingShape: "empire", rooftopType: "helicopter", edgeLightType: "led",
+});
+const rooftops = scene.children.filter((group) => group.userData.rooftopType);
+const rooftopMaterials = rooftops.map((group) => group.children.map((mesh) => mesh.material));
+const allMaterials = (group) => {
+  const materials = [];
+  group.traverse((mesh) => { if (mesh.material) materials.push(...[mesh.material].flat()); });
+  return materials;
+};
+assert.equal(allMaterials(rooftops[0])[0], allMaterials(rooftops[1])[0], "Fixture deve compartilhar material");
+const leds = scene.children.filter((group) => group.userData.edgeLightType);
+const ledOpacity = leds.map((group) => group.children.map((mesh) => mesh.material.opacity));
+manager.setFocusedDonation(1);
+assert.deepEqual(rooftops[0].children.map((mesh) => mesh.material), rooftopMaterials[0]);
+const fadedRooftop = allMaterials(rooftops[1])[0];
+let fadedDisposed = false;
+fadedRooftop.addEventListener("dispose", () => { fadedDisposed = true; });
+for (const material of allMaterials(rooftops[1])) {
+  assert.equal(material.opacity, 0.15);
+  assert(material.transparent && !material.depthWrite);
+}
+leds.forEach((group, i) => group.children.forEach((mesh, j) => {
+  assert.equal(mesh.material.opacity, ledOpacity[i][j] * (i === 0 ? 1 : 0.15), "Halo perdeu opacidade autoral");
+}));
+manager.updateDistanceCulling(new THREE.Vector3(0, 20, 0), new THREE.Vector3(0, 0, 1));
+assert.deepEqual(scene.children.filter((object) => object.isPointLight && object.intensity > 0)
+  .map((light) => light.intensity).sort((a, b) => a - b), [10.5, 70], "Luz dos LEDs vizinhos continuou acesa por inteiro");
+const stableAccessories = rooftops[1].children.map((mesh) => mesh.material);
+manager.setFocusedDonation(1);
+assert.deepEqual(rooftops[1].children.map((mesh) => mesh.material), stableAccessories, "Mesmo foco recriou clones");
+manager.setFocusedDonation(2);
+assert(!fadedDisposed, "Troca de foco descartou clone ainda compartilhado");
+assert.equal(allMaterials(rooftops[0])[0], fadedRooftop, "Troca de foco recompilou material compartilhado");
+assert.equal(rooftops[1].children[0].material, rooftopMaterials[1][0]);
+assert.equal(allMaterials(rooftops[1])[0].opacity, 1);
+manager.updateDonationCustomization(1, { ...customization, buildingShape: "empire", rooftopType: "spotlights" });
+assert(fadedDisposed, "Clone sem usuários não foi descartado");
+const spotlights = scene.children.find((group) => group.userData.rooftopType === "spotlights");
+assert(allMaterials(spotlights).every((material) => material.opacity <= 0.15), "Acessório criado durante foco ficou opaco");
+manager.updateDonationCustomization(1, { ...customization, buildingShape: "empire", rooftopType: "garden" });
+const garden = scene.children.find((group) => group.userData.rooftopType === "garden");
+assert(allMaterials(garden).every((material) => material.transparent && material.opacity <= 0.15));
+assert(allMaterials(garden).some((material) => material.opacity === 0.62 * 0.15), "Piscina perdeu opacidade autoral no foco");
+manager.setFocusedDonation(null);
+assert(allMaterials(garden).some((material) => material.opacity === 0.62));
+assert.deepEqual(rooftops[1].children.map((mesh) => mesh.material), rooftopMaterials[1]);
+
+// Letreiros e hologramas (uniform próprio) seguem o mesmo foco e a edição ao vivo.
+globalThis.Image = class {
+  naturalWidth = 16; naturalHeight = 16;
+  set src(_value) { queueMicrotask(() => this.onload()); }
+};
+for (const id of [1, 2]) manager.updateDonationCustomization(id, {
+  ...customization, buildingShape: "empire", signText: "Teste", signSides: 2,
+  hologramImage: "data:image/png;base64,fixture", hologramOpacity: 0.6,
+});
+await new Promise((resolve) => setTimeout(resolve, 0));
+const signs = scene.children.filter((group) => group.userData.signDisposables);
+const signMaterials = signs.map(allMaterials);
+const holograms = scene.children.filter((group) => group.children.some((mesh) => mesh.material?.uniforms?.uOpacity));
+manager.setFocusedDonation(1);
+assert.deepEqual(allMaterials(signs[0]), signMaterials[0]);
+assert(allMaterials(signs[1]).every((material) => material.opacity === 0.15));
+assert.equal(holograms[0].children[0].material.uniforms.uOpacity.value, 0.6);
+assert.equal(holograms[1].children[0].material.uniforms.uOpacity.value, 0.6 * 0.15);
+manager.updateDonationCustomization(2, {
+  ...customization, buildingShape: "empire", signText: "Teste", signSides: 2,
+  hologramImage: "data:image/png;base64,fixture", hologramOpacity: 0.4,
+});
+assert.equal(holograms[1].children[0].material.uniforms.uOpacity.value, 0.4 * 0.15);
+manager.setFocusedDonation(null);
+assert.deepEqual(allMaterials(signs[1]), signMaterials[1]);
+assert.equal(holograms[1].children[0].material.uniforms.uOpacity.value, 0.4);
+
+// Vidros dos formatos residenciais voltam à opacidade e depthWrite do builder.
+manager.updateDonationCustomization(1, { ...customization, buildingShape: "residential" });
+const residential = scene.children.find((mesh) => mesh.userData.donationId === 1);
+const glass = residential.material.find((material) => material.transparent);
+const authoredGlass = { opacity: glass.opacity, depthWrite: glass.depthWrite };
+manager.setFocusedDonation(2);
+assert.equal(glass.opacity, authoredGlass.opacity * 0.15);
+manager.setFocusedDonation(1);
+assert.equal(glass.opacity, authoredGlass.opacity);
+assert.equal(glass.depthWrite, authoredGlass.depthWrite);
+manager.setFocusedDonation(null);
 
 // Frustum por quadra preserva todos os prédios que cruzam a imagem; probe restaura tudo.
 manager.setDonations(Array.from({ length: 200 }, (_, i) => ({ id: 100 + i, value: 200 - i })));
@@ -207,3 +308,56 @@ assert.ok(batchDisposed, "Dispose do manager não liberou geometria agrupada");
 console.log("ok texturas — destaque, grupo, global, automática, isolamento e reutilização de meshes/cache");
 console.log("ok batching — foco, troca de foco, transparência, restauração e dispose no manager real");
 console.log("ok mobile — frustum por quadra, buffers estáveis, probe completo e ciclo das luzes LED");
+
+// Composição: materiais originais, camadas distintas e picking preservado no foco.
+const compositeScene = new THREE.Scene();
+const composite = api.createDonationManager({
+  scene: compositeScene, renderer: { capabilities: { getMaxAnisotropy: () => 4 } },
+  buildingSettings: api.createDefaultBuildingSettings(), textureSettings: api.createDefaultTextureSettings(),
+  blockLayoutSettings: api.createDefaultBlockLayoutSettings(), compositeFocus: true,
+});
+composite.setDonations([{ id: 11, value: 100 }, { id: 12, value: 50 }]);
+for (const id of [11, 12]) composite.updateDonationCustomization(id, {
+  ...customization, buildingShape: "empire", rooftopType: "helicopter", edgeLightType: "led",
+});
+const compositeBuildings = compositeScene.children.filter((mesh) => mesh.userData.donationId);
+const originalMaterials = compositeBuildings.map((mesh) => mesh.material);
+const originalGeometry = compositeBuildings.map((mesh) => mesh.geometry);
+composite.setFocusedDonation(11);
+assert(composite.hasFocusedDonation());
+assert(compositeBuildings[0].layers.isEnabled(2));
+assert(compositeBuildings[1].layers.isEnabled(1));
+for (let i = 0; i < 2; i++) {
+  assert.equal(compositeBuildings[i].material, originalMaterials[i]);
+  assert.equal(compositeBuildings[i].geometry, originalGeometry[i]);
+  assert(compositeBuildings[i].material.every((m) => m.opacity === 1 && !m.transparent));
+}
+const compositeRoofs = compositeScene.children.filter((root) => root.userData.rooftopType);
+for (let i = 0; i < 2; i++) compositeRoofs[i].traverse((object) => {
+  if (object.isMesh) { assert(object.layers.isEnabled(i === 0 ? 2 : 1)); assert([object.material].flat().every(m => m.opacity === 1)); }
+});
+const pickCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 500);
+pickCamera.position.copy(compositeBuildings[0].position).add(new THREE.Vector3(0, 0, 50));
+pickCamera.lookAt(compositeBuildings[0].position); pickCamera.updateMatrixWorld(true);
+compositeScene.updateMatrixWorld(true);
+assert.equal(composite.getClickedDonationId({ clientX: 100, clientY: 100 }, pickCamera,
+  { getBoundingClientRect: () => ({ left: 0, top: 0, width: 200, height: 200 }) }), 11);
+composite.setFocusedDonation(null);
+assert(!composite.hasFocusedDonation());
+assert(compositeBuildings.every((mesh) => mesh.layers.mask === 1));
+composite.updateDonationCustomization(11, { ...customization, rooftopType: "helicopter" });
+composite.setFocusedDonation(11);
+const compositeHighlight = compositeScene.children.find((mesh) => mesh.isMesh && !mesh.isInstancedMesh
+  && !mesh.userData.donationId && Array.isArray(mesh.material) && mesh.layers.isEnabled(2));
+assert(compositeHighlight, "Destaque padrão ficou fora do passe selecionado");
+assert.equal(compositeScene.children.filter((mesh) => mesh.isInstancedMesh && Array.isArray(mesh.material)
+  && mesh.material[0].isMeshPhysicalMaterial).reduce((n, mesh) => n + mesh.count, 0), 0);
+composite.updateDonationCustomization(12, { ...customization, buildingShape: "empire", rooftopType: "spotlights" });
+compositeScene.children.find((root) => root.userData.rooftopType === "spotlights").traverse((object) => {
+  if (object.isMesh) assert(object.layers.isEnabled(1), "Novo acessório saiu do contexto HDR");
+});
+composite.setDonations([{ id: 12, value: 50 }]);
+assert(!composite.hasFocusedDonation());
+assert(!compositeScene.children.includes(compositeHighlight), "Dataset novo deixou destaque órfão");
+composite.dispose();
+console.log("ok composição — aparência autoral, grupos, acessórios, camadas, seleção e restauração");

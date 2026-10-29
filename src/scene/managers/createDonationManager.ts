@@ -198,6 +198,7 @@ type DonationManagerOptions = {
   buildingSettings: BuildingSettings;
   textureSettings: TextureSettings;
   blockLayoutSettings: BlockLayoutSettings;
+  compositeFocus?: boolean;
 };
 
 export type DonationManager = {
@@ -231,6 +232,7 @@ export type DonationManager = {
   getClickedDonationId: (event: MouseEvent, camera: THREE.Camera, domElement: HTMLElement) => number | null;
   getDonationWorldPosition: (donationId: number) => THREE.Vector3 | null;
   setFocusedDonation: (donationId: number | null) => void;
+  hasFocusedDonation: () => boolean;
   updateDonationCustomization: (donationId: number, customization: BuildingCustomization) => void;
   /**
    * true: transição de formato em updateDonationCustomization só marca o rebuild.
@@ -266,6 +268,7 @@ export function createDonationManager({
   buildingSettings,
   textureSettings,
   blockLayoutSettings,
+  compositeFocus = false,
 }: DonationManagerOptions): DonationManager {
   let disposed = false;
   // 4 é suficiente visualmente; anisotropia máxima (16) castiga o fill rate.
@@ -310,7 +313,7 @@ export function createDonationManager({
 
   // Geometria 1×1×1 — escala via instanceMatrix
   const buildingGeometry = createUnitBuildingGeometry();
-  const parapets = createBuildingParapets(scene);
+  const parapets = createBuildingParapets(scene, compositeFocus);
 
   // Shader triplanar: aplica textura usando coordenadas de mundo, não UV locais.
   // Necessário para instanced mesh onde cada prédio tem escala/posição diferente.
@@ -1236,6 +1239,8 @@ export function createDonationManager({
   let useInstanceColors = false;
   let logicalInstanceColorArray = new Float32Array(0);
   const raycaster = new THREE.Raycaster();
+  raycaster.layers.enable(1);
+  raycaster.layers.enable(2);
   const mouseVec = new THREE.Vector2();
   const instanceToValue: number[] = [];
   const instanceToDonationId: number[] = [];
@@ -1292,6 +1297,7 @@ export function createDonationManager({
     }
     for (let logicalIndex = 0; logicalIndex < logicalInstanceCount; logicalIndex++) {
       if (!includeCulled && instanceHidden[logicalIndex]) continue;
+      if (instanceToDonationId[logicalIndex] === focusedDonationId) continue;
       const group = facadeGroups[instanceGroup[logicalIndex]] ?? facadeGroups[0];
       const renderIndex = group.renderCount;
       // Capacidade é dimensionada no rebuild; a guarda cobre o caso de o grupo
@@ -2200,6 +2206,80 @@ export function createDonationManager({
   const tmpColor = new THREE.Color();
   let focusedDonationId: number | null = null;
   let focusHighlightMesh: THREE.Mesh | null = null;
+  const accessoryOriginalMaterials = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+  const accessoryFadeMaterials = new Map<THREE.Material, THREE.Material>();
+  const focusLayerMasks = new Map<THREE.Object3D, number>();
+
+  const restoreFocusLayers = () => {
+    for (const [object, mask] of focusLayerMasks) object.layers.mask = mask;
+    focusLayerMasks.clear();
+  };
+  const applyFocusLayers = () => {
+    restoreFocusLayers();
+    if (focusedDonationId === null) return;
+    const tag = (root: THREE.Object3D, selected: boolean) => root.traverse((object) => {
+      if (!(object as THREE.Mesh).isMesh) return;
+      focusLayerMasks.set(object, object.layers.mask);
+      object.layers.set(selected ? 2 : 1);
+    });
+    for (const group of facadeGroups) tag(group.mesh, false);
+    for (const [id, entry] of customShapeMeshes) tag(entry.mesh, id === focusedDonationId);
+    for (const entries of [rooftopMeshes, signMeshes, edgeLightMeshes, hologramMeshes]) {
+      for (const [id, entry] of entries) tag(entry.group, id === focusedDonationId);
+    }
+    if (focusHighlightMesh) tag(focusHighlightMesh, true);
+  };
+
+  const restoreAccessoryFocus = (dispose = true) => {
+    for (const [mesh, material] of accessoryOriginalMaterials) mesh.material = material;
+    accessoryOriginalMaterials.clear();
+    if (dispose) {
+      for (const material of accessoryFadeMaterials.values()) material.dispose();
+      accessoryFadeMaterials.clear();
+    }
+  };
+
+  const applyAccessoryFocus = () => {
+    if (compositeFocus) { applyFocusLayers(); return; }
+    restoreAccessoryFocus(focusedDonationId === null);
+    const used = new Set<THREE.Material>();
+    const fadeGroup = (donationId: number, group: THREE.Group) => {
+      if (focusedDonationId === null || donationId === focusedDonationId) return;
+      group.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        const fade = (source: THREE.Material) => {
+          used.add(source);
+          let material = accessoryFadeMaterials.get(source);
+          if (!material) {
+            material = source.clone();
+            material.onBeforeCompile = source.onBeforeCompile;
+            material.customProgramCacheKey = source.customProgramCacheKey;
+            material.opacity = source.opacity * 0.15;
+            material.transparent = true;
+            material.depthWrite = false;
+            accessoryFadeMaterials.set(source, material);
+          }
+          return material;
+        };
+        accessoryOriginalMaterials.set(mesh, mesh.material);
+        mesh.material = Array.isArray(mesh.material) ? mesh.material.map(fade) : fade(mesh.material);
+      });
+    };
+    // Coberturas compartilham materiais: os clones esmaecidos não alteram o selecionado.
+    for (const [id, entry] of rooftopMeshes) fadeGroup(id, entry.group);
+    for (const [id, entry] of signMeshes) fadeGroup(id, entry.group);
+    for (const [id, entry] of edgeLightMeshes) fadeGroup(id, entry.group);
+    for (const [source, material] of accessoryFadeMaterials) {
+      if (used.has(source)) continue;
+      material.dispose();
+      accessoryFadeMaterials.delete(source);
+    }
+    for (const [id, entry] of hologramMeshes) {
+      const opacity = donationById.get(id)?.customization?.hologramOpacity ?? DEFAULT_HOLOGRAM_OPACITY;
+      setHologramOpacity(entry, opacity * (focusedDonationId === null || id === focusedDonationId ? 1 : 0.15));
+    }
+  };
 
   const removeFocusHighlight = () => {
     if (focusHighlightMesh) {
@@ -2208,10 +2288,17 @@ export function createDonationManager({
     }
   };
 
-  // `baseOpacity` = opacidade autoral (ex: vidro de guarda-corpo); foco multiplica.
+  const materialFocusState = new WeakMap<THREE.Material, { opacity: number; transparent: boolean; depthWrite: boolean }>();
+  // Restaura também transparência/escrita de profundidade autorais (vidros e guarda-corpos).
   const setMatOpacity = (mat: THREE.Material, opacity: number) => {
-    mat.opacity = (mat.userData.baseOpacity ?? 1) * opacity;
-    const transparent = mat.opacity < 1;
+    let original = materialFocusState.get(mat);
+    if (!original) {
+      original = { opacity: mat.userData.baseOpacity ?? mat.opacity, transparent: mat.transparent, depthWrite: mat.depthWrite };
+      materialFocusState.set(mat, original);
+    }
+    mat.opacity = original.opacity * opacity;
+    mat.depthWrite = opacity < 1 ? false : original.depthWrite;
+    const transparent = opacity < 1 || original.transparent;
     if (mat.transparent !== transparent) {
       mat.transparent = transparent;
       mat.needsUpdate = true;
@@ -2244,13 +2331,24 @@ export function createDonationManager({
     for (const material of materials) {
       setMatOpacity(material, opacity);
     }
-    setBuildingShapeMeshBatching(entry.mesh, materials.every((material) => !material.transparent));
+    // O contexto esmaecido continua agrupado: um Empire não pode voltar a 2.293 draws.
+    setBuildingShapeMeshBatching(entry.mesh, opacity < 1 || materials.every((material) => !material.transparent));
   };
 
   const applyFocus = (donationId: number | null) => {
     focusedDonationId = donationId;
     parapets.setFocus(donationId);
+    if (!compositeFocus) applyAccessoryFocus();
     removeFocusHighlight();
+
+    if (compositeFocus) {
+      applyInstanceColors();
+      compactVisibleInstances();
+      if (donationId === null || customShapeMeshes.has(donationId)) {
+        applyFocusLayers();
+        return;
+      }
+    }
 
     if (donationId === null) {
       for (const group of facadeGroups) setMatOpacity(group.material, 1);
@@ -2259,18 +2357,22 @@ export function createDonationManager({
         setCustomShapeOpacity(entry, 1);
       }
       applyInstanceColors();
+      compactVisibleInstances();
       return;
     }
 
-    for (const group of facadeGroups) setMatOpacity(group.material, 0.15);
-    setMatOpacity(topMaterial, 0.15);
-    setInstancedBaseColor(currentBuildingColor);
-    useInstanceColors = false;
-    clearInstanceColors();
+    if (!compositeFocus) {
+      for (const group of facadeGroups) setMatOpacity(group.material, 0.15);
+      setMatOpacity(topMaterial, 0.15);
+      setInstancedBaseColor(currentBuildingColor);
+      useInstanceColors = false;
+      clearInstanceColors();
+      compactVisibleInstances();
 
-    for (const [donId, entry] of customShapeMeshes) {
-      const opacity = donId === donationId ? 1 : 0.15;
-      setCustomShapeOpacity(entry, opacity);
+      for (const [donId, entry] of customShapeMeshes) {
+        const opacity = donId === donationId ? 1 : 0.15;
+        setCustomShapeOpacity(entry, opacity);
+      }
     }
 
     if (customShapeMeshes.has(donationId)) return;
@@ -2285,15 +2387,15 @@ export function createDonationManager({
     );
     if (donation?.customization) {
       focusFacadeMaterial.color.set(donation.customization.color);
-      focusTopMaterial.color.set(donation.customization.color);
     } else {
       focusFacadeMaterial.color.copy(currentBuildingColor);
-      focusTopMaterial.color.copy(currentBuildingColor);
     }
+    focusTopMaterial.color.copy(topMaterial.color);
 
     focusHighlightMesh = new THREE.Mesh(buildingGeometry, [focusFacadeMaterial, focusTopMaterial]);
     focusHighlightMesh.applyMatrix4(tmpTransformMatrix);
     scene.add(focusHighlightMesh);
+    if (compositeFocus) applyFocusLayers();
   };
 
   const clearInstanceColors = () => {
@@ -2303,9 +2405,9 @@ export function createDonationManager({
   const applyInstanceColors = (compact = true) => {
     if (logicalInstanceCount === 0) return;
 
-    // Em foco, as instâncias ficam sem cor própria (só o mesh destacado tem).
+    // O fallback esmaece instâncias sem cor; composição preserva as cores autorais.
     // Verificar se alguma doação tem customização
-    const hasAnyCustom = focusedDonationId === null && donations.some((d) => d.customization);
+    const hasAnyCustom = (compositeFocus || focusedDonationId === null) && donations.some((d) => d.customization);
     if (!hasAnyCustom) {
       // Sem customizações: remover instanceColor para usar cor do material
       setInstancedBaseColor(currentBuildingColor);
@@ -2478,7 +2580,7 @@ export function createDonationManager({
   // ponytail: pool de 8 — só os 8 LEDs visíveis mais próximos da câmera acendem.
   // Se a cidade ficar densa de LED, subir EDGE_LIGHT_SPILL_POOL_SIZE.
   const spillLights: THREE.PointLight[] = [];
-  const spillCandidates: Array<{ distSq: number; position: THREE.Vector3 }> = [];
+  const spillCandidates: Array<{ donationId: number; distSq: number; position: THREE.Vector3 }> = [];
   const spillIntensitiesBeforeCapture: number[] = [];
   const releaseUnusedSpillPool = () => {
     if (edgeLightMeshes.size > 0) return;
@@ -3106,8 +3208,10 @@ export function createDonationManager({
       return shapesPending;
     },
     setFocusedDonation(donationId: number | null) {
+      if (focusedDonationId === donationId) return;
       applyFocus(donationId);
     },
+    hasFocusedDonation() { return focusedDonationId !== null; },
     updateDonationCustomization(donationId: number, customization: BuildingCustomization) {
       const donation = donationById.get(donationId);
       if (!donation) return;
@@ -3169,6 +3273,7 @@ export function createDonationManager({
             }
           }
         }
+        if (focusedDonationId !== null) applyAccessoryFocus();
       };
 
       // Transição de allocation: se o prédio entra ou sai do customShapeMeshes
@@ -3238,8 +3343,7 @@ export function createDonationManager({
         updateCustomShapeColor(donationId, customization.color);
       } else if (focusedDonationId === donationId && focusHighlightMesh) {
         focusFacadeMaterial.color.set(customization.color);
-        focusTopMaterial.color.set(customization.color);
-      } else if (focusedDonationId === null) {
+      } else if (compositeFocus || focusedDonationId === null) {
         applyInstanceColors();
       }
 
@@ -3324,12 +3428,14 @@ export function createDonationManager({
           if (!entry.group.visible) continue;
           const t = donationTransforms.get(donId);
           if (!t) continue;
-          spillCandidates.push({ distSq: distSqTo(t.position), position: t.position });
+          spillCandidates.push({ donationId: donId, distSq: distSqTo(t.position), position: t.position });
         }
         spillCandidates.sort((a, b) => a.distSq - b.distSq);
         for (let i = 0; i < spillLights.length; i++) {
           const candidate = spillCandidates[i];
-          spillLights[i].intensity = candidate ? EDGE_LIGHT_SPILL_INTENSITY : 0;
+          spillLights[i].intensity = candidate
+            ? EDGE_LIGHT_SPILL_INTENSITY * (focusedDonationId === null || candidate.donationId === focusedDonationId ? 1 : 0.15)
+            : 0;
           if (candidate) spillLights[i].position.copy(candidate.position);
         }
       }
@@ -3394,6 +3500,8 @@ export function createDonationManager({
     dispose() {
       disposed = true;
       donationById.clear();
+      restoreFocusLayers();
+      restoreAccessoryFocus();
       removeFocusHighlight();
       parapets.dispose();
       // Limpar acessórios de topo
