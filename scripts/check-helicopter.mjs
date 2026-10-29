@@ -8,8 +8,10 @@ const source = await readFile(new URL("../src/scene/builders/createRooftopMesh.t
 const { outputText } = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 });
-const moduleText = outputText.replace('from "three"', `from ${JSON.stringify(import.meta.resolve("three"))}`);
-const { createRooftopMesh, disposeRooftopMesh, disposeRooftopSharedResources } = await import(
+const moduleText = outputText
+  .replace('from "three"', `from ${JSON.stringify(import.meta.resolve("three"))}`)
+  .replace(/from "(three\/addons\/[^"]+)"/g, (_, spec) => `from ${JSON.stringify(import.meta.resolve(spec))}`);
+const { createRooftopMesh, disposeRooftopMesh, disposeRooftopSharedResources, mergeRooftopParts } = await import(
   `data:text/javascript;base64,${Buffer.from(moduleText).toString("base64")}`
 );
 
@@ -66,5 +68,30 @@ for (const span of [1, 1.5, 4]) {
   disposeRooftopMesh(model);
   assert.equal(model.children.length, 0);
 }
+
+// Jardim pinta texturas em canvas; no Node basta um 2D que não desenha nada.
+const noop2d = new Proxy({}, {
+  get: (target, key) => key in target ? target[key] : key === "createLinearGradient" ? () => ({ addColorStop() {} }) : () => {},
+  set: (target, key, value) => { target[key] = value; return true; },
+});
+globalThis.document ??= { createElement: () => ({ width: 0, height: 0, getContext: () => noop2d }) };
+
+// mergeRooftopParts (só na cidade): mesma caixa e mesmos triângulos, menos malhas.
+const meshes = (group) => { const list = []; group.traverse((o) => o.isMesh && list.push(o)); return list; };
+const triangles = (group) => meshes(group).reduce((sum, mesh) =>
+  sum + (mesh.geometry.index ?? mesh.geometry.getAttribute("position")).count / 3 * (mesh.isInstancedMesh ? mesh.count : 1), 0);
+for (const type of ["spotlights", "helipad", "garden", "helicopter"]) {
+  const loose = createRooftopMesh(type, { width: 1.4, depth: 1.1 });
+  const merged = createRooftopMesh(type, { width: 1.4, depth: 1.1 });
+  mergeRooftopParts(merged);
+  const before = new THREE.Box3().setFromObject(loose, true);
+  const after = new THREE.Box3().setFromObject(merged, true);
+  assert(before.min.distanceTo(after.min) < 1e-5 && before.max.distanceTo(after.max) < 1e-5, `${type}: caixa mudou`);
+  assert(Math.abs(triangles(loose) - triangles(merged)) < 1e-6, `${type}: triângulos mudaram`);
+  assert(meshes(merged).length < meshes(loose).length, `${type}: nada fundido`);
+  console.log(`${type}: ${meshes(loose).length} → ${meshes(merged).length} malhas`);
+  disposeRooftopMesh(loose);
+  disposeRooftopMesh(merged);
+}
 disposeRooftopSharedResources();
-console.log("Helicóptero: vidros expostos, malha válida, rotores, encaixes e escala OK.");
+console.log("Helicóptero: vidros expostos, malha válida, rotores, encaixes e escala OK. Fusão dos topos OK.");

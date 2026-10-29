@@ -3,11 +3,29 @@ import * as THREE from "three";
 type RenderObject = THREE.Mesh | THREE.Points | THREE.Line | THREE.Sprite;
 
 const optimizedLighting = new WeakSet<THREE.Material["onBeforeCompile"]>();
-const directLightCall = "RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );";
-const focusedLightingChunk = THREE.ShaderChunk.lights_fragment_begin.replace(
-  directLightCall,
-  `if ( directLight.visible ) { ${directLightCall} }`,
-);
+const POINT_BLOCK_START = "#if ( NUM_POINT_LIGHTS > 0 ) && defined( RE_Direct )";
+const POINT_BLOCK_END = "#if ( NUM_SPOT_LIGHTS > 0 ) && defined( RE_Direct )";
+const lightsChunk = THREE.ShaderChunk.lights_fragment_begin;
+const pointStart = lightsChunk.indexOf(POINT_BLOCK_START);
+const pointEnd = lightsChunk.indexOf(POINT_BLOCK_END);
+if (import.meta.env.DEV && (pointStart < 0 || pointEnd < pointStart)) {
+  console.warn("[scenePreparer] âncoras do loop de point lights sumiram — luzes do LED sem otimização");
+}
+// Loop dinâmico no lugar do desenrolado de 8 cópias, parando na 1ª luz apagada. As únicas
+// point lights são o pool do LED (createDonationManager), que vem ordenado: as acesas primeiro,
+// o resto com intensidade 0. Shader menor e só as acesas executam: no Adreno 618 as 8 cópias
+// custavam ~28 ms/frame mesmo com o `if ( visible )`; assim, 64 → 54 ms. Ignora sombra de point
+// light (a cena não tem sombra; ver CLAUDE.md).
+const focusedLightingChunk = pointStart < 0 || pointEnd < pointStart ? lightsChunk
+  : `${lightsChunk.slice(0, pointStart)}#if ( NUM_POINT_LIGHTS > 0 ) && defined( RE_Direct )
+	for ( int i = 0; i < NUM_POINT_LIGHTS; i ++ ) {
+		if ( pointLights[ i ].color == vec3( 0.0 ) ) break;
+		getPointLightInfo( pointLights[ i ], geometryPosition, directLight );
+		if ( directLight.visible ) RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );
+	}
+#endif
+
+${lightsChunk.slice(pointEnd)}`;
 
 // A atenuação já decidiu que a luz não contribui; evita pagar o BRDF de cor zero.
 function preparePointLighting(material: THREE.Material) {

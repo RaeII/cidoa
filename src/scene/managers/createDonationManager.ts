@@ -15,6 +15,7 @@ import {
   createRooftopMesh,
   disposeRooftopMesh,
   disposeRooftopSharedResources,
+  mergeRooftopParts,
 } from "../builders/createRooftopMesh";
 import {
   createSignMesh,
@@ -2492,6 +2493,7 @@ export function createDonationManager({
       scale ? { width: scale.x, depth: scale.z } : undefined,
     );
     if (!group) return;
+    mergeRooftopParts(group);
 
     rooftopMeshes.set(donationId, { group, type });
     scene.add(group);
@@ -3422,6 +3424,7 @@ export function createDonationManager({
       // fica com intensidade 0 (mesma contagem de luzes → sem recompilar shader).
       // A luz vai no CENTRO do edifício: sem sombras, ela vaza pros vizinhos, e a
       // própria fachada não acende porque a normal aponta pro lado oposto.
+      // Acesas sempre nos primeiros índices: o shader para na 1ª apagada (createScenePreparer).
       if (spillLights.length > 0) {
         spillCandidates.length = 0;
         for (const [donId, entry] of edgeLightMeshes) {

@@ -37,6 +37,7 @@ const mocks = {
       compileAsync() { return globalThis.horizonCheck.compileGate ?? Promise.resolve(); }
       initTexture() {}
       setPixelRatio(value) { globalThis.horizonCheck.pixelRatio = value; }
+      setOpaqueSort() {}
       setSize() {}
       render(scene, camera) {
         this.info.render.calls++; globalThis.horizonCheck.renders++;
