@@ -321,7 +321,7 @@ export function ContributeDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {/* Centrado sem translate: o `press` do botão usa a propriedade translate. Mobile: à esquerda, livra o chevron (right-20). */}
-        <Button type="button" size="lg" className="absolute bottom-4 left-4 right-20 z-30 max-sm:text-sm max-sm:has-[>svg]:px-3 sm:inset-x-0 sm:bottom-6 sm:mx-auto sm:w-fit">
+        <Button type="button" size="lg" className="absolute bottom-7 left-4 right-20 z-30 max-sm:text-sm max-sm:has-[>svg]:px-3 sm:inset-x-0 sm:mx-auto sm:w-fit">
           <PixelBuilding />
           Simular contribuição
         </Button>

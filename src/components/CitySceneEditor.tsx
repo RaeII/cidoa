@@ -230,13 +230,14 @@ export function CitySceneEditor() {
 
   // Pool de sorteio de textura por edifício: todas as texturas ATIVAS do
   // catálogo. Desligado o sorteio, a lista vai vazia e a cidade inteira usa
-  // `textureSettings.textureKey`. Cidade inicial soma as texturas dela ao catálogo.
+  // `textureSettings.textureKey`. Cidade inicial soma as dela e exclui fachadas bloqueadas, inclusive do catálogo.
   const facadeTexturePool = useMemo(() => {
     if (!textureSettings.randomPerBuilding) return [];
     const catalog = (customizationCatalog?.textures ?? [])
       .map((option) => option.value)
       .filter((value): value is string => !!value);
-    return seeded ? [...catalog, ...SEED_FACADE_TEXTURES] : catalog;
+    return seeded ? [...catalog, ...SEED_FACADE_TEXTURES]
+      .filter((key) => !/(^|\/)Facade(?:007|014|016|019A)(?:_|$)/.test(key)) : catalog;
   }, [textureSettings.randomPerBuilding, customizationCatalog, seeded]);
 
   const lightMetrics = getLightMetrics(lightSettings);
@@ -618,8 +619,11 @@ export function CitySceneEditor() {
       {booted && (loadState.status !== "ready" || !donationsApplied) && (
         <DonationLoadOverlay state={loadState} onRetry={retry} />
       )}
-      {booted && (
-        <p className="pointer-events-none absolute bottom-1.5 left-3 z-20 font-mono text-[10px] text-muted-foreground opacity-60">Pré-lançamento</p>
+      {/* Faixa de 4–20px do rodapé: botões do rodapé ficam em bottom-7 (sombra desce 7px) para não cobrir. */}
+      {booted && !myBuildingsOpen && (
+        <p role="note" className="pointer-events-none absolute bottom-1 left-2 z-20 max-w-[calc(100%-1rem)] px-1.5 text-[11px] leading-4 text-papel backdrop-blur-sm">
+          <strong className="font-semibold">Pré-lançamento:</strong> ONGs e contribuições são de teste
+        </p>
       )}
       {!myBuildingsOpen && isAdmin && uiVisibility.cameraLog && cameraDebugInfo && (
         <div className="pixel bevel-edge absolute bottom-4 left-4 z-30 w-[min(21rem,calc(100vw-2rem))] select-text bg-background px-3 pt-2 pb-3 font-mono text-[11px] leading-5 text-muted-foreground">
@@ -751,7 +755,7 @@ export function CitySceneEditor() {
         />
       )}
       {!myBuildingsOpen && booted && (!isAdmin || !showControlPanel) && (
-        <Button variant="outline" size="icon-lg" onClick={scrollToInfo} aria-label="Ver ONGs e contribuições" title="ONGs e contribuições" className={cn("absolute right-4 z-30", isAdmin ? "bottom-[4.75rem]" : "bottom-4")}>
+        <Button variant="outline" size="icon-lg" onClick={scrollToInfo} aria-label="Ver ONGs e contribuições" title="ONGs e contribuições" className={cn("absolute right-4 z-30", isAdmin ? "bottom-[5.5rem]" : "bottom-7")}>
           <PixelChevronDown />
         </Button>
       )}
@@ -760,7 +764,7 @@ export function CitySceneEditor() {
           variant="outline"
           size="icon-lg"
           onClick={() => setShowControlPanel(true)}
-          className="absolute bottom-4 right-4 z-30"
+          className="absolute bottom-7 right-4 z-30"
           title="Configurações da cena"
           aria-label="Abrir painel de configurações"
         >

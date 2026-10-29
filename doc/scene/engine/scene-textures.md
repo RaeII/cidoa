@@ -170,6 +170,7 @@ Textura por edifício **não** custa mesh dedicado: cada textura em uso tem o pr
 `TextureSettings.randomPerBuilding` (padrão **ligado**, aba **texturas**): prédio **sem** textura escolhida sorteia uma entre **todas as texturas ativas do catálogo**, em vez da cidade inteira usar `textureKey`. Serve pra ver a cidade de teste com variedade real ([[edificios-teste]]).
 
 - Pool = `value` das texturas do catálogo, plumbado do editor até o manager: `facadeTexturePool` → [[three-components|CitySceneCanvas]] → [[scene-hooks|useCityScene]] → `runtime.setFacadeTexturePool` → `donationManager.setFacadeTexturePool`. Toggle desligado = lista vazia = textura global em tudo.
+- Cidade inicial (`seeded`): soma 5 fachadas leves de `SEED_FACADE_TEXTURES`; exclui **Facade007, Facade014, Facade016 e Facade019A**, inclusive quando vêm do catálogo. Filtro aceita pasta simples ou prefixo `texture/`. Cidades públicas seguem catálogo completo. Check: `node scripts/check-prelaunch.mjs`.
 - Sorteio é **determinístico pelo id da doação** (`pickIndex`, ver [[scene-utils#random.ts]]): o mesmo prédio cai sempre na mesma textura — reload, troca de filtro e recriação do runtime não embaralham a cidade.
 - Pasta cadastrada no catálogo mas ausente de `src/assets/texture/` é ignorada (o prédio fica na textura global, nunca sem textura).
 - Customização do usuário **ganha** do sorteio.

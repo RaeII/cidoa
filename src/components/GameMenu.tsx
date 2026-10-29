@@ -301,23 +301,21 @@ export function GameMenu({
 
             <Tabs.Content value="profile" className={`${panelClass} flex flex-col`}>
               <ProfilePanel />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="mt-8 self-end text-destructive hover:bg-ambar-100 hover:text-destructive"
-                onClick={() => {
-                  onOpenChange(false);
-                  void logout();
-                }}
-              >
-                <LogOut />
-                Sair
-              </Button>
             </Tabs.Content>
           </Tabs.Root>
 
-          <footer className="flex justify-end">
+          <footer className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                onOpenChange(false);
+                void logout();
+              }}
+            >
+              <LogOut />
+              Sair
+            </Button>
             <DialogClose asChild>
               <Button variant="outline">
                 <kbd className="pixel pixel-thin bg-card px-1.5 font-mono text-xs">Esc</kbd>

@@ -82,6 +82,11 @@ export function DonationInfoSection({
               Cadastre-se, simule contribuições, personalize seus edifícios e indique amigos. Nesta versão, os
               edifícios que você cria ficam apenas neste navegador.
             </p>
+            {/* max-lg:mb-3: PixelDog espia 47px acima da foto, gap do grid é 40px. */}
+            <p role="note" className="pixel bevel-edge mt-8 flex max-lg:mb-3 max-w-[46ch] flex-wrap items-center gap-x-3 gap-y-2 bg-card px-4 pt-3 pb-4 text-[15px] leading-snug">
+              <Badge variant="reward">Período de teste</Badge>
+              <span>ONGs, edifícios e contribuições são fictícios. Nada é cobrado.</span>
+            </p>
           </div>
           <div className="relative">
             <PixelDog className="absolute -top-[47px] right-8 z-10" />
@@ -140,6 +145,9 @@ export function DonationInfoSection({
                 <SectionHead index="02">Explore as ONGs da cidade</SectionHead>
                 {hasFilter && <Button variant="ghost" onClick={() => onFilterChange({})}>Limpar filtros</Button>}
               </div>
+              <p className="mt-4 max-w-[60ch] text-[19px] leading-[1.55] text-muted-foreground">
+                <strong className="font-semibold text-foreground">ONGs de teste:</strong> nenhuma delas existe.
+              </p>
               {hasFilter && <p className="mt-4 text-sm text-muted-foreground">Valores e edifícios seguem os filtros da cidade.</p>}
 
               {shownOngs.length === 0 ? (

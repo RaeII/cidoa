@@ -41,7 +41,9 @@ Decisão do dono: loading = só página de loading. **Nenhuma imagem** baixa nem
 5. **Até `booted`** não montam: placa da marca (logo), `AuthMenu`, `ContributeDialog`, seta/engrenagem, [[#DonationInfoSection.tsx|DonationInfoSection]] (foto, avatares). Sem imagem, sem foco por Tab atrás do loading, sem diálogo de onboarding por cima. `CookieNotice` (texto, consentimento) segue visível.
 
 > [!note] Custo
-> Loading espera ~11 MB de fachadas do cenário inicial. Medido (headless, ~5 Mbps sem cache): última textura 11,24 s → loading sai 11,28 s; logo e foto começam a baixar no instante da saída. Sem WebGL: hook marca `sceneReady`, loading sai normal.
+> Medição anterior, com 6 fachadas adicionais (~11 MB; headless, ~5 Mbps sem cache): última textura 11,24 s → loading sai 11,28 s; logo e foto começam a baixar no instante da saída. Pool atual: 5 fachadas adicionais, sem nova medição. Sem WebGL: hook marca `sceneReady`, loading sai normal.
+
+`CitySceneEditor` soma `SEED_FACADE_TEXTURES` ao catálogo só na cidade inicial; remove Facade007, Facade014, Facade016 e Facade019A do pool combinado. Bloqueio vale também para valores com prefixo `texture/`. Ver [[scene-textures#Sorteio por edifício]].
 
 > [!warning] LCP
 > LCP mobile = parágrafo do [[#CookieNotice.tsx|CookieNotice]] ou texto do card de loading (os dois no HTML/`index.js`). Logo: `index.js` enxuto, nada pesado antes do paint, preload só da Manrope latin.
@@ -79,18 +81,18 @@ Ocupa apenas a largura do conteúdo, margem externa de 16px. Placa e menu sempre
 > [!note] Mobile (< `sm`)
 > Altura 40px = botões. Com contador ou **Cidoe**, logo some; placa só com logo mantém logo. Cabeçalho `flex-wrap-reverse` + menu `ml-auto`: placa que não cabe ao lado dos botões desce para a linha de baixo, à esquerda (320/375px); 430px+ fica numa linha. Menu logado: avatar sem nome (`sr-only`), gap 8px. Cabe em 320px.
 
-### Selo Pré-lançamento (`CitySceneEditor.tsx`)
+### Aviso de pré-lançamento (`CitySceneEditor.tsx`)
 
-Canto inferior esquerdo (`bottom-1.5 left-3`): **Pré-lançamento** mono 10px `text-muted-foreground`, `opacity-60`, `pointer-events-none`. Só depois do boot.
+Linha mínima no rodapé, abaixo dos botões: "**Pré-lançamento:** ONGs e contribuições são de teste". Sem placa, borda nem fundo: texto `text-papel` 11px sobre `backdrop-blur-sm` ([[desingn-system-index#Desvios conscientes]]). `bottom-1 left-2` = faixa de 4–20px do rodapé; botões do rodapé (**Simular contribuição**, seta, engrenagem) ficam em `bottom-7` para a sombra dura (7px) não cobrir. `role="note"`, `pointer-events-none`. Só depois do boot; some em **Meus edifícios** (navegação ocupa rodapé).
 
 ### `DonationInfoSection.tsx`
 
 Seção abaixo da cena pública = home do projeto. Composição do [[desingn-system-index|DS]]: hero display → `01 Impacto` → `02 Explore as ONGs da cidade` → rodapé. Fundo `bg-background pattern-paws` (pegadas do DS, 420px). Container `max-w-[1240px]`, `pt-24 pb-[120px]` (mobile `pt-16 pb-24`). Cabeçalho de seção = `PixelPaw` + número mono verde + título 44px, gap 18px, conteúdo a 36px (`mt-9`). Espaço entre blocos: 128px (hero → 01), 112px (01 → 02), 120px (rodapé); mobile 80px em todos. Sem hairline: só espaço. Snapshot público mais simulações locais do mesmo `useDonations`; valores rotulados como simulados (**Valor simulado**, **ONGs na cidade**), sem arrecadação real. Hero e seção 02 com copy de pré-lançamento.
 
-- Hero: kicker mono 13px com logo oficial `public/logo.webp` 48px antes (`loading="lazy"`, abaixo da dobra); título display (até 72px, `leading-[0.98]`, `max-w-[14ch]`); texto 22px `leading-normal` `muted-foreground` = o que o app faz (contribuição → edifício, valor → altura; cadastro, simulação, personalização, indicação); gap 32px. Política de Privacidade linkada só no rodapé.
+- Hero: kicker mono 13px com logo oficial `public/logo.webp` 48px antes (`loading="lazy"`, abaixo da dobra); título display (até 72px, `leading-[0.98]`, `max-w-[14ch]`); texto 22px `leading-normal` `muted-foreground` = o que o app faz (contribuição → edifício, valor → altura; cadastro, simulação, personalização, indicação); gap 32px. Abaixo, placa `pixel bevel-edge bg-card` `role="note"`: `Badge` âmbar **Período de teste** + "ONGs, edifícios e contribuições são fictícios. Nada é cobrado." 15px. Política de Privacidade linkada só no rodapé.
 - Impacto: placa `pixel bevel-edge bg-card` com total em display verde (Manrope); três placas contador (ícone pixel + número + `mono-label`). Soma em centavos, quantidade de edifícios, ONGs beneficiárias e cidades. Valores acompanham filtros da cena; teto de renderização vale só no canvas.
 - Foto: `<Photo ratio="1/1">` ([[desingn-system-index#Moldura (5.3)|moldura do DS]], 3px, sem bisel) com `public/cat_dog.webp` e `public/cat_dog.jpeg` de reserva — JPG cópia idêntica da `video-2` (1024 × 947); 1:1 recorta só as laterais. `PixelDog` espia por cima (DS 6.6). Foto de banco: trocar por foto de ONG quando houver ([[desingn-system-index#Desvios conscientes]]).
-- ONGs: no máximo **6 cartões** (DS 6.6, grade 1/2/3 colunas), por quantidade de edifícios apoiando; ONG selecionada permanece visível, desempate pelo nome. Cartão: `gap-3.5`; cidades (mono 11px), avatar 72px com `ong.profile_image` (fallback: iniciais; edição em [[ongs]]), nome 26px, edifícios 15px com número em `strong`, botão primário largura total **Ver na cidade**. ONG filtrada = `pixel-ink-verde bg-secondary` + selo **No filtro**. Sem barra de meta: API não expõe meta da ONG. Sem lista individual de edifícios.
+- ONGs: intro de seção 19px `muted-foreground` sob o título: "**ONGs de teste:** nenhuma delas existe." No máximo **6 cartões** (DS 6.6, grade 1/2/3 colunas), por quantidade de edifícios apoiando; ONG selecionada permanece visível, desempate pelo nome. Cartão: `gap-3.5`; cidades (mono 11px), avatar 72px com `ong.profile_image` (fallback: iniciais; edição em [[ongs]]), nome 26px, edifícios 15px com número em `strong`, botão primário largura total **Ver na cidade**. ONG filtrada = `pixel-ink-verde bg-secondary` + selo **No filtro**. Sem barra de meta: API não expõe meta da ONG. Sem lista individual de edifícios.
 - Rodapé (DS): frase 28px `max-w-[24ch]` à esquerda; à direita, mono 12px `muted-foreground`: links **Termos de Uso** e **Política de Privacidade** + rótulo. Link da política na home = exigência do Google para o login ([[termos-e-privacidade]]). `<a href>` simples (não `Link`): seção renderiza sem Router no `check-donation-info`.
 - **Ver na cidade**: aplica `filter.ongId`, preserva localização e retorna suavemente ao canvas. Informações/perfil e administração continuam no acesso existente da cena. **Limpar filtros** reseta tudo.
 - Loading = `BlockLoader`; erro + retry; estados vazios explícitos. Sem estimar percentual/repasse por ONG: snapshot só informa beneficiárias, não divisão dos valores.
@@ -205,7 +207,7 @@ Barra temporariamente oculta na tela principal: `SHOW_DONATION_FILTERS = false` 
 
 Pré-lançamento: **Simular contribuição** → formulário (ONG/cidade/valor, novo ou aumentar) → **Confirmar pagamento simulado** → **Ver meu edifício**. Login exigido; mínimo R$ 5, máximo 3 edifícios locais por conta/navegador. Nenhum Pix, QR, Copia e Cola ou polling. Criação/aumento chama `simulateContribution`, grava localStorage e atualiza cidade via evento local. Falha de armazenamento não conclui simulação.
 
-Gatilho: `lg` centrado a 24px do rodapé. Mobile: `left-4 right-20 bottom-4`, texto 14px — mesma linha da seta da [[#DonationInfoSection.tsx]] (`bottom-4 right-4`; admin sobe para `bottom-[4.75rem]`, livra a engrenagem).
+Gatilho: `lg` centrado a 28px do rodapé (`bottom-7`, livra o [[#Aviso de pré-lançamento (CitySceneEditor.tsx)|aviso]] embaixo). Mobile: `left-4 right-20`, texto 14px — mesma linha da seta da [[#DonationInfoSection.tsx]] (`bottom-7 right-4`; admin sobe para `bottom-[5.5rem]`, livra a engrenagem).
 
 `Flow` (`form` | `pay` | `done`) captura conta. Outra sessão não reaproveita simulação. Fechar confirmação libera nova simulação; fechar pagamento mantém etapa somente em memória. Troca de etapa foca título. **Ver meu edifício** usa `handleOpenDonation(id, false)`: foca o prédio na navegação dedicada de Meus edifícios, sem abrir o card. Administração independente no card/Meus edifícios.
 
@@ -291,7 +293,7 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre pelo botão avatar 
 - **Topo** — sem título visível (`DialogTitle` só `sr-only`); à direita switch sol/lua dia/noite (`NightToggle`, `onNightChange`) e, ao lado dele, placa com nome, `@username` mono (some no celular) e avatar 48 px ([[desingn-system-index#Avatares e logos (5.6)|DS]]).
 - **Abas** — Radix `Tabs` (setas ←/→ navegam), abas do DS (utilitário `tab` + `menu-cursor`) com ícone. Primeiro acesso na aba Meus edifícios; avatar preserva aba escolhida. Perfil por último. Ativa = régua verde 4px + ▸. Celular: inativa mostra só ícone.
 - **Conteúdo** — coluna centralizada com largura máxima (perfil `max-w-xl`, doações `max-w-2xl`, indicações `max-w-md`). Perfil e indicações centralizam também na vertical.
-- **Rodapé** — só **Esc Voltar** à direita.
+- **Rodapé** — à direita: **Sair** (`outline`, ícone LogOut; fecha + `logout()`) e **Esc Voltar**.
 - **Tema** — Content leva classe `dark`: tokens shadcn escuros só dentro do menu.
 
 | Aba | Conteúdo |
@@ -299,7 +301,7 @@ Menu do usuário logado, estilo menu de pausa do GTA V. Abre pelo botão avatar 
 | Meus edifícios | Total doado + edifícios próprios numerados, maior valor 1º. **Ver na cidade** sempre disponível: fecha menu e chama `handleOpenDonation` (foco + [[#BuildingInfoModal.tsx\|card]]). Oculto por filtro/teto → limpa ambos e aguarda rebuild. Não cria cobrança. |
 | Personalizações | Catálogo agrupado (formato, topo, LED, cor, textura, letreiro/holograma) com `isUnlocked`. Travado mostra requisito via `formatUnlockRequirement` ([[passe-formatacao]]). |
 | Indicações | Topo: total indicado ("N pessoas indicadas", `referral_count`, número 3xl igual aba Meus edifícios); zero → some. Depois: "Faltam apenas N indicações para escolher sua recompensa" + `ReferralBar` (até 3 blocos, 1+ aceso de incentivo, ver placa acima). Meta = etapa disponível ou próxima de `rewards` ([[primeiros-inscritos]]); N = meta − `signupReferrals` (cadastros). Etapa alcançada → botão `reward` **Escolher minha recompensa** (fecha menu; `RewardDialog` abre). Depois: código (lg/sm:2xl, quebra linha se não cabe) + `SharePanel` inline (ícones 44px) (redes + copiar link, sem modal), quem indicou ([[referral]]). Some p/ admin. |
-| Perfil | `ProfilePanel.tsx`: avatar 72 px (`size="lg"`) + nome + e-mail no topo; nome e username lado a lado (sm+); abaixo [[#ProfileDetailsFields.tsx\|Cidade + Como conheceu]], mesmo formulário e mesmo Salvar (`PUT /user/me`). `hasChanges` conta cidade, origem e texto de "Outro" (só com "Outro" escolhido). Salvar → toast. Canto inferior direito: **Sair** discreto (texto cinza, hover vermelho; fecha + `logout()`). |
+| Perfil | `ProfilePanel.tsx`: avatar 72 px (`size="lg"`) + nome + e-mail no topo; nome e username lado a lado (sm+); abaixo [[#ProfileDetailsFields.tsx\|Cidade + Como conheceu]], mesmo formulário e mesmo Salvar (`PUT /user/me`). `hasChanges` conta cidade, origem e texto de "Outro" (só com "Outro" escolhido). Salvar → toast. **Sair** fica no rodapé do menu. |
 
 | Prop | Tipo | Descrição |
 |---|---|---|

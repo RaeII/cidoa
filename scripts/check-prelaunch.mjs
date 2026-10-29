@@ -109,12 +109,21 @@ const seedLooks = [...emptyContext.savedCustomizations.values()];
 assert.ok(seedLooks.length < emptyContext.allDonations.length / 2, "Maioria dos edifícios iniciais segue a cena");
 const colored = seedLooks.filter((c) => c.color !== "#d4d4d4");
 assert.ok(colored.length > 5 && colored.length <= 25, "Cor só em poucos edifícios");
-assert.equal(new Set(seedLooks.map((c) => c.buildingShape)).size, 12, "Edifícios iniciais usam os 12 formatos");
+const sceneTypes = ts.createSourceFile("types.ts", await readFile(new URL("../src/scene/types.ts", import.meta.url), "utf8"), ts.ScriptTarget.ES2022, true);
+const buildingShapeType = sceneTypes.statements.find((node) => ts.isTypeAliasDeclaration(node) && node.name.text === "BuildingShape");
+assert.deepEqual([...new Set(seedLooks.map((c) => c.buildingShape))].sort(),
+  buildingShapeType.type.types.map((node) => node.literal.text).sort(), "Cidade inicial inclui todos os formatos disponíveis");
 assert.ok(new Set(colored.map((c) => c.color)).size > 5 && seedLooks.some((c) => c.signText) && seedLooks.some((c) => c.edgeLightType === "led"), "Cores, letreiros e LED variados");
 assert.ok(seedLooks.every((c) => c.textureKey === null), "Textura segue o sorteio da cena");
 assert.ok(emptyContext.allDonations.length >= 400, "Cidade inicial cheia");
 assert.ok(seedLooks.filter((c) => c.edgeLightType === "led").length <= emptyContext.allDonations.length / 40, "LED raro");
 const seedIndex = (id) => -1_000_000 - id;
+for (const shape of ["apartment", "gourmet", "loft"]) {
+  const buildings = [...emptyContext.savedCustomizations].filter(([, c]) => c.buildingShape === shape);
+  assert.ok(buildings.length >= 25, `${shape}: muitas unidades na cidade inicial`);
+  assert.ok(buildings.some(([id]) => seedIndex(id) < 40), `${shape}: presente nas torres centrais`);
+  assert.ok(buildings.some(([id]) => seedIndex(id) >= 40), `${shape}: presente nas quadras de base`);
+}
 assert.ok([...emptyContext.savedCustomizations].every(([id, c]) => c.edgeLightType === "none" || seedIndex(id) < 40), "LED só nas torres altas");
 assert.ok(colored.every((c) => [1, 3, 5].every((at) => parseInt(c.color.slice(at, at + 2), 16) <= 0x50)), "Só cores escuras");
 const shaped = seedLooks.filter((c) => c.buildingShape !== "default").length;
@@ -132,10 +141,30 @@ for (const userId of [1, 2, undefined]) {
 assert.equal(publicDataset.donations.length, 1);
 assert.equal(publicDataset.customizations.has(-1), false);
 
-// Executa a lista de atalhos real para contas comum/admin.
+// Executa o pool real do editor: fachadas bloqueadas não voltam pelo catálogo.
 const editorSource = await readFile(new URL("../src/components/CitySceneEditor.tsx", import.meta.url), "utf8");
 const ast = ts.createSourceFile("editor.tsx", editorSource, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TSX);
 const editor = ast.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "CitySceneEditor");
+const pool = editor.body.statements.find((node) => ts.isVariableStatement(node) && node.declarationList.declarations.some((item) => item.name.getText(ast) === "facadeTexturePool"));
+const poolScript = ts.transpileModule(pool.getText(ast) + "\nglobalThis.pool = facadeTexturePool;", { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+const excludedFacades = ["Facade007_1K-JPG", "Facade014_1K-JPG", "Facade016_1K-JPG", "Facade019A_1K-PNG"]
+  .flatMap((key) => [key, `texture/${key}`]);
+const allowedFacade = "texture/Facade020_1K-PNG";
+const catalogValues = [...excludedFacades, allowedFacade];
+for (const seeded of [true, false]) {
+  const context = { seeded, textureSettings: { randomPerBuilding: true },
+    customizationCatalog: { textures: [...catalogValues, null].map((value) => ({ value })) },
+    SEED_FACADE_TEXTURES: local.SEED_FACADE_TEXTURES, useMemo: (calculate) => calculate() };
+  vm.runInNewContext(poolScript, context);
+  assert.deepEqual(Array.from(context.pool), seeded ? [allowedFacade, ...local.SEED_FACADE_TEXTURES] : catalogValues,
+    "Exclusão só na cidade inicial; catálogo preservado nas cidades públicas");
+  assert.ok(excludedFacades.every((key) => !local.SEED_FACADE_TEXTURES.includes(key)), "Seeds sem fachadas bloqueadas");
+  const disabledContext = { ...context, textureSettings: { randomPerBuilding: false } };
+  vm.runInNewContext(poolScript, disabledContext);
+  assert.equal(disabledContext.pool.length, 0, "Sorteio desligado mantém pool vazio");
+}
+
+// Executa a lista de atalhos real para contas comum/admin.
 const shortcuts = editor.body.statements.find((node) => ts.isVariableStatement(node) && node.declarationList.declarations.some((item) => item.name.getText(ast) === "shortcuts"));
 for (const isAdmin of [false, true]) {
   const context = { isAdmin, myBuildingsOpen: false, setShowControlPanel: () => {}, selectedBuildingId: null, infoBuildingId: null };

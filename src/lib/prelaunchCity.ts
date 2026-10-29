@@ -66,16 +66,16 @@ export function createSeedBuildings(ongs: readonly { id: number }[]): LocalBuild
   });
 }
 
-// Skyline: as 40 maiores giram pelos 12 formatos.
+// Skyline: as 40 maiores giram pelos 15 formatos.
 const SEED_SHAPES: BuildingShape[] = ["default", "setback", "chrysler", "residential", "octagonal", "taipei",
-  "hearst", "twisted", "empire", "yachthouse", "tapered", "one-trade"];
-// Resto da cidade: 1 a cada 4 foge da caixa padrão; os demais ficam instanciados.
-const SEED_BASE_SHAPES: BuildingShape[] = ["residential", "setback", "octagonal", "twisted", "residential", "hearst",
-  "yachthouse", "setback", "tapered", "octagonal"];
+  "apartment", "gourmet", "loft", "hearst", "twisted", "empire", "yachthouse", "tapered", "one-trade"];
+// Base: 1 a cada 4 foge da caixa; repetição prioriza os novos residenciais, demais seguem instanciados.
+const SEED_BASE_SHAPES: BuildingShape[] = ["apartment", "gourmet", "loft", "residential",
+  "apartment", "gourmet", "loft", "setback", "apartment", "gourmet", "loft", "octagonal"];
 // Cidade inicial também sorteia texturas do repo fora do catálogo (que hoje tem 1 ativa).
-// ponytail: 6 mais leves (~11 MB, carga em segundo plano); as 4 restantes somam +15 MB.
+// Fachadas leves; Facade007, Facade014, Facade016 e Facade019A ficam fora da cidade inicial.
 export const SEED_FACADE_TEXTURES = ["Facade001_1K-PNG", "Facade002_1K-PNG", "Facade005_1K-JPG",
-  "Facade006_1K-mirrored-PNG", "Facade007_1K-JPG", "Facade018A_1K-PNG"];
+  "Facade006_1K-mirrored-PNG", "Facade018A_1K-PNG"];
 // Topo estreito/pináculo: acessório de topo ficaria flutuando.
 const SEED_SPIRE_SHAPES = new Set<BuildingShape>(["tapered", "chrysler", "empire", "taipei", "one-trade"]);
 const SEED_TOWER_ROOFTOPS: RooftopType[] = ["helipad", "none", "helicopter", "none", "spotlights"];
