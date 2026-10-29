@@ -736,7 +736,7 @@ Modelo `gourmet`, label **Varanda Gourmet** (ref. `residencial.png`): torre bege
 
 **Detalhes modelados:**
 - Frente `+Z`: vão de 11,2 m entre pilastras creme de 3 m nos cantos. Sacada curva por andar: laje branca 35 cm (arco com flecha 1,2 m além da face), guarda-corpo de vidro + corrimão de alumínio, pano de vidro curvo 2 m recuado com 5 montantes
-- Laterais `±X` e fundos `−Z`: 2 pilastras bege 60 cm salientes por face, rasgo entre elas pintado de bege com janela estreita de banheiro. Janelas quadradas 1,1 m em coluna nas pilastras e no creme
+- Laterais `±X` e fundos `−Z`: 2 pilastras bege 60 cm salientes por face, rasgo entre elas pintado de bege (`REVEAL`, 2 cm à frente do creme) com janela estreita de banheiro sobre a pintura. Janelas quadradas 1,1 m em coluna nas pilastras e no creme
 - Embasamento creme 3,2 m no lote todo (torre 17,2 m sobre ele): portaria envidraçada na frente, porta nos fundos
 - Cobertura: platibanda 1,1 m com frente curva (`Shape` com furo, mesmo contorno recuado 25 cm), piso (slot topo), caixa d'água central (topo do mesh) + 2 casas de máquinas bege com tampa, porta e veneziana
 
@@ -778,7 +778,7 @@ Modelo `loft`, label **Loftifício** (ref. `loft.png`): torre de reboco bege com
 
 **Como funciona:**
 - Grade única: pilastra → pilar do pilotis; faixa verde → vão de portão. Núcleo = caixa de pastilha; pilastras = caixas bege por cima (sem face coplanar sobreposta)
-- Metros (pé-direito 2,9 m, base 6,8 m). Lote 20×20 m; tudo não indexado, escala **uma vez** pra unit box no fim. Cornija em 9,95 m e marquise em 9,98 m: cabem no lote
+- Metros (pé-direito 2,9 m, base 6,8 m). Lote 20×20 m; tudo não indexado, escala **uma vez** pra unit box no fim. Cornija em 9,95 m e marquise em 9,98 m: cabem no lote. Vidro da marquise termina no caixilho (9,94 m), sem face coplanar
 - Janela = 2 quads (caixilho + vidro) + montante na de 2 folhas. ~128 triângulos por andar; 51 andares ≈ 7k tris — metade do apartment/gourmet
 - **Nº de andares segue a altura** (`getLoftFloorCount`, 0,1 un./m, 1–60); manager chama `setLoftBuildingHeight(mesh, scale.y)` em todo sync. Cache por nº de andares. Mesh nasce com altura 6 (= prévia do admin: lote 1 × altura 3)
 - Slots: `0 reboco bege` (= `facadeMaterial`, recebe cor: pilastras, cornija, pilares, platibanda, casas), `1 topo`, `2 vidro`, `3 alumínio`, `4 pastilha verde`, `5 portão`

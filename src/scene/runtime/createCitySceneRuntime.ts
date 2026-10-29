@@ -329,7 +329,8 @@ export async function createCitySceneRuntime({
       generateMipmaps: false,
       minFilter: THREE.LinearFilter,
     });
-    const cubeCamera = new THREE.CubeCamera(0.1, CITY_SCENE_CONFIG.reflectionFar, target);
+    // Mesmo near da câmera: com followCamera o probe está no ponto de vista e recaptura ao andar.
+    const cubeCamera = new THREE.CubeCamera(CITY_SCENE_CONFIG.cameraNear, CITY_SCENE_CONFIG.reflectionFar, target);
     for (const face of cubeCamera.children) { face.layers.enable(1); face.layers.enable(2); }
     scene.add(cubeCamera);
     return { target, cubeCamera };
