@@ -357,6 +357,7 @@ App diverge do arquivo do DS só aqui. Mudar qualquer linha = decisão explícit
 | Item | DS | App | Motivo |
 |---|---|---|---|
 | Altura do botão | padding 14/22/18 ≈ 51px; CTA ≈ 62px | `default` 40, `lg` 48 | densidade de painel/HUD |
+| Resumo de Meus edifícios | contorno pixel + bisel, cantos retos | cantos de 14 px e contorno fino, sem bisel | pedido explícito: card menos quadrado, compacto e afastado da borda no mobile; exceção restrita ao resumo de `MyBuildingsNavigation` |
 | Campo | 18px, ≈ 50px, rótulo a 10px | `h-11` (44px), 16px (14px ≥ `md`), rótulo a 8px | densidade de formulário |
 | Gato no modal de contribuição | `PixelCat` espiando | ausente | `DialogContent` tem `overflow-hidden` e altura máxima; precisa de 45px livres acima |
 | Cartão de ONG | foto, descrição, selo, meta | nome, cidades, edifícios | API sem esses dados |

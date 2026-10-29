@@ -68,6 +68,7 @@ const bundle = await build({
     import { Tabs } from 'radix-ui';
     import { BuildingProfileForm } from './src/components/html/donate/BuildingProfileForm';
     import { Button } from './src/components/ui/button';
+    import { Dialog, DialogHeader, DialogTitle } from './src/components/ui/dialog';
     import { cn } from './src/lib/utils';
     import { formatBRL } from './src/lib/unlock';
     import { Building2, MapPin } from 'lucide-react';
@@ -81,9 +82,9 @@ const bundle = await build({
     const scrollClass = ${JSON.stringify(constant("scrollClass"))};
     const footerClass = ${JSON.stringify(constant("footerClass"))};
     const tabClass = ${JSON.stringify(constant("tabClass"))};
-    function Section({ buildingTab = 'information', ready = true, editBusy = false, error = null }) {
+    function Section({ buildingTab = 'information', ready = true, editBusy = false, dirty = false, error = null }) {
       const profileFormId = 'building-profile';
-      const profileEdit = { ready, busy: editBusy, error };
+      const profileEdit = { ready, busy: editBusy, dirty, error };
       const appearanceBusy = false;
       const donationId = 42;
       const customization = {}, catalog = null, textureSettings = {};
@@ -91,7 +92,7 @@ const bundle = await build({
       const onCustomizationChange = noop, setAppearanceBusy = noop;
       return (${buildingSection.getText(dialogAst)});
     }
-    export const render = (props) => renderToStaticMarkup(createElement(Section, props));
+    export const render = (props) => renderToStaticMarkup(createElement(Dialog, { open: true }, createElement(Section, props)));
     function List({ donations }) {
       const panelClass = '', goldButton = '';
       const totalDonated = donations.reduce((total, donation) => total + donation.value, 0);
@@ -112,11 +113,10 @@ const navigationProps = {
 };
 const navigationHtml = renderNavigation(navigationProps);
 assert.match(navigationHtml, /<nav[^>]*aria-label="Meus edifícios na cidade"/);
-assert.match(navigationHtml, /Seu edifício · 1 de 2/);
+assert.match(navigationHtml, /Edifício 1 de 2/);
 assert.match(navigationHtml, /aria-live="polite"/);
 assert.match(navigationHtml, /Campinas · SP/);
 assert.doesNotMatch(navigationHtml, /role="dialog"/);
-assert.match(navigationHtml, /pixel bevel-edge[^\"]*bg-background/, "Informações em card com fundo");
 assert.equal((renderNavigation({ ...navigationProps, count: 1 }).match(/disabled=""/g) ?? []).length, 2, "Um único edifício desabilita anterior/próximo");
 const locatingHtml = renderNavigation({ ...navigationProps, value: undefined });
 assert.match(locatingHtml, /Localizando edifício/);
@@ -138,10 +138,10 @@ for (const label of ['Edifício anterior', 'Próximo edifício']) {
   assert.equal(typeof button.children, 'object', 'Setas mostram só ícone');
   assert.match(button.className, /absolute top-1\/2/);
 }
-for (const [label, callback] of [['Detalhes', 'onDetails'], ['Personalizar', 'onCustomize']]) {
+for (const [label, callback] of [['Ver como visitante', 'onDetails'], ['Personalizar', 'onCustomize']]) {
   let called = false;
   const action = buttons(MyBuildingsNavigation({ ...navigationProps, [callback]: () => { called = true; } }))
-    .find((button) => button.children?.includes?.(label));
+    .find((button) => button['aria-label'] === label || button.children?.includes?.(label));
   assert.equal(action.variant ?? 'default', label === 'Personalizar' ? 'default' : 'outline', 'Ações com fundo do DS');
   action.onClick();
   assert.equal(called, true, label);
@@ -159,6 +159,10 @@ assert.doesNotMatch(informationHtml, /<details|data-preview/, "Informações nã
 assert.match(informationHtml, /type="submit" form="building-profile"/);
 assert.match(render({ buildingTab: "appearance" }), /<form id="building-profile"/, "Alternar de aba não desmonta o perfil nem perde os campos");
 assert.match(render({ buildingTab: "appearance" }), /data-preview="true"/);
+assert.doesNotMatch(render({ buildingTab: "appearance" }), /type="submit"/, "Aparência salva automaticamente, sem botão Salvar de perfil vazio");
+assert.match(render({ buildingTab: "appearance" }), />Concluir<\/button>/);
+assert.match(render({ buildingTab: "appearance", dirty: true }), /type="submit" form="building-profile"/, "Informações editadas continuam salváveis ao mudar para Aparência");
+assert.match(render({ buildingTab: "appearance", dirty: true }), /Informações não salvas/);
 for (const props of [{ ready: false }, { editBusy: true }]) {
   assert.match(render(props), /type="submit" form="building-profile"[^>]*disabled=""/, "Rodapé deve respeitar carregamento e salvamento");
 }
@@ -256,9 +260,16 @@ assert.equal(city.infoId, 42);
 assert.equal(city.showBuildingInfo, false);
 assert.equal(city.myBuildingsOpen, true, "Acesso direto entra na visualização dedicada");
 city.handleBuildingClick(null);
-assert.equal(city.infoId, 42, "Toque no chão não encerra a visualização");
+assert.equal(city.infoId, null, "Clique fora fecha a seleção");
+assert.equal(city.myBuildingsOpen, false, "Clique fora restaura a interface geral");
+assert.equal(city.focusedId, null);
+assert.equal(city.pendingFocusRef.current, null);
+city.handleOpenDonation(42, false);
 city.handleBuildingClick(99);
-assert.equal(city.infoId, 42, "Visualização navega pelos controles, sem selecionar prédio alheio");
+assert.equal(city.infoId, 99, "Clique em outro edifício abre as informações dele");
+assert.equal(city.myBuildingsOpen, false, "Outra seleção também restaura a interface geral");
+assert.equal(city.showBuildingInfo, true);
+city.handleOpenDonation(42, false);
 assert.equal(city.pendingFocusRef.current, null, "Foco imediato não fica pendente para um rebuild futuro");
 city.visibleDonations = [];
 city.handleOpenDonation(99, false);

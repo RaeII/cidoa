@@ -31,7 +31,7 @@ import {
 import { toast } from "./ui/toast";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
-import { PixelChevronDown } from "./ui/pixel-icon";
+import { PixelArrow, PixelChevronDown } from "./ui/pixel-icon";
 import { DEFAULT_SCENE_STATS } from "../scene/config/citySceneConfig";
 import { createDefaultBlockLayoutSettings } from "../scene/config/blockLayoutConfig";
 import { createDefaultBuildingSettings } from "../scene/config/buildingConfig";
@@ -271,7 +271,7 @@ export function CitySceneEditor() {
 
   const handleBuildingClick = useCallback(
     (donationId: number | null) => {
-      if (myBuildingsOpen) return;
+      setMyBuildingsOpen(false);
       pendingFocusRef.current = null;
       if (donationId !== null) {
         canvasRef.current?.focusOnDonation(donationId);
@@ -282,7 +282,7 @@ export function CitySceneEditor() {
       setInfoBuildingId(donationId);
       setShowBuildingInfo(true);
     },
-    [myBuildingsOpen],
+    [],
   );
 
   const handleCloseInfo = useCallback(() => {
@@ -629,10 +629,9 @@ export function CitySceneEditor() {
       {/* UI só depois do loading: nenhuma imagem (logo, fotos, avatares) baixa antes. */}
       {booted && (
       <div hidden={myBuildingsOpen} className="pointer-events-none absolute inset-x-4 top-4 z-30 flex items-start justify-between gap-2 max-sm:flex-wrap-reverse">
-        {/* Marca visível sem rolar nem entrar (página inicial do login com Google). Mobile: sem logo; sem espaço ao lado dos botões, desce para a linha de baixo (wrap-reverse). */}
+        {/* Marca visível sem rolar nem entrar (página inicial do login com Google). Sem espaço ao lado dos botões, desce para a linha de baixo (wrap-reverse). */}
         <aside aria-label="Cidoe" className="pointer-events-auto pixel pixel-thin flex min-w-0 items-center gap-2 bg-background px-2 py-1.5 text-xs leading-4 text-muted-foreground max-sm:h-10 max-sm:px-3 max-sm:py-0">
-          <img src="/logo.webp" alt="" width={32} height={32} className="size-8 shrink-0 max-sm:hidden" />
-          <ReferralHud rewards={rewards} fallback={<strong className="text-sm font-semibold text-foreground">Cidoe</strong>} />
+          <ReferralHud rewards={rewards} />
         </aside>
         <div className="pointer-events-auto ml-auto shrink-0">
           <AuthMenu
@@ -749,6 +748,14 @@ export function CitySceneEditor() {
           onEditProfile={canEdit(infoBuildingId) ? () => setProfileEditId(infoBuildingId) : undefined}
           onClose={myBuildingsOpen && currentMyBuilding ? () => setShowBuildingInfo(false) : handleCloseInfo}
         />
+      )}
+      {/* "Ver como visitante" troca o rodapé da navegação por este Voltar, no mesmo lugar. */}
+      {booted && myBuildingsOpen && currentMyBuilding && !contributeOpen && showBuildingInfo && selectedBuildingId === null && (
+        <div className="pointer-events-none absolute inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex justify-center sm:bottom-6">
+          <Button type="button" variant="outline" size="lg" className="pointer-events-auto has-[>svg]:px-3 max-sm:text-sm" onClick={() => setShowBuildingInfo(false)}>
+            <PixelArrow className="rotate-180" />Voltar
+          </Button>
+        </div>
       )}
       <BuildingProfileDialog
         donationId={profileEditId}

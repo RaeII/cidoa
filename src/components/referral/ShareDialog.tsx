@@ -63,12 +63,12 @@ export function SharePanel({ url }: { url: string }) {
             href={network.href(encodedUrl)}
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex flex-col items-center gap-2 py-1 text-xs font-semibold"
+            className="group flex flex-col items-center gap-1.5 py-1 text-xs font-semibold"
           >
             <span
-              className={`pixel grid size-14 place-items-center text-papel transition-transform group-hover:-translate-y-0.5 ${network.className}`}
+              className={`pixel grid size-11 place-items-center text-papel transition-transform group-hover:-translate-y-0.5 ${network.className}`}
             >
-              <svg viewBox="0 0 24 24" fill="currentColor" className="size-7" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor" className="size-5" aria-hidden="true">
                 <path d={network.path} />
               </svg>
             </span>

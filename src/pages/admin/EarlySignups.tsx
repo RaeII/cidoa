@@ -63,6 +63,7 @@ export default function EarlySignups() {
       })),
   }));
   const tier = form?.tiers[tierIndex];
+  const goals = [...new Set(form?.tiers.map((entry) => entry.referralMin).filter((value) => Number.isInteger(value) && value > 0))].sort((a, b) => a - b);
   const items = groups.flatMap((group) => group.items);
   const selected = items.filter((item) => tier?.[item.field].includes(item.id));
   const invalidLimit = !form || (form.userLimit !== null && (!Number.isInteger(form.userLimit) || form.userLimit < 1 || form.userLimit > 1_000_000));
@@ -109,7 +110,7 @@ export default function EarlySignups() {
               <h1 className="text-3xl font-semibold tracking-tight">Recompensas por indicação</h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">A cada meta de cadastros indicados, o usuário escolhe um item. Os indicados não precisam contribuir.</p>
             </div>
-            <RewardExamples />
+            <RewardExamples goals={goals.length ? goals : undefined} />
             {error && <div role="alert" className="flex flex-wrap items-center gap-2 pixel pixel-thin pixel-ink-ambar-700 bg-card p-4 text-sm text-destructive">
               <ErrorMark />{error}{!form && <Button variant="outline" className="ml-3" onClick={() => setReload((value) => value + 1)}>Tentar novamente</Button>}
             </div>}
@@ -148,13 +149,13 @@ export default function EarlySignups() {
                       }}>Adicionar etapa</Button>
                     </div>
                     <div className="flex flex-wrap gap-2" aria-label="Etapas">
-                      {form.tiers.map((entry, index) => <Button type="button" key={index} variant={index === tierIndex ? "default" : "outline"} aria-pressed={index === tierIndex} onClick={() => setTierIndex(index)}>Etapa {index + 1} · {entry.referralMin || "—"} indicações</Button>)}
+                      {form.tiers.map((entry, index) => <Button type="button" key={index} variant={index === tierIndex ? "default" : "outline"} aria-pressed={index === tierIndex} onClick={() => setTierIndex(index)}>Etapa {index + 1} · {entry.referralMin || "—"} no total</Button>)}
                     </div>
                     {tier && <div className="flex flex-wrap items-end gap-3 pixel pixel-thin bg-card p-4">
-                      <label className="space-y-2 text-sm font-medium">Cadastros indicados necessários<Input type="number" min={1} max={1_000_000} step={1} required className="w-40" value={Number.isNaN(tier.referralMin) ? "" : tier.referralMin} onChange={(event) => setForm({ ...form, tiers: form.tiers.map((entry, index) => index === tierIndex ? { ...entry, referralMin: event.target.valueAsNumber } : entry) })} /></label>
+                      <label className="space-y-2 text-sm font-medium">Total de indicações<Input type="number" min={1} max={1_000_000} step={1} required className="w-40" value={Number.isNaN(tier.referralMin) ? "" : tier.referralMin} onChange={(event) => setForm({ ...form, tiers: form.tiers.map((entry, index) => index === tierIndex ? { ...entry, referralMin: event.target.valueAsNumber } : entry) })} /></label>
                       <Button type="button" variant="outline" onClick={() => { setForm({ ...form, tiers: form.tiers.filter((_, index) => index !== tierIndex) }); setTierIndex(0); }}>Remover etapa</Button>
                     </div>}
-                    <p className="text-sm text-muted-foreground">O usuário escolhe um dos itens selecionados em cada meta. A contagem é acumulada: 2 e 5 indicações permitem duas escolhas.</p>
+                    <p className="text-sm text-muted-foreground">Meta conta o total de indicações do usuário, não só as novas.{goals.length > 1 && ` Ex.: quem escolheu na meta ${goals[0]} alcança a de ${goals[1]} com mais ${goals[1] - goals[0]}.`}</p>
                     <Button asChild variant="outline" size="sm"><Link to="/dale/personalizacoes">Gerenciar catálogo</Link></Button>
                   </div>
                   {tier && groups.map((group) => group.items.length > 0 && (

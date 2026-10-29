@@ -148,11 +148,12 @@ export function BuildingPreview({ customization, textureSettings }: {
   }, [customization, textureSettings]);
 
   return (
-    <div className="relative h-48 max-h-[calc(100cqh-2.5rem)] overflow-hidden bg-tinta sm:h-80 lg:h-auto lg:max-h-none lg:min-h-0 lg:flex-1">
+    <div className="flex h-full min-h-0 flex-col gap-1">
+      <div className="relative min-h-0 flex-1 overflow-hidden bg-tinta">
       <div ref={containerRef} role="img" aria-label="Prévia 3D do seu edifício personalizado" className="size-full" />
       {error && <p role="status" className="absolute inset-0 grid place-items-center p-6 text-center text-sm text-papel">A prévia 3D não está disponível neste dispositivo. Você pode continuar personalizando.</p>}
-      {/* Placa de papel: legível sobre qualquer fundo da cena. */}
-      {!error && <p className="pointer-events-none absolute inset-x-0 bottom-4 mx-auto w-fit pixel pixel-thin bg-card px-2.5 py-1 text-center mono-label text-muted-foreground">Arraste para girar · Role para aproximar</p>}
+      </div>
+      {!error && <p className="shrink-0 text-center text-[11px] leading-4 text-muted-foreground">Arraste para girar</p>}
     </div>
   );
 }

@@ -158,7 +158,7 @@ src/
       ReferralDialog.tsx          ← confirmação e avisos da indicação
       ReferralPerson.tsx          ← nome e imagem do indicador
       ShareDialog.tsx             ← `SharePanel` (redes + copiar link, inline no menu) + `ShareDialog` (modal da home)
-      ReferralHud.tsx             ← contador da placa da cena: "Faltam apenas N indicações" + barra até o próximo presente
+      ReferralHud.tsx             ← placa da cena: logo + "Faltam apenas N indicações" + `ReferralBar` (≤3 blocos, 1 aceso de incentivo, também no menu); sem próxima faixa, só logo
     CitySceneEditor.tsx
     html/
       CityControlPanel.tsx
@@ -340,14 +340,14 @@ E entrega para:
 - [[three-components|CitySceneCanvas]] — monta a cena 3D
 - [[html-components|CityControlPanel]] — mostra os controles (abre pelo ícone de engrenagem, que some quando o painel está aberto; fecha pelo "X" na barra de abas)
 - [[html-components#BuildingManageDialog.tsx|BuildingManageDialog]] — informações e aparência do edifício selecionado, independente do pagamento. Abre pelo card → Administrar; dono/admin.
-- [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] — grade por categoria e prévia 3D na aba Aparência da administração. `selectedCustomization` memoizado; `updateCustomization` compartilha estado e salvamento com a cidade. Menu/canvas montam somente na aba ativa.
+- [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] — prévia 3D e categorias permanecem visíveis enquanto apenas as opções rolam; empilhado no celular com deslize horizontal entre categorias (scroll-snap), duas colunas no desktop. Aparência salva automaticamente e conclui sem botão Salvar de perfil vazio. `selectedCustomization` memoizado; `updateCustomization` compartilha estado e salvamento com a cidade. Menu/canvas montam somente na aba ativa.
 - [[html-components#BuildingHeightInput.tsx|BuildingHeightInput]] — input de doação e layout
 - [[html-components#BuildingLayoutCard.tsx|BuildingLayoutCard]] — card flutuante: modo de layout + quantos edifícios entram na cena
 
 Também gerencia:
 
 - Doações do backend via `useDonations` (snapshot cacheado + personalizações `no-store`) → `canvasRef.setDonations(donations)` quando `loadState.status === "ready"`. Ver [[donation-api]]
-- Meus edifícios: modo dedicado (`myBuildingsOpen`) oculta interface geral e bloqueia rolagem. Card compacto no topo esquerdo (menor e junto à borda no mobile), setas só com ícones nas laterais, Personalizar/Detalhes com fundo no rodapé e X para restaurar interface/câmera. Personalizar abre direto na Aparência. Revela fora de filtro/teto e aguarda rebuild com saída disponível. Conta/Pix permanecem montados. Lista completa continua no menu do avatar. Trocar conta/sair cancela foco; fechar detalhes/personalização mantém modo dedicado. Rebuild mantém administração se edifício continua visível.
+- Meus edifícios: modo dedicado (`myBuildingsOpen`) oculta interface geral e bloqueia rolagem. Card compacto no topo esquerdo (menor e com margem no mobile), setas só com ícones nas laterais, Personalizar/Ver como visitante com fundo no rodapé e X para restaurar interface/câmera. Ver como visitante troca rodapé por Voltar (seta), que fecha card e volta à navegação. Clique na cena também encerra o modo e restaura os componentes; chão limpa foco, outro edifício abre informações. Personalizar abre direto na Aparência. Revela fora de filtro/teto e aguarda rebuild com saída disponível. Conta/Pix permanecem montados. Lista completa continua no menu do avatar. Trocar conta/sair cancela foco; fechar detalhes/personalização mantém modo dedicado. Rebuild mantém administração se edifício continua visível.
 - Contribuição: botão sempre dedicado ao pagamento; fechar confirmação permite nova contribuição. ONG escolhida a cada pagamento; mesmo edifício apoia várias ONGs. Máximo 3 edifícios por conta, validado no backend/banco. Aumentar com vários exige escolher destino. Pago = edifício gravado no banco; Pix simulado no back (`PIX_SIMULATED`) até PSP real; ver [[contribution-api]].
 - Teto de edifícios na cena (`visibleLimit`, padrão `null` = todos): ordena por valor desc e corta antes do `setDonations`, então o corte fica com as maiores doações. Controlado pelo [[html-components#BuildingLayoutCard.tsx|BuildingLayoutCard]]
 - Doações manuais via `canvasRef.addDonation(value)` e `canvasRef.addDonations(values)`
@@ -419,7 +419,7 @@ flowchart TD
 flowchart LR
     Menu[Meus edifícios] --> Nav[Anterior/próximo na cidade, sem modal]
     Nav --> Focus[focusOnDonation, revela fora do filtro/teto]
-    Nav --> |Detalhes| Info[BuildingInfoModal]
+    Nav --> |Ver como visitante| Info[BuildingInfoModal]
     Nav --> |Personalizar, aba Aparência| Panel[BuildingManageDialog]
     Click[Clique no edifício] --> Focus
     Click --> Info
