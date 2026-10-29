@@ -278,7 +278,7 @@ Configuração mais global da cena. Define a estrutura completa de `CitySceneCon
 | `sceneFogDensity` | Densidade do FogExp2 |
 | ~~`groundSize`~~ | **removido**. Extensão do chão depende de `HorizonSettings.groundDistance`, `groundEdgeMode` e frustum (padrão `far * 1.1` em [[#horizonConfig.ts]]) |
 | `cameraFov` | Campo de visão da câmera |
-| `cameraNear` | Near plane |
+| `cameraNear` | `1`: near plane da câmera e do probe de reflexo. Precisão do depth ≈ distância²/near: caixilho 2 cm à frente da parede segura até ~90 un. (com `0.1` brigava a ~50 → z-fighting). Não baixar sem rever camadas finas dos builders ([[novo-edificio#2. Builder]]) |
 | `initialCameraPosition` | Posição inicial `{x, y, z}` |
 | `controlTarget` | Target inicial do OrbitControls |
 | `controls.*` | Damping de referência a 60 Hz (normalizado pelo tempo real), velocidades, limites de zoom/pan/rotate |

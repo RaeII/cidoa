@@ -46,6 +46,7 @@ Arquivo `src/scene/builders/create<Nome>BuildingMesh.ts`. Factory, sem classe.
 - `ExtrudeGeometry` de planta: `rotateX(-π/2)`, ponto `(x, z)` → `Vector2(x, -z)`. Grupos do Extrude: **0 = tampas, 1 = laterais** — separar quando tampa e lateral pedem material diferente (`band()` do Yatchcasa: lateral dourada, tampa escura)
 - `dispose<Nome>BuildingSharedResources()` libera cache
 - Sem sombra ([[scene-runtime]]: luz = ambiente + IBL)
+- **Camadas ≥ 2 cm, nunca coplanares.** Caixilho, vidro, montante e pintura sobre parede andam de 2 em 2 cm (`face + s·0.02`, `0.04`, `0.06`). 1 cm ou face sobreposta no mesmo plano = z-fighting (pisca ao mover câmera, pior de longe e no celular). Peça que encosta noutra termina no plano dela, não atravessa. Precisão vem de `cameraNear` → [[scene-config]]
 
 > [!tip] Cor na luz da cena
 > Ambiente ~8 + ACES 1,45: tom claro estoura pra branco/creme. Albedo bem mais escuro que a cor percebida na ref. (dourado `0xa67c3e` lê "dourado leve"; `0xc9a56c` lê creme). Calibrar com `--slot` no [[#6. Visual]] antes de fixar constante.

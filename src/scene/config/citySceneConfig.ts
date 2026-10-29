@@ -30,7 +30,9 @@ export const CITY_SCENE_CONFIG: CitySceneConfig = {
   sceneFogColor: "#8c8c8c",
   sceneFogDensity: 0.007,
   cameraFov: 58,
-  cameraNear: 0.1,
+  // Precisão do depth cai com distância²/near. Caixilho/vidro ficam 2 cm (0,002) à frente da
+  // parede: com 0,1 brigavam (z-fighting) a ~50 un.; com 1 seguram até ~90. Órbita mínima = 8.
+  cameraNear: 1,
   initialCameraPosition: {
     x: -26.17,
     y: 23.59,

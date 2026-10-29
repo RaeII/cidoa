@@ -64,16 +64,18 @@ const FRAME_COLOR = 0xb4b8bb; // alumínio acetinado
 // Pilastras bege: intervalo ao longo da face (laterais: z; fundos: x).
 const SIDE_PILASTERS: Range[] = [[-7.6, -3.4], [-1.6, 2.6]];
 const BACK_PILASTERS: Range[] = [[-5.4, -1.2], [1.2, 5.4]];
+// Fundo bege do rasgo 2 cm à frente do núcleo creme: 1 cm brigava no depth (z-fighting).
+const REVEAL = 0.02;
 const SQUARE: WindowKind = { w: 1.1, y0: 1, y1: 2.3 };
 const NARROW: WindowKind = { w: 0.5, y0: 1.3, y1: 2.3 }; // banheiro, no rasgo
-// [posição na face, sobre pilastra?, tipo]
-const SIDE_WINDOWS: Array<[number, boolean, WindowKind]> = [
-  [-5.5, true, SQUARE], [0.5, true, SQUARE], [-2.5, false, NARROW],
-  [4.4, false, SQUARE], [7.1, false, SQUARE],
+// [posição na face, saliência sobre a torre (pilastra, rasgo ou 0), tipo]
+const SIDE_WINDOWS: Array<[number, number, WindowKind]> = [
+  [-5.5, PILASTER_OUT, SQUARE], [0.5, PILASTER_OUT, SQUARE], [-2.5, REVEAL, NARROW],
+  [4.4, 0, SQUARE], [7.1, 0, SQUARE],
 ];
-const BACK_WINDOWS: Array<[number, boolean, WindowKind]> = [
-  [-3.3, true, SQUARE], [3.3, true, SQUARE], [0, false, NARROW],
-  [-7, false, SQUARE], [7, false, SQUARE],
+const BACK_WINDOWS: Array<[number, number, WindowKind]> = [
+  [-3.3, PILASTER_OUT, SQUARE], [3.3, PILASTER_OUT, SQUARE], [0, REVEAL, NARROW],
+  [-7, 0, SQUARE], [7, 0, SQUARE],
 ];
 
 // Acessório de topo assenta na caixa d'água central: escala pelo lado dela.
@@ -185,12 +187,12 @@ function buildGourmetGeometry(floors: number): THREE.BufferGeometry {
     for (const z of SIDE_PILASTERS) {
       box(SLOT.paint, span(s * (TOWER - 0.1), s * (TOWER + PILASTER_OUT)), pilasterY, z);
     }
-    quad(SLOT.paint, "x", s * (TOWER + 0.01), [SIDE_PILASTERS[0][1], SIDE_PILASTERS[1][0]], pilasterY);
+    quad(SLOT.paint, "x", s * (TOWER + REVEAL), [SIDE_PILASTERS[0][1], SIDE_PILASTERS[1][0]], pilasterY);
   }
   for (const x of BACK_PILASTERS) {
     box(SLOT.paint, x, pilasterY, [-TOWER - PILASTER_OUT, -TOWER + 0.1]);
   }
-  quad(SLOT.paint, "z", -TOWER - 0.01, [BACK_PILASTERS[0][1], BACK_PILASTERS[1][0]], pilasterY);
+  quad(SLOT.paint, "z", -TOWER - REVEAL, [BACK_PILASTERS[0][1], BACK_PILASTERS[1][0]], pilasterY);
 
   // Pano de vidro curvo recuado (contínuo; lajes cortam) + montantes.
   push(SLOT.glass, ribbon(ARC_R, towerY, -BALCONY_D));
@@ -215,14 +217,10 @@ function buildGourmetGeometry(floors: number): THREE.BufferGeometry {
     push(SLOT.frame, handrail.clone().translate(0, y + RAIL_H, 0));
 
     for (const s of sides) {
-      for (const [z, onPilaster, kind] of SIDE_WINDOWS) {
-        windowAt("x", s * (onPilaster ? TOWER + PILASTER_OUT : TOWER), z, y, kind);
-      }
+      for (const [z, out, kind] of SIDE_WINDOWS) windowAt("x", s * (TOWER + out), z, y, kind);
       windowAt("z", TOWER, s * 7.1, y, SQUARE);
     }
-    for (const [x, onPilaster, kind] of BACK_WINDOWS) {
-      windowAt("z", -(onPilaster ? TOWER + PILASTER_OUT : TOWER), x, y, kind);
-    }
+    for (const [x, out, kind] of BACK_WINDOWS) windowAt("z", -(TOWER + out), x, y, kind);
   }
   push(SLOT.cream, slab.clone().translate(0, roof - SLAB_T, 0)); // forro da última sacada
   for (const template of [slab, rail, handrail]) template.dispose();

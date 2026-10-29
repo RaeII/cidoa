@@ -156,7 +156,7 @@ function buildLoftGeometry(floors: number): THREE.BufferGeometry {
   }
   // Porta de pedestre + marquise de vidro (só na frente).
   quad(SLOT.gate, "z", WALL + 0.02, [-0.6, 0.6], [0, 2.3]);
-  box(SLOT.glass, [-0.95, 0.95], [2.5, 2.56], [WALL, 9.98]);
+  box(SLOT.glass, [-0.95, 0.95], [2.5, 2.56], [WALL, 9.94]); // termina no caixilho: sem face coplanar
   box(SLOT.frame, [-0.95, 0.95], [2.46, 2.56], [9.94, 9.98]);
 
   // --- Pilotis aberto: pilares sob as pilastras, portaria verde envidraçada ---
@@ -173,9 +173,9 @@ function buildLoftGeometry(floors: number): THREE.BufferGeometry {
     }
   }
   box(SLOT.tile, [-4, 4], [GATE_H, BASE_H - BEAM], [-3, 3]);
-  quad(SLOT.frame, "z", 3.01, [-1.3, 1.3], [GATE_H, GATE_H + 2.4]);
-  quad(SLOT.glass, "z", 3.03, [-1.2, 1.2], [GATE_H, GATE_H + 2.3]);
-  quad(SLOT.frame, "z", 3.05, [-0.03, 0.03], [GATE_H, GATE_H + 2.3]);
+  quad(SLOT.frame, "z", 3.02, [-1.3, 1.3], [GATE_H, GATE_H + 2.4]);
+  quad(SLOT.glass, "z", 3.04, [-1.2, 1.2], [GATE_H, GATE_H + 2.3]);
+  quad(SLOT.frame, "z", 3.06, [-0.03, 0.03], [GATE_H, GATE_H + 2.3]);
   box(SLOT.plaster, [-FACE, FACE], [BASE_H - BEAM, BASE_H], [-FACE, FACE]);
 
   // --- Torre: núcleo de pastilha + pilastras bege (cantos em L e centrais) ---
