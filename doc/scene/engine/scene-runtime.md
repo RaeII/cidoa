@@ -171,6 +171,17 @@ Target alocado no primeiro foco, na resolução efetiva do canvas (sem downscale
 
 `check-mobile-performance.mjs` verifica HDR, tamanho, passes, luzes, retorno sem foco, fallback, preservação do estado após exceção, descarte e cache dos shaders. `check-building-textures.mjs` verifica materiais originais, camadas, picking e restauração no manager real.
 
+### Validação do foco no Android
+
+Em 29/10/2026, Chrome no M2101K6G/Adreno 618, via USB, na aplicação local `beta` com 480 edifícios:
+
+- Clique mostrou posições intermediárias da câmera; órbita e pinça nativas mantiveram o mesmo edifício selecionado. Fechar detalhes restaurou câmera, alvo e camadas normais.
+- Render target HDR completo a 589 × 1102, sem redução de resolução, sem erro WebGL ou perda de contexto. Contexto e acessórios esmaecidos; selecionado com materiais originais.
+- Órbita controlada de 0,8 rad em 4,5 s, após aquecimento: aproximadamente **16,3 FPS**, mediana de frame 65 ms e cerca de 640 draw calls. Ainda abaixo de fluidez adequada; não é evidência de 30/60 FPS nem benchmark da produção.
+- Evitar atualizações React por métricas na interface pública removeu cerca de 1,35 s de trabalho React em um perfil de 5,4 s. A imagem parada antes/depois dessa mudança foi idêntica, mas os FPS ficaram praticamente iguais (16,3–16,6). O custo restante requer investigação gráfica; a extensão de timer GPU não estava disponível, portanto o tempo de GPU não foi medido diretamente. Diagnóstico admin continua completo — ver [[html-components#GameMenu.tsx]].
+
+Medição curta na versão de desenvolvimento; aquecimento prolongado, outros aparelhos e desempenho da build publicada não foram revalidados nesta rodada.
+
 > [!note] Sem sombras
 > Cena não tem luz direcional — iluminação é ambiente + IBL do HDRI. Sistema de sombras (settings, UI, flags `castShadow`) foi removido por ser código morto. Pra reintroduzir: criar `DirectionalLight` com shadow camera antes de qualquer flag.
 
