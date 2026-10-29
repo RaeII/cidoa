@@ -9,6 +9,7 @@ import {
 } from "../../api/donationApi";
 import { useAuth } from "@/hooks/useAuth";
 import { createSeedBuildings, createSeedCustomizations, type LocalBuilding } from "@/lib/prelaunchCity";
+import { IS_PRELAUNCH } from "@/lib/legal";
 import { useLocalCityValue, useLocalSceneState } from "./useLocalCity";
 import { UF_REGION, type Region } from "../../api/regions";
 import type { BuildingCustomization } from "../../scene/types";
@@ -83,9 +84,9 @@ export function useDonations() {
     setReloadKey((key) => key + 1);
   }, []);
 
-  // Snapshot público vazio → cidade inicial fixa do front; some quando houver doação real.
+  // Pré-lançamento usa a mesma cidade inicial, mesmo com doações de teste no banco local.
   const seeds = useMemo(
-    () => dataset && !dataset.donations.length ? createSeedBuildings(dataset.ongs) : EMPTY_LOCAL_BUILDINGS,
+    () => dataset && (IS_PRELAUNCH || !dataset.donations.length) ? createSeedBuildings(dataset.ongs) : EMPTY_LOCAL_BUILDINGS,
     [dataset],
   );
   const extraBuildings = useMemo(
@@ -93,9 +94,9 @@ export function useDonations() {
     [seeds, userId, localBuildings],
   );
   const allDonations = useMemo(() => {
-    const publicDonations = dataset?.donations ?? EMPTY_DONATIONS;
+    const publicDonations = seeds.length ? EMPTY_DONATIONS : dataset?.donations ?? EMPTY_DONATIONS;
     return extraBuildings.length ? [...publicDonations, ...extraBuildings] : publicDonations;
-  }, [dataset, extraBuildings]);
+  }, [dataset, seeds, extraBuildings]);
   const cities = useMemo(() => {
     const publicCities = dataset?.cities ?? EMPTY_CITIES;
     if (!extraBuildings.length) return publicCities;
@@ -104,7 +105,7 @@ export function useDonations() {
     return [...byId.values()];
   }, [dataset, extraBuildings]);
   const savedCustomizations = useMemo(() => {
-    // Seeds só existem com snapshot vazio: não há personalização pública pra mesclar.
+    // Cidade inicial tem aparência própria; personalizações do banco ficam fora dela.
     const merged = seeds.length ? createSeedCustomizations(seeds) : new Map(dataset?.customizations);
     if (userId) for (const [id, customization] of Object.entries(localCustomizations)) merged.set(Number(id), customization);
     return merged;
@@ -144,7 +145,7 @@ export function useDonations() {
     cities,
     ongs: dataset?.ongs ?? EMPTY_ONGS,
     savedCustomizations,
-    /** Snapshot vazio → cidade inicial do front no lugar. */
+    /** Pré-lançamento ou snapshot vazio → cidade inicial do front. */
     seeded: seeds.length > 0,
     filter,
     setFilter,

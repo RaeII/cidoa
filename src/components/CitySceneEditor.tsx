@@ -230,14 +230,14 @@ export function CitySceneEditor() {
 
   // Pool de sorteio de textura por edifício: todas as texturas ATIVAS do
   // catálogo. Desligado o sorteio, a lista vai vazia e a cidade inteira usa
-  // `textureSettings.textureKey`. Cidade inicial soma as dela e exclui fachadas bloqueadas, inclusive do catálogo.
+  // `textureSettings.textureKey`. Cidade inicial usa pool fixo, igual em local e produção.
   const facadeTexturePool = useMemo(() => {
     if (!textureSettings.randomPerBuilding) return [];
+    if (seeded) return SEED_FACADE_TEXTURES;
     const catalog = (customizationCatalog?.textures ?? [])
       .map((option) => option.value)
       .filter((value): value is string => !!value);
-    return seeded ? [...catalog, ...SEED_FACADE_TEXTURES]
-      .filter((key) => !/(^|\/)Facade(?:007|014|016|019A)(?:_|$)/.test(key)) : catalog;
+    return catalog;
   }, [textureSettings.randomPerBuilding, customizationCatalog, seeded]);
 
   const lightMetrics = getLightMetrics(lightSettings);

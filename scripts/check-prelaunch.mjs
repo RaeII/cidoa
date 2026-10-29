@@ -99,7 +99,7 @@ const hookAst = ts.createSourceFile("hook.ts", hookSource, ts.ScriptTarget.ES202
 const hook = hookAst.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "useDonations");
 const derived = hook.body.statements.filter((node) => ts.isVariableStatement(node) && node.declarationList.declarations.some((item) => ["seeds", "extraBuildings", "allDonations", "cities", "savedCustomizations"].includes(item.name.getText(hookAst))));
 const derivedScript = ts.transpileModule(derived.map((node) => node.getText(hookAst)).join("\n") + "\nObject.assign(globalThis, { allDonations, cities, savedCustomizations });", { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-const hookGlobals = { EMPTY_DONATIONS: [], EMPTY_CITIES: [], EMPTY_LOCAL_BUILDINGS: [], createSeedBuildings: local.createSeedBuildings, createSeedCustomizations: local.createSeedCustomizations, useMemo: (calculate) => calculate() };
+const hookGlobals = { IS_PRELAUNCH: false, EMPTY_DONATIONS: [], EMPTY_CITIES: [], EMPTY_LOCAL_BUILDINGS: [], createSeedBuildings: local.createSeedBuildings, createSeedCustomizations: local.createSeedCustomizations, useMemo: (calculate) => calculate() };
 const publicDataset = { donations: [{ id: 42, value: 50 }], cities: [], ongs: [], customizations: new Map([[42, { color: "#000000" }]]) };
 const emptyContext = { ...hookGlobals, userId: undefined, dataset: { ...publicDataset, donations: [], customizations: new Map() }, localBuildings: [], localCustomizations: {} };
 vm.runInNewContext(derivedScript, emptyContext);
@@ -141,7 +141,28 @@ for (const userId of [1, 2, undefined]) {
 assert.equal(publicDataset.donations.length, 1);
 assert.equal(publicDataset.customizations.has(-1), false);
 
-// Executa o pool real do editor: fachadas bloqueadas não voltam pelo catálogo.
+// Pré-lançamento: banco vazio em produção e 105 registros locais geram a mesma cidade.
+const localDataset = { ...publicDataset,
+  donations: Array.from({ length: 105 }, (_, i) => ({ id: 100 + i, value: 1000 + i, cityId: city.id, ongId: 1, ongIds: [1] })),
+  ongs: Array.from({ length: 150 }, (_, i) => ({ id: i + 1 })),
+};
+for (const dataset of [emptyContext.dataset, localDataset]) {
+  const context = { ...hookGlobals, IS_PRELAUNCH: true, userId: undefined, dataset, localBuildings: [], localCustomizations: {} };
+  vm.runInNewContext(derivedScript, context);
+  assert.equal(context.allDonations.length, 480, "Mesma quantidade inicial nos dois ambientes");
+  assert.deepEqual(Array.from(context.allDonations, ({ id, value, cityId }) => [id, value, cityId]),
+    Array.from(emptyContext.allDonations, ({ id, value, cityId }) => [id, value, cityId]), "Mesmos IDs, valores e cidades");
+  assert.deepEqual(context.savedCustomizations, emptyContext.savedCustomizations, "Mesmos formatos e aparência");
+}
+const simulatedContext = { ...hookGlobals, IS_PRELAUNCH: true, userId: 1, dataset: localDataset,
+  localBuildings: local.readLocalBuildings(1), localCustomizations: local.readLocalValue(1, "customizations", {}) };
+vm.runInNewContext(derivedScript, simulatedContext);
+assert.equal(simulatedContext.allDonations.length, 483, "Simulações da conta somam à cidade inicial");
+assert.equal(simulatedContext.savedCustomizations.has(-1), true, "Personalização local preservada");
+assert.equal(simulatedContext.savedCustomizations.has(42), false, "Personalização do banco não vaza para a cidade inicial");
+assert.equal(localDataset.donations.length, 105, "Dados locais do backend preservados");
+
+// Executa o pool real do editor: catálogo não altera fachadas da cidade inicial.
 const editorSource = await readFile(new URL("../src/components/CitySceneEditor.tsx", import.meta.url), "utf8");
 const ast = ts.createSourceFile("editor.tsx", editorSource, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TSX);
 const editor = ast.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "CitySceneEditor");
@@ -156,8 +177,8 @@ for (const seeded of [true, false]) {
     customizationCatalog: { textures: [...catalogValues, null].map((value) => ({ value })) },
     SEED_FACADE_TEXTURES: local.SEED_FACADE_TEXTURES, useMemo: (calculate) => calculate() };
   vm.runInNewContext(poolScript, context);
-  assert.deepEqual(Array.from(context.pool), seeded ? [allowedFacade, ...local.SEED_FACADE_TEXTURES] : catalogValues,
-    "Exclusão só na cidade inicial; catálogo preservado nas cidades públicas");
+  assert.deepEqual(Array.from(context.pool), seeded ? Array.from(local.SEED_FACADE_TEXTURES) : catalogValues,
+    "Cidade inicial usa pool fixo; catálogo preservado nas cidades públicas");
   assert.ok(excludedFacades.every((key) => !local.SEED_FACADE_TEXTURES.includes(key)), "Seeds sem fachadas bloqueadas");
   const disabledContext = { ...context, textureSettings: { randomPerBuilding: false } };
   vm.runInNewContext(poolScript, disabledContext);

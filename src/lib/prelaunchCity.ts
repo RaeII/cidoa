@@ -55,7 +55,7 @@ const SEED_CITIES: City[] = [
 // Enche a grade 3×3 de quadras que a cena sempre desenha (central 7×7 + 8 de 8×8).
 const SEED_COUNT = 480;
 
-/** Cidade pública vazia no pré-lançamento: edifícios fixos só no front. IDs bem abaixo dos locais (-1…-3). */
+/** Cidade inicial do pré-lançamento: edifícios fixos só no front. IDs bem abaixo dos locais (-1…-3). */
 export function createSeedBuildings(ongs: readonly { id: number }[]): LocalBuilding[] {
   return Array.from({ length: SEED_COUNT }, (_, index) => {
     // Cauda longa: poucas torres altas, muita base baixa. Índice = ordem de valor.
@@ -72,10 +72,10 @@ const SEED_SHAPES: BuildingShape[] = ["default", "setback", "chrysler", "residen
 // Base: 1 a cada 4 foge da caixa; repetição prioriza os novos residenciais, demais seguem instanciados.
 const SEED_BASE_SHAPES: BuildingShape[] = ["apartment", "gourmet", "loft", "residential",
   "apartment", "gourmet", "loft", "setback", "apartment", "gourmet", "loft", "octagonal"];
-// Cidade inicial também sorteia texturas do repo fora do catálogo (que hoje tem 1 ativa).
+// Pool fixo da cidade inicial: sorteio igual em local e produção, independente do catálogo.
 // Fachadas leves; Facade007, Facade014, Facade016 e Facade019A ficam fora da cidade inicial.
-export const SEED_FACADE_TEXTURES = ["Facade001_1K-PNG", "Facade002_1K-PNG", "Facade005_1K-JPG",
-  "Facade006_1K-mirrored-PNG", "Facade018A_1K-PNG"];
+export const SEED_FACADE_TEXTURES = ["Facade001_1K-PNG", "Facade005_1K-JPG", "Facade018A_1K-PNG",
+  "Facade020A_1K-JPG", "Facade006_1K-mirrored-PNG", "Facade002_1K-PNG"];
 // Topo estreito/pináculo: acessório de topo ficaria flutuando.
 const SEED_SPIRE_SHAPES = new Set<BuildingShape>(["tapered", "chrysler", "empire", "taipei", "one-trade"]);
 const SEED_TOWER_ROOFTOPS: RooftopType[] = ["helipad", "none", "helicopter", "none", "spotlights"];

@@ -19,6 +19,8 @@ Camada **só de dados**. Zero Three.js, zero React fora do hook. Busca doações
 
 Antes: prédios nasciam no front (`INITIAL_TEST_DONATIONS`, 10 valores hardcoded). Agora: vêm do backend, snapshot cacheado, escala 100k+. IDs do backend preservados.
 
+Pré-lançamento (`IS_PRELAUNCH`): cena usa sempre os 480 seeds do front, iguais em local e produção; doações e personalizações do banco não entram no cenário. Banco preservado, ONGs continuam no catálogo do ambiente. Simulações e edições locais da conta aplicadas sobre essa base. Fora do pré-lançamento, snapshot com doações segue como fonte; vazio usa seeds. Ver [[scene-hooks#Cidade inicial nos dois ambientes]].
+
 ## Arquivos
 
 | Arquivo | Papel |

@@ -41,9 +41,9 @@ Decisão do dono: loading = só página de loading. **Nenhuma imagem** baixa nem
 5. **Até `booted`** não montam: placa da marca (logo), `AuthMenu`, `ContributeDialog`, seta/engrenagem, [[#DonationInfoSection.tsx|DonationInfoSection]] (foto, avatares). Sem imagem, sem foco por Tab atrás do loading, sem diálogo de onboarding por cima. `CookieNotice` (texto, consentimento) segue visível.
 
 > [!note] Custo
-> Medição anterior, com 6 fachadas adicionais (~11 MB; headless, ~5 Mbps sem cache): última textura 11,24 s → loading sai 11,28 s; logo e foto começam a baixar no instante da saída. Pool atual: 5 fachadas adicionais, sem nova medição. Sem WebGL: hook marca `sceneReady`, loading sai normal.
+> Medição anterior, com 6 fachadas adicionais (~11 MB; headless, ~5 Mbps sem cache): última textura 11,24 s → loading sai 11,28 s; logo e foto começam a baixar no instante da saída. Pool inicial atual: 6 fachadas fixas, sem nova medição. Sem WebGL: hook marca `sceneReady`, loading sai normal.
 
-`CitySceneEditor` soma `SEED_FACADE_TEXTURES` ao catálogo só na cidade inicial; remove Facade007, Facade014, Facade016 e Facade019A do pool combinado. Bloqueio vale também para valores com prefixo `texture/`. Ver [[scene-textures#Sorteio por edifício]].
+`CitySceneEditor` usa só `SEED_FACADE_TEXTURES` na cidade inicial: mesmas 6 fachadas e mesmo sorteio em local e produção, sem depender do catálogo. Facade007, Facade014, Facade016 e Facade019A ficam fora. Ver [[scene-textures#Sorteio por edifício]].
 
 > [!warning] LCP
 > LCP mobile = parágrafo do [[#CookieNotice.tsx|CookieNotice]] ou texto do card de loading (os dois no HTML/`index.js`). Logo: `index.js` enxuto, nada pesado antes do paint, preload só da Manrope latin.
