@@ -467,7 +467,7 @@ Aba **Tela** tem duas seções inline (não componentizadas):
 | Componentes da tela | Checkboxes de `uiVisibility`, persistidos em localStorage |
 | Granulado | `RangeField` 0–1 (passo 0.05) do granulado de renderização. **Padrão `0`** = resolução nativa travada, rótulo "desligado". Acima disso o runtime troca nitidez por FPS sob carga — ver `setGrain` em [[scene-runtime]] |
 
-`CitySceneEditor` só encaminha `onCameraDebugChange` ao canvas quando `cameraLog` está visível. Com o log desligado, as amostras de câmera a cada 200ms não atualizam estado React. Estatísticas iguais também são ignoradas pelo runtime.
+`CitySceneEditor` só encaminha `onCameraDebugChange` ao canvas quando `cameraLog` está visível. Com o log desligado, as amostras de câmera a cada 200ms não atualizam estado React. Estatísticas iguais também são ignoradas pelo runtime. Para visitantes e usuários sem privilégio admin, `handleStatsChange` só troca o estado quando muda `sceneReady`: FPS/culling não redesenham toda a interface durante a órbita. `sceneReadyRef` continua síncrono para liberar o loading corretamente; administradores continuam recebendo todas as métricas. `node scripts/check-scene-stats.mjs` cobre os dois perfis e a retomada após carregar assets.
 
 Props extras da aba **Geral** (`blockLayoutSettings: BlockLayoutSettings` + `onBlockLayoutSettingsChange`):
 - seção **Quadras**: `ColorField` edita `lotColor` (cor dos lotes vazios).

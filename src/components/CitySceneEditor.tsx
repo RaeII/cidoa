@@ -79,10 +79,6 @@ export function CitySceneEditor() {
   // sceneReady síncrono: o runtime avisa "baixando" dentro do effect do canvas (pool novo do
   // catálogo), antes do effect que libera o loading — o state ainda estaria com o valor velho.
   const sceneReadyRef = useRef(false);
-  const handleStatsChange = useCallback((stats: SceneStats) => {
-    sceneReadyRef.current = stats.sceneReady;
-    setSceneStats(stats);
-  }, []);
   const [cameraDebugInfo, setCameraDebugInfo] = useState<CameraDebugInfo | null>(null);
   const [hoverInfo, setHoverInfo] = useState<{ value: number; x: number; y: number } | null>(null);
   const [showControlPanel, setShowControlPanel] = useState(false);
@@ -123,6 +119,11 @@ export function CitySceneEditor() {
   const [customizationRevision, setCustomizationRevision] = useState(0);
   const { catalog: customizationCatalog, rewards } = useCustomizationCatalog(customizationRevision);
   const { user, isAdmin } = useAuth();
+  const handleStatsChange = useCallback((stats: SceneStats) => {
+    sceneReadyRef.current = stats.sceneReady;
+    // A interface pública só lê sceneReady; métricas por frame são do painel admin.
+    setSceneStats((previous) => !isAdmin && previous.sceneReady === stats.sceneReady ? previous : stats);
+  }, [isAdmin]);
   const { ids: ownedDonationIds } = useOwnedDonationIds();
 
   // Admin edita a cópia local do cenário público; contas comuns, suas simulações.
