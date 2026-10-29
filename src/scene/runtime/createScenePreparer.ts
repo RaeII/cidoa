@@ -2,6 +2,31 @@ import * as THREE from "three";
 
 type RenderObject = THREE.Mesh | THREE.Points | THREE.Line | THREE.Sprite;
 
+const optimizedLighting = new WeakSet<THREE.Material["onBeforeCompile"]>();
+const directLightCall = "RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );";
+const focusedLightingChunk = THREE.ShaderChunk.lights_fragment_begin.replace(
+  directLightCall,
+  `if ( directLight.visible ) { ${directLightCall} }`,
+);
+
+// A atenuação já decidiu que a luz não contribui; evita pagar o BRDF de cor zero.
+function preparePointLighting(material: THREE.Material) {
+  if (!(material as THREE.MeshStandardMaterial).isMeshStandardMaterial || optimizedLighting.has(material.onBeforeCompile)) return;
+  const original = material.onBeforeCompile;
+  const cacheKey = material.customProgramCacheKey;
+  const compile: THREE.Material["onBeforeCompile"] = function (this: THREE.Material, shader, renderer) {
+    original.call(this, shader, renderer);
+    shader.fragmentShader = shader.fragmentShader.replace("#include <lights_fragment_begin>", focusedLightingChunk);
+  };
+  material.onBeforeCompile = compile;
+  material.customProgramCacheKey = function () {
+    const previous = cacheKey === THREE.Material.prototype.customProgramCacheKey
+      ? original.toString() : cacheKey.call(this);
+    return `${previous}:skip-inactive-point-lights`;
+  };
+  optimizedLighting.add(compile);
+}
+
 /** Prepara somente variantes alteradas; recursos compartilhados entram uma vez por passe. */
 export function createScenePreparer(renderer: THREE.WebGLRenderer, scene: THREE.Scene) {
   const prepared = new WeakMap<THREE.Object3D, string>();
@@ -27,6 +52,7 @@ export function createScenePreparer(renderer: THREE.WebGLRenderer, scene: THREE.
       cubeTarget: THREE.WebGLRenderTarget | null,
       cubeCamera: THREE.Camera,
       isDisposed: () => boolean,
+      focusTarget: THREE.WebGLRenderTarget | null = null,
     ) {
       const lights: string[] = [];
       const lightObjects: THREE.Object3D[] = [];
@@ -40,7 +66,7 @@ export function createScenePreparer(renderer: THREE.WebGLRenderer, scene: THREE.
       const lightingScene = Object.create(scene) as THREE.Scene;
       lightingScene.traverseVisible = (callback) => lightObjects.forEach(callback);
       const environment = [scene.environment?.uuid, scene.environment?.mapping,
-        scene.fog?.constructor.name, cubeTarget?.texture.uuid, ...lights].join("|");
+        scene.fog?.constructor.name, cubeTarget?.texture.uuid, focusTarget?.texture.uuid, ...lights].join("|");
       const objects: RenderObject[] = [];
       scene.traverse((object) => {
         const candidate = object as RenderObject;
@@ -72,9 +98,11 @@ export function createScenePreparer(renderer: THREE.WebGLRenderer, scene: THREE.
       for (const object of objects) {
         if (isDisposed()) return;
         if (!object.parent) continue;
+        for (const material of materialsOf(object)) preparePointLighting(material);
         const key = signature(object, environment);
         if (prepared.get(object) !== key && !seen.has(key)) {
           if (cubeTarget) compile(object, cubeTarget, cubeCamera);
+          if (focusTarget) compile(object, focusTarget, camera);
           compile(object, null, camera);
         }
         seen.add(key);

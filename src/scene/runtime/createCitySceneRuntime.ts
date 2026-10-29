@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { createScenePreparer } from "./createScenePreparer";
+import { createFocusRenderer } from "./createFocusRenderer";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { createGroundPlane } from "../builders/createGroundPlane";
 import { createLightingRig } from "../builders/createLightingRig";
@@ -329,6 +330,7 @@ export async function createCitySceneRuntime({
       minFilter: THREE.LinearFilter,
     });
     const cubeCamera = new THREE.CubeCamera(0.1, CITY_SCENE_CONFIG.reflectionFar, target);
+    for (const face of cubeCamera.children) { face.layers.enable(1); face.layers.enable(2); }
     scene.add(cubeCamera);
     return { target, cubeCamera };
   };
@@ -337,12 +339,15 @@ export async function createCitySceneRuntime({
     reflectionSettings.resolution,
   );
 
+  const focusRenderer = createFocusRenderer(renderer, scene, camera);
+  if (focusRenderer.supported) { camera.layers.enable(1); camera.layers.enable(2); }
   const donationManager = createDonationManager({
     scene,
     renderer,
     buildingSettings,
     textureSettings,
     blockLayoutSettings,
+    compositeFocus: focusRenderer.supported,
   });
   await yieldToMain();
   // Modo leve não captura cube (6 renders da cidade + PMREM por captura): fachada usa o
@@ -425,15 +430,24 @@ export async function createCitySceneRuntime({
   if (handleMouseLeave) renderer.domElement.addEventListener("mouseleave", handleMouseLeave);
 
   // Clique: detectar edifício clicado (só dispara se não houve drag)
-  let pointerDownPos: { x: number; y: number } | null = null;
+  let pointerDownPos: { id: number; x: number; y: number } | null = null;
+  const cancelClick = () => { pointerDownPos = null; };
   const handlePointerDown = (event: PointerEvent) => {
-    pointerDownPos = { x: event.clientX, y: event.clientY };
+    pointerDownPos = event.isPrimary === false ? null : { id: event.pointerId, x: event.clientX, y: event.clientY };
+  };
+  const handlePointerMove = (event: PointerEvent) => {
+    if (!pointerDownPos || event.pointerId !== pointerDownPos.id) return;
+    const dx = event.clientX - pointerDownPos.x;
+    const dy = event.clientY - pointerDownPos.y;
+    if (dx * dx + dy * dy > 25) cancelClick();
   };
   const handlePointerUp = onBuildingClick
     ? (event: PointerEvent) => {
-        if (!pointerDownPos) return;
-        const dx = event.clientX - pointerDownPos.x;
-        const dy = event.clientY - pointerDownPos.y;
+        const down = pointerDownPos;
+        cancelClick();
+        if (!down || event.pointerId !== down.id) return;
+        const dx = event.clientX - down.x;
+        const dy = event.clientY - down.y;
         // Ignorar se moveu mais de 5px (drag da câmera)
         if (dx * dx + dy * dy > 25) return;
         const donationId = donationManager.getClickedDonationId(
@@ -446,6 +460,8 @@ export async function createCitySceneRuntime({
     : null;
   if (onBuildingClick) {
     renderer.domElement.addEventListener("pointerdown", handlePointerDown);
+    renderer.domElement.addEventListener("pointermove", handlePointerMove);
+    renderer.domElement.addEventListener("pointercancel", cancelClick);
   }
   if (handlePointerUp) renderer.domElement.addEventListener("pointerup", handlePointerUp);
 
@@ -462,6 +478,9 @@ export async function createCitySceneRuntime({
   // Salvar posição da câmera antes do foco para restaurar
   let savedCameraPos: THREE.Vector3 | null = null;
   let savedCameraTarget: THREE.Vector3 | null = null;
+  // Um gesto do usuário assume a câmera; a interpolação não pode puxá-la de volta.
+  const cancelCameraAnimation = () => { cameraAnim = null; };
+  controls.addEventListener("start", cancelCameraAnimation);
 
   let animationId = 0;
   let lastTime = performance.now();
@@ -491,7 +510,7 @@ export async function createCitySceneRuntime({
     compiling = true;
     try {
       await scenePreparer.prepare(camera, cubeActive() ? buildingCubeTarget : null,
-        buildingCubeCamera.children[0] as THREE.Camera, () => isDisposed);
+        buildingCubeCamera.children[0] as THREE.Camera, () => isDisposed, focusRenderer.target);
     } finally {
       compiling = false;
       renderNeeded = true;
@@ -573,7 +592,7 @@ export async function createCitySceneRuntime({
     controls.update();
 
     // Interpolar câmera durante animação de foco
-    if (cameraAnim) {
+    if (cameraAnim && !compileRequested && !compiling && pendingCustomizations.size === 0 && !shapesPending) {
       renderNeeded = true;
       cullPending = true;
       cameraAnim.progress = Math.min(1, cameraAnim.progress + delta / cameraAnim.duration);
@@ -749,7 +768,7 @@ export async function createCitySceneRuntime({
     // Holograma visível anima: loop continua.
     if (donationManager.tickAnimations(time / 1000, elapsed * 1000)) renderNeeded = true;
 
-    renderer.render(scene, camera);
+    focusRenderer.render(donationManager.hasFocusedDonation());
     if (sampledFps !== null) {
       emitStatsPatch({ performance: {
         fps: sampledFps,
@@ -952,7 +971,8 @@ export async function createCitySceneRuntime({
         savedCameraTarget = controls.target.clone();
       }
 
-      // Aplicar transparência nos outros prédios (transparent troca a variante do programa).
+      focusRenderer.prepare();
+      // A composição mantém os materiais originais; fallback aplica transparência individual.
       donationManager.setFocusedDonation(donationId);
       requestCompile();
 
@@ -998,9 +1018,12 @@ export async function createCitySceneRuntime({
       if (handleMouseMove) renderer.domElement.removeEventListener("mousemove", handleMouseMove);
       if (handleMouseLeave) renderer.domElement.removeEventListener("mouseleave", handleMouseLeave);
       if (onBuildingClick) renderer.domElement.removeEventListener("pointerdown", handlePointerDown);
+      if (onBuildingClick) renderer.domElement.removeEventListener("pointermove", handlePointerMove);
+      if (onBuildingClick) renderer.domElement.removeEventListener("pointercancel", cancelClick);
       if (handlePointerUp) renderer.domElement.removeEventListener("pointerup", handlePointerUp);
       if (hoverRafId !== null) cancelAnimationFrame(hoverRafId);
       cancelAnimationFrame(animationId);
+      controls.removeEventListener("start", cancelCameraAnimation);
       clearTimeout(customizationTimer);
       window.removeEventListener("resize", handleResize);
       intersection.disconnect();
@@ -1014,6 +1037,7 @@ export async function createCitySceneRuntime({
       controls.removeEventListener("change", handleControlsChange);
       controls.dispose();
       donationManager.dispose();
+      focusRenderer.dispose();
       groundPlane.dispose();
       terrainRig.dispose();
       lightingRig.dispose();

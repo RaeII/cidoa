@@ -91,7 +91,7 @@ const geometryBatches = new WeakMap<THREE.BufferGeometry, {
   batched: THREE.BufferGeometry;
 }>();
 
-/** Transparência do foco mantém a ordem original dos grupos para preservar o blending. */
+/** Alterna os índices em cache; o manager escolhe o agrupamento conforme o estado de foco. */
 export function setBuildingShapeMeshBatching(mesh: THREE.Mesh, enabled: boolean): void {
   const pair = geometryBatches.get(mesh.geometry);
   if (pair) mesh.geometry = enabled ? pair.batched : pair.original;

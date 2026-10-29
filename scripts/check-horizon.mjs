@@ -9,21 +9,41 @@ import { build } from "esbuild";
 const threeUrl = import.meta.resolve("three");
 const mocks = {
   three: `
+    import { Color, HalfFloatType } from ${JSON.stringify(threeUrl)};
     export * from ${JSON.stringify(threeUrl)};
     export class WebGLRenderer {
       constructor(options) { globalThis.horizonCheck.rendererOptions = options; }
-      capabilities = { getMaxAnisotropy: () => 4 };
-      domElement = {};
+      capabilities = { getMaxAnisotropy: () => 4, maxSamples: 4 };
+      extensions = { has: () => !!globalThis.horizonCheck.supportHDR };
+      target = null;
+      clearColor = new Color();
+      clearAlpha = 0;
+      autoClear = true;
+      domElement = {
+        addEventListener(name, callback) { globalThis.horizonCheck.pointerListeners.set(name, callback); },
+        removeEventListener(name) { globalThis.horizonCheck.pointerListeners.delete(name); },
+        getBoundingClientRect() { return { left: 0, top: 0, width: 1920, height: 1080 }; },
+      };
       debug = {};
       info = { autoReset: true, render: { calls: 0, triangles: 0 }, memory: { geometries: 0, textures: 0 }, programs: [], reset() { this.render.calls = 0; } };
-      getContext() { return { RENDERER: 0, getExtension: () => null, getParameter: () => "headless" }; }
-      getRenderTarget() { return null; }
-      setRenderTarget() {}
-      compileAsync() { return Promise.resolve(); }
+      getContext() { return { RENDERER: 0, getExtension: () => null, getParameter: () => "headless", getContextAttributes: () => ({ antialias: false }) }; }
+      getRenderTarget() { return this.target; }
+      setRenderTarget(target) { this.target = target; }
+      getDrawingBufferSize(value) { return value.set(589, 1102); }
+      getClearAlpha() { return this.clearAlpha; }
+      getClearColor(value) { return value.copy(this.clearColor); }
+      setClearColor(value, alpha) { this.clearColor.set(value); this.clearAlpha = alpha; }
+      clearDepth() {}
+      compileAsync() { return globalThis.horizonCheck.compileGate ?? Promise.resolve(); }
       initTexture() {}
       setPixelRatio(value) { globalThis.horizonCheck.pixelRatio = value; }
       setSize() {}
-      render(scene, camera) { this.info.render.calls++; globalThis.horizonCheck.renders++; globalThis.horizonCheck.frame = { scene, camera }; }
+      render(scene, camera) {
+        this.info.render.calls++; globalThis.horizonCheck.renders++;
+        globalThis.horizonCheck.frame = { scene, camera };
+        globalThis.horizonCheck.passMasks?.push(camera.layers.mask);
+        if (this.target?.texture.type === HalfFloatType) globalThis.horizonCheck.contextTarget = this.target;
+      }
       dispose() {}
     }
   `,
@@ -84,7 +104,7 @@ const bundle = await build({
 });
 globalThis.window = { devicePixelRatio: 2.75, matchMedia: () => ({ matches: true }), addEventListener() {}, removeEventListener() {} };
 const api = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].contents).toString("base64")}`);
-globalThis.horizonCheck = { renders: 0 };
+globalThis.horizonCheck = { renders: 0, pointerListeners: new Map() };
 const documentListeners = new Map();
 globalThis.document = { hidden: false,
   addEventListener: (name, callback) => documentListeners.set(name, callback),
@@ -104,6 +124,7 @@ globalThis.requestAnimationFrame = (callback) => {
 };
 globalThis.cancelAnimationFrame = () => {};
 let stats;
+const clicks = [];
 const settings = Object.fromEntries(
   ["Building", "Texture", "Ground", "Terrain", "Light", "Horizon", "Environment", "Reflection", "BlockLayout"]
     .map((name) => [`${name[0].toLowerCase()}${name.slice(1)}Settings`, api[`createDefault${name}Settings`]()]),
@@ -113,6 +134,7 @@ const runtime = await api.createCitySceneRuntime({
   ...settings,
   mount: { clientWidth: 1920, clientHeight: 1080, appendChild() {}, contains: () => false },
   onStatsChange: (value) => { stats = value; },
+  onBuildingClick: (id) => clicks.push(id),
 });
 assert.equal(globalThis.horizonCheck.rendererOptions.antialias, false, "Teste deve executar o modo mobile");
 assert.equal(globalThis.horizonCheck.pixelRatio, 1.5, "DPR mobile foi alterado");
@@ -317,6 +339,51 @@ for (let yaw = 0; yaw < Math.PI * 2; yaw += 0.03) {
   worstError = Math.max(worstError, Math.abs(roundedPlane.distanceToPoint(center)));
 }
 assert(worstError < 0.001, `Plano invade a folga até o terreno: erro ${worstError}`);
+// Foco: a câmera só interpola frames desenháveis, inclusive após compilação demorada.
+await advance();
+const beforeFocus = camera.position.clone();
+let releaseCompile;
+globalThis.horizonCheck.compileGate = new Promise((resolve) => { releaseCompile = resolve; });
+runtime.focusOnDonation(1);
+const beforeCompileRenders = globalThis.horizonCheck.renders;
+for (let i = 0; i < 30; i++) {
+  globalThis.horizonCheck.nextFrame(time += 50);
+  await delay(0);
+}
+assert(camera.position.equals(beforeFocus), "Foco avançou a câmera enquanto shaders bloqueavam o desenho");
+assert.equal(globalThis.horizonCheck.renders, beforeCompileRenders);
+delete globalThis.horizonCheck.compileGate;
+releaseCompile();
+await delay(10);
+globalThis.horizonCheck.nextFrame(time += 16.67);
+const firstFocusFrame = camera.position.clone();
+assert(!firstFocusFrame.equals(beforeFocus), "Câmera não retomou animação após compilar");
+await advance();
+assert(!camera.position.equals(firstFocusFrame), "Primeiro frame de foco já teletransportou ao destino");
+for (let i = 0; i < 20; i++) globalThis.horizonCheck.nextFrame(time += 50);
+runtime.focusOnDonation(2);
+await advance();
+globalThis.horizonCheck.controls.dispatchEvent({ type: "start" });
+const interrupted = camera.position.clone();
+await advance();
+assert(camera.position.equals(interrupted), "Animação de foco disputou a câmera com o gesto do usuário");
+runtime.clearFocus();
+await advance();
+for (let i = 0; i < 20; i++) globalThis.horizonCheck.nextFrame(time += 50);
+assert(camera.position.distanceTo(beforeFocus) < 1e-8, "Fechar detalhes não restaurou a câmera");
+
+// Arrastar e voltar ao início, pinçar e pointercancel não podem selecionar edifícios.
+const pointer = (name, id, x = 100, isPrimary = true) =>
+  globalThis.horizonCheck.pointerListeners.get(name)({ pointerId: id, clientX: x, clientY: 100, isPrimary });
+pointer("pointerdown", 1); pointer("pointermove", 1, 120); pointer("pointermove", 1); pointer("pointerup", 1);
+pointer("pointerdown", 1); pointer("pointerdown", 2, 140, false); pointer("pointerup", 2, 140, false); pointer("pointerup", 1);
+pointer("pointerdown", 1); pointer("pointercancel", 1); pointer("pointerup", 1);
+assert.equal(clicks.length, 0, "Gesto de câmera disparou clique");
+pointer("pointerdown", 1); pointer("pointerup", 1);
+assert.equal(clicks.length, 1, "Clique simples deixou de funcionar");
+pointer("pointerup", 1);
+assert.equal(clicks.length, 1, "Pointerup repetido reutilizou clique anterior");
+
 // Ocioso não desenha; movimento acompanha cada rAF mobile, inclusive telas de 90/120 Hz.
 await advance();
 const beforeIdle = globalThis.horizonCheck.renders;
@@ -373,7 +440,36 @@ resources.forEach((resource) => resource.addEventListener("dispose", () => { dis
 runtime.dispose();
 assert.equal(disposed, resources.length);
 assert.equal(documentListeners.size, 0);
+assert.equal(globalThis.horizonCheck.pointerListeners.size, 0);
 assert(globalThis.horizonCheck.disconnected);
+
+// Integração do caminho HDR com runtime, manager e compositor reais; só WebGL é simulado.
+globalThis.horizonCheck.supportHDR = true;
+autoFrames = true;
+const compositeRuntime = await api.createCitySceneRuntime({
+  ...settings,
+  mount: { clientWidth: 393, clientHeight: 735, appendChild() {}, contains: () => false },
+  onStatsChange: (value) => { stats = value; },
+});
+autoFrames = false; await delay(0); await advance();
+compositeRuntime.setDonations([{ id: 11, value: 100 }, { id: 12, value: 50 }]);
+await advance();
+globalThis.horizonCheck.passMasks = [];
+compositeRuntime.focusOnDonation(11);
+await advance();
+assert.deepEqual(globalThis.horizonCheck.passMasks.slice(0, 4), [2, 1, 1, 4], "Runtime não separou os passes de foco");
+assert.equal(globalThis.horizonCheck.frame.camera.layers.mask, 7, "Compositor vazou máscara da câmera");
+assert.equal(globalThis.horizonCheck.contextTarget.texture.type, THREE.HalfFloatType);
+assert.equal(globalThis.horizonCheck.contextTarget.width, 589);
+assert.equal(globalThis.horizonCheck.contextTarget.height, 1102);
+globalThis.horizonCheck.passMasks = [];
+compositeRuntime.clearFocus(); await advance();
+assert(globalThis.horizonCheck.passMasks.length > 0);
+assert(globalThis.horizonCheck.passMasks.every((mask) => mask === 7), "Fechar foco não retomou render normal");
+compositeRuntime.dispose();
+assert.equal(documentListeners.size, 0);
+assert.equal(globalThis.horizonCheck.pointerListeners.size, 0);
 console.log(`Raios verificados: ${checkedRays}`);
 console.log("Horizonte OK: modos reto/circular/quadrado, sem fundo cinza adicional, precisão Float32, montanhas, culling, reflexos e dispose.");
 console.log("Mobile OK: rAF a 30/60/90/120 Hz, inércia por tempo real, DPR, repouso, FPS real e suspensão/retomada.");
+console.log("Foco HDR OK: integração runtime/manager/compositor, tamanho, camadas e retorno ao render normal.");

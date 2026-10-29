@@ -306,7 +306,8 @@ getClickedDonationId(event, camera, domElement): number | null  // picking cliqu
 getDonationWorldPosition(donationId: number): THREE.Vector3 | null  // posição do topo do edifício
 
 // Foco e personalização
-setFocusedDonation(donationId: number | null): void  // destaque visual (semitransparência + mesh isolado)
+setFocusedDonation(donationId: number | null): void  // contexto e destaque visual
+hasFocusedDonation(): boolean                      // informa o passe de composição
 updateDonationCustomization(donationId: number, customization: BuildingCustomization): void
 setRebuildDeferred(deferred: boolean): void  // true: transição de formato só marca rebuild; false: um rebuild pendente, sem criar malha de formato
 pumpCustomShapes(budgetMs: number): boolean  // cria malhas de formato pendentes até o prazo; true = ainda falta
@@ -348,14 +349,14 @@ Os mesmos arrays alimentam o loop de `updateDistanceCulling`. Quando a visibilid
 
 #### Foco em Edifício (Destaque Visual)
 
-Quando o usuário clica em um edifício, `setFocusedDonation(donationId)` cria um destaque visual:
+`compositeFocus` é ativado pelo runtime quando há HDR e antialiasing compatíveis. `hasFocusedDonation()` informa se o renderizador deve separar contexto e selecionado.
 
-1. **Instanced mesh** fica semitransparente (`opacity: 0.15`) — toda a cidade some sutilmente
-2. **Mesh isolado** (`focusHighlightMesh`) é criado com os materiais de foco (`focusFacadeMaterial` / `focusTopMaterial`) na posição exata do edifício, com opacidade total
-3. Se o edifício tem **cor customizada**, os materiais de foco recebem essa cor
-4. O `instanceColor` do instanced mesh é limpo durante o foco para usar a opacidade uniforme — e a cor base dos materiais volta pra `currentBuildingColor` (ver aviso em [[scene-managers#Cores Individuais por Edifício]])
+1. Instâncias e materiais mantêm suas cores, mapas, PBR, opacidades e profundidade autorais. A instância do selecionado sai do buffer compacto para evitar duplicação com `focusHighlightMesh`; formatos próprios usam seu Mesh existente.
+2. `applyFocusLayers` separa edifícios/acessórios em camada 1 (contexto) e 2 (selecionado). A composição em [[scene-runtime#createFocusRenderer.ts]] aplica 15% ao contexto inteiro, evitando tornar centenas de superfícies opacas em transparentes. Coberturas, jardins/piscinas, letreiros, LEDs, hologramas e platibandas acompanham o edifício. O destaque padrão preserva a cor de cimento da laje.
+3. O contexto mantém agrupamento e profundidade normais; o selecionado é desenhado depois da composição, com seus materiais e vidros. Raycaster e câmeras do probe incluem as camadas reservadas. Trocar/fechar foco restaura máscaras; edições de acessórios durante foco reaplicam as camadas.
+4. A contagem de luzes dos LEDs permanece fixa. Luzes de vizinhos recebem 15% da intensidade durante o foco para não manter seu clarão sobre o selecionado; o LED do selecionado mantém a intensidade original.
 
-Ao chamar `setFocusedDonation(null)`, a opacidade é restaurada a 1.0, o mesh isolado é removido e o `instanceColor` é reaplicado.
+Sem suporte a render target HDR, o fallback mantém transparência por material: contexto com `opacity` autoral × 0.15 e sem escrita de profundidade. Formatos esmaecidos continuam agrupados. Acessórios usam clones compartilhados por material, sem alterar o selecionado; clones ainda usados são reaproveitados ao trocar foco e os sem usuários são descartados. Hologramas usam `uOpacity`. Ao fechar, restaura opacidade, transparência, profundidade, referências e cores de instância; descarte libera somente clones, não texturas/geometrias compartilhadas. Repetir o mesmo ID não recria o estado.
 
 ---
 
@@ -374,6 +375,8 @@ Quando um edifício recebe uma customização via `updateDonationCustomization`,
 > Sem a base branca, cor sai ao quadrado: `#d4d4d4` (linear 0.33) × 0.33 = 0.11 → cidade toda escurecia no instante em que um único prédio recebia cor customizada.
 >
 > `topMaterial` fica **fora** dessa alternância: `applyTriplanarShader` remove o `#include <color_fragment>` de todo material cujo `cacheKey` contém `top`, então a laje ignora vColor/instanceColor e mantém `TOP_CEMENT_COLOR`. `instanceColor` vale pra geometria inteira — sem esse descarte, a laje seria pintada com a cor do edifício.
+
+Na composição HDR, o foco mantém as cores individuais; a remoção de `instanceColor` indicada na tabela acima vale somente para o fallback de transparência.
 
 Para edifícios com `buildingShape !== "default"`, a cor é aplicada diretamente nos materiais clonados (sem instanceColor) via `updateCustomShapeColor`.
 
@@ -438,10 +441,10 @@ Pontos de integração:
 - Os clones são incluídos em `getAllFacadeMaterials()` / `getAllTopMaterials()` para que `applyTextureToFacade`, `applyTextureToTop`, `updateBuildingSettings`, `setEnvMap` e `beginEnvCapture`/`endEnvCapture` propaguem mudanças globais para eles.
 - **Material autoral** (`userData.textureless`, Empire/Residencial): `applyFacadeMaterial`/`applyTextureToTop` pulam o material inteiro → mapas e intensidades do builder ficam intactos. `applyTextureToTop` também reaplica a textura da pedra dos residenciais (set do topo chega async; liga/desliga junto). `updateBuildingSettings` não sobrescreve roughness/metalness autorais.
 - Materiais com `userData.authoredEnvMapIntensity` (`getAuthoredEnvMaterials()`): `setEnvMap` troca o envMap deles também (probe recriado ou reflexo desligado não deixa vidro com cube descartado); `beginEnvCapture` zera; `endEnvCapture` restaura valor autoral **depois** do loop global.
-- `setMatOpacity` multiplica por `userData.baseOpacity` (default 1) → guarda-corpo continua translúcido após foco.
-- `setCustomShapeOpacity` alterna também `setBuildingShapeMeshBatching`: opaco usa grupos unidos por material; semitransparente mantém geometria/ordem original para preservar blending. Cache e atributos compartilhados, sem recriação no foco; ver [[scene-builders#Agrupamento por material (mobile)]].
+- Fallback: `setMatOpacity` guarda estado autoral em `WeakMap` (incluindo `userData.baseOpacity`), multiplica opacidade no foco e restaura `transparent`/`depthWrite` ao sair. Contexto esmaecido não escreve profundidade; composição HDR mantém os materiais originais.
+- No fallback, `setCustomShapeOpacity` mantém agrupamento por material no contexto esmaecido. O edifício selecionado preserva a política original do builder, incluindo vidros autorais. A ordem interna de blending do contexto passa a seguir os grupos agrupados; posições, triângulos, mapas e materiais são preservados. Ver [[scene-builders#Agrupamento por material (mobile)]].
 - `updateDonationCustomization`: acessórios (topo, letreiro, LED, holograma) vivem em `applyAccessories()` e rodam **também** na troca de formato. Antes o `return` da transição descartava acessórios na 1ª aplicação vinda do banco (formato + acessórios juntos) — todo formato custom perdia topo/letreiro/LED ao recarregar. Cor/textura seguem puladas na transição (nascem certas no rebuild).
-- `setFocusedDonation` dim os clones para `0.15` quando outro prédio está focado, mantém em `1.0` se o custom é o focado, e dispensa o `focusHighlightMesh` (o próprio Mesh já é separado).
+- Com composição, `setFocusedDonation` separa as camadas sem alterar materiais. No fallback, esmaece clones a `0.15` e mantém o selecionado em `1.0`. Formato próprio dispensa `focusHighlightMesh` porque seu Mesh já é separado.
 - `getHoveredValue` / `getClickedDonationId` (via `pickAt`) testam custom shapes com raycaster normal e leem `donationId`/`donationValue` de `userData`; instanciados vão pelo caminho AABB (ver [[scene-managers#Picking (hover/clique) por AABB de quadra|Picking]]).
 - O map `donationTransforms: Map<id, {position, scale}>` é a **fonte única** dos transforms lógicos: acessórios (rooftop/sign/edge) usam `readDonationTransform` que lê desse map, então funcionam igual para edifícios custom sem precisar saber se viraram Mesh separado.
 - `dispose()` limpa cada clone (`facadeMat.dispose()` + `topMat.dispose()`) e chama `disposeBuildingShapeSharedResources()` — libera de uma vez a geometria compartilhada de todos os formatos.
@@ -555,5 +558,5 @@ Mexa aqui quando o problema for **comportamental**:
 - `instanceHidden` preserva índices lógicos para seleção; só buffers renderizados são compactados. Matrizes/cores são comparadas antes de escrever; só grupos alterados recebem `needsUpdate` e intervalos limitados à parte utilizada. Bounds são invalidados quando necessário.
 - `beginEnvCapture` restaura toda a cidade e o chão; `endEnvCapture` devolve o conjunto compacto da câmera principal. Não aplica o frustum da câmera às luzes dos LEDs, para preservar iluminação dos vizinhos.
 - `donationById` mantém consultas de customização/foco/acessórios sem buscas lineares repetidas. Inserção, replace-all e dispose mantêm o índice sincronizado.
-- Opacidade só invalida material quando muda `transparent`; cor atualiza o valor. Mantém a ordem original dos grupos de geometria durante a transparência de foco.
-- Teste: `scripts/check-building-textures.mjs` compara culling com AABBs reais em quatro direções, restauração do probe, buffers estáveis e ciclo de criação/remoção do pool de LEDs.
+- Composição HDR não altera opacidades nem variantes de transparência. No fallback, opacidade só invalida material quando muda `transparent`; o contexto mantém batching e o selecionado conserva os materiais autorais.
+- Teste: `scripts/check-building-textures.mjs` cobre culling com AABBs reais em quatro direções, probe, buffers estáveis, pool de LEDs, batching no foco, acessórios compartilhados, jardins/piscinas, letreiros, hologramas, edição em foco, restauração e descarte dos clones.

@@ -191,6 +191,8 @@ Acabamento automático das coberturas planas. `createParapetGeometry(shape, vari
 - `dispose`: remove meshes, libera buffers, geometrias e materiais. Recursos pertencem à instância, sem cache global entre cenas.
 - [[scene-builders#createPreviewScene.ts|Preview do admin]] usa modelo simples nos formatos compatíveis, mesmo material fosco com cor 20% abaixo da laje de preview, e descarta geometria/material próprios.
 
+`createBuildingParapets(scene, compositeFocus)` mantém máscaras 1/2 e materiais originais na composição; no fallback aplica a opacidade e só invalida quando muda transparência.
+
 **Checagem:** `node scripts/check-building-shapes.mjs` cobre três modelos × seis contornos, centro vazado, escala, estabilidade por ID, batches, culling, foco e descarte. Sem servidor/navegador/WebGL.
 
 ### `createRooftopMesh.ts`
@@ -355,7 +357,7 @@ Registro único formato → builder. Ponto de entrada de **todo** consumidor de 
 - `SHAPE_BUILDERS`: `Record<Exclude<BuildingShape, "default">, builder>` — `Record` exaustivo, formato novo em [[scene-types#BuildingShape]] sem builder **não compila**
 - `createBuildingShapeMesh(shape, facadeMaterial, topMaterial, defaultGeometry)` — devolve o Mesh do formato; `default` usa a geometria caixa que o caller já tem em mãos
 - Formatos com grupos repetidos: `mergeGroups` do Three.js gera índice agrupado por material; cache compartilhado por geometria. Atributos (posição, normal, UV/projeção) reutilizados, sem duplicar buffers de vértices. Dispose original libera versão agrupada.
-- `setBuildingShapeMeshBatching(mesh, enabled)` — alterna geometria agrupada/original sem reconstruir buffers. [[scene-managers|Manager]] usa original nos prédios semitransparentes do foco: blending depende da ordem de desenho.
+- `setBuildingShapeMeshBatching(mesh, enabled)` — alterna geometria agrupada/original sem reconstruir buffers. [[scene-managers|Manager]] mantém agrupamento no contexto esmaecido do foco para evitar milhares de chamadas; o selecionado mantém a política autoral do builder.
 - `groupBoxGeometryByTop()` — reordena o índice do `BoxGeometry` e consolida as seis faces em dois grupos reais (laterais/base + topo), reduzindo seis draw calls para dois quando há dois materiais
 - `createUnitBuildingGeometry()` — caixa 1×1×1 já consolidada por `groupBoxGeometryByTop` (topo = material 1, resto = 0) + atributos `aProjPosition`/`aProjNormal` do shader triplanar. Instância nova por chamada, quem cria descarta
 - `BUILDING_SHAPES` / `isBuildingShape(key)` — lista e guard pra key vinda do catálogo do banco ([[customization-api]]), que pode ter opção sem builder no front
@@ -388,8 +390,8 @@ Análise de 22/10/2026: modelos detalhados geravam centenas/milhares de chamadas
 
 Caixa padrão e modelos residenciais já agrupados: intactos. Benefício na cena e nas prévias, mobile/desktop. Contagem por prédio e passe; não representa FPS medido nem redução percentual do quadro inteiro.
 
-> [!important] Foco preserva transparência
-> Prédio opaco usa índice agrupado. Prédios esmaecidos usam geometria original para manter ordem de blending; custo anterior permanece nesses prédios enquanto foco estiver ativo. Sair do foco reutiliza cache agrupado. Posições/normais/projeções compartilhadas entre as duas versões; só índice/grupos adicionais.
+> [!important] Foco mantém o contexto agrupado
+> Com HDR, contexto e selecionado mantêm materiais/grupos autorais em camadas distintas; a opacidade de 15% é aplicada ao conjunto no [[scene-runtime#createFocusRenderer.ts|renderizador de foco]]. Sem HDR, o fallback mantém contexto esmaecido agrupado e sem escrita de profundidade, em vez de devolver um Empire de 8 para 2.293 grupos. Nesse fallback, o blending interno passa a ser por material. O selecionado conserva materiais e vidros autorais; geometria, projeções e texturas não mudam. Ver [[scene-managers#Foco em Edifício (Destaque Visual)]].
 
 **Verificação:** `node scripts/check-building-draw-calls.mjs` compara builders originais com entrada compartilhada: mesmos índices por material (inclusive winding), atributos, limites e seleção por raio. Verifica cache, alternância independente por mesh e dispose. `node scripts/check-building-textures.mjs` cobre foco/troca/restauração/descarte no manager real. Sem servidor/navegador/GPU; FPS e composição visual ainda precisam de medição no aparelho.
 
