@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { RooftopType } from "../types";
 
 type RooftopFootprint = {
@@ -1317,11 +1318,48 @@ export function createRooftopMesh(
   return group;
 }
 
+/**
+ * Funde as peças opacas soltas do acessório por material: uma draw call por material em vez
+ * de uma por peça (jardim: 37 → 16 malhas). InstancedMesh fica como está; transparente
+ * também (fundido, perderia a ordenação por profundidade entre as peças). Só para a cidade —
+ * o preview e scripts/check-helicopter.mjs procuram peças por nome.
+ */
+export function mergeRooftopParts(group: THREE.Group): void {
+  group.updateMatrixWorld(true);
+  const toGroup = group.matrixWorld.clone().invert();
+  const parts = new Map<string, THREE.Mesh[]>();
+  group.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh || (mesh as THREE.InstancedMesh).isInstancedMesh || Array.isArray(mesh.material)
+      || mesh.material.transparent) return;
+    // mergeGeometries exige o mesmo conjunto de atributos e de índice.
+    const key = [mesh.material.uuid, mesh.renderOrder, Boolean(mesh.geometry.index),
+      ...Object.keys(mesh.geometry.attributes).sort()].join("|");
+    parts.set(key, [...(parts.get(key) ?? []), mesh]);
+  });
+  const merged: THREE.BufferGeometry[] = [];
+  for (const meshes of parts.values()) {
+    if (meshes.length < 2) continue;
+    const pieces = meshes.map((mesh) =>
+      mesh.geometry.clone().applyMatrix4(mesh.matrixWorld.clone().premultiply(toGroup)));
+    const geometry = mergeGeometries(pieces);
+    for (const piece of pieces) piece.dispose();
+    if (!geometry) continue;
+    for (const mesh of meshes) mesh.removeFromParent();
+    const mesh = new THREE.Mesh(geometry, meshes[0].material);
+    mesh.renderOrder = meshes[0].renderOrder;
+    group.add(mesh);
+    merged.push(geometry);
+  }
+  group.userData.mergedGeometries = merged;
+}
+
 /** Libera referências do grupo. Geometrias e materiais são compartilhados no módulo. */
 export function disposeRooftopMesh(group: THREE.Group): void {
   for (const child of group.children) {
     if (child instanceof THREE.InstancedMesh) child.dispose();
   }
+  for (const geometry of group.userData.mergedGeometries ?? []) geometry.dispose();
   group.clear();
 }
 

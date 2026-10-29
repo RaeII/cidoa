@@ -232,11 +232,13 @@ As geometrias de base, corpo, lente e feixe também são compartilhadas. `dispos
 **API:**
 ```typescript
 createRooftopMesh(type: RooftopType, footprint?: { width: number; depth: number }): THREE.Group | null  // null se "none"
-disposeRooftopMesh(group: THREE.Group): void               // limpa referências do grupo + buffers de instância
+mergeRooftopParts(group: THREE.Group): void                // funde peças opacas por material (só na cidade)
+disposeRooftopMesh(group: THREE.Group): void               // limpa referências do grupo + buffers de instância + geometrias fundidas
 disposeRooftopSharedResources(): void                       // limpa geometrias e materiais compartilhados
 ```
 
 > [!note] Otimizações de custo
+> **Fusão por material** (`mergeRooftopParts`, chamado no `setRooftop` do manager): peças soltas opacas do mesmo material, atributos e índice viram uma malha com a matriz relativa ao grupo assada — transformação do próprio grupo (escala/giro do helicóptero) fica no grupo. Malhas: jardim 37 → 16, helicóptero 23 → 7, holofotes 16 → 6, heliponto 9 → 6. Fora: `InstancedMesh`, multi-material e transparente (fundido perderia a ordenação entre peças). Preview e `check-helicopter.mjs` usam o grupo sem fusão (buscam peça por nome). `check-helicopter.mjs` confere caixa precisa e triângulos iguais após a fusão.
 > Helipad: deck/aro/anel com **32 segmentos** (era 96 — invisível nesse raio) e as 12 luzes de perímetro são **2 `InstancedMesh`** (base + lente), não 24 meshes. Água do jardim, casco e janelas do helicóptero usam `MeshStandardMaterial` — `MeshPhysicalMaterial` com `transmission > 0` disparava um render extra da cena inteira (transmission pass).
 
 ---

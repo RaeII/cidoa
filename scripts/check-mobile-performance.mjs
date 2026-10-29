@@ -9,7 +9,7 @@ async function bundleModules(paths, io = {}) {
     stdin: { contents: paths.map((path) => `export * from './${path}';`).join("\n"), resolveDir: process.cwd() },
     bundle: true, format: "esm", platform: "node", write: false,
     external: [threeUrl],
-    define: { "import.meta.env.BASE_URL": '"/"' },
+    define: { "import.meta.env.BASE_URL": '"/"', "import.meta.env.DEV": "true" },
     plugins: [{ name: "io", setup(builder) {
       builder.onResolve({ filter: /^three$/ }, () => ({ path: threeUrl, external: true }));
       builder.onResolve({ filter: /facadeTextureManifest$|loadImageTexture$/ }, ({ path }) => {
@@ -90,8 +90,11 @@ const lightingHook = material.onBeforeCompile;
 const lightingKey = material.customProgramCacheKey();
 const shader = { fragmentShader: "#include <lights_fragment_begin>" };
 lightingHook.call(material, shader, renderer);
-assert(shader.fragmentShader.includes("if ( directLight.visible ) { RE_Direct("), "BRDF continuou calculando luz de contribuição zero");
-assert.equal((shader.fragmentShader.match(/if \( directLight.visible \) \{ RE_Direct\(/g) ?? []).length, 1);
+const pointBlock = shader.fragmentShader.slice(
+  shader.fragmentShader.indexOf("#if ( NUM_POINT_LIGHTS > 0 )"), shader.fragmentShader.indexOf("#if ( NUM_SPOT_LIGHTS > 0 )"));
+assert(pointBlock.includes("if ( pointLights[ i ].color == vec3( 0.0 ) ) break;"), "Loop de point lights não para na 1ª apagada");
+assert(!pointBlock.includes("unroll_loop"), "Loop de point lights voltou a ser desenrolado");
+assert.equal((pointBlock.match(/if \( directLight.visible \) RE_Direct\(/g) ?? []).length, 1, "BRDF continuou calculando luz de contribuição zero");
 await prepare();
 assert.equal(compiled, 1); assert.equal(uploads, 1);
 assert.equal(material.onBeforeCompile, lightingHook, "Preparo empilhou hooks de shader");

@@ -156,6 +156,17 @@ export async function createCitySceneRuntime({
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.45;
   renderer.info.autoReset = false;
+  // Opacos de frente pra trás ANTES do material. O padrão do three ordena por material.id
+  // primeiro; com um clone de material por prédio custom a profundidade virava sorteio e a
+  // GPU pintava fachada PBR que depois era coberta. Mesmo objeto (empate em z) mantém a ordem
+  // por material de antes. Adreno 618, visão inicial: 106 → 92 ms/frame.
+  renderer.setOpaqueSort((a, b) =>
+    a.groupOrder - b.groupOrder ||
+    a.renderOrder - b.renderOrder ||
+    a.z - b.z ||
+    a.material.id - b.material.id ||
+    a.materialVariant - b.materialVariant ||
+    a.id - b.id);
 
   let renderScale = 1;
   // Piso da escala dinâmica. 1 = downscale desligado (sem granulado), o padrão.
