@@ -262,7 +262,7 @@ export function BuildingProfileDialog({
     <Dialog open={donationId !== null} onOpenChange={(open) => !open && onClose()}>
       {/* text-foreground: o body da cena pinta texto branco, que sumiria no tema claro. */}
       <DialogContent
-        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 pb-1.5 text-foreground sm:max-w-lg"
+        className="flex max-h-[calc(var(--viewport-height,100dvh)-2rem)] flex-col gap-0 overflow-hidden p-0 pb-1.5 text-foreground sm:max-w-lg"
         aria-describedby={undefined}
       >
         <DialogHeader className="shrink-0 px-5 pb-2 pt-6 sm:px-8 sm:pt-8">

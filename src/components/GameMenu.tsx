@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { formatBRL, formatUnlockRequirement } from "@/lib/unlock";
 import { CustomizationImage } from "@/components/customization/CustomizationImage";
 import { ProfilePanel } from "@/components/ProfilePanel";
+import { ReferralBar } from "@/components/referral/ReferralHud";
 import { ReferralPerson } from "@/components/referral/ReferralPerson";
 import { SharePanel } from "@/components/referral/ShareDialog";
 import { NightToggle } from "@/components/ThemeToggle";
@@ -117,7 +118,7 @@ export function GameMenu({
         <DialogOverlay className="duration-500" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
-          className="fixed top-1/2 left-1/2 z-50 flex h-[min(42rem,calc(100svh-2rem))] w-[calc(100%-2rem)] max-w-4xl -translate-x-1/2 -translate-y-1/2 flex-col gap-4 text-foreground outline-none duration-300 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+          className="fixed top-[calc(var(--viewport-top,0px)+var(--viewport-height,100svh)/2)] left-1/2 z-50 flex h-[min(42rem,calc(var(--viewport-height,100svh)-2rem))] w-[calc(100%-2rem)] max-w-4xl -translate-x-1/2 -translate-y-1/2 flex-col gap-4 text-foreground outline-none transition-none duration-300 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
         >
           <header className="flex items-center justify-end gap-4">
             <DialogTitle className="sr-only">Menu</DialogTitle>
@@ -244,6 +245,14 @@ export function GameMenu({
                 <div className="m-auto w-full max-w-md space-y-4 text-center">
                   {referralSummary && (
                     <>
+                      {referralSummary.referral_count > 0 && (
+                        <p className="text-muted-foreground">
+                          <span className="block text-3xl font-semibold tracking-[-0.02em] text-foreground">
+                            {referralSummary.referral_count.toLocaleString("pt-BR")}
+                          </span>
+                          {referralSummary.referral_count === 1 ? "pessoa indicada" : "pessoas indicadas"}
+                        </p>
+                      )}
                       {referralGoal != null && referralsLeft != null && referralsLeft > 0 && (
                         <div className="pixel pixel-thin bg-card px-5 py-4 text-left">
                           <p className="text-sm text-muted-foreground">
@@ -254,32 +263,18 @@ export function GameMenu({
                             {referralsLeft === 1 ? "indicação" : "indicações"} para escolher sua recompensa. Basta a pessoa se cadastrar
                           </p>
                           <div className="mt-3" aria-hidden="true">
-                            <BlockBar
-                              value={rewards.signupReferrals}
-                              max={referralGoal}
-                              blocks={Math.min(10, referralGoal)}
-                              label="Indicações"
-                              highlightNext={false}
-                            />
+                            <ReferralBar goal={referralGoal} left={referralsLeft} />
                           </div>
                         </div>
                       )}
-                      <div className="py-4">
+                      <div className="py-2">
                         <p className="mono-label text-muted-foreground">Seu código de indicação</p>
-                        <p className="mt-3 mb-6 font-mono text-xl font-semibold tracking-widest break-all sm:text-3xl">
+                        <p className="mt-2 mb-4 font-mono text-lg font-semibold tracking-widest break-all sm:text-2xl">
                           {referralSummary.code}
                         </p>
                         <SharePanel url={referralSummary.link} />
                       </div>
                       {rewards.choice && <Button variant="reward" onClick={() => onOpenChange(false)}>Escolher minha recompensa</Button>}
-                      {(referralsLeft === null || referralsLeft === 0) && (
-                        <p className="text-muted-foreground">
-                          <strong className="text-2xl font-semibold text-foreground">
-                            {referralSummary.referral_count.toLocaleString("pt-BR")}
-                          </strong>{" "}
-                          {referralSummary.referral_count === 1 ? "pessoa indicada" : "pessoas indicadas"}
-                        </p>
-                      )}
                     </>
                   )}
                   {referralSummary?.referrer && (

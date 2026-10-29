@@ -138,7 +138,7 @@ const ast = ts.createSourceFile("editor.tsx", editorSource, ts.ScriptTarget.ES20
 const editor = ast.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "CitySceneEditor");
 const shortcuts = editor.body.statements.find((node) => ts.isVariableStatement(node) && node.declarationList.declarations.some((item) => item.name.getText(ast) === "shortcuts"));
 for (const isAdmin of [false, true]) {
-  const context = { isAdmin, setShowControlPanel: () => {}, selectedBuildingId: null, infoBuildingId: null };
+  const context = { isAdmin, myBuildingsOpen: false, setShowControlPanel: () => {}, selectedBuildingId: null, infoBuildingId: null };
   vm.runInNewContext(ts.transpileModule(shortcuts.getText(ast) + "\nglobalThis.keys = shortcuts.map((item) => item.key);", { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context);
   assert.equal(context.keys.includes("m"), isAdmin, "Atalho de configurações exclusivo do admin");
 }

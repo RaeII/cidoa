@@ -68,7 +68,7 @@ function OngEditor({ ong, onClose, onSaved }: {
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open && !busy) onClose(); }}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto" showCloseButton={!busy}>
+      <DialogContent className="max-h-[calc(var(--viewport-height,100dvh)-2rem)] overflow-y-auto" showCloseButton={!busy}>
         <DialogHeader>
           <DialogTitle>{ong ? "Editar ONG" : "Adicionar ONG"}</DialogTitle>
           <DialogDescription>Nome e imagem aparecem no catálogo público das ONGs ativas.</DialogDescription>

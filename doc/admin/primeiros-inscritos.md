@@ -18,13 +18,16 @@ Etapas por meta de cadastros indicados. Indicado não precisa contribuir. Cada e
 
 Exemplo: etapa 2 → Loftifício ou Varanda Gourmet; etapa 5 → Yatchcasa ou Residencial. Usuário com 5 indicações escolhe duas vezes.
 
+> [!important] Meta = total de indicações
+> Meta compara com total histórico do usuário, nunca com indicações novas. Escolheu na meta 2, admin cria meta 3 → falta **1**. Usuário com indicações antigas alcança meta nova na hora. Campo **Total de indicações**; botão `Etapa N · X no total`; texto abaixo calcula exemplo com as duas menores metas do rascunho.
+
 Cards: estado salvo, usuários com escolha, posições restantes (ou "Sem limite"). Botões de etapa alternam grade de itens. Item grátis ou inativo desabilitado (só desmarca). Aviso de alteração pendente; erro mantém formulário.
 
 Card de confirmação permanece acima dos indicadores dos checkboxes durante a rolagem (`z-20` no card, `z-10` nos indicadores).
 
 ## Visualizar modais
 
-Seção **Exemplos de notificações**, acima da configuração. **Ver conquista desbloqueada** mostra animação com item, motivo e próxima meta. **Ver escolha por indicação** oferece Loftifício ou Varanda Gourmet após 2 cadastros; confirmar mostra conquista escolhida. Exemplos fixos, locais, sem salvar formulário ou criar indicações/recompensas. Mesmos componentes da cena; também disponíveis no [[passe-admin-ui#Exemplos de notificações|Passe]].
+Seção **Exemplos de notificações**, acima da configuração. **Ver conquista desbloqueada** mostra animação com item, motivo e próxima meta. **Ver escolha por indicação** usa metas do rascunho (`goals`): escolha na menor meta, "faltam" até a seguinte pelo total (metas 2 e 3 → falta 1). Sem meta válida: 2 e 3. Confirmar mostra conquista escolhida. Exemplos locais, sem salvar formulário ou criar indicações/recompensas. Mesmos componentes da cena; também disponíveis no [[passe-admin-ui#Exemplos de notificações|Passe]].
 
 ## Regras
 

@@ -66,6 +66,7 @@ type AuthMenuProps = {
   rewards: RewardNotifications;
   onRefreshRewards: () => void;
   onOpenDonation: (donationId: number) => void;
+  onBrowseMyBuildings: () => void;
   /** Login controlado pelo editor: o modal de contribuição também pede login. */
   authOpen: boolean;
   onAuthOpenChange: (open: boolean) => void;
@@ -82,6 +83,7 @@ export function AuthMenu({
   rewards,
   onRefreshRewards,
   onOpenDonation,
+  onBrowseMyBuildings,
   authOpen,
   onAuthOpenChange,
   onboardingBlocked,
@@ -280,11 +282,7 @@ export function AuthMenu({
             variant="outline"
             title="Meus edifícios"
             aria-label="Meus edifícios"
-            aria-haspopup="dialog"
-            onClick={() => {
-              setMenuTab("donations");
-              changeMenuOpen(true);
-            }}
+            onClick={onBrowseMyBuildings}
           >
             <PixelBuilding />
             <span className="hidden sm:inline">Meus edifícios</span>

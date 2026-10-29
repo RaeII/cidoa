@@ -36,12 +36,15 @@ assert.match(html, /Formato bloqueado/);
 assert.match(html, /Bloqueado/);
 assert.match(html, /Doe.*50.*e faça 3 indicações para liberar/);
 assert.match(html, /disabled=""[^>]*>.*?Formato bloqueado/s, "Item bloqueado deve ficar desabilitado");
-assert.doesNotMatch(html, /Vermelho/, "A grade mostra só a categoria selecionada");
+assert.match(html, /data-state="inactive"[^>]*inert=""[^>]*>.*Vermelho/s, "Categoria vizinha monta inerte para o deslize no celular");
 assert.match(html, /role="tab"/, "Categorias devem permitir navegação por teclado");
 for (const feature of ["sign", "hologram"]) {
   const featureHtml = render({ ...props, catalog: { ...catalog, shapes: [], colors: [], features: { sign: null, hologram: null, [feature]: { isUnlocked: false, unlock: { donationMin: 100, referralMin: null } } } } });
   assert.match(featureHtml, /fieldset disabled=""/);
   assert.match(featureHtml, /Doe.*100.*para liberar/);
+  const unlockedHtml = render({ ...props, catalog: { ...catalog, shapes: [], colors: [], features: { sign: null, hologram: null, [feature]: { isUnlocked: true, unlock: null } } } });
+  assert.doesNotMatch(unlockedHtml, /fieldset disabled=""/, "Recurso liberado mantém os campos disponíveis");
+  assert.match(unlockedHtml, feature === "sign" ? /Texto do letreiro/ : /Imagem ou GIF/);
 }
 
 // Executa a seleção real: bloqueado não emite patch; disponível atualiza só o campo escolhido.

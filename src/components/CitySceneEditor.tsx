@@ -4,6 +4,7 @@ import { AuthMenu } from "./AuthMenu";
 import { ReferralHud } from "./referral/ReferralHud";
 import { BuildingManageDialog } from "./html/BuildingManageDialog";
 import { BuildingInfoModal } from "./html/BuildingInfoModal";
+import { MyBuildingsNavigation } from "./html/MyBuildingsNavigation";
 import { BuildingLayoutCard } from "./html/BuildingLayoutCard";
 import { CityControlPanel } from "./html/CityControlPanel";
 import { KeyboardShortcutsHelp } from "./html/KeyboardShortcutsHelp";
@@ -28,7 +29,7 @@ import {
 import { toast } from "./ui/toast";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
-import { PixelChevronDown } from "./ui/pixel-icon";
+import { PixelArrow, PixelChevronDown } from "./ui/pixel-icon";
 import { DEFAULT_SCENE_STATS } from "../scene/config/citySceneConfig";
 import { createDefaultBlockLayoutSettings } from "../scene/config/blockLayoutConfig";
 import { createDefaultBuildingSettings } from "../scene/config/buildingConfig";
@@ -91,6 +92,8 @@ export function CitySceneEditor() {
   const [grain, setGrain] = useLocalSceneState("grain", createDefaultGrain);
   // Clique abre informações; administração só para dono ou admin.
   const [infoBuildingId, setInfoBuildingId] = useState<number | null>(null);
+  const [showBuildingInfo, setShowBuildingInfo] = useState(true);
+  const [myBuildingsOpen, setMyBuildingsOpen] = useState(false);
   const [selectedBuildingId, setSelectedBuildingId] = useState<number | null>(null);
   const [buildingCustomizations, setBuildingCustomizations] = useState<Map<number, BuildingCustomization>>(
     () => new Map(),
@@ -138,11 +141,13 @@ export function CitySceneEditor() {
   useEffect(() => {
     pendingFocusRef.current = null;
     // Troca de conta remove seleção e perfil da cidade anterior.
+    canvasRef.current?.clearFocus();
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setInfoBuildingId(null);
     setSelectedBuildingId(null);
     setProfileEditId(null);
     setInfoProfile(null);
+    setMyBuildingsOpen(false);
   }, [user?.id]);
 
   // Sobrepõe as edições locais da conta à personalização pública.
@@ -245,6 +250,7 @@ export function CitySceneEditor() {
 
   const handleBuildingClick = useCallback(
     (donationId: number | null) => {
+      setMyBuildingsOpen(false);
       pendingFocusRef.current = null;
       if (donationId !== null) {
         canvasRef.current?.focusOnDonation(donationId);
@@ -253,6 +259,7 @@ export function CitySceneEditor() {
       }
       setSelectedBuildingId(null);
       setInfoBuildingId(donationId);
+      setShowBuildingInfo(true);
     },
     [],
   );
@@ -261,6 +268,7 @@ export function CitySceneEditor() {
     pendingFocusRef.current = null;
     canvasRef.current?.clearFocus();
     setInfoBuildingId(null);
+    setMyBuildingsOpen(false);
   }, []);
 
   // Informações → administração. Mantém o foco/zoom no edifício.
@@ -275,11 +283,20 @@ export function CitySceneEditor() {
   }, [selectedBuildingId]);
 
   // Acesso pelo menu ou confirmação: revela o edifício mesmo fora do filtro/teto.
-  const handleOpenDonation = (donationId: number) => {
+  const handleOpenDonation = (donationId: number, showInfo = true) => {
+    setMyBuildingsOpen(!showInfo);
+    scrollRef.current?.scrollTo({ top: 0 });
+    setShowBuildingInfo(showInfo);
+    setSelectedBuildingId(null);
     const visible = visibleDonations.some((d) => d.id === donationId);
     if (visible && donationsApplied) {
-      handleBuildingClick(donationId);
-    } else if (!visible) {
+      pendingFocusRef.current = null;
+      canvasRef.current?.focusOnDonation(donationId);
+      setInfoBuildingId(donationId);
+      return;
+    }
+    setInfoBuildingId(null);
+    if (!visible) {
       setFilter({});
       setVisibleLimit(null);
     }
@@ -289,7 +306,7 @@ export function CitySceneEditor() {
 
   // Imagem/nome/descrição ficam fora do snapshot: busca no clique.
   useEffect(() => {
-    if (infoBuildingId === null) return;
+    if (infoBuildingId === null || !showBuildingInfo) return;
     const controller = new AbortController();
     fetchBuildingProfile(infoBuildingId, controller.signal, user?.id).then(
       (profile) => {
@@ -298,7 +315,7 @@ export function CitySceneEditor() {
       () => {},
     );
     return () => controller.abort();
-  }, [infoBuildingId, user?.id]);
+  }, [infoBuildingId, showBuildingInfo, user?.id]);
 
   // Tudo que o modal mostra já veio no snapshot público — sem request no clique.
   const infoBuilding = useMemo(() => {
@@ -329,6 +346,24 @@ export function CitySceneEditor() {
         };
       });
   }, [ownedDonationIds, allDonations, cities, ongs]);
+
+  const myBuildingIndex = myDonations.findIndex((donation) => donation.id === infoBuildingId);
+  const currentMyBuilding = myDonations[myBuildingIndex];
+
+  const handleBrowseMyBuildings = () => {
+    const donation = currentMyBuilding ?? myDonations[0];
+    if (donation) {
+      handleOpenDonation(donation.id, false);
+    } else {
+      toast.info("Você ainda não tem edifícios. Contribua para criar o primeiro.");
+    }
+  };
+
+  const handleStepMyBuilding = (direction: number) => {
+    if (myBuildingIndex < 0) return;
+    const index = (myBuildingIndex + direction + myDonations.length) % myDonations.length;
+    handleOpenDonation(myDonations[index].id, false);
+  };
 
   const getExistingCustomization = useCallback(
     (donationId: number): BuildingCustomization => {
@@ -440,7 +475,7 @@ export function CitySceneEditor() {
 
   // Painel é ferramenta de admin.
   const shortcuts: KeyboardShortcut[] = [
-    ...(isAdmin ? [{
+    ...(isAdmin && !myBuildingsOpen ? [{
       key: "m",
       ctrl: true,
       description: "Abrir/fechar painel de controle",
@@ -450,7 +485,7 @@ export function CitySceneEditor() {
       key: "?",
       shift: true,
       description: "Mostrar/esconder esta ajuda",
-      handler: () => setShowShortcutsHelp((open) => !open),
+      handler: () => { if (!myBuildingsOpen) setShowShortcutsHelp((open) => !open); },
     },
     {
       key: "Escape",
@@ -459,8 +494,9 @@ export function CitySceneEditor() {
       handler: () => {
         if (showShortcutsHelp) {
           setShowShortcutsHelp(false);
-        } else if (infoBuildingId !== null) {
-          handleCloseInfo();
+        } else if (infoBuildingId !== null || (myBuildingsOpen && selectedBuildingId === null)) {
+          if (myBuildingsOpen && currentMyBuilding && showBuildingInfo) setShowBuildingInfo(false);
+          else handleCloseInfo();
         } else if (selectedBuildingId === null) {
           setShowControlPanel(false);
         }
@@ -519,7 +555,7 @@ export function CitySceneEditor() {
   }, []);
 
   return (
-    <div ref={scrollRef} className="h-svh w-full overflow-y-auto overflow-x-hidden bg-background [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div ref={scrollRef} className={cn("h-svh w-full overflow-x-hidden bg-background [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", myBuildingsOpen ? "overflow-y-hidden" : "overflow-y-auto")}>
     {/* svh: no mobile, h-screen (100vh) passa por baixo da barra do navegador e esconde os botões do rodapé. */}
     <div id="city-scene" className="relative h-svh w-full overflow-hidden bg-background">
       <CitySceneCanvas
@@ -537,18 +573,17 @@ export function CitySceneEditor() {
         grain={grain}
         onStatsChange={handleStatsChange}
         onCameraDebugChange={isAdmin && uiVisibility.cameraLog ? setCameraDebugInfo : undefined}
-        onHoverChange={handleHoverChange}
+        onHoverChange={myBuildingsOpen ? undefined : handleHoverChange}
         onBuildingClick={handleBuildingClick}
       />
       {/* Página de loading (a mesma do index.html) cobre a cena até tudo carregar. */}
       <DonationLoadOverlay cover hidden={booted} state={loadState} onRetry={retry} />
       {/* UI só depois do loading: nenhuma imagem (logo, fotos, avatares) baixa antes. */}
       {booted && (
-      <div className="pointer-events-none absolute inset-x-4 top-4 z-30 flex items-start justify-between gap-2 max-sm:flex-wrap-reverse">
-        {/* Marca visível sem rolar nem entrar (página inicial do login com Google). Mobile: sem logo; sem espaço ao lado dos botões, desce para a linha de baixo (wrap-reverse). */}
+      <div hidden={myBuildingsOpen} className="pointer-events-none absolute inset-x-4 top-4 z-30 flex items-start justify-between gap-2 max-sm:flex-wrap-reverse">
+        {/* Marca visível sem rolar nem entrar (página inicial do login com Google). Sem espaço ao lado dos botões, desce para a linha de baixo (wrap-reverse). */}
         <aside aria-label="Cidoe" className="pointer-events-auto pixel pixel-thin flex min-w-0 items-center gap-2 bg-background px-2 py-1.5 text-xs leading-4 text-muted-foreground max-sm:h-10 max-sm:px-3 max-sm:py-0">
-          <img src="/logo.webp" alt="" width={32} height={32} className="size-8 shrink-0 max-sm:hidden" />
-          <ReferralHud rewards={rewards} fallback={<strong className="text-sm font-semibold text-foreground">Cidoe</strong>} />
+          <ReferralHud rewards={rewards} />
         </aside>
         <div className="pointer-events-auto ml-auto shrink-0">
           <AuthMenu
@@ -559,14 +594,16 @@ export function CitySceneEditor() {
             rewards={rewards}
             onRefreshRewards={() => setCustomizationRevision((revision) => revision + 1)}
             onOpenDonation={handleOpenDonation}
+            onBrowseMyBuildings={handleBrowseMyBuildings}
             authOpen={authOpen}
             onAuthOpenChange={setAuthOpen}
-            onboardingBlocked={contributeOpen || showShortcutsHelp || infoBuildingId !== null || selectedBuildingId !== null || profileEditId !== null}
+            onboardingBlocked={myBuildingsOpen || contributeOpen || showShortcutsHelp || infoBuildingId !== null || selectedBuildingId !== null || profileEditId !== null}
           />
         </div>
       </div>
       )}
       {booted && (
+        <div hidden={myBuildingsOpen}>
         <ContributeDialog
           open={contributeOpen}
           onOpenChange={setContributeOpen}
@@ -574,8 +611,9 @@ export function CitySceneEditor() {
           buildings={myDonations}
           onRequestLogin={() => setAuthOpen(true)}
           onPaid={() => setCustomizationRevision((revision) => revision + 1)}
-          onViewBuilding={handleOpenDonation}
+          onViewBuilding={(donationId) => handleOpenDonation(donationId, false)}
         />
+        </div>
       )}
       {booted && (loadState.status !== "ready" || !donationsApplied) && (
         <DonationLoadOverlay state={loadState} onRetry={retry} />
@@ -583,7 +621,7 @@ export function CitySceneEditor() {
       {booted && (
         <p className="pointer-events-none absolute bottom-1.5 left-3 z-20 font-mono text-[10px] text-muted-foreground opacity-60">Pré-lançamento</p>
       )}
-      {isAdmin && uiVisibility.cameraLog && cameraDebugInfo && (
+      {!myBuildingsOpen && isAdmin && uiVisibility.cameraLog && cameraDebugInfo && (
         <div className="pixel bevel-edge absolute bottom-4 left-4 z-30 w-[min(21rem,calc(100vw-2rem))] select-text bg-background px-3 pt-2 pb-3 font-mono text-[11px] leading-5 text-muted-foreground">
           <div className="mb-1 font-sans text-xs font-semibold text-foreground">Camera default</div>
           <div>
@@ -598,7 +636,7 @@ export function CitySceneEditor() {
           </div>
         </div>
       )}
-      {hoverInfo && (
+      {!myBuildingsOpen && hoverInfo && (
         <div
           className="pointer-events-none fixed z-50 bg-tinta px-3 py-1.5 text-sm font-semibold text-papel"
           style={{ left: hoverInfo.x + 14, top: hoverInfo.y - 14 }}
@@ -609,7 +647,7 @@ export function CitySceneEditor() {
           })}
         </div>
       )}
-      {isAdmin && loadState.status === "ready" && uiVisibility.buildingLayoutCard && (
+      {!myBuildingsOpen && isAdmin && loadState.status === "ready" && uiVisibility.buildingLayoutCard && (
         <BuildingLayoutCard
           settings={blockLayoutSettings}
           onChange={setBlockLayoutSettings}
@@ -621,7 +659,23 @@ export function CitySceneEditor() {
           }
         />
       )}
-      {infoBuildingId !== null && infoBuilding && (
+      {booted && myBuildingsOpen && !contributeOpen && !showBuildingInfo && selectedBuildingId === null && (
+        <MyBuildingsNavigation
+          value={currentMyBuilding?.value}
+          place={currentMyBuilding?.place}
+          index={myBuildingIndex}
+          count={myDonations.length}
+          onPrevious={() => handleStepMyBuilding(-1)}
+          onNext={() => handleStepMyBuilding(1)}
+          onCustomize={() => {
+            setShowBuildingInfo(false);
+            handleManageFromInfo();
+          }}
+          onDetails={() => setShowBuildingInfo(true)}
+          onClose={handleCloseInfo}
+        />
+      )}
+      {!contributeOpen && showBuildingInfo && infoBuildingId !== null && infoBuilding && (
         <BuildingInfoModal
           value={infoBuilding.value}
           ongName={infoBuilding.ongName}
@@ -630,8 +684,16 @@ export function CitySceneEditor() {
           onManage={canEdit(infoBuildingId) ? handleManageFromInfo : undefined}
           profile={infoProfile?.id === infoBuildingId && infoProfile.userId === user?.id ? infoProfile.profile : null}
           onEditProfile={canEdit(infoBuildingId) ? () => setProfileEditId(infoBuildingId) : undefined}
-          onClose={handleCloseInfo}
+          onClose={myBuildingsOpen && currentMyBuilding ? () => setShowBuildingInfo(false) : handleCloseInfo}
         />
+      )}
+      {/* "Ver como visitante" troca o rodapé da navegação por este Voltar, no mesmo lugar. */}
+      {booted && myBuildingsOpen && currentMyBuilding && !contributeOpen && showBuildingInfo && selectedBuildingId === null && (
+        <div className="pointer-events-none absolute inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex justify-center sm:bottom-6">
+          <Button type="button" variant="outline" size="lg" className="pointer-events-auto has-[>svg]:px-3 max-sm:text-sm" onClick={() => setShowBuildingInfo(false)}>
+            <PixelArrow className="rotate-180" />Voltar
+          </Button>
+        </div>
       )}
       <BuildingProfileDialog
         donationId={profileEditId !== null && canEdit(profileEditId) ? profileEditId : null}
@@ -643,6 +705,7 @@ export function CitySceneEditor() {
         <BuildingManageDialog
           key={`${user?.id}:${selectedBuildingId}`}
           donationId={selectedBuildingId}
+          initialTab={myBuildingsOpen && !showBuildingInfo ? "appearance" : "information"}
           catalog={customizationCatalog}
           customization={selectedCustomization}
           textureSettings={textureSettings}
@@ -651,7 +714,7 @@ export function CitySceneEditor() {
           onClose={handleCloseManagement}
         />
       )}
-      {isAdmin && showControlPanel && (
+      {!myBuildingsOpen && isAdmin && showControlPanel && (
         <CityControlPanel
           buildingSettings={buildingSettings}
           textureSettings={textureSettings}
@@ -681,18 +744,18 @@ export function CitySceneEditor() {
           onClose={() => setShowControlPanel(false)}
         />
       )}
-      {showShortcutsHelp && (
+      {!myBuildingsOpen && showShortcutsHelp && (
         <KeyboardShortcutsHelp
           shortcuts={shortcuts}
           onClose={() => setShowShortcutsHelp(false)}
         />
       )}
-      {booted && (!isAdmin || !showControlPanel) && (
+      {!myBuildingsOpen && booted && (!isAdmin || !showControlPanel) && (
         <Button variant="outline" size="icon-lg" onClick={scrollToInfo} aria-label="Ver ONGs e contribuições" title="ONGs e contribuições" className={cn("absolute right-4 z-30", isAdmin ? "bottom-[4.75rem]" : "bottom-4")}>
           <PixelChevronDown />
         </Button>
       )}
-      {booted && isAdmin && !showControlPanel && (
+      {!myBuildingsOpen && booted && isAdmin && !showControlPanel && (
         <Button
           variant="outline"
           size="icon-lg"
@@ -713,6 +776,7 @@ export function CitySceneEditor() {
       )}
     </div>
     {booted && (
+    <div hidden={myBuildingsOpen}>
     <DonationInfoSection
       donations={donations}
       ongs={ongs}
@@ -725,8 +789,9 @@ export function CitySceneEditor() {
       }}
       onRetry={retry}
     />
+    </div>
     )}
-    {inInfo && (
+    {!myBuildingsOpen && inInfo && (
       <Button variant="outline" onClick={scrollToScene} title="Voltar para a cena" aria-label="Voltar para a cena" className="fixed bottom-4 right-4 z-40">
         <PixelChevronDown className="rotate-180" />
         <span className="hidden sm:inline">Voltar para a cena</span>

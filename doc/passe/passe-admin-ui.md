@@ -59,10 +59,10 @@ Switch **Prévia do usuário** remove botões de edição; resto do cartão é i
 Seção no topo de `/dale/passe` e `/dale/primeiros-inscritos`, disponível mesmo com catálogo carregando ou falhando. `RewardExamples` monta `RewardDialog` real sob demanda; Motion, miniaturas, teclado e layout iguais à cena.
 
 - **Ver conquista desbloqueada**: Loftifício após R$ 50 acumulados; cartão ampliado, motivo curto, confete Realistic Look e **Ver em 3D**. Próximas metas em texto simples. **Continuar** encerra exemplo; na cena confirma lote inteiro de avisos.
-- **Ver escolha por indicação**: 2 cadastros indicados, escolha entre Loftifício e Varanda Gourmet. Confirmar abre conquista do item escolhido, motivo por cadastro e próxima meta em 5 indicações.
+- **Ver escolha por indicação**: 2 cadastros indicados, escolha entre Loftifício e Varanda Gourmet. Confirmar abre conquista do item escolhido, motivo por cadastro e próxima meta em 3 indicações no total (falta 1). Prop `goals?: number[]` (padrão `[2, 3]`); [[primeiros-inscritos]] passa metas do rascunho.
 - Fechar, continuar ou escolher depois encerra exemplo. Reabrir reinicia; escolhas só alteram estado local. Nenhum request de progresso, escolha, confirmação ou gravação. Miniaturas podem carregar assets visuais.
 
-Dados ilustrativos fixos; não dependem da configuração salva nem concedem itens. Escolha por indicação celebra abertura com confete Canvas (movimento reduzido respeitado), usa cards ampliados e **Ver em 3D** (giro/zoom) para modelos, topos e LEDs; **Desbloquear recompensa** confirma item selecionado ou exibido na prévia. Mesma seção em [[primeiros-inscritos]].
+Itens ilustrativos fixos; não concedem itens. Escolha por indicação celebra abertura com confete Canvas (movimento reduzido respeitado), usa cards ampliados e **Ver em 3D** (giro/zoom) para modelos, topos e LEDs; **Desbloquear recompensa** confirma item selecionado ou exibido na prévia. Mesma seção em [[primeiros-inscritos]].
 
 ## Dialog de liberação
 

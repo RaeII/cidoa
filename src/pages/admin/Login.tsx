@@ -50,7 +50,7 @@ function Login() {
   }
 
   return (
-    <div className="relative flex min-h-svh flex-col items-center justify-center gap-6 bg-background pattern-paws px-6 text-foreground">
+    <div className="relative flex h-svh flex-col items-center justify-center-safe gap-6 overflow-y-auto bg-background pattern-paws px-6 py-6 text-foreground [&>*]:shrink-0">
       <div className="absolute right-6 top-6">
         <ThemeToggle />
       </div>

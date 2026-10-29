@@ -104,6 +104,6 @@ Snapshot continua com loading/progresso/erro/retry. Mutação local dispara even
 
 ## Acesso aos próprios edifícios
 
-**Meus edifícios** abre lista local sem filtro. **Ver na cidade** limpa filtro/teto se necessário, aguarda rebuild, foca e abre informações. Troca de conta/fechar card cancela foco pendente. **Administrar** mantém abas Informações/Aparência. Valores do menu e da seção pública rotulados como simulados.
+**Meus edifícios** no `AuthMenu` e **Ver meu edifício** na confirmação da simulação usam `handleOpenDonation(id, false)`: lista local sem filtro, ativam `myBuildingsOpen`, ocultam interface geral e levam direto ao próprio. Card compacto no topo esquerdo, setas laterais em ciclo, **Personalizar/Ver como visitante** no rodapé e **X** para sair/restaurar UI. Clicar na cena encerra o modo: no chão limpa foco, em outro edifício abre as informações dele. **Ver na cidade** no `GameMenu` mantém o card normal. Troca de conta/sair cancela foco pendente e restaura UI. **Administrar/Personalizar** mantém abas Informações/Aparência. Valores do menu e da seção pública rotulados como simulados.
 
 Detalhes: [[index#Pré-lançamento]], [[contribution-api]], [[html-components]].

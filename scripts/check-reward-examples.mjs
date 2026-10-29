@@ -38,7 +38,8 @@ function find(node, predicate) {
   if (!React.isValidElement(node)) return [];
   return [...(predicate(node) ? [node] : []), ...find(node.props.children, predicate)];
 }
-const render = () => context.exports.RewardExamples();
+let props = {};
+const render = () => context.exports.RewardExamples(props);
 const current = () => find(render(), (node) => node.type === RewardDialog)[0]?.props.rewards;
 const buttons = () => find(render(), (node) => node.type === "Button");
 
@@ -78,8 +79,15 @@ buttons()[1].props.onClick();
 assert.equal(current().pending.length, 0, "Reabrir reinicia a simulação");
 assert.equal(current().choice.rewards[0].unlock.donationMin, 50, "Escolha não altera dados de exemplo");
 
+// Metas do admin = total: escolheu na 2, meta 3 falta 1 (não 3).
+props = { goals: [2, 3] };
+rewards = current();
+assert.equal(rewards.nextChoice.referralMin - rewards.signupReferrals, 1, "Próxima meta usa o total já feito");
+props = { goals: [4] };
+assert.equal(current().nextChoice, undefined, "Meta única não mostra próxima");
+
 for (const page of ["Pass", "EarlySignups"]) {
   const pageSource = await readFile(`src/pages/admin/${page}.tsx`, "utf8");
-  assert.ok(pageSource.includes("<RewardExamples />"), `${page} disponibiliza exemplos`);
+  assert.ok(pageSource.includes("<RewardExamples "), `${page} disponibiliza exemplos`);
 }
 console.log("Exemplos: conquista, duas escolhas, confirmação, próxima meta, fechar, reabrir e isolamento da API OK.");

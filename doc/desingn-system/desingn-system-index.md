@@ -276,7 +276,7 @@ Logo de ONG (e imagem de holograma no [[html-components#BuildingCustomizer.tsx|p
 | Card | `pixel bevel-edge bg-card`, padding com +4px embaixo | `ui/card.tsx` |
 | Foto | `<Photo ratio>`: moldura 3px, `object-cover`, espera e falha do DS. Ver [[#Imagem]] | `ui/photo.tsx` |
 | Avatar | Quadrado, `pixel-thin`, `sm` 32 · `default` 48 · `lg` 72; iniciais mono sobre verde-100. Ver [[#Avatares e logos (5.6)]] | `ui/avatar.tsx` |
-| Modal | `pixel bevel-edge bevel-w-6 bg-background`, overlay `bg-tinta/72`, título 26px. Base com `max-h-[calc(100dvh-2rem)] overflow-y-auto`: tela baixa rola, não corta. Fluxo com etapas: `DialogKicker` (barra verde + rótulo mono + fechar). Detalhe em [[#Modal de contribuição (6.7)]] | `ui/dialog.tsx` |
+| Modal | `pixel bevel-edge bevel-w-6 bg-background`, overlay `bg-tinta/72`, título 26px. Base com `max-h-[calc(var(--viewport-height,100dvh)-2rem)] overflow-y-auto`: altura/centro seguem área visível acima do teclado. Ver [[html-components#Teclado no mobile]]. Fluxo com etapas: `DialogKicker` (barra verde + rótulo mono + fechar). Detalhe em [[#Modal de contribuição (6.7)]] | `ui/dialog.tsx` |
 | Menu/Select | Popover `pixel bg-popover`, item com `menu-cursor` | `ui/select.tsx`, `ui/dropdown-menu.tsx` |
 
 ### Botão
@@ -357,6 +357,7 @@ App diverge do arquivo do DS só aqui. Mudar qualquer linha = decisão explícit
 | Item | DS | App | Motivo |
 |---|---|---|---|
 | Altura do botão | padding 14/22/18 ≈ 51px; CTA ≈ 62px | `default` 40, `lg` 48 | densidade de painel/HUD |
+| Resumo de Meus edifícios | contorno pixel + bisel, cantos retos | cantos de 14 px e contorno fino, sem bisel | pedido explícito: card menos quadrado, compacto e afastado da borda no mobile; exceção restrita ao resumo de `MyBuildingsNavigation` |
 | Campo | 18px, ≈ 50px, rótulo a 10px | `h-11` (44px), 16px (14px ≥ `md`), rótulo a 8px | densidade de formulário |
 | Gato no modal de contribuição | `PixelCat` espiando | ausente | `DialogContent` tem `overflow-hidden` e altura máxima; precisa de 45px livres acima |
 | Cartão de ONG | foto, descrição, selo, meta | nome, cidades, edifícios | API sem esses dados |

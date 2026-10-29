@@ -104,6 +104,7 @@ scripts/
   check-consent.mjs            ← aceite no cadastro + aviso de cookies, sem servidor/navegador
   check-analytics.mjs          ← Consent Mode, aceite/recusa, revogação e tag única; sem servidor/navegador
   check-city-search.mjs        ← busca de cidade (acento, prefixo antes de substring, UF, limite) sem navegador
+  check-mobile-keyboard.mjs    ← viewport, teclado, foco, rolagem integral do modal/sugestões, zoom e cleanup sem servidor/navegador
   check-contribution.mjs       ← máscara monetária + confirmação da simulação local; sem servidor/navegador
   check-building-management.mjs ← administração, posse, descarte e foco após filtro/pagamento; sem servidor/navegador
   check-donation-info.mjs      ← foto, totais, 5 ONGs em linhas, filtros e transição cena/seção; sem servidor/navegador
@@ -123,9 +124,11 @@ public/
   robots.txt                   ← libera tudo; sem ele nginx devolvia `index.html`
   video-cidoe.mp4              ← vídeo de apresentação 1080×1920, 15 s → [[html-components#IntroVideoDialog.tsx]]
 src/
-  App.tsx
+  App.tsx                       ← rotas + `useVisualViewport`: formulários acima do teclado → [[html-components#Teclado no mobile]]
   main.tsx                      ← entry; restaura consentimento do Analytics; reload em `vite:preloadError` (chunk de deploy antigo)
   index.css                     ← tokens do DS + utilitários (`pixel`, `bevel-*`, `field`, `menu-cursor`…) + controles nativos → [[desingn-system-index]]
+  hooks/
+    useVisualViewport.ts        ← altura/deslocamento visíveis + foco acima do teclado; montado pelo App
   api/
     http.ts
     admin/
@@ -193,7 +196,7 @@ src/
       ReferralDialog.tsx          ← confirmação e avisos da indicação
       ReferralPerson.tsx          ← nome e imagem do indicador
       ShareDialog.tsx             ← `SharePanel` (redes + copiar link, inline no menu) + `ShareDialog` (modal da home)
-      ReferralHud.tsx             ← contador da placa da cena: "Faltam apenas N indicações" + barra até o próximo presente
+      ReferralHud.tsx             ← placa da cena: logo + "Faltam apenas N indicações" + `ReferralBar` (≤3 blocos, 1 aceso de incentivo, também no menu); sem próxima faixa, só logo
     CitySceneEditor.tsx
     html/
       CityControlPanel.tsx
@@ -203,6 +206,7 @@ src/
       DonationFilterBar.tsx
       DonationInfoSection.tsx     ← home: hero, 01 Impacto, 02 até 6 cartões de ONG, rodapé; fundo `pattern-paws` (DS)
       BuildingInfoModal.tsx          ← card só-leitura do prédio clicado; lápis só p/ dono/admin
+      MyBuildingsNavigation.tsx     ← modo dedicado: dados no topo, setas laterais, personalizar/detalhes no rodapé e X
       donate/
         ContributeDialog.tsx         ← simulação → pagamento simulado → confirmação local; sem edição
         BuildingProfileForm.tsx      ← imagem/nome/descrição do edifício + dialog de edição
@@ -376,14 +380,14 @@ E entrega para:
 - [[three-components|CitySceneCanvas]] — monta a cena 3D
 - [[html-components|CityControlPanel]] — mostra os controles (abre pelo ícone de engrenagem, que some quando o painel está aberto; fecha pelo "X" na barra de abas)
 - [[html-components#BuildingManageDialog.tsx|BuildingManageDialog]] — informações e aparência do edifício selecionado, independente do pagamento. Abre pelo card → Administrar; dono/admin.
-- [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] — grade por categoria e prévia 3D na aba Aparência da administração. `selectedCustomization` memoizado; `updateCustomization` compartilha estado e salvamento com a cidade. Menu/canvas montam somente na aba ativa.
+- [[html-components#BuildingCustomizer.tsx|BuildingCustomizer]] — prévia 3D e categorias permanecem visíveis enquanto apenas as opções rolam; empilhado no celular com deslize horizontal entre categorias (scroll-snap), duas colunas no desktop. Aparência salva automaticamente e conclui sem botão Salvar de perfil vazio. `selectedCustomization` memoizado; `updateCustomization` compartilha estado e salvamento com a cidade. Menu/canvas montam somente na aba ativa.
 - [[html-components#BuildingHeightInput.tsx|BuildingHeightInput]] — input de doação e layout
 - [[html-components#BuildingLayoutCard.tsx|BuildingLayoutCard]] — card flutuante: modo de layout + quantos edifícios entram na cena
 
 Também gerencia:
 
 - Doações do backend via `useDonations` (snapshot cacheado + personalizações `no-store`) → `canvasRef.setDonations(donations)` quando `loadState.status === "ready"`. Ver [[donation-api]]
-- Meus edifícios: lista própria sem filtro, Ver na cidade revela/foca e abre informações; Administrar edita sem criar cobrança. Foco pendente aguarda edifício no rebuild; trocar conta/fechar card cancela. Rebuild mantém administração se edifício continua visível.
+- Meus edifícios: modo dedicado (`myBuildingsOpen`) oculta interface geral e bloqueia rolagem. Card compacto no topo esquerdo (menor e com margem no mobile), setas só com ícones nas laterais, Personalizar/Ver como visitante com fundo no rodapé e X para restaurar interface/câmera. Ver como visitante troca rodapé por Voltar (seta), que fecha card e volta à navegação. Clique na cena também encerra o modo e restaura os componentes; chão limpa foco, outro edifício abre informações. Personalizar abre direto na Aparência. Revela fora de filtro/teto e aguarda rebuild com saída disponível. Conta/Pix permanecem montados. Lista completa continua no menu do avatar. Trocar conta/sair cancela foco; fechar detalhes/personalização mantém modo dedicado. Rebuild mantém administração se edifício continua visível.
 - Contribuição no pré-lançamento: máximo 3 edifícios locais por conta/navegador, mínimo R$ 5; aumento mantém cidade e acumula ONGs. Confirmação grava somente localStorage; nunca cria cobrança ou edifício no banco. Ver [[contribution-api]].
 - Teto de edifícios na cena (`visibleLimit`, padrão `null` = todos): ordena por valor desc e corta antes do `setDonations`, então o corte fica com as maiores doações. Controlado pelo [[html-components#BuildingLayoutCard.tsx|BuildingLayoutCard]]
 - Doações manuais via `canvasRef.addDonation(value)` e `canvasRef.addDonations(values)`
@@ -453,10 +457,12 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    Menu[Meus edifícios] --> View[Ver na cidade, revela fora do filtro/teto]
-    View --> Focus[focusOnDonation]
+    Menu[Meus edifícios] --> Nav[Anterior/próximo na cidade, sem modal]
+    Nav --> Focus[focusOnDonation, revela fora do filtro/teto]
+    Nav --> |Ver como visitante| Info[BuildingInfoModal]
+    Nav --> |Personalizar, aba Aparência| Panel[BuildingManageDialog]
     Click[Clique no edifício] --> Focus
-    Focus --> Info[BuildingInfoModal]
+    Click --> Info
     Info --> |Administrar, só dono/admin| Panel[BuildingManageDialog]
     Panel --> |cor| UC[updateCustomization]
     Panel --> |formato| UC
@@ -489,6 +495,7 @@ flowchart LR
 | Foto, avatar, logo (proporção, moldura, carregando/erro, direção de foto) | [[desingn-system-index#Imagem]] · `src/components/ui/photo.tsx` · `src/components/ui/avatar.tsx` |
 | App diverge do arquivo do DS (tamanho, mascote, dado faltando) | [[desingn-system-index#Desvios conscientes]] |
 | Alterar a UI do painel de configuração           | [[html-components#CityControlPanel.tsx]]          |
+| Campo encoberto pelo teclado no mobile           | [[html-components#Teclado no mobile]] · `src/hooks/useVisualViewport.ts` |
 | Granulado de render sob carga (padrão `0`)       | aba **tela** em [[html-components#CityControlPanel.tsx]] · `setGrain` em [[scene-runtime#Granulado (setGrain)]] |
 | Menu do usuário (abas, perfil, edifícios, sair)    | [[html-components#GameMenu.tsx]]                  |
 | Vídeo de apresentação do 1º acesso               | [[html-components#IntroVideoDialog.tsx]]          |

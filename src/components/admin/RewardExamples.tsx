@@ -17,8 +17,12 @@ const referralRewards: RewardNotification[] = [donationReward, {
 
 type Example = { kind: "achievement"; reward: RewardNotification } | { kind: "choice" };
 
-/** Exemplos locais: os callbacks nunca confirmam avisos nem concedem itens na API. */
-export function RewardExamples() {
+/**
+ * Exemplos locais: os callbacks nunca confirmam avisos nem concedem itens na API.
+ * `goals`: metas em total de indicações; a escolha abre na 1ª e "faltam" mira a 2ª.
+ */
+export function RewardExamples({ goals = [2, 3] }: { goals?: number[] }) {
+  const [firstGoal = 2, nextGoal] = goals;
   const [example, setExample] = useState<Example | null>(null);
   const close = () => setExample(null);
 
@@ -43,9 +47,9 @@ export function RewardExamples() {
             reward: { key: "category:1", label: "Letreiro", categoryKey: "sign", categoryLabel: "Personalização", unlock: { donationMin: 100, referralMin: null } },
             remaining: "Faltam R$ 50",
           },
-          choice: example.kind === "choice" ? { referralMin: 2, rewards: referralRewards } : undefined,
-          nextChoice: { referralMin: 5, rewards: referralRewards },
-          signupReferrals: 2,
+          choice: example.kind === "choice" ? { referralMin: firstGoal, rewards: referralRewards } : undefined,
+          nextChoice: nextGoal === undefined ? undefined : { referralMin: nextGoal, rewards: referralRewards },
+          signupReferrals: firstGoal,
           dismiss: close,
           deferChoice: close,
           choose: async (referralMin, key) => {

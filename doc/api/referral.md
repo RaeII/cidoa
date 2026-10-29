@@ -21,7 +21,7 @@ Fluxo público de captura, validação, confirmação e compartilhamento de indi
 | `src/api/referral/referral.logic.ts` | Normalização e estado `confirm`, `linked`, `expired` ou `self`. |
 | `src/components/referral/ReferralPerson.tsx` | Nome e imagem do indicador. |
 | `src/components/referral/ReferralDialog.tsx` | Confirmação e mensagens finais. |
-| `src/components/referral/ShareDialog.tsx` | `SharePanel`: redes sociais + link com botão copiar. `ShareDialog`: mesmo painel em modal. |
+| `src/components/referral/ShareDialog.tsx` | `SharePanel`: redes sociais (ícone 44px) + link com botão copiar. `ShareDialog`: mesmo painel em modal. |
 | `src/components/AuthMenu.tsx` | Orquestra URL, auth, resumo, modal e compartilhamento. |
 
 ## Captura e validação
@@ -76,7 +76,8 @@ flowchart TD
 - Sem `navigator.share`: evita menu nativo do SO. Cópia usa `navigator.clipboard`; sem ele (HTTP fora de localhost, ex. `http://192.168…:5173`) → `textarea` + `execCommand("copy")` dentro do modal; ambos falham → toast de erro.
 - Ícones de marca são SVG inline (lucide 1.x não tem marcas).
 - Aba Indicações do menu mostra código + `SharePanel` direto abaixo, sem modal extra.
-- Topo da aba: falta p/ etapa de escolha disponível/próxima (`rewards.choice`/`nextChoice`, ver [[primeiros-inscritos]]) + barra. Contagem = cadastros indicados (`signupReferrals`), sem contribuição. Etapa alcançada → botão **Escolher minha recompensa**. Sem campanha → contagem "N pessoas indicadas".
+- Topo da aba: total histórico "N pessoas indicadas" (`referral_count`); zero indicação → não aparece.
+- Abaixo: falta p/ etapa de escolha disponível/próxima (`rewards.choice`/`nextChoice`, ver [[primeiros-inscritos]]) + `ReferralBar` (≤3 blocos, 1 aceso de incentivo — [[html-components]]). Contagem = cadastros indicados (`signupReferrals`), sem contribuição. Etapa alcançada → botão **Escolher minha recompensa**.
 - Bloco “Você foi indicado por” só aparece quando `referrer` existe.
 - Total só aparece quando `referral_count > 0`.
 
